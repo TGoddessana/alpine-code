@@ -1,5 +1,6 @@
 """Symbols and colors for the terminal frontend, in one place."""
 
+from rich.text import Text
 from rich.theme import Theme
 
 BULLET = "◆"
@@ -8,18 +9,41 @@ PROMPT = "›"
 PEAK = "▲"
 MODE = "»"
 
-#: The banner mascot: twin snow-capped peaks, one line per row, in rich markup.
-MASCOT = (
-    "    [snow]▄█▄[/]      ",
-    "  [rock]▄█████▄[/][snow]▄█▄[/] ",
-    "[rock]▄███████████▄[/]",
+#: The banner mascot, a snow hare with black ear tips, as pixels. Two pixel rows make one line of text.
+HARE = (
+    "..KK...KK..",
+    "..WW...WW..",
+    "..WW...WW..",
+    "..WW...WW..",
+    ".WWWWWWWWW.",
+    "WWWWWWWWWWW",
+    "WWWEWWWEWWW",
+    "WWWWWPWWWWW",
+    ".WWWWWWWWW.",
+    "...WWWWW...",
 )
+PIXELS = {"W": "#eeeeee", "K": "#767676", "E": "#1c1c1c", "P": "#ffafaf"}
+
+
+def pixel_art(rows: tuple[str, ...], colors: dict[str, str]) -> list[Text]:
+    """Draws pixel rows with half blocks: the top pixel is the foreground of ▀, the bottom one its background."""
+    lines = []
+    for top, bottom in zip(rows[::2], rows[1::2], strict=True):
+        line = Text()
+        for a, b in zip(top, bottom, strict=True):
+            up, down = colors.get(a), colors.get(b)
+            if up and down:
+                line.append("█" if up == down else "▀", up if up == down else f"{up} on {down}")
+            elif up or down:
+                line.append("▀" if up else "▄", up or down)
+            else:
+                line.append(" ")
+        lines.append(line)
+    return lines
 
 THEME = Theme(
     {
         "accent": "bold #5fafd7",
-        "snow": "#eeeeee",
-        "rock": "#5f87af",
         "muted": "grey50",
         "tool": "bold",
         "ok": "green",

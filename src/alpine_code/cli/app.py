@@ -5,15 +5,16 @@ from __future__ import annotations
 import argparse
 import sys
 
-from rich.console import Console
+from prompt_toolkit.application import create_app_session
 
 from alpine_code import __version__
 from alpine_code.core import ConfigError, Mode, Session, Settings
 
 from .approval import CliApprover
+from .console import ReplayConsole
 from .headless import run_headless
 from .render import Renderer
-from .repl import Repl
+from .repl import Repl, terminal_output
 from .theme import THEME
 
 
@@ -36,7 +37,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
-    console = Console(theme=THEME, highlight=False)
+    console = ReplayConsole(theme=THEME, highlight=False)
     mode = Mode.YOLO if args.yolo else Mode.ACCEPT_EDITS if args.accept_edits else None
     prompt = " ".join(args.prompt).strip()
     if args.print and not sys.stdin.isatty():
@@ -55,4 +56,5 @@ def main(argv: list[str] | None = None) -> None:
         console.print(f"[error]{e}[/]")
         sys.exit(1)
 
-    Repl(session, console).run(first=prompt or None)
+    with create_app_session(output=terminal_output()):
+        Repl(session, console).run(first=prompt or None)

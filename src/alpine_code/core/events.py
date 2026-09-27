@@ -1,0 +1,114 @@
+"""Events the core sends to a frontend while it works.
+
+A frontend passes ``on_event`` to ``Session`` and renders what arrives. Events are plain frozen dataclasses so any
+frontend (terminal, TUI, IDE, web socket) can consume or serialize them without importing alpineagents.
+Events arrive on the thread that called ``Session.send``.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Literal
+
+ToolResultKind = Literal["done", "error", "input_error", "aborted", "interrupted", "denied"]
+
+
+@dataclass(frozen=True)
+class UsageInfo:
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    requests: int = 0
+    cost: float | None = None
+    """Dollars, or ``None`` when the model has no known price."""
+
+
+@dataclass(frozen=True)
+class TurnStarted:
+    """The model is about to be asked."""
+
+    turn: int
+
+
+@dataclass(frozen=True)
+class TextDelta:
+    """A chunk of the model's reply text, as it streams."""
+
+    text: str
+
+
+@dataclass(frozen=True)
+class AssistantDone:
+    """The model finished its reply. ``text`` is the full text (may be empty when it only calls tools)."""
+
+    text: str
+
+
+@dataclass(frozen=True)
+class ToolStarted:
+    id: str
+    name: str
+    args: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ToolFinished:
+    """A tool call ended. A call the user declined gets this without a ``ToolStarted``."""
+
+    id: str
+    name: str
+    args: dict[str, Any]
+    result: str
+    kind: ToolResultKind
+
+    @property
+    def is_error(self) -> bool:
+        return self.kind != "done" or self.result.startswith("Error:")
+
+
+@dataclass(frozen=True)
+class ContextCompacted:
+    before_tokens: int
+    after_tokens: int
+
+
+@dataclass(frozen=True)
+class Notice:
+    """Something worth a short line, such as a model fallback."""
+
+    text: str
+
+
+@dataclass(frozen=True)
+class RunFinished:
+    """``Session.send`` finished normally. ``stopped_by`` is ``"is_answered"``, ``"limit"`` or ``"finish"``."""
+
+    stopped_by: str | None
+    usage: UsageInfo
+
+
+@dataclass(frozen=True)
+class Interrupted:
+    """The run was stopped by the user (Ctrl+C, or declining a tool call without saying what to do instead).
+    The conversation is kept; the next message continues it."""
+
+
+@dataclass(frozen=True)
+class Failed:
+    """The run ended with an error from the model provider (auth, rate limit, network...)."""
+
+    message: str
+
+
+Event = (
+    TurnStarted
+    | TextDelta
+    | AssistantDone
+    | ToolStarted
+    | ToolFinished
+    | ContextCompacted
+    | Notice
+    | RunFinished
+    | Interrupted
+    | Failed
+)

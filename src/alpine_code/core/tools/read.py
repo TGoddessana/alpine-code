@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from alpineagents import tool
 
 from ._common import Workspace, error
 
 DEFAULT_LIMIT = 2000
 MAX_LINE_CHARS = 2000
+MAX_ENTRIES = 500
 
 
 class Read:
@@ -14,10 +17,11 @@ class Read:
 
     @tool(name="read")
     def read(self, path: str, offset: int | None = None, limit: int | None = None) -> str:
-        """Read a text file. Returns lines prefixed with their line numbers (starting at 1).
+        """Read a text file or list a directory. File lines are prefixed with their line numbers (starting at 1).
+        A directory gives one entry per line, with / after subdirectories.
 
         Args:
-            path: File path, absolute or relative to the working directory
+            path: File or directory path, absolute or relative to the working directory
             offset: Line number to start from. Use it with limit for large files
             limit: Most lines to read (default 2000)
         """
@@ -25,7 +29,7 @@ class Read:
         if not file.exists():
             return error(f"{path} does not exist")
         if file.is_dir():
-            return error(f"{path} is a directory. Use bash (ls) to list it")
+            return list_directory(file)
         try:
             data = file.read_bytes()
         except OSError as e:
@@ -49,3 +53,16 @@ class Read:
         if end < len(lines):
             out.append(f"[{len(lines) - end} more lines. Read on with offset={end + 1}]")
         return "\n".join(out)
+
+
+def list_directory(directory: Path) -> str:
+    try:
+        entries = sorted(directory.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+    except OSError as e:
+        return error(str(e))
+    if not entries:
+        return "(empty directory)"
+    lines = [f"{e.name}/" if e.is_dir() else e.name for e in entries[:MAX_ENTRIES]]
+    if len(entries) > MAX_ENTRIES:
+        lines.append(f"[{len(entries) - MAX_ENTRIES} more entries]")
+    return "\n".join(lines)

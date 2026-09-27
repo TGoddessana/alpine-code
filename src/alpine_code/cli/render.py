@@ -32,7 +32,7 @@ PREVIEW_LINES = 4
 #: Characters of a tool argument shown in the tool call line.
 ARG_CHARS = 80
 #: Tools whose result is a list; summarized as a count.
-COUNTED = {"ls": ("Listed", "entries"), "glob": ("Found", "files"), "grep": ("Found", "matches")}
+COUNTED = {"glob": ("Found", "files"), "grep": ("Found", "matches")}
 
 
 class Renderer:
@@ -134,8 +134,11 @@ def summarize(event: ToolFinished) -> list[Text]:
         first = result.splitlines()[0] if result else event.kind
         return [Text(first, style="error")]
     if event.name == "read":
-        n = sum(1 for line in result.splitlines() if "\t" in line)
-        return [Text(f"Read {n} lines", style="muted")]
+        lines = result.splitlines()
+        numbered = sum(1 for line in lines if "\t" in line)
+        if numbered or not lines or result.startswith("(empty file)"):
+            return [Text(f"Read {numbered} lines", style="muted")]
+        return [Text(f"Listed {len(lines)} entries", style="muted")]
     if event.name in COUNTED:
         if result.startswith("No ") or result.startswith("(empty"):
             return [Text(result.splitlines()[0], style="muted")]

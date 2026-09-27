@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import difflib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Literal, Protocol
 
 from .tools import Workspace, preview_edit
@@ -21,6 +21,11 @@ class ApprovalRequest:
     preview: str | None = None
     """What will change: a unified diff for write/edit, the command for bash."""
     preview_kind: Literal["diff", "command", "text"] = "text"
+    reason: str | None = None
+    """Why this call needs approval beyond the permission mode, e.g. ``outside the working directory``."""
+    remember: str | None = None
+    """What "don't ask again" would allow, e.g. ``bash commands starting with `git status```. ``None`` when
+    nothing can safely be remembered; a frontend then offers only yes and no."""
 
 
 @dataclass(frozen=True)
@@ -28,7 +33,7 @@ class Decision:
     """The user's answer.
 
     - ``allow``: run this call
-    - ``allow_always``: run it, and do not ask again for this tool in this session
+    - ``allow_always``: run it, and do not ask again for what ``ApprovalRequest.remember`` describes
     - ``deny`` with ``feedback``: skip the call and tell the model what to do instead; the run continues
     - ``deny`` without ``feedback``: skip the call and stop the run, waiting for the user's next message
     """
@@ -43,8 +48,15 @@ class Approver(Protocol):
     def approve(self, request: ApprovalRequest) -> Decision: ...
 
 
-def describe(name: str, args: dict[str, Any], workspace: Workspace) -> ApprovalRequest:
+def describe(
+    name: str, args: dict[str, Any], workspace: Workspace, *, reason: str | None = None, remember: str | None = None
+) -> ApprovalRequest:
     """Builds the request shown to the user for one tool call."""
+    request = _describe(name, args, workspace)
+    return replace(request, reason=reason, remember=remember)
+
+
+def _describe(name: str, args: dict[str, Any], workspace: Workspace) -> ApprovalRequest:
     path = str(args.get("path", ""))
     if name == "bash":
         return ApprovalRequest(name, args, "Run command", str(args.get("command", "")), "command")
@@ -57,6 +69,9 @@ def describe(name: str, args: dict[str, Any], workspace: Workspace) -> ApprovalR
         before = file.read_text(encoding="utf-8", errors="replace") if file.is_file() else ""
         verb = "Overwrite" if file.is_file() else "Create"
         return ApprovalRequest(name, args, f"{verb} {path}", _diff(path, before, str(args.get("content", ""))), "diff")
+    if name in ("read", "glob", "grep"):
+        target = args.get("pattern") or path or "."
+        return ApprovalRequest(name, args, f"{name.capitalize()} {target}", None, "text")
     return ApprovalRequest(name, args, f"Use {name}", repr(args), "text")
 
 

@@ -38,7 +38,7 @@ class Session:
         cwd: Path | None = None,
     ) -> None:
         self.workspace = Workspace((cwd or Path.cwd()).resolve())
-        self.policy = PermissionPolicy(settings.mode)
+        self.policy = PermissionPolicy(self.workspace, settings.mode)
         self._emit = on_event
         self._approver = approver
         self._reporter = EventReporter(on_event)

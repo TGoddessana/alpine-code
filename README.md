@@ -59,18 +59,30 @@ Commands: `/help`, `/clear`, `/compact`, `/model [name]`, `/mode [mode]`, `/cost
 system prompt (`CLAUDE.md` is read where there is no `AGENTS.md`). A global one can go in
 `~/.config/alpine-code/AGENTS.md`.
 
-**Permissions**: reading and searching never asks. Editing files asks unless the mode is *accept edits* or *yolo*.
-Commands ask unless the mode is *yolo* (`--yolo`). With `-p`, calls that would ask are declined.
+**Permissions** (every rule is skipped in *yolo*):
+
+- Reading and searching inside the working directory never asks. Paths outside it (symlinks resolved) ask, and so
+  does reading `.env` / `.env.*` files (`.env.example` is fine).
+- Editing asks unless the mode is *accept edits*.
+- `bash` asks. "Don't ask again" remembers command prefixes for the session — `git status`, `uv run pytest`,
+  `npm run dev` — parsed with tree-sitter, so `git status; rm -rf x` or `git status $(curl …)` still ask, as do
+  commands that write files through `>`. Commands that can run anything (`python`, `sudo`, `bash -c`, `xargs`, …)
+  are never remembered.
+- With `-p`, calls that would ask are declined.
 
 ## Tools
 
 | Tool | Does | Asks first |
 |---|---|---|
-| `read`, `ls`, `glob`, `grep` | read files, list directories, find files, search contents (ripgrep when installed) | never |
+| `read`, `glob`, `grep` | read a file or list a directory, find files, search contents | never, inside the working directory |
 | `write`, `edit` | create or replace a file, replace an exact piece of text | unless *accept edits* or *yolo* |
-| `bash` | run a shell command | unless *yolo* |
+| `bash` | run a shell command | unless *yolo*, or its commands were allowed before |
 
 Deliberately few. More will come as they prove necessary.
+
+`glob` and `grep` run [ripgrep](https://github.com/BurntSushi/ripgrep), so they respect `.gitignore`. The `rg` on
+your `PATH` is used when there is one; otherwise a pinned release is downloaded once (checksum-verified) into
+`~/.cache/alpine-code/ripgrep/`.
 
 ## Architecture
 
@@ -82,6 +94,8 @@ src/alpine_code/
     approval.py    Approver protocol — how the core asks a frontend for permission
     loop.py        the alpineagents @loop: compact → think → permission gate → use tools
     bridge.py      alpineagents Reporter → core events
+    permissions.py what runs without asking, what "don't ask again" remembers
+    shell.py       bash command analysis (tree-sitter) for permissions
     tools/         one module per tool
   cli/             terminal frontend (rich + prompt_toolkit)
 ```

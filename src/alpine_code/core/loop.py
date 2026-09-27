@@ -24,11 +24,14 @@ def build_loop(policy: PermissionPolicy, approver: Approver, workspace: Workspac
         compact_if_full(agent, state)
         agent.think(state)
         for call in state.pending_calls:
-            if policy.allows(call.name):
+            args = dict(call.args)
+            verdict = policy.evaluate(call.name, args)
+            if verdict.allowed:
                 continue
-            decision = approver.approve(describe(call.name, dict(call.args), workspace))
-            if decision.kind == "allow_always":
-                policy.remember(call.name)
+            request = describe(call.name, args, workspace, reason=verdict.reason, remember=verdict.remember)
+            decision = approver.approve(request)
+            if decision.kind == "allow_always" and verdict.grant is not None:
+                policy.remember(verdict.grant)
             elif decision.kind == "deny":
                 if not decision.feedback:
                     state.deny(call, f"{DECLINED} Wait for their next message.")

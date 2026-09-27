@@ -1,5 +1,4 @@
 import asyncio
-import shutil
 from pathlib import Path
 
 import pytest
@@ -7,9 +6,8 @@ import pytest
 from alpine_code.core.tools import Workspace
 from alpine_code.core.tools.bash import Bash
 from alpine_code.core.tools.edit import Edit
-from alpine_code.core.tools.glob import Glob
+from alpine_code.core.tools.glob_files import Glob
 from alpine_code.core.tools.grep import Grep
-from alpine_code.core.tools.ls import Ls
 from alpine_code.core.tools.read import Read
 from alpine_code.core.tools.write import Write
 
@@ -35,7 +33,7 @@ def test_read_numbers_lines_and_pages(ws):
 def test_read_errors_are_results(ws):
     tool = Read(ws).read
     assert run(tool, path="missing.txt").startswith("Error:")
-    assert run(tool, path=".").startswith("Error:")
+    assert run(tool, path=".") == "(empty directory)"
     (ws.root / "bin").write_bytes(b"\0\1\2")
     assert "binary" in run(tool, path="bin")
 
@@ -67,35 +65,34 @@ def test_bash_output_exit_code_and_timeout(ws):
 
 
 def make_tree(root: Path) -> None:
+    (root / ".git").mkdir()
+    (root / ".gitignore").write_text("node_modules/\n")
     (root / "src/pkg").mkdir(parents=True)
     (root / "src/pkg/app.py").write_text("def handler():\n    return 'TODO: fix'\n")
     (root / "src/pkg/util.py").write_text("x = 1\n")
     (root / "README.md").write_text("# todo list\n")
+    (root / ".env").write_text("TODO_SECRET=1\n")
     (root / "node_modules/dep").mkdir(parents=True)
     (root / "node_modules/dep/index.py").write_text("TODO = 1\n")
 
 
-def test_ls(ws):
+def test_read_lists_directories(ws):
     make_tree(ws.root)
-    out = run(Ls(ws).ls)
-    assert out.splitlines() == ["node_modules/  (skipped by glob/grep)", "src/", "README.md"]
-    assert run(Ls(ws).ls, path="README.md").startswith("Error:")
+    out = run(Read(ws).read, path=".")
+    assert out.splitlines() == [".git/", "node_modules/", "src/", ".env", ".gitignore", "README.md"]
 
 
-def test_glob_skips_ignored_dirs(ws):
+def test_glob_uses_gitignore(ws):
     make_tree(ws.root)
-    out = run(Glob(ws).glob, pattern="**/*.py")
-    assert sorted(out.splitlines()) == ["src/pkg/app.py", "src/pkg/util.py"]
-    assert run(Glob(ws).glob, pattern="*.md") == "README.md"
-    assert run(Glob(ws).glob, pattern="*.rs") == "No files match *.rs"
+    tool = Glob(ws).glob
+    assert sorted(run(tool, pattern="*.py").splitlines()) == ["src/pkg/app.py", "src/pkg/util.py"]
+    assert run(tool, pattern="src/**/app.py") == "src/pkg/app.py"
+    assert run(tool, pattern="*.md") == "README.md"
+    assert run(tool, pattern=".env") == "No files match .env"
+    assert run(tool, pattern="*.rs") == "No files match *.rs"
 
 
-@pytest.mark.parametrize("use_rg", [True, False])
-def test_grep(ws, monkeypatch, use_rg):
-    if not use_rg:
-        monkeypatch.setattr("alpine_code.core.tools.grep.shutil.which", lambda name: None)
-    elif shutil.which("rg") is None:
-        pytest.skip("ripgrep not installed")
+def test_grep(ws):
     make_tree(ws.root)
     tool = Grep(ws).grep
     assert run(tool, pattern="TODO") == "src/pkg/app.py:2:    return 'TODO: fix'"

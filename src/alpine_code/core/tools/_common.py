@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-import os
-from collections.abc import Iterator
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+
+from .ripgrep import RipgrepUnavailable, rg_path
 
 #: Most characters of tool output sent back to the model.
 MAX_OUTPUT_CHARS = 30_000
 
-#: Directories the search tools skip: VCS data, dependencies, caches and virtualenvs.
-IGNORED_DIRS = frozenset(
-    {".git", ".hg", ".svn", "node_modules", ".venv", "venv", "__pycache__", ".mypy_cache", ".pytest_cache",
-     ".ruff_cache", ".tox", ".nox", ".idea", ".next", ".turbo", "target"}
-)
+#: Globs every ripgrep search adds: never show VCS internals or secret env files (``.env``, ``.env.local``).
+RG_EXCLUDES = ("--glob=!**/.git/**", "--glob=!.env", "--glob=!.env.*")
 
 
 @dataclass(frozen=True)
@@ -49,12 +47,18 @@ def error(message: str) -> str:
     return f"Error: {message}"
 
 
-def walk_files(root: Path) -> Iterator[Path]:
-    """Every file under ``root``, skipping ``IGNORED_DIRS``."""
-    if root.is_file():
-        yield root
-        return
-    for directory, dirs, files in os.walk(root):
-        dirs[:] = sorted(d for d in dirs if d not in IGNORED_DIRS)
-        for name in sorted(files):
-            yield Path(directory) / name
+def run_rg(args: list[str], cwd: Path, timeout: int = 60) -> tuple[list[str], str | None]:
+    """Runs ripgrep with ``args`` (no shell) and returns ``(output lines, error)``. No match is not an error."""
+    try:
+        rg = rg_path()
+    except RipgrepUnavailable as e:
+        return [], str(e)
+    try:
+        done = subprocess.run([rg, *args], capture_output=True, text=True, timeout=timeout, cwd=cwd)
+    except subprocess.TimeoutExpired:
+        return [], f"search timed out after {timeout}s. Narrow the path or pattern"
+    except OSError as e:
+        return [], str(e)
+    if done.returncode == 2 and not done.stdout:
+        return [], done.stderr.strip() or "ripgrep failed"
+    return done.stdout.splitlines(), None

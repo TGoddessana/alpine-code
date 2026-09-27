@@ -30,13 +30,13 @@ class CliApprover:
         def _(event) -> None:
             event.app.exit(result="stop")
 
+        options = [("allow", "Yes")]
+        if request.remember:
+            options.append(("allow_always", f"Yes, and don't ask again for {request.remember} this session"))
+        options.append(("deny", "No, and tell it what to do differently"))
         answer = choice(
             message=HTML("<b>Do you want to proceed?</b>"),
-            options=[
-                ("allow", "Yes"),
-                ("allow_always", f"Yes, and don't ask again for {request.tool} this session"),
-                ("deny", "No, and tell it what to do differently"),
-            ],
+            options=options,
             symbol=PROMPT,
             style=self._style,
             key_bindings=esc,
@@ -58,5 +58,7 @@ class CliApprover:
             body.append(Syntax(request.preview, "bash", theme="ansi_dark", background_color="default", word_wrap=True))
         elif request.preview:
             body.append(Text(request.preview))
+        if request.reason:
+            body.insert(0, Text(f"⚠ {request.reason}", style="warn"))
         return Panel(Group(*body) if body else Text(""), title=Text(request.title, style="bold"),
                      title_align="left", border_style="warn", padding=(0, 1))

@@ -7,9 +7,8 @@ from typing import Literal
 from ._common import Workspace
 from .bash import Bash
 from .edit import Edit, preview_edit
-from .glob import Glob
+from .glob_files import Glob
 from .grep import Grep
-from .ls import Ls
 from .read import Read
 from .write import Write
 
@@ -20,7 +19,6 @@ ToolKind = Literal["read", "edit", "exec"]
 #: What each built-in tool can do, for the permission policy. Unknown tools are treated as "exec".
 TOOL_KINDS: dict[str, ToolKind] = {
     "read": "read",
-    "ls": "read",
     "glob": "read",
     "grep": "read",
     "write": "edit",
@@ -31,6 +29,6 @@ TOOL_KINDS: dict[str, ToolKind] = {
 
 def default_tools(workspace: Workspace) -> list:
     return [
-        Read(workspace), Ls(workspace), Glob(workspace), Grep(workspace),
+        Read(workspace), Glob(workspace), Grep(workspace),
         Write(workspace), Edit(workspace), Bash(workspace),
     ]

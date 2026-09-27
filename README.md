@@ -68,6 +68,10 @@ system prompt (`CLAUDE.md` is read where there is no `AGENTS.md`). A global one 
   `npm run dev` — parsed with tree-sitter, so `git status; rm -rf x` or `git status $(curl …)` still ask, as do
   commands that write files through `>`. Commands that can run anything (`python`, `sudo`, `bash -c`, `xargs`, …)
   are never remembered.
+- `bash` also checks the paths it names — arguments, `--flag=/path` values and redirection targets, following
+  `cd` — with the same rules as the file tools. Paths known only at run time (`$HOME/.ssh`, `cd "$(…)"`) ask every
+  time. Remembering an outside directory for `bash` means edit access to it, so that is only offered under your
+  home directory or a temp directory; system directories, your home directory itself and `/` always ask.
 - With `-p`, calls that would ask are declined.
 
 ## Tools

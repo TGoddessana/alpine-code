@@ -23,9 +23,9 @@ def test_tool_lines():
         ToolFinished("2", "edit", {"path": "x.py"}, "The user declined this tool call.", "denied"),
         ToolFinished("3", "read", {"path": "y.py"}, "Error: y.py does not exist", "done"),
     )
-    assert "● Let me look." in out
-    assert "● bash(ls)" in out and "⎿  a" in out and "… +2 lines" in out
-    assert "● edit(x.py)" in out and "Declined" in out
+    assert "◆ Let me look." in out
+    assert "◆ bash(ls)" in out and "└  a" in out and "… +2 lines" in out
+    assert "◆ edit(x.py)" in out and "Declined" in out
     assert "Error: y.py does not exist" in out
 
 

@@ -4,15 +4,15 @@ A terminal coding agent built on [alpineagents](https://tgoddessana.github.io/al
 If you use Claude Code, Codex, opencode or pi, you already know how to use it.
 
 ```
-✻ alpine-code v0.1.0
-  model anthropic/claude-sonnet-5
-  cwd   ~/projects/my-app
+    ▄█▄          alpine-code v0.1.0
+  ▄█████▄▄█▄     model anthropic/claude-sonnet-5
+▄███████████▄    cwd   ~/projects/my-app
 
-❯ fix the failing test in tests/test_api.py
-● read(tests/test_api.py)
-  ⎿  Read 84 lines
-● bash(uv run pytest tests/test_api.py -x)
-  ⎿  FAILED tests/test_api.py::test_create - KeyError: 'id'
+› fix the failing test in tests/test_api.py
+◆ read(tests/test_api.py)
+  └  Read 84 lines
+◆ bash(uv run pytest tests/test_api.py -x)
+  └  FAILED tests/test_api.py::test_create - KeyError: 'id'
 ```
 
 ## Install

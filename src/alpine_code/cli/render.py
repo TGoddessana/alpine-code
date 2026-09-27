@@ -25,7 +25,7 @@ from alpine_code.core import (
     TurnStarted,
 )
 
-from .theme import BULLET, RESULT, STAR
+from .theme import BULLET, PEAK, RESULT
 
 #: Lines of tool output shown under a tool call.
 PREVIEW_LINES = 4
@@ -69,9 +69,9 @@ class Renderer:
                 self._print_tool(event)
             case ContextCompacted(before_tokens=before, after_tokens=after):
                 self._stop()
-                self.console.print(f"[muted]{STAR} Context compacted: {_k(before)} → {_k(after)} tokens[/]")
+                self.console.print(f"[muted]{PEAK} Context compacted: {_k(before)} → {_k(after)} tokens[/]")
             case Notice(text=text):
-                self.console.print(f"[muted]{STAR} {text}[/]")
+                self.console.print(f"[muted]{PEAK} {text}[/]")
             case RunFinished(stopped_by="limit"):
                 self._stop()
                 self.console.print("[warn]Stopped: reached the turn limit. Send a message to continue.[/]")

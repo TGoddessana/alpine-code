@@ -1,0 +1,70 @@
+{
+  "schema_version": "motifcode.eval/v1",
+  "manifest_id": "polyglot-motif3-hosted-alpine",
+  "suite": {
+    "name": "polyglot",
+    "dataset_revision": "7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f",
+    "split": "dev",
+    "instances_sha256": "ceee0a1bbc57ea0b6c458bffa0f1f9f8694134fa608f7ea442b55f857933c100",
+    "evaluator": {
+      "repo": "https://github.com/Aider-AI/polyglot-benchmark",
+      "commit": "7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f"
+    }
+  },
+  "candidate": {
+    "config_id": "alpine",
+    "role": "candidate",
+    "model_id": "motif/motif-3"
+  },
+  "harness": {
+    "name": "alpine",
+    "git_sha": "a5624b092518e3780e0f6d5b7897b2b089795595",
+    "system_prompt_sha256": "d9d2da58be1036bd6871906e27e1869fe88f29ee0390e98f345ad4fd620a45a4",
+    "tool_schema_sha256": "d9d2da58be1036bd6871906e27e1869fe88f29ee0390e98f345ad4fd620a45a4",
+    "initial_channel": "toolcall",
+    "channel_policy": "fixed",
+    "features": {
+      "tool_failure_repair": false,
+      "benchmark_one_repair": false,
+      "subagents": true,
+      "hooks": false
+    }
+  },
+  "serving": {
+    "engine": "hosted (llm.onerouter.pro)",
+    "hardware": {
+      "name": "hosted",
+      "count": 1
+    }
+  },
+  "sampling": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "seed_policy": "paired",
+    "seeds": [
+      0
+    ],
+    "max_output_tokens_per_step": 16384
+  },
+  "budgets": {
+    "max_model_steps": 80,
+    "max_turns": 40,
+    "max_repairs_per_failure": 2,
+    "command_timeout_seconds": 120,
+    "task_wall_timeout_seconds": 900,
+    "max_total_tokens": null
+  },
+  "environment": {
+    "network": "enabled",
+    "repo_reset": "git worktree per row, removed after grading"
+  },
+  "design": {
+    "split_role": "dev",
+    "pair_group": "instance",
+    "primary_metric": "pass_rate",
+    "noninferiority_margin_pp": null,
+    "confidence_level": 0.95,
+    "randomization_seed": 0,
+    "missing_run_policy": "score_zero"
+  }
+}

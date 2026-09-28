@@ -1,0 +1,22 @@
+alpine rows graded: 213  paired with the report: 213 / 213
+
+harness         pass    rate  95% CI
+alpine      171/213   80.3%  (74.4%-85.1%)
+motifcode   196/213   92.0%  (87.6%-95.0%)
+opencode    177/213   83.1%  (77.5%-87.5%)
+codex       170/213   79.8%  (73.9%-84.7%)
+
+alpine minus baseline, paired on the same instances
+  vs motifcode   -11.7 pp  (-17.4, -6.6)  alpine-only   6  motifcode-only  31  McNemar p 4.13e-05
+  vs opencode     -2.8 pp  (-9.4, +3.3)  alpine-only  21  opencode-only  27  McNemar p 0.471
+  vs codex        +0.5 pp  (-5.2, +6.1)  alpine-only  20  codex-only  19  McNemar p 1
+
+per language (alpine / motifcode / opencode / codex)
+  cpp         n= 26   22   24   22   24
+  go          n= 36   28   33   24   27
+  java        n= 45   33   39   40   29
+  javascript  n= 48   44   48   45   46
+  python      n= 34   28   32   27   25
+  rust        n= 24   16   20   19   19
+
+alpine end reasons: {'agent_error': 2, 'done': 167, 'wall_timeout': 39, 'repetition_abort': 5}

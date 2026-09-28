@@ -1,0 +1,2994 @@
+{
+ "source": "https://github.com/TaewoooPark/Motifcode/blob/a5624b092518e3780e0f6d5b7897b2b089795595/packages/eval/REPORT.md (Appendix A)",
+ "license": "Apache-2.0, Copyright the Motifcode authors",
+ "campaign": "Aider polyglot, 213 instances, motif/motif-3 via Infron, seed 0, 870 s cap, 2026-09-20/21",
+ "harnesses": {
+  "motifcode": "motifcode 0.3.0 (a87dec0c1bf1)",
+  "codex": "codex-cli 0.154.0",
+  "opencode": "opencode 1.17.9"
+ },
+ "rows": {
+  "cpp/all-your-base": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/allergies": {
+   "motifcode": {
+    "passed": false,
+    "end": "loop_detected"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/bank-account": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/binary-search-tree": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "repetition_abort"
+   }
+  },
+  "cpp/circular-buffer": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "done"
+   }
+  },
+  "cpp/clock": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/complex-numbers": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/crypto-square": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/diamond": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "done"
+   }
+  },
+  "cpp/dnd-character": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/gigasecond": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/grade-school": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/kindergarten-garden": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/knapsack": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/linked-list": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/meetup": {
+   "motifcode": {
+    "passed": true,
+    "end": "turn_limit"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/parallel-letter-frequency": {
+   "motifcode": {
+    "passed": true,
+    "end": "turn_limit"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/perfect-numbers": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/phone-number": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/queen-attack": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/robot-name": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/space-age": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "cpp/spiral-matrix": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/sublist": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/yacht": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "cpp/zebra-puzzle": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "go/alphametics": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/beer-song": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/book-store": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "go/bottle-song": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/bowling": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/connect": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/crypto-square": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/dnd-character": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/dominoes": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/error-handling": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/food-chain": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "go/forth": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "done"
+   }
+  },
+  "go/hexadecimal": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/kindergarten-garden": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/matrix": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "done"
+   }
+  },
+  "go/octal": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/paasio": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/palindrome-products": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/pig-latin": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/poker": {
+   "motifcode": {
+    "passed": false,
+    "end": "turn_limit"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/pov": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "go/protein-translation": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/react": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "go/robot-simulator": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "go/say": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/scale-generator": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "go/simple-linked-list": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/sublist": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/transpose": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "go/tree-building": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/trinary": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "go/two-bucket": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "go/variable-length-quantity": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/word-search": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/wordy": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "go/zebra-puzzle": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "java/affine-cipher": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/all-your-base": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/alphametics": {
+   "motifcode": {
+    "passed": false,
+    "end": "agent_timeout"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/bank-account": {
+   "motifcode": {
+    "passed": true,
+    "end": "turn_limit"
+   },
+   "codex": {
+    "passed": false,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/book-store": {
+   "motifcode": {
+    "passed": true,
+    "end": "turn_limit"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/bottle-song": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/bowling": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/change": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "agent_error"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/circular-buffer": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "repetition_abort"
+   }
+  },
+  "java/connect": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/custom-set": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/dominoes": {
+   "motifcode": {
+    "passed": true,
+    "end": "loop_detected"
+   },
+   "codex": {
+    "passed": false,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/food-chain": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/forth": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/go-counting": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "java/hangman": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/house": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "java/kindergarten-garden": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/mazy-mice": {
+   "motifcode": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "wall_timeout"
+   }
+  },
+  "java/ocr-numbers": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "java/palindrome-products": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/phone-number": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/pig-latin": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/poker": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/pov": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/protein-translation": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "wall_timeout"
+   }
+  },
+  "java/pythagorean-triplet": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/queen-attack": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/rational-numbers": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/react": {
+   "motifcode": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/resistor-color-trio": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/rest-api": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "wall_timeout"
+   }
+  },
+  "java/satellite": {
+   "motifcode": {
+    "passed": true,
+    "end": "loop_detected"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/series": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/sgf-parsing": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/simple-linked-list": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/state-of-tic-tac-toe": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/transpose": {
+   "motifcode": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/twelve-days": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/two-bucket": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "java/variable-length-quantity": {
+   "motifcode": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/word-search": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/wordy": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/zebra-puzzle": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "java/zipper": {
+   "motifcode": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "javascript/affine-cipher": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/alphametics": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/beer-song": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/binary": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/book-store": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/bottle-song": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/bowling": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/complex-numbers": {
+   "motifcode": {
+    "passed": true,
+    "end": "turn_limit"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/connect": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "repetition_abort"
+   }
+  },
+  "javascript/food-chain": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/forth": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/go-counting": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/grade-school": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/grep": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/house": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/killer-sudoku-helper": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/list-ops": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/meetup": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/ocr-numbers": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/palindrome-products": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/parallel-letter-frequency": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/phone-number": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/pig-latin": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/poker": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/promises": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/queen-attack": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/rational-numbers": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/react": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/rectangles": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/resistor-color-trio": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/rest-api": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/robot-name": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "done"
+   }
+  },
+  "javascript/say": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/scale-generator": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/simple-linked-list": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/space-age": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "javascript/state-of-tic-tac-toe": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/sum-of-multiples": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/tournament": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/transpose": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "repetition_abort"
+   }
+  },
+  "javascript/triangle": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/twelve-days": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "done"
+   }
+  },
+  "javascript/two-bucket": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/variable-length-quantity": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/word-search": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/wordy": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/zebra-puzzle": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "javascript/zipper": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/affine-cipher": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/beer-song": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/book-store": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/bottle-song": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/bowling": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "agent_error"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "python/connect": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "python/dominoes": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/dot-dsl": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/food-chain": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/forth": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/go-counting": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/grade-school": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/grep": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/hangman": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/list-ops": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/paasio": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "python/phone-number": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/pig-latin": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/poker": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/pov": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "python/proverb": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/react": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/rest-api": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/robot-name": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/scale-generator": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "python/sgf-parsing": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "python/simple-linked-list": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/transpose": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "python/tree-building": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/two-bucket": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/variable-length-quantity": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/wordy": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/zebra-puzzle": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "python/zipper": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/accumulate": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/acronym": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/book-store": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": false,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/bowling": {
+   "motifcode": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/dot-dsl": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/doubly-linked-list": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "wall_timeout"
+   }
+  },
+  "rust/fizzy": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/forth": {
+   "motifcode": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": true,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "rust/gigasecond": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/grade-school": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/luhn-from": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/macros": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  },
+  "rust/nucleotide-codons": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/ocr-numbers": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/parallel-letter-frequency": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "repetition_abort"
+   }
+  },
+  "rust/react": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "rust/say": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/scale-generator": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/simple-cipher": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/two-bucket": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/variable-length-quantity": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/word-count": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": true,
+    "end": "done"
+   }
+  },
+  "rust/wordy": {
+   "motifcode": {
+    "passed": true,
+    "end": "done"
+   },
+   "codex": {
+    "passed": true,
+    "end": "done"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "wall_timeout"
+   }
+  },
+  "rust/xorcism": {
+   "motifcode": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "codex": {
+    "passed": false,
+    "end": "wall_timeout"
+   },
+   "opencode": {
+    "passed": false,
+    "end": "repetition_abort"
+   }
+  }
+ }
+}

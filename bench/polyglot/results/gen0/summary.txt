@@ -1,0 +1,23 @@
+gen0: 213 rows, 213 paired with every baseline
+
+harness           pass    rate  95% CI
+gen0          172/213   80.8%  (74.9%-85.5%)
+motifcode     196/213   92.0%  (87.6%-95.0%)
+codex         170/213   79.8%  (73.9%-84.7%)
+opencode      177/213   83.1%  (77.5%-87.5%)
+
+gen0 minus baseline, paired
+  vs motifcode   -11.3 pp  (-16.9, -6.1)  run-only   6  motifcode-only  30  McNemar p 6.96e-05
+  vs codex        +0.9 pp  (-4.7, +6.6)  run-only  20  codex-only  18  McNemar p 0.871
+  vs opencode     -2.3 pp  (-8.9, +3.8)  run-only  21  opencode-only  26  McNemar p 0.56
+
+per language (gen0 / motifcode / codex / opencode)
+  cpp         n= 26   22   24   24   22
+  go          n= 36   28   33   27   24
+  java        n= 45   34   39   29   40
+  javascript  n= 48   44   48   46   45
+  python      n= 34   28   32   25   27
+  rust        n= 24   16   20   19   19
+
+end reasons: {'done': 169, 'wall_timeout': 39, 'repetition_abort': 5}
+end reasons of failed rows: {'wall_timeout': 31, 'done': 5, 'repetition_abort': 5}

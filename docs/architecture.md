@@ -38,6 +38,9 @@ The protocol is our own, shaped like [ACP](https://agentclientprotocol.com) so a
 later. Its source is pydantic models in `packages/protocol/python`; the JSON Schema and TypeScript types are generated
 (`pnpm protocol:generate`) and checked for drift (`pnpm protocol:check`).
 
+Sessions, their items and events, and the core changes under them are in
+[session-protocol.md](session-protocol.md).
+
 ## Desktop app
 
 ```
@@ -97,9 +100,19 @@ The language follows the OS until chosen in Settings.
 | 2026-09-29 | Tailwind v4, tokens only | CSS Modules, StyleX | tokens become the only classes that exist |
 | 2026-09-29 | Feature folders + two rules | FSD, by kind | least ceremony that still keeps features apart |
 | 2026-09-29 | Per-feature TS dictionaries | i18next, Paraglide | two languages written in-house; copy lives with its feature |
+| 2026-09-29 | Sessions saved and resumable in protocol v1 | in-memory sessions first | the session list, snapshots and `seq` are shaped by storage; deciding later means reshaping messages |
+| 2026-09-29 | Core saves sessions | the server saves them | the CLI imports the core directly, so it gets resume too and shares session files with the app |
+| 2026-09-29 | Two storage ports: alpineagents `Store` + core `SessionLog` | one core `SessionStore` | no second wrapper around `Store`; `SessionLog` can move onto an alpineagents persistence layer later |
+| 2026-09-29 | `~/.alpine-code`, `ALPINE_CODE_HOME` | XDG (`~/.config`, `~/.local/share`) | one folder to find and explain, like `~/.claude` and `~/.codex` |
+| 2026-09-29 | Conversation as items | a replayed event log (ACP) | opening draws a list; app and CLI share the core's items; deltas are never stored |
+| 2026-09-29 | Async-first core with sync wrappers | sync core, a thread per session | cancel and many sessions without workarounds; same rule as alpineagents |
+| 2026-09-29 | Every session's events to every window | per-window subscriptions | the server sees one connection; the Rust shell does not read messages |
+| 2026-09-30 | Permissions in alpineagents (`Agent(permissions=)`) | checks inside the core's loop | no loop can skip them, so the loop can be opened to users later |
+| 2026-09-30 | Model behaviour as settings (model profiles) | code per model | the harness stays model-agnostic; what a model needs is switched on for it |
 
 ## Open
 
 - **Shipping the server.** A bundled app runs `alpine-server` next to its own binary; building that binary
   (PyInstaller, one-folder) and signing and notarising it on macOS (tauri#11992) is untested.
-- **Session protocol.** Only `initialize` exists. Session methods and events come next, with the three rules above.
+- **Session protocol.** Designed in [session-protocol.md](session-protocol.md), not implemented. It waits on
+  alpineagents (permissions, `state.stopped`, `resolve_model` options); the core's async rewrite comes after.

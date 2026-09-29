@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import re
 
-from alpineagents import tool
+from alpineagents import ToolError, tool
 
-from ._common import RG_EXCLUDES, Workspace, error, run_rg
+from ._common import RG_EXCLUDES, Workspace, run_rg
 
 MAX_MATCHES = 200
 MAX_LINE_CHARS = 300
@@ -14,7 +14,7 @@ class Grep:
     def __init__(self, workspace: Workspace) -> None:
         self.workspace = workspace
 
-    @tool(name="grep")
+    @tool(name="grep", read_only=True, open_world=False)
     def grep(self, pattern: str, path: str | None = None, glob: str | None = None, ignore_case: bool = False) -> str:
         """Search file contents with a regular expression (ripgrep syntax). Returns matching lines as
         path:line:text. Respects .gitignore.
@@ -27,20 +27,18 @@ class Grep:
         """
         target = self.workspace.resolve(path or ".")
         if not target.exists():
-            return error(f"{path} does not exist")
+            raise ToolError(f"{path} does not exist")
         try:
             re.compile(pattern)
         except re.error as e:
-            return error(f"invalid regular expression: {e}")
+            raise ToolError(f"invalid regular expression: {e}") from e
         args = ["--line-number", "--no-heading", "--color=never", "--hidden", *RG_EXCLUDES]
         if ignore_case:
             args.append("--ignore-case")
         if glob:
             args.append(f"--glob={glob}")
         args += ["--regexp", pattern, str(target)]
-        lines, failure = run_rg(args, cwd=self.workspace.root)
-        if failure:
-            return error(failure)
+        lines = run_rg(args, cwd=self.workspace.root)
         if not lines:
             return f"No matches for {pattern}"
         prefix = str(self.workspace.root) + "/"

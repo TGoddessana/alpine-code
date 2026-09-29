@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from alpineagents import ProviderError
+from alpineagents import Image, ProviderError
 from alpineagents.testing import FakeModel, tool_call
 
 from alpine_code.core import (
@@ -49,6 +49,39 @@ def test_read_runs_without_asking(tmp_path, monkeypatch):
     assert finished(events) == [("read", "done")]
     assert isinstance(events[-1], RunFinished) and events[-1].stopped_by == "is_answered"
     assert any(isinstance(e, AssistantDone) and e.text == "It says hello" for e in events)
+
+
+def test_tool_errors_reach_the_model_and_the_run_continues(tmp_path, monkeypatch):
+    seen = []
+
+    def second(request):
+        seen.append(request.messages[-1])
+        return "That file does not exist"
+
+    session, events, _ = make_session(tmp_path, monkeypatch, [tool_call("read", path="nope.txt"), second])
+    assert session.send("read nope.txt") == "That file does not exist"
+    [done] = [e for e in events if isinstance(e, ToolFinished)]
+    assert done.kind == "error" and done.is_error and done.result == "nope.txt does not exist"
+    [block] = seen[0].content
+    assert block.is_error and block.content == "nope.txt does not exist"
+
+
+def test_read_sends_images_to_the_model(tmp_path, monkeypatch):
+    (tmp_path / "dot.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 100)
+    seen = []
+
+    def second(request):
+        seen.append(request.messages[-1])
+        return "A dot"
+
+    session, events, approver = make_session(tmp_path, monkeypatch, [tool_call("read", path="dot.png"), second])
+    assert session.send("what is dot.png?") == "A dot"
+    assert approver.requests == []
+    [done] = [e for e in events if isinstance(e, ToolFinished)]
+    assert (done.kind, done.images, done.result) == ("done", 1, "(image/png, 108B)")
+    [block] = seen[0].content
+    [image] = block.content
+    assert isinstance(image, Image) and image.media_type == "image/png"
 
 
 def test_edit_asks_and_shows_a_diff(tmp_path, monkeypatch):

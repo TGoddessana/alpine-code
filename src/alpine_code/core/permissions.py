@@ -1,5 +1,8 @@
 """Which tool calls run without asking, and what "don't ask again" remembers.
 
+A tool's kind comes from its ``@tool`` hints (see ``kind_of``): ``read`` for tools that only look at local files,
+``edit`` for tools that change local files, ``exec`` for everything else, including unknown tools.
+
 Rules, in order (``yolo`` skips all of them):
 
 1. File tools (read, glob, grep, write, edit) on a path outside the working directory ask. "Don't ask again"
@@ -26,10 +29,14 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from functools import cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+from alpineagents import Tool
 
 from . import shell
-from .tools import TOOL_KINDS, Workspace
+from .tools import Workspace
+
+ToolKind = Literal["read", "edit", "exec"]
 
 
 class Mode(StrEnum):
@@ -80,10 +87,12 @@ class PermissionPolicy:
     files: set[Path] = field(default_factory=set)
     bash_prefixes: set[tuple[str, ...]] = field(default_factory=set)
 
-    def evaluate(self, tool: str, args: dict[str, Any]) -> Verdict:
+    def evaluate(self, tool: str, args: dict[str, Any], spec: Tool | None) -> Verdict:
+        """Whether a call to ``tool`` with ``args`` may run without asking. ``spec`` is the Tool the name stands for
+        (``agent.tool_map.get(tool)``), or ``None`` for a name the model made up."""
         if self.mode is Mode.YOLO:
             return ALLOW
-        kind = TOOL_KINDS.get(tool, "exec")
+        kind = kind_of(spec)
         if tool == "bash":
             return self._bash(str(args.get("command", "")))
         if kind == "exec":
@@ -182,6 +191,15 @@ class PermissionPolicy:
             label += ", reading " + ", ".join(s.name for s in secrets)
         grant = Grant(bash_prefixes=rules, edit_dirs=dirs, files=tuple(secrets))
         return Verdict(False, reason, grant, label)
+
+
+def kind_of(spec: Tool | None) -> ToolKind:
+    """What a tool can do, read from its hints. Only tools that stay local (``open_world=False``) are ``read`` or
+    ``edit``: a read-only tool that reaches the network could still send data out. A hint left out assumes the
+    worst (not read-only, open world), so a tool without hints is ``exec``."""
+    if spec is None or spec.open_world:
+        return "exec"
+    return "read" if spec.read_only else "edit"
 
 
 def is_secret(path: Path) -> bool:

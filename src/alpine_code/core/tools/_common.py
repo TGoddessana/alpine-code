@@ -6,6 +6,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from alpineagents import ToolError
+
 from .ripgrep import RipgrepUnavailable, rg_path
 
 #: Most characters of tool output sent back to the model.
@@ -41,24 +43,28 @@ def truncate_tail(text: str, limit: int = MAX_OUTPUT_CHARS) -> str:
     return f"[{cut} characters truncated]\n" + text[-limit:]
 
 
-def error(message: str) -> str:
-    """A tool result the model reads as a failure. Tools return this instead of raising, because an exception
-    from a tool ends the whole run."""
-    return f"Error: {message}"
+def os_error(e: OSError) -> str:
+    """``exception_handler`` for the file tools: a failed file operation (permission denied, not a directory...) is
+    an error result the model can act on, not a reason to stop the run."""
+    return str(e)
 
 
-def run_rg(args: list[str], cwd: Path, timeout: int = 60) -> tuple[list[str], str | None]:
-    """Runs ripgrep with ``args`` (no shell) and returns ``(output lines, error)``. No match is not an error."""
+def run_rg(args: list[str], cwd: Path, timeout: int = 60) -> list[str]:
+    """Runs ripgrep with ``args`` (no shell) and returns its output lines. No match is not an error.
+
+    Raises:
+        ToolError: ripgrep is unavailable, timed out or failed.
+    """
     try:
         rg = rg_path()
     except RipgrepUnavailable as e:
-        return [], str(e)
+        raise ToolError(str(e)) from e
     try:
         done = subprocess.run([rg, *args], capture_output=True, text=True, timeout=timeout, cwd=cwd)
-    except subprocess.TimeoutExpired:
-        return [], f"search timed out after {timeout}s. Narrow the path or pattern"
+    except subprocess.TimeoutExpired as e:
+        raise ToolError(f"search timed out after {timeout}s. Narrow the path or pattern") from e
     except OSError as e:
-        return [], str(e)
+        raise ToolError(str(e)) from e
     if done.returncode == 2 and not done.stdout:
-        return [], done.stderr.strip() or "ripgrep failed"
-    return done.stdout.splitlines(), None
+        raise ToolError(done.stderr.strip() or "ripgrep failed")
+    return done.stdout.splitlines()

@@ -25,7 +25,7 @@ def build_loop(policy: PermissionPolicy, approver: Approver, workspace: Workspac
         agent.think(state)
         for call in state.pending_calls:
             args = dict(call.args)
-            verdict = policy.evaluate(call.name, args)
+            verdict = policy.evaluate(call.name, args, agent.tool_map.get(call.name))
             if verdict.allowed:
                 continue
             request = describe(call.name, args, workspace, reason=verdict.reason, remember=verdict.remember)

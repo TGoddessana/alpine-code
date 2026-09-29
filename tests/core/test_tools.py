@@ -1,7 +1,10 @@
 import asyncio
+import struct
+import zlib
 from pathlib import Path
 
 import pytest
+from alpineagents import Image, ToolError
 
 from alpine_code.core.tools import Workspace
 from alpine_code.core.tools.bash import Bash
@@ -22,6 +25,17 @@ def run(tool, **args):
     return asyncio.run(value) if asyncio.iscoroutine(value) else value
 
 
+def png(width: int = 1, height: int = 1) -> bytes:
+    """A valid grey PNG."""
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+    rows = b"".join(b"\0" + b"\x80" * width for _ in range(height))
+    header = struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b"")
+
+
 def test_read_numbers_lines_and_pages(ws):
     (ws.root / "a.txt").write_text("one\ntwo\nthree\n")
     tool = Read(ws).read
@@ -30,12 +44,60 @@ def test_read_numbers_lines_and_pages(ws):
     assert out.startswith("2\ttwo") and "offset=3" in out
 
 
-def test_read_errors_are_results(ws):
+def test_read_failures_raise_tool_error(ws):
     tool = Read(ws).read
-    assert run(tool, path="missing.txt").startswith("Error:")
+    with pytest.raises(ToolError, match="missing.txt does not exist"):
+        run(tool, path="missing.txt")
     assert run(tool, path=".") == "(empty directory)"
     (ws.root / "bin").write_bytes(b"\0\1\2")
-    assert "binary" in run(tool, path="bin")
+    with pytest.raises(ToolError, match="binary"):
+        run(tool, path="bin")
+    (ws.root / "a.txt").write_text("one\n")
+    with pytest.raises(ToolError, match="past the end"):
+        run(tool, path="a.txt", offset=5)
+
+
+def test_os_errors_become_tool_errors(ws):
+    locked = ws.root / "locked.txt"
+    locked.write_text("secret\n")
+    locked.chmod(0)
+    try:
+        with pytest.raises(ToolError, match="Permission denied") as caught:
+            run(Read(ws).read, path="locked.txt")
+        assert isinstance(caught.value.__cause__, PermissionError)
+        with pytest.raises(ToolError, match="Permission denied"):
+            run(Edit(ws).edit, path="locked.txt", old_string="secret", new_string="x")
+    finally:
+        locked.chmod(0o644)
+    with pytest.raises(ToolError, match="File exists"):
+        run(Write(ws).write, path="locked.txt/child.txt", content="x")
+
+
+def test_other_exceptions_still_stop_the_run(ws, monkeypatch):
+    (ws.root / "a.txt").write_text("one\n")
+
+    def broken(self):
+        raise RuntimeError("a bug")
+
+    monkeypatch.setattr(Path, "read_bytes", broken)
+    with pytest.raises(RuntimeError, match="a bug"):
+        run(Read(ws).read, path="a.txt")
+
+
+def test_read_views_images(ws):
+    (ws.root / "dot.png").write_bytes(png())
+    image = run(Read(ws).read, path="dot.png", offset=3)
+    assert isinstance(image, Image) and image.media_type == "image/png" and image.data == png()
+    (ws.root / "photo.jpg").write_bytes(b"\xff\xd8\xff\xe0" + b"\0" * 16)
+    assert run(Read(ws).read, path="photo.jpg").media_type == "image/jpeg"
+
+
+def test_read_refuses_images_over_the_provider_limit(ws):
+    (ws.root / "big.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 4_000_000)  # 5.3MB once base64-encoded
+    with pytest.raises(ToolError, match="too large"):
+        run(Read(ws).read, path="big.png")
+    (ws.root / "ok.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 3_900_000)
+    assert isinstance(run(Read(ws).read, path="ok.png"), Image)
 
 
 def test_write_creates_parents(ws):
@@ -48,8 +110,10 @@ def test_edit_unique_and_replace_all(ws):
     f = ws.root / "f.py"
     f.write_text("a = 1\na = 1\nb = 2\n")
     tool = Edit(ws).edit
-    assert "appears 2 times" in run(tool, path="f.py", old_string="a = 1", new_string="a = 3")
-    assert "not found" in run(tool, path="f.py", old_string="zzz", new_string="y")
+    with pytest.raises(ToolError, match="appears 2 times"):
+        run(tool, path="f.py", old_string="a = 1", new_string="a = 3")
+    with pytest.raises(ToolError, match="not found"):
+        run(tool, path="f.py", old_string="zzz", new_string="y")
     assert run(tool, path="f.py", old_string="b = 2", new_string="b = 5").startswith("Edited")
     assert run(tool, path="f.py", old_string="a = 1", new_string="a = 0", replace_all=True).endswith(
         "(2 occurrences replaced)"
@@ -61,7 +125,8 @@ def test_bash_output_exit_code_and_timeout(ws):
     tool = Bash(ws).bash
     assert run(tool, command="echo hi && pwd") == f"hi\n{ws.root}"
     assert run(tool, command="echo oops >&2; exit 3") == "oops\n[exit code 3]"
-    assert "timed out" in run(tool, command="sleep 5", timeout=1)
+    with pytest.raises(ToolError, match="timed out"):
+        run(tool, command="sleep 5", timeout=1)
 
 
 def make_tree(root: Path) -> None:
@@ -101,4 +166,7 @@ def test_grep(ws):
         "src/pkg/app.py:2:    return 'TODO: fix'",
     ]
     assert run(tool, pattern="def", glob="*.md") == "No matches for def"
-    assert run(tool, pattern="(").startswith("Error: invalid regular expression")
+    with pytest.raises(ToolError, match="invalid regular expression"):
+        run(tool, pattern="(")
+    with pytest.raises(ToolError, match="nope does not exist"):
+        run(tool, pattern="x", path="nope")

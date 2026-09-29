@@ -21,12 +21,14 @@ def test_tool_lines():
         ToolStarted("1", "bash", {"command": "ls"}),
         ToolFinished("1", "bash", {"command": "ls"}, "a\nb\nc\nd\ne\nf", "done"),
         ToolFinished("2", "edit", {"path": "x.py"}, "The user declined this tool call.", "denied"),
-        ToolFinished("3", "read", {"path": "y.py"}, "Error: y.py does not exist", "done"),
+        ToolFinished("3", "read", {"path": "y.py"}, "y.py does not exist", "error"),
+        ToolFinished("4", "read", {"path": "dot.png"}, "(image/png, 34.2KB)", "done", images=1),
     )
     assert "◆ Let me look." in out
     assert "◆ bash(ls)" in out and "└  a" in out and "… +2 lines" in out
     assert "◆ edit(x.py)" in out and "Declined" in out
-    assert "Error: y.py does not exist" in out
+    assert "◆ read(y.py)" in out and "└  y.py does not exist" in out
+    assert "◆ read(dot.png)" in out and "Viewed image (image/png, 34.2KB)" in out
 
 
 def test_interrupted():

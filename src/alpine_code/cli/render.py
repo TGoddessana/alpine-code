@@ -134,6 +134,8 @@ def summarize(event: ToolFinished) -> list[Text]:
         first = result.splitlines()[0] if result else event.kind
         return [Text(first, style="error")]
     if event.name == "read":
+        if event.images:
+            return [Text(f"Viewed image {result}", style="muted")]
         lines = result.splitlines()
         numbered = sum(1 for line in lines if "\t" in line)
         if numbered or not lines or result.startswith("(empty file)"):

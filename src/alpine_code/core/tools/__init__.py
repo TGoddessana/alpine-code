@@ -1,8 +1,10 @@
-"""Built-in tools. Each tool lives in its own module; this module assembles the default set."""
+"""Built-in tools. Each tool lives in its own module; this module assembles the default set.
+
+Each tool says what it does through its ``@tool`` hints (``read_only``, ``open_world``...), which the permission
+policy reads.
+"""
 
 from __future__ import annotations
-
-from typing import Literal
 
 from ._common import Workspace
 from .bash import Bash
@@ -12,19 +14,7 @@ from .grep import Grep
 from .read import Read
 from .write import Write
 
-__all__ = ["Workspace", "ToolKind", "TOOL_KINDS", "default_tools", "preview_edit"]
-
-ToolKind = Literal["read", "edit", "exec"]
-
-#: What each built-in tool can do, for the permission policy. Unknown tools are treated as "exec".
-TOOL_KINDS: dict[str, ToolKind] = {
-    "read": "read",
-    "glob": "read",
-    "grep": "read",
-    "write": "edit",
-    "edit": "edit",
-    "bash": "exec",
-}
+__all__ = ["Workspace", "default_tools", "preview_edit"]
 
 
 def default_tools(workspace: Workspace) -> list:

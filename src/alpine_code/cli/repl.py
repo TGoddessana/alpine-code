@@ -6,10 +6,10 @@ import asyncio
 import os
 import signal
 import threading
-from itertools import zip_longest
 from pathlib import Path
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.application import get_app
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.filters import Condition, is_done, to_filter
 from prompt_toolkit.formatted_text import HTML
@@ -68,6 +68,11 @@ def terminal_output():
     output = create_output()
     output.enable_cpr = False  # read by Vt100_Output; other outputs never send the request
     return output
+
+
+def _tilde(path: str | Path) -> str:
+    path, home = Path(path), Path.home()
+    return f"~/{path.relative_to(home)}" if path.is_relative_to(home) and path != home else str(path)
 
 
 class Repl:
@@ -175,6 +180,7 @@ class Repl:
         return keys
 
     def _toolbar(self):
+        """Model, context, cost and mode, dropping the least useful parts first when the terminal is narrow."""
         s = self.session
         mode = s.mode.value
         mode_style = "bottom-toolbar.yolo" if mode == "yolo" else "bottom-toolbar.mode"
@@ -182,22 +188,34 @@ class Repl:
         cost = s.usage.cost
         if cost:
             parts.append(f"${cost:.2f}")
+        width = get_app().output.get_size().columns
+        hint = " (shift+tab to cycle)"
+        mode_text = f"{MODE} {MODE_LABELS[mode]}"
+        while len(parts) > 1 and len(" · ".join(parts)) + 3 + len(mode_text) >= width:
+            parts.pop()
+        head = " · ".join(parts) + " · "
+        if len(head) + len(mode_text) + len(hint) >= width:
+            hint = ""
         return [
-            ("class:bottom-toolbar", " · ".join(parts) + " · "),
-            (f"class:{mode_style}", f"{MODE} {MODE_LABELS[mode]}"),
-            ("class:bottom-toolbar", " (shift+tab to cycle)"),
+            ("class:bottom-toolbar", head),
+            (f"class:{mode_style}", mode_text),
+            ("class:bottom-toolbar", hint),
         ]
 
     def banner(self) -> None:
         info = (
             f"[bold]alpine-code[/] [muted]v{__version__}[/]",
             f"[muted]model[/] {escape(self.session.model_name)}",
-            f"[muted]cwd[/]   {escape(str(self.session.cwd))}",
+            f"[muted]cwd[/]   {escape(_tilde(self.session.cwd))}",
             "[muted]/help for commands · ctrl+d to exit[/]",
         )
+        # One cell per column, and info lines are cut rather than wrapped, so a narrow terminal can't split the hare.
         grid = Table.grid(padding=(0, 2))
-        for art, text in zip_longest(pixel_art(HARE, PIXELS), info, fillvalue=""):
-            grid.add_row(art, text)
+        grid.add_column(no_wrap=True, min_width=len(HARE[0]))
+        grid.add_column()
+        text = Text.from_markup("\n".join(info), overflow="ellipsis")
+        text.no_wrap = True
+        grid.add_row(Text("\n").join(pixel_art(HARE, PIXELS)), text)
         self.console.print(grid)
         self.console.print()
 

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from alpineagents import tool
+from alpineagents import ToolError, tool
 
-from ._common import RG_EXCLUDES, Workspace, error, run_rg
+from ._common import RG_EXCLUDES, Workspace, run_rg
 
 MAX_RESULTS = 200
 
@@ -11,7 +11,7 @@ class Glob:
     def __init__(self, workspace: Workspace) -> None:
         self.workspace = workspace
 
-    @tool(name="glob")
+    @tool(name="glob", read_only=True, open_world=False)
     def glob(self, pattern: str, path: str | None = None) -> str:
         """Find files by name pattern, like "*.py" (any depth), "src/**/test_*.ts" or "**/package.json".
         Returns paths, most recently modified first. Respects .gitignore.
@@ -22,11 +22,9 @@ class Glob:
         """
         root = self.workspace.resolve(path or ".")
         if not root.is_dir():
-            return error(f"{path} is not a directory")
+            raise ToolError(f"{path} is not a directory")
         args = ["--files", "--hidden", "--sortr=modified", f"--glob={pattern}", *RG_EXCLUDES]
-        lines, failure = run_rg(args, cwd=root)
-        if failure:
-            return error(failure)
+        lines = run_rg(args, cwd=root)
         if not lines:
             return f"No files match {pattern}"
         shown = [self.workspace.display(root / line) for line in lines[:MAX_RESULTS]]

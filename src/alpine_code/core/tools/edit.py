@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from alpineagents import tool
+from alpineagents import ToolError, tool
 
-from ._common import Workspace, error
+from ._common import Workspace, os_error
 
 
 class Edit:
     def __init__(self, workspace: Workspace) -> None:
         self.workspace = workspace
 
-    @tool(name="edit")
+    @tool(name="edit", exception_handler=os_error, read_only=False, open_world=False)
     def edit(self, path: str, old_string: str, new_string: str, replace_all: bool = False) -> str:
         """Replace an exact piece of text in a file. Read the file first.
 
@@ -24,28 +24,25 @@ class Edit:
         """
         file = self.workspace.resolve(path)
         if not file.is_file():
-            return error(f"{path} does not exist. Use write to create a file")
+            raise ToolError(f"{path} does not exist. Use write to create a file")
         if old_string == new_string:
-            return error("old_string and new_string are the same")
+            raise ToolError("old_string and new_string are the same")
         if not old_string:
-            return error("old_string is empty. Use write to create or replace a whole file")
+            raise ToolError("old_string is empty. Use write to create or replace a whole file")
         try:
             text = file.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as e:
-            return error(str(e))
+        except UnicodeDecodeError as e:
+            raise ToolError(f"{path} is not UTF-8 text. Use bash to change it") from e
         count = text.count(old_string)
         if count == 0:
-            return error(f"old_string was not found in {path}. Read the file and copy the text exactly")
+            raise ToolError(f"old_string was not found in {path}. Read the file and copy the text exactly")
         if count > 1 and not replace_all:
-            return error(
+            raise ToolError(
                 f"old_string appears {count} times in {path}. Add surrounding lines to make it unique, "
                 "or set replace_all to true"
             )
         new_text = text.replace(old_string, new_string) if replace_all else text.replace(old_string, new_string, 1)
-        try:
-            file.write_text(new_text, encoding="utf-8")
-        except OSError as e:
-            return error(str(e))
+        file.write_text(new_text, encoding="utf-8")
         times = f"{count} occurrences" if replace_all and count > 1 else "1 occurrence"
         return f"Edited {self.workspace.display(file)} ({times} replaced)"
 

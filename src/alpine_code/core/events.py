@@ -59,11 +59,14 @@ class ToolFinished:
     name: str
     args: dict[str, Any]
     result: str
+    """What the model was told, for display. Each image in it is a line like ``(image/png, 34.2KB)``."""
     kind: ToolResultKind
+    images: int = 0
+    """How many images the result sent to the model."""
 
     @property
     def is_error(self) -> bool:
-        return self.kind != "done" or self.result.startswith("Error:")
+        return self.kind != "done"
 
 
 @dataclass(frozen=True)

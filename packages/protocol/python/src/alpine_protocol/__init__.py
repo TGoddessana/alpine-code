@@ -11,6 +11,7 @@ Three rules hold for every method added here:
 """
 
 from .messages import (
+    METHODS,
     PROTOCOL_VERSION,
     ErrorObject,
     InitializeParams,
@@ -21,6 +22,7 @@ from .messages import (
 )
 
 __all__ = [
+    "METHODS",
     "PROTOCOL_VERSION",
     "Request",
     "Response",

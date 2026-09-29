@@ -1,4 +1,4 @@
-# alpine-code
+# alpine-code (CLI)
 
 A terminal coding agent built on [alpineagents](https://tgoddessana.github.io/alpineagents/).
 If you use Claude Code, Codex, opencode or pi, you already know how to use it.
@@ -75,4 +75,18 @@ system prompt (`CLAUDE.md` is read where there is no `AGENTS.md`). A global one 
   time. Remembering an outside directory for `bash` means edit access to it, so that is only offered under your
   home directory or a temp directory; system directories, your home directory itself and `/` always ask.
 - With `-p`, calls that would ask are declined.
+
+## Tools
+
+| Tool | Does | Asks first |
+|---|---|---|
+| `read`, `glob`, `grep` | read a file or list a directory, find files, search contents | never, inside the working directory |
+| `write`, `edit` | create or replace a file, replace an exact piece of text | unless *accept edits* or *yolo* |
+| `bash` | run a shell command | unless *yolo*, or its commands were allowed before |
+
+Deliberately few. More will come as they prove necessary.
+
+`glob` and `grep` run [ripgrep](https://github.com/BurntSushi/ripgrep), so they respect `.gitignore`. The `rg` on
+your `PATH` is used when there is one; otherwise a pinned release is downloaded once (checksum-verified) into
+`~/.cache/alpine-code/ripgrep/`.
 

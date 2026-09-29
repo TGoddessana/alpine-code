@@ -26,3 +26,10 @@ def test_unknown_method_and_bad_json():
 
 def test_notifications_get_no_reply():
     assert run('{"jsonrpc":"2.0","method":"nope"}') == []
+
+
+def test_every_protocol_method_has_a_handler():
+    from alpine_protocol import METHODS
+    from alpine_server.stdio import HANDLERS
+
+    assert set(HANDLERS) == set(METHODS)

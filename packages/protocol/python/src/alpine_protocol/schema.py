@@ -22,10 +22,18 @@ MODELS: list[type[BaseModel]] = [
 
 def build() -> dict:
     _, schema = models_json_schema([(model, "serialization") for model in MODELS], by_alias=True)
+    # Field titles ("Protocolversion") would become one named type per field in the generated TypeScript.
+    for definition in schema["$defs"].values():
+        for field in definition.get("properties", {}).values():
+            field.pop("title", None)
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "title": "AlpineProtocol",
         "description": f"alpine-code protocol version {messages.PROTOCOL_VERSION}. Generated; do not edit.",
+        "x-methods": {
+            name: {"params": params.__name__, "result": result.__name__}
+            for name, (params, result) in messages.METHODS.items()
+        },
         **schema,
     }
 

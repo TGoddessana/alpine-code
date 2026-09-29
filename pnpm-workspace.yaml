@@ -1,0 +1,5 @@
+# TypeScript side of the monorepo. Python members live in pyproject.toml.
+packages:
+  - apps/desktop
+  - packages/ui
+  - packages/protocol/typescript

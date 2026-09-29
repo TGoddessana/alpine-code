@@ -2,20 +2,23 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AlpineProtocol",
   "description": "alpine-code protocol version 1. Generated; do not edit.",
+  "x-methods": {
+    "initialize": {
+      "params": "InitializeParams",
+      "result": "InitializeResult"
+    }
+  },
   "$defs": {
     "ErrorObject": {
       "properties": {
         "code": {
-          "title": "Code",
           "type": "integer"
         },
         "message": {
-          "title": "Message",
           "type": "string"
         },
         "data": {
-          "default": null,
-          "title": "Data"
+          "default": null
         }
       },
       "required": [
@@ -28,11 +31,9 @@
     "InitializeParams": {
       "properties": {
         "protocolVersion": {
-          "title": "Protocolversion",
           "type": "integer"
         },
         "clientName": {
-          "title": "Clientname",
           "type": "string"
         }
       },
@@ -46,7 +47,6 @@
     "InitializeResult": {
       "properties": {
         "protocolVersion": {
-          "title": "Protocolversion",
           "type": "integer"
         },
         "server": {
@@ -65,7 +65,6 @@
         "jsonrpc": {
           "const": "2.0",
           "default": "2.0",
-          "title": "Jsonrpc",
           "type": "string"
         },
         "id": {
@@ -80,11 +79,9 @@
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Id"
+          "default": null
         },
         "method": {
-          "title": "Method",
           "type": "string"
         },
         "params": {
@@ -97,8 +94,7 @@
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Params"
+          "default": null
         }
       },
       "required": [
@@ -112,7 +108,6 @@
         "jsonrpc": {
           "const": "2.0",
           "default": "2.0",
-          "title": "Jsonrpc",
           "type": "string"
         },
         "id": {
@@ -126,12 +121,10 @@
             {
               "type": "null"
             }
-          ],
-          "title": "Id"
+          ]
         },
         "result": {
-          "default": null,
-          "title": "Result"
+          "default": null
         },
         "error": {
           "anyOf": [
@@ -154,11 +147,9 @@
     "ServerInfo": {
       "properties": {
         "name": {
-          "title": "Name",
           "type": "string"
         },
         "version": {
-          "title": "Version",
           "type": "string"
         }
       },

@@ -1,0 +1,29 @@
+{
+  "name": "alpine-code-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.25.0",
+  "scripts": {
+    "desktop": "pnpm --filter @alpine/desktop tauri dev",
+    "storybook": "pnpm --filter @alpine/desktop storybook",
+    "protocol:generate": "uv run python -m alpine_protocol.schema > packages/protocol/schema/protocol.schema.json && pnpm --filter @alpine/protocol generate",
+    "protocol:check": "pnpm protocol:generate && git diff --exit-code -- packages/protocol",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-better-tailwindcss": "^4.7.0",
+    "eslint-plugin-boundaries": "^7.2.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^16.5.0",
+    "prettier": "^3.9.9",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0"
+  }
+}

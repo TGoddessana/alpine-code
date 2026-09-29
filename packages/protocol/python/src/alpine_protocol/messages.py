@@ -55,3 +55,9 @@ class ServerInfo(Message):
 class InitializeResult(Message):
     protocol_version: int
     server: ServerInfo
+
+
+#: Every method an app can call: name -> (params, result).
+METHODS: dict[str, tuple[type[Message], type[Message]]] = {
+    "initialize": (InitializeParams, InitializeResult),
+}

@@ -13,6 +13,7 @@ from typing import TextIO
 from pydantic import ValidationError
 
 from alpine_protocol import (
+    METHODS,
     PROTOCOL_VERSION,
     ErrorObject,
     InitializeParams,
@@ -35,18 +36,18 @@ def initialize(params: InitializeParams) -> InitializeResult:
     )
 
 
-METHODS = {
-    "initialize": (InitializeParams, initialize),
+HANDLERS = {
+    "initialize": initialize,
 }
 
 
 def handle(request: Request) -> Response | None:
     """The response to ``request``, or ``None`` for a notification."""
-    entry = METHODS.get(request.method)
-    if entry is None:
+    if request.method not in HANDLERS:
         error = ErrorObject(code=METHOD_NOT_FOUND, message=f"Unknown method: {request.method}")
         return None if request.id is None else Response(id=request.id, error=error)
-    params_model, method = entry
+    params_model, _ = METHODS[request.method]
+    method = HANDLERS[request.method]
     try:
         params = params_model.model_validate(request.params or {})
     except ValidationError as exc:

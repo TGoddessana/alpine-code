@@ -1,0 +1,13 @@
+pnpm-lock.yaml
+uv.lock
+**/routeTree.gen.ts
+**/generated.ts
+packages/protocol/schema/
+apps/desktop/src-tauri/
+bench/
+docs/
+*.md
+.venv/
+.import_linter_cache/
+.pytest_cache/
+.ruff_cache/

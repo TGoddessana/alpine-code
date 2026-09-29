@@ -2,39 +2,83 @@ version = 1
 revision = 3
 requires-python = ">=3.14"
 
+[manifest]
+members = [
+    "alpine-code",
+    "alpine-code-core",
+    "alpine-code-protocol",
+    "alpine-code-server",
+]
+
+[manifest.dependency-groups]
+dev = [
+    { name = "alpine-code", editable = "apps/cli" },
+    { name = "alpine-code-core", editable = "packages/core" },
+    { name = "alpine-code-protocol", editable = "packages/protocol/python" },
+    { name = "alpine-code-server", editable = "apps/server" },
+    { name = "import-linter", specifier = ">=2.3" },
+    { name = "pytest", specifier = ">=8.4" },
+    { name = "ruff", specifier = ">=0.13" },
+]
+
 [[package]]
 name = "alpine-code"
 version = "0.1.0"
-source = { editable = "." }
+source = { editable = "apps/cli" }
 dependencies = [
-    { name = "alpineagents" },
+    { name = "alpine-code-core" },
     { name = "prompt-toolkit" },
     { name = "rich" },
-    { name = "tree-sitter" },
-    { name = "tree-sitter-bash" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "import-linter" },
-    { name = "pytest" },
-    { name = "ruff" },
+[package.metadata]
+requires-dist = [
+    { name = "alpine-code-core", editable = "packages/core" },
+    { name = "prompt-toolkit", specifier = ">=3.0.52" },
+    { name = "rich", specifier = ">=14.0" },
+]
+
+[[package]]
+name = "alpine-code-core"
+version = "0.1.0"
+source = { editable = "packages/core" }
+dependencies = [
+    { name = "alpineagents" },
+    { name = "tree-sitter" },
+    { name = "tree-sitter-bash" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "alpineagents", specifier = ">=0.3.0" },
-    { name = "prompt-toolkit", specifier = ">=3.0.52" },
-    { name = "rich", specifier = ">=14.0" },
     { name = "tree-sitter", specifier = ">=0.26" },
     { name = "tree-sitter-bash", specifier = ">=0.25.1" },
 ]
 
-[package.metadata.requires-dev]
-dev = [
-    { name = "import-linter", specifier = ">=2.3" },
-    { name = "pytest", specifier = ">=8.4" },
-    { name = "ruff", specifier = ">=0.13" },
+[[package]]
+name = "alpine-code-protocol"
+version = "0.1.0"
+source = { editable = "packages/protocol/python" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.13" }]
+
+[[package]]
+name = "alpine-code-server"
+version = "0.1.0"
+source = { editable = "apps/server" }
+dependencies = [
+    { name = "alpine-code-core" },
+    { name = "alpine-code-protocol" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alpine-code-core", editable = "packages/core" },
+    { name = "alpine-code-protocol", editable = "packages/protocol/python" },
 ]
 
 [[package]]

@@ -43,6 +43,23 @@ export const messages = defineMessages({
     stopped_repeating: '같은 동작을 반복해서 멈췄어요',
     stopped_permission: '허용되지 않아서 멈췄어요',
     compaction: (before: string, after: string) => `대화를 정리했어요 · ${before} → ${after} 토큰`,
+
+    // Progress line
+    activity_thinking: '생각하는 중',
+    activity_writing: '답을 쓰는 중',
+    activity_reading: '파일 읽는 중',
+    activity_searching: '찾아보는 중',
+    activity_editing: '파일 고치는 중',
+    activity_running: '명령 실행 중',
+    activity_tool: '도구 쓰는 중',
+    activity_approval: '확인을 기다리는 중',
+    activity_compacting: '대화를 정리하는 중',
+    runTokens: (tokens: string) => `이번 작업 ${tokens} 토큰`,
+
+    // Context meter
+    memory: (percent: string) => `기억 ${percent}%`,
+    memoryHint: (percent: string) =>
+      `모델이 한 번에 기억하는 대화 중 ${percent}%를 쓰고 있어요. 가득 차면 앞부분을 요약해 공간을 만들어요.`,
   },
   en: {
     untitled: 'Untitled session',
@@ -83,5 +100,20 @@ export const messages = defineMessages({
     stopped_repeating: 'Stopped because it kept repeating itself',
     stopped_permission: 'Stopped because it was not allowed',
     compaction: (before: string, after: string) => `Conversation compacted · ${before} → ${after} tokens`,
+
+    activity_thinking: 'Thinking',
+    activity_writing: 'Writing the answer',
+    activity_reading: 'Reading a file',
+    activity_searching: 'Searching',
+    activity_editing: 'Changing a file',
+    activity_running: 'Running a command',
+    activity_tool: 'Using a tool',
+    activity_approval: 'Waiting for your OK',
+    activity_compacting: 'Tidying up the conversation',
+    runTokens: (tokens: string) => `${tokens} tokens this run`,
+
+    memory: (percent: string) => `Memory ${percent}%`,
+    memoryHint: (percent: string) =>
+      `Using ${percent}% of what the model can keep in mind at once. When it fills up, the earlier part is summarised to make room.`,
   },
 });

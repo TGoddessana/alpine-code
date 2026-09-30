@@ -1,19 +1,22 @@
+import type { SessionInfo } from '@alpine/protocol';
 import { PanelResizer, Tabs, usePanelWidth } from '@alpine/ui/primitives';
 import { useState } from 'react';
 
 import { useMessages } from '@/shared/i18n';
 
 import { messages } from './messages';
+import { UsageSection } from './UsageSection';
 
-const PARTS = ['plan', 'verification', 'changes', 'unusual'] as const;
+const PARTS = ['plan', 'verification', 'changes', 'unusual', 'usage'] as const;
 type Tab = 'all' | (typeof PARTS)[number];
 
 /**
- * The session's state as tabs, with no title. 'All' stacks the four parts, always in this order: plan,
- * verification, changes, out of the ordinary; the other tabs show one part. Switching tabs never changes the
+ * The session's state as tabs, with no title. 'All' stacks the five parts, always in this order: plan,
+ * verification, changes, out of the ordinary, usage; the other tabs show one part. Usage is the only part with
+ * content so far, and it reads from the session's `info` (empty says 'none' until it is there). Switching tabs never changes the
  * panel's width: only dragging its edge does. Empty says 'none'.
  */
-export function StatusPanel() {
+export function StatusPanel({ info = null }: { info?: SessionInfo | null }) {
   const t = useMessages(messages);
   const [tab, setTab] = useState<Tab>('all');
   const width = usePanelWidth({ storageKey: 'alpine.status-panel.width', initial: 380, min: 280, max: 900 });
@@ -41,13 +44,21 @@ export function StatusPanel() {
           {PARTS.map((part) => (
             <section key={part} className="flex flex-col gap-1">
               <h2 className="flex min-h-7 items-center text-lead">{t[part]}</h2>
-              <p className="flex min-h-7 items-center text-body text-fg-muted">{t.none}</p>
+              {part === 'usage' ? (
+                <UsageSection info={info} />
+              ) : (
+                <p className="flex min-h-7 items-center text-body text-fg-muted">{t.none}</p>
+              )}
             </section>
           ))}
         </Tabs.Panel>
         {PARTS.map((part) => (
           <Tabs.Panel key={part} value={part} className="px-5 py-4">
-            <p className="flex min-h-7 items-center text-body text-fg-muted">{t.none}</p>
+            {part === 'usage' ? (
+              <UsageSection info={info} />
+            ) : (
+              <p className="flex min-h-7 items-center text-body text-fg-muted">{t.none}</p>
+            )}
           </Tabs.Panel>
         ))}
       </Tabs.Root>

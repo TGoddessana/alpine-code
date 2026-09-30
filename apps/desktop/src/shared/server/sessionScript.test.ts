@@ -53,6 +53,29 @@ describe('sessionScript', () => {
     expect(state().activeIds).toEqual([]);
   });
 
+  it('reports the activity, the run and the usage as the turn goes', async () => {
+    const { connection, id, state } = await setup();
+    expect(state().info.activity).toBeNull();
+    await connection.request('session/send', { sessionId: id, text: 'run the tests' });
+    await vi.waitFor(() => expect(activeApproval(state())).not.toBeNull());
+    const waiting = state().info;
+    expect(waiting.activity).toMatchObject({ kind: 'waiting_approval', toolName: 'bash' });
+    expect(waiting.runStartedAt).not.toBeNull();
+    expect(waiting.runUsage?.requests).toBe(2);
+    expect(waiting.usage.requests).toBe(2);
+    expect(waiting.contextUsed).toBeGreaterThan(0);
+    await connection.request('session/answer', {
+      sessionId: id,
+      requestId: activeApproval(state())!.id,
+      decision: 'allow',
+    });
+    await vi.waitFor(() => expect(state().info.status).toBe('idle'));
+    const done = state().info;
+    expect(done).toMatchObject({ activity: null, runStartedAt: null, runUsage: null });
+    expect(done.usage.requests).toBe(4);
+    expect(done.usage.cacheReadTokens).toBeGreaterThan(0);
+  });
+
   it('stops the run when a denial has no feedback', async () => {
     const { connection, id, state } = await setup();
     await connection.request('session/send', { sessionId: id, text: 'edit the readme' });

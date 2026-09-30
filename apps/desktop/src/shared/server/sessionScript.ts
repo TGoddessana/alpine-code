@@ -1,4 +1,4 @@
-import type { ApprovalItem, SessionInfo, ToolCallItem } from '@alpine/protocol';
+import type { Activity, ApprovalItem, SessionInfo, ToolCallItem, Usage } from '@alpine/protocol';
 
 import { ServerError } from './connection';
 import type { Script, ScriptContext } from './scripted';
@@ -63,6 +63,9 @@ const ANSWER = 'I read the README, then ran the check you asked for. ';
  *    otherwise `bash`), which waits for `session/answer` or `session/cancel`
  * 4. a final streamed reply, and the session is idle again
  *
+ * Along the way `info` changes as on the real server: the activity (thinking, writing, a tool, waiting for approval),
+ * `runStartedAt`, and the usage after every model call (`runUsage` for the run, `usage` and `contextUsed` for the session).
+ *
  * A denial with feedback goes on to the final reply; one without it ends the run with `run_stopped: permission`.
  * `session/cancel` ends the run with `run_stopped: interrupted` wherever it is.
  */
@@ -105,6 +108,40 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
     });
   }
 
+  /** What the agent is doing now, since now; `null` when idle. */
+  function setActivity(
+    context: ScriptContext,
+    live: Live,
+    kind: Activity['kind'] | null,
+    toolName: string | null = null,
+  ) {
+    setInfo(context, live, {
+      activity: kind ? { kind, toolName, since: new Date().toISOString() } : null,
+    });
+  }
+
+  /** One request to the model: it adds tokens to the whole session and to this run, and the conversation grows. */
+  function modelCall(
+    context: ScriptContext,
+    live: Live,
+    tokens: { input: number; output: number; cacheRead: number; cacheWrite: number },
+  ) {
+    const add = (usage: Usage): Usage => ({
+      inputTokens: usage.inputTokens + tokens.input,
+      outputTokens: usage.outputTokens + tokens.output,
+      cacheReadTokens: usage.cacheReadTokens + tokens.cacheRead,
+      cacheWriteTokens: usage.cacheWriteTokens + tokens.cacheWrite,
+      requests: usage.requests + 1,
+      cost: (usage.cost ?? 0) + 0.0031,
+    });
+    const { info } = live.state;
+    setInfo(context, live, {
+      usage: add(info.usage),
+      runUsage: info.runUsage ? add(info.runUsage) : null,
+      contextUsed: info.contextUsed + tokens.output + tokens.cacheWrite,
+    });
+  }
+
   const id = (live: Live, prefix: string) => `${live.state.info.id}/${prefix}_${++live.counter}`;
 
   async function run(context: ScriptContext, live: Live, text: string) {
@@ -132,7 +169,13 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
     };
 
     const first = live.state.info.title === '';
-    setInfo(context, live, { status: 'running', title: first ? shorten(text) : live.state.info.title });
+    setInfo(context, live, {
+      status: 'running',
+      title: first ? shorten(text) : live.state.info.title,
+      runStartedAt: new Date().toISOString(),
+      runUsage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, requests: 0, cost: 0 },
+      activity: { kind: 'thinking', toolName: null, since: new Date().toISOString() },
+    });
     const user: Item = { id: id(live, 'user'), kind: 'user_message', text };
     emit(context, live, { type: 'item_started', item: user });
     emit(context, live, { type: 'item_completed', item: user });
@@ -141,7 +184,11 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
     let call: ToolCallItem | null = null;
     let approval: ApprovalItem | null = null;
     try {
+      await step();
+      setActivity(context, live, 'writing');
       await say('Let me look at the project first.');
+      modelCall(context, live, { input: 1800, output: 40, cacheRead: 0, cacheWrite: 1500 });
+      setActivity(context, live, 'running_tool', 'read_file');
       await step();
       read = {
         id: id(live, 'call'),
@@ -157,6 +204,9 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
       read = { ...read, status: 'done', result: '# alpine-code\n\nA coding agent with a core and a UI.\n' };
       emit(context, live, { type: 'item_completed', item: read });
       read = null;
+      setActivity(context, live, 'thinking');
+      await step();
+      modelCall(context, live, { input: 300, output: 90, cacheRead: 1500, cacheWrite: 350 });
 
       const editing = /\bedit\b/i.test(text);
       call = {
@@ -169,6 +219,8 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         images: 0,
       };
       emit(context, live, { type: 'item_started', item: call });
+      setActivity(context, live, 'running_tool', call.name);
+      await step();
       approval = {
         id: id(live, 'req'),
         kind: 'approval',
@@ -182,7 +234,10 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         feedback: null,
       };
       emit(context, live, { type: 'item_started', item: approval });
-      setInfo(context, live, { status: 'waiting' });
+      setInfo(context, live, {
+        status: 'waiting',
+        activity: { kind: 'waiting_approval', toolName: call.name, since: new Date().toISOString() },
+      });
 
       const answer = await new Promise<{ decision: NonNullable<ApprovalItem['decision']>; feedback: string | null }>(
         (resolve) => {
@@ -200,7 +255,10 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         call = null;
         throw new Cancelled();
       }
-      setInfo(context, live, { status: 'running' });
+      setInfo(context, live, {
+        status: 'running',
+        activity: { kind: 'running_tool', toolName: call.name, since: new Date().toISOString() },
+      });
 
       if (answer.decision === 'deny') {
         call = { ...call, status: 'denied' };
@@ -220,7 +278,12 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         emit(context, live, { type: 'item_completed', item: call });
         call = null;
       }
+      setActivity(context, live, 'thinking');
+      await step();
+      modelCall(context, live, { input: 200, output: 60, cacheRead: 1850, cacheWrite: 120 });
+      setActivity(context, live, 'writing');
       await say(ANSWER + (answer.feedback ? `You said: ${answer.feedback}` : 'Everything looks fine.'));
+      modelCall(context, live, { input: 150, output: 80, cacheRead: 1970, cacheWrite: 0 });
       finish(context, live, 'idle');
     } catch (error) {
       if (!(error instanceof Cancelled)) throw error;
@@ -241,20 +304,9 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
   }
 
   function finish(context: ScriptContext, live: Live, status: SessionInfo['status']) {
-    const { usage } = live.state.info;
     live.run = null;
     live.waiting = null;
-    setInfo(context, live, {
-      status,
-      contextUsed: live.state.info.contextUsed + 1200,
-      usage: {
-        ...usage,
-        inputTokens: usage.inputTokens + 1200,
-        outputTokens: usage.outputTokens + 180,
-        requests: usage.requests + 2,
-        cost: (usage.cost ?? 0) + 0.0082,
-      },
-    });
+    setInfo(context, live, { status, activity: null, runStartedAt: null, runUsage: null });
   }
 
   return {

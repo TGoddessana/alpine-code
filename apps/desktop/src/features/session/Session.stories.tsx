@@ -117,6 +117,19 @@ export const StreamingReply: Story = {
   },
 };
 
+/** While the run goes on, a line above the input says what it is doing, for how long and with how many tokens. */
+export const ShowsProgress: Story = {
+  parameters: { server: server([], { stepMs: 2000, wordMs: 300 }) },
+  play: async () => {
+    await say('테스트를 돌려 주세요');
+    await waitFor(() => expect(screen.getByText(/답을 쓰는 중|Writing the answer/)).toBeVisible());
+    await waitFor(() => expect(screen.getByText(/이번 작업 [\d,]+ 토큰|[\d,]+ tokens this run/)).toBeVisible(), {
+      timeout: 10_000,
+    });
+    await expect(screen.getByText(/기억 \d+%|Memory \d+%/)).toBeVisible();
+  },
+};
+
 /** The dock above the input: what it wants to run and why, and my three answers. */
 export const WaitingForApproval: Story = {
   parameters: { server: server() },

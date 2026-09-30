@@ -84,20 +84,71 @@ ALLOW = Verdict(True)
 
 
 @dataclass
-class PermissionPolicy:
-    workspace: Workspace
-    mode: Mode = Mode.DEFAULT
+class Remembered:
+    """What the user allowed with "don't ask again" in one conversation. The session keeps it in the conversation's
+    State (``to_data``), so it is saved and resumed with it, and a new conversation starts with nothing remembered."""
+
     tools: set[str] = field(default_factory=set)
     read_dirs: set[Path] = field(default_factory=set)
     edit_dirs: set[Path] = field(default_factory=set)
     files: set[Path] = field(default_factory=set)
     bash_prefixes: set[tuple[str, ...]] = field(default_factory=set)
 
-    def evaluate(self, name: str, args: dict[str, Any], tool: Tool | None) -> Verdict:
+    def add(self, grant: Grant) -> None:
+        if grant.tool:
+            self.tools.add(grant.tool)
+        self.read_dirs.update(grant.read_dirs)
+        self.edit_dirs.update(grant.edit_dirs)
+        self.files.update(grant.files)
+        self.bash_prefixes.update(grant.bash_prefixes)
+
+    def to_data(self) -> dict[str, list]:
+        """A JSON value, sorted so the same grants always save the same way."""
+        return {
+            "tools": sorted(self.tools),
+            "read_dirs": sorted(map(str, self.read_dirs)),
+            "edit_dirs": sorted(map(str, self.edit_dirs)),
+            "files": sorted(map(str, self.files)),
+            "bash_prefixes": sorted(map(list, self.bash_prefixes)),
+        }
+
+    @classmethod
+    def from_data(cls, data: dict[str, list] | None) -> Remembered:
+        """The inverse of ``to_data``. ``None`` (nothing saved yet) is nothing remembered."""
+        data = data or {}
+        return cls(
+            tools=set(data.get("tools", ())),
+            read_dirs={Path(p) for p in data.get("read_dirs", ())},
+            edit_dirs={Path(p) for p in data.get("edit_dirs", ())},
+            files={Path(p) for p in data.get("files", ())},
+            bash_prefixes={tuple(p) for p in data.get("bash_prefixes", ())},
+        )
+
+
+@dataclass
+class PermissionPolicy:
+    workspace: Workspace
+    mode: Mode = Mode.DEFAULT
+
+    def evaluate(
+        self, name: str, args: dict[str, Any], tool: Tool | None, remembered: Remembered | None = None
+    ) -> Verdict:
         """Whether a call to ``name`` with ``args`` may run without asking. ``tool`` is the Tool the name stands
-        for, or ``None`` for a name the model made up."""
+        for, or ``None`` for a name the model made up. ``remembered`` is what the user already allowed."""
         if self.mode is Mode.YOLO:
             return ALLOW
+        return _Evaluation(self.workspace, self.mode, remembered or Remembered()).evaluate(name, args, tool)
+
+
+@dataclass(frozen=True)
+class _Evaluation:
+    """One call checked against the mode and what is remembered."""
+
+    workspace: Workspace
+    mode: Mode
+    remembered: Remembered
+
+    def evaluate(self, name: str, args: dict[str, Any], tool: Tool | None) -> Verdict:
         if name == "bash":
             return self._bash(str(args.get("command", "")))
         kind = kind_of(tool, args)
@@ -110,14 +161,6 @@ class PermissionPolicy:
             return self._read_inside(name, target)
         return ALLOW if self.mode is Mode.ACCEPT_EDITS else self._by_tool(name)
 
-    def remember(self, grant: Grant) -> None:
-        if grant.tool:
-            self.tools.add(grant.tool)
-        self.read_dirs.update(grant.read_dirs)
-        self.edit_dirs.update(grant.edit_dirs)
-        self.files.update(grant.files)
-        self.bash_prefixes.update(grant.bash_prefixes)
-
     @property
     def _root(self) -> Path:
         return self.workspace.root.resolve()
@@ -125,19 +168,19 @@ class PermissionPolicy:
     # ------------------------------------------------------------ file tools
 
     def _by_tool(self, name: str) -> Verdict:
-        if name in self.tools:
+        if name in self.remembered.tools:
             return ALLOW
         return Verdict(False, grant=Grant(name, tool=name))
 
     def _read_inside(self, name: str, target: Path) -> Verdict:
-        if name in ("read", "grep") and is_secret(target) and target not in self.files:
+        if name in ("read", "grep") and is_secret(target) and target not in self.remembered.files:
             grant = Grant(f"reading {target.name}", files=(target,))
             return Verdict(False, f"{target.name} may contain secrets", grant)
         return ALLOW
 
     def _outside(self, kind: ToolKind, target: Path) -> Verdict:
         editing = kind != "read"
-        allowed_dirs = self.edit_dirs if editing else self.read_dirs | self.edit_dirs
+        allowed_dirs = self.remembered.edit_dirs if editing else self.remembered.read_dirs | self.remembered.edit_dirs
         if any(_inside(target, d) for d in allowed_dirs):
             return ALLOW
         directory = target if target.is_dir() else target.parent
@@ -163,7 +206,7 @@ class PermissionPolicy:
         analysis = shell.analyze(command)
         outside, secrets = self._bash_targets(analysis)
         unresolved = list(dict.fromkeys(analysis.unresolved_paths))
-        known = all(any(shell.matches(words, p) for p in self.bash_prefixes) for words in analysis.commands)
+        known = all(any(shell.matches(words, p) for p in self.remembered.bash_prefixes) for words in analysis.commands)
         if known and not (analysis.opaque or analysis.writes_files or outside or secrets or unresolved):
             return ALLOW
 
@@ -188,9 +231,9 @@ class PermissionPolicy:
         secrets: list[Path] = []
         for text in dict.fromkeys(analysis.paths):
             target = (self._root / Path(text).expanduser()).resolve()
-            if not _inside(target, self._root) and not any(_inside(target, d) for d in self.edit_dirs):
+            if not _inside(target, self._root) and not any(_inside(target, d) for d in self.remembered.edit_dirs):
                 outside.append(target)
-            elif is_secret(target) and target not in self.files:
+            elif is_secret(target) and target not in self.remembered.files:
                 secrets.append(target)
         return outside, secrets
 

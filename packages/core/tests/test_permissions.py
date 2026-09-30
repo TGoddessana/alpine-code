@@ -1,12 +1,41 @@
+import json
+from dataclasses import dataclass, field
 from functools import cache
+from pathlib import Path
 
 import pytest
 from alpineagents import Agent, tool
 from alpineagents.testing import FakeModel
 
-from alpine_core.permissions import Mode, PermissionPolicy, kind_of
+from alpine_core.permissions import Grant, Mode, PermissionPolicy, Remembered, kind_of
 from alpine_core.shell import analyze, prefix
 from alpine_core.tools import Workspace, default_tools
+
+
+@dataclass
+class Policy:
+    """A policy and what the user said "don't ask again" to, kept together as a conversation keeps them."""
+
+    policy: PermissionPolicy
+    remembered: Remembered = field(default_factory=Remembered)
+
+    @property
+    def workspace(self):
+        return self.policy.workspace
+
+    @property
+    def mode(self):
+        return self.policy.mode
+
+    @mode.setter
+    def mode(self, mode):
+        self.policy.mode = mode
+
+    def evaluate(self, name, args, tool):
+        return self.policy.evaluate(name, args, tool, self.remembered)
+
+    def remember(self, grant):
+        self.remembered.add(grant)
 
 
 @pytest.fixture
@@ -17,7 +46,7 @@ def policy(tmp_path):
     (root / ".env.example").write_text("KEY=")
     (tmp_path / "outside").mkdir()
     (tmp_path / "outside/notes.txt").write_text("hi")
-    return PermissionPolicy(Workspace(root))
+    return Policy(PermissionPolicy(Workspace(root)))
 
 
 @cache
@@ -198,3 +227,13 @@ def test_read_outside_never_remembers_home(policy):
 def test_system_directories_can_be_remembered_for_reading_only(policy):
     assert evaluate(policy, "read", {"path": "/etc/hosts"}).grant is not None
     assert evaluate(policy, "write", {"path": "/etc/hosts"}).grant is None
+
+
+def test_remembered_round_trips_through_json():
+    remembered = Remembered()
+    remembered.add(Grant("write", tool="write"))
+    dirs = {"read_dirs": (Path("/r"),), "edit_dirs": (Path("/e"),), "files": (Path("/p/.env"),)}
+    remembered.add(Grant("x", bash_prefixes=(("git", "status"),), **dirs))
+    data = json.loads(json.dumps(remembered.to_data()))
+    assert Remembered.from_data(data) == remembered
+    assert Remembered.from_data(None) == Remembered()

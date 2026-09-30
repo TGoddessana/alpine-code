@@ -255,3 +255,15 @@ def test_ctrl_c_in_the_approval_prompt_interrupts(tmp_path, monkeypatch):
     assert session.send("say hi") is None
     assert isinstance(events[-1], Interrupted)
     assert session.send("never mind") == "Sure, what next?"
+
+
+def test_allow_always_lasts_for_the_conversation(tmp_path, monkeypatch):
+    replies = [tool_call("bash", command="echo 1"), "One", tool_call("bash", command="echo 2"), "Two"]
+    replies += [tool_call("bash", command="echo 3"), "Three"]
+    session, _, approver = make_session(tmp_path, monkeypatch, replies, Decision("allow_always"), Decision("allow"))
+    session.send("run one")
+    session.send("run two")
+    assert len(approver.requests) == 1
+    session.clear()
+    session.send("run three")
+    assert len(approver.requests) == 2

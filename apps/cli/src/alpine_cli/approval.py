@@ -32,7 +32,7 @@ class CliApprover:
 
         options = [("allow", "Yes")]
         if request.remember:
-            options.append(("allow_always", f"Yes, and don't ask again for {request.remember} this session"))
+            options.append(("allow_always", f"Yes, and don't ask again for {request.remember} in this conversation"))
         options.append(("deny", "No, and tell it what to do differently"))
         answer = choice(
             message=HTML("<b>Do you want to proceed?</b>"),

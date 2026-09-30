@@ -13,11 +13,14 @@ from typing import Any, Literal, Protocol
 from alpineagents import State, Tool, ToolCall
 from alpineagents.permissions import Allowed, DecidePermission, Denied
 
-from .permissions import PermissionPolicy, Verdict
+from .permissions import PermissionPolicy, Remembered, Verdict
 from .tools import Workspace, preview_edit
 
 #: Most diff lines put in a preview.
 MAX_PREVIEW_LINES = 200
+
+#: The ``state.root.data`` key holding the conversation's "don't ask again" answers (``Remembered.to_data``).
+REMEMBERED = "alpine_code.approvals"
 
 DECLINED = "The user declined this tool call."
 
@@ -73,7 +76,8 @@ Approver = BlockingApprover | AsyncApprover
 
 
 class DecideByApprover(DecidePermission):
-    """Allows what the policy allows; asks the approver about everything else."""
+    """Allows what the policy and the conversation's "don't ask again" answers allow; asks the approver about
+    everything else. Those answers live in ``state.root.data[REMEMBERED]``, so they are saved with the State."""
 
     def __init__(self, policy: PermissionPolicy, approver: Approver) -> None:
         if not callable(getattr(approver, "aapprove", None)) and not callable(getattr(approver, "approve", None)):
@@ -82,36 +86,45 @@ class DecideByApprover(DecidePermission):
         self.approver = approver
 
     def check(self, state: State, call: ToolCall, tool: Tool) -> Allowed | Denied:
-        verdict, request = self._ask(call, tool)
+        verdict, request = self._ask(state, call, tool)
         if request is None:
             return Allowed()
-        return self._decide(verdict, self.approver.approve(request))  # type: ignore[union-attr]
+        return self._decide(state, verdict, self.approver.approve(request))  # type: ignore[union-attr]
 
     async def acheck(self, state: State, call: ToolCall, tool: Tool) -> Allowed | Denied:
         aapprove = getattr(self.approver, "aapprove", None)
         if not callable(aapprove):
             return await super().acheck(state, call, tool)  # check on a worker thread
-        verdict, request = self._ask(call, tool)
+        verdict, request = self._ask(state, call, tool)
         if request is None:
             return Allowed()
-        return self._decide(verdict, await aapprove(request))
+        return self._decide(state, verdict, await aapprove(request))
 
-    def _ask(self, call: ToolCall, tool: Tool) -> tuple[Verdict, ApprovalRequest | None]:
-        """The policy's verdict, and what to ask the user (``None`` when the policy allows the call)."""
+    def _ask(self, state: State, call: ToolCall, tool: Tool) -> tuple[Verdict, ApprovalRequest | None]:
+        """The policy's verdict, and what to ask the user (``None`` when the call may run without asking)."""
         args = dict(call.args)
-        verdict = self.policy.evaluate(call.name, args, tool)
+        verdict = self.policy.evaluate(call.name, args, tool, remembered(state))
         if verdict.allowed:
             return verdict, None
         return verdict, describe(call.name, args, self.policy.workspace, verdict)
 
-    def _decide(self, verdict: Verdict, decision: Decision) -> Allowed | Denied:
+    def _decide(self, state: State, verdict: Verdict, decision: Decision) -> Allowed | Denied:
         if decision.kind == "allow_always" and verdict.grant is not None:
-            self.policy.remember(verdict.grant)
+            root = state.root
+            with root.lock:
+                grants = remembered(root)
+                grants.add(verdict.grant)
+                root.data[REMEMBERED] = grants.to_data()
         if decision.kind != "deny":
             return Allowed()
         if decision.feedback:
             return Denied(f"{DECLINED} They said: {decision.feedback}")
         return Denied(f"{DECLINED} Wait for their next message.", stop=True)
+
+
+def remembered(state: State) -> Remembered:
+    """What the user allowed with "don't ask again" in ``state``'s conversation."""
+    return Remembered.from_data(state.root.data.get(REMEMBERED))
 
 
 def describe(name: str, args: dict[str, Any], workspace: Workspace, verdict: Verdict) -> ApprovalRequest:

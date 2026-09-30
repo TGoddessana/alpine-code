@@ -113,9 +113,10 @@ The protocol is a thin wrapper: the core builds items and numbers them, so the C
   `aapprove`. Cancel is `task.cancel()` on alpineagents' `arun`. The server runs every session on one asyncio loop.
 - **Permissions through alpineagents.** `Agent(permissions=[...])` (alpineagents 0.4) checks every call before
   `use_tools` runs anything, so no loop can skip it. The core already runs one `DecideByApprover` (policy, then
-  describe the call and ask the approver) and stops with `Denied(stop=True)`. Still to do: remember
-  `allow_always` in `state.root.data`, and split workspace and secret rules into deny permissions and the mode into
-  allow permissions. This is not a sandbox.
+  describe the call and ask the approver) and stops with `Denied(stop=True)`. `allow_always` answers live in
+  `state.root.data["alpine_code.approvals"]`, so they last for the conversation and are saved and resumed with it.
+  Still to do: split workspace and secret rules into deny permissions and the mode into allow permissions. This is
+  not a sandbox.
 - **Items.** The core turns alpineagents' `Reporter` calls into item events and assigns `seq`. A `notice` item comes
   from the core's own `state.add_notice` calls; notices alpineagents adds by itself are not reported yet (the
   `Reporter` has no callback for them).

@@ -30,8 +30,8 @@ def test_notifications_get_no_reply():
 
 def test_every_protocol_method_has_a_handler():
     from alpine_protocol import METHODS
-    from alpine_server.methods import HANDLERS
     from alpine_server.sessions import SessionManager
+    from alpine_server.stdio import HANDLERS
 
     assert set(HANDLERS) | set(SessionManager(lambda params: None).handlers()) == set(METHODS)
 

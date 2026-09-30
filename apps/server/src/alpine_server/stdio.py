@@ -21,8 +21,10 @@ from pydantic import ValidationError
 
 from alpine_protocol import METHODS, ErrorObject, Request, Response, SessionEventParams
 
-from .methods import HANDLERS, INVALID_PARAMS, MethodError
+from .methods import HANDLERS as METHOD_HANDLERS
+from .methods import INVALID_PARAMS, MethodError
 from .sessions import SessionManager
+from .tools import HANDLERS as TOOL_HANDLERS
 
 PARSE_ERROR = -32700
 INVALID_REQUEST = -32600
@@ -30,6 +32,9 @@ METHOD_NOT_FOUND = -32601
 INTERNAL_ERROR = -32603
 
 Write = Callable[[str], None]
+
+
+HANDLERS = {**METHOD_HANDLERS, **TOOL_HANDLERS}
 
 
 class _Failure(Exception):

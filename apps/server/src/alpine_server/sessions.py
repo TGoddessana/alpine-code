@@ -52,6 +52,7 @@ from alpine_protocol import (
 )
 
 from .methods import APP_ERROR, MethodError
+from .tools import profiles, toolbox
 from .wire import to_event_params, to_info, to_item
 
 Notify = Callable[[SessionEventParams], None]
@@ -143,6 +144,9 @@ class SessionManager:
                 projects=ProjectList.default(),
                 storage=self.storage,
                 mode=Mode(params.mode) if params.mode else None,
+                profiles=profiles(),
+                toolbox=toolbox(),
+                profile=params.profile,
             )
         except ConfigError as e:
             raise MethodError(APP_ERROR, str(e), "invalid_config") from e
@@ -235,6 +239,8 @@ class SessionManager:
                 on_item_event=self._on_item_event,
                 approver=approver,
                 projects=ProjectList.default(),
+                profiles=profiles(),
+                toolbox=toolbox(),
             )
         except LookupError as e:
             raise MethodError(SESSION_NOT_FOUND, f"No such session: {session_id}") from e

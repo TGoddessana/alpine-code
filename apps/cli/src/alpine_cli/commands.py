@@ -2,13 +2,27 @@
 
 from __future__ import annotations
 
+import asyncio
+import webbrowser
 from collections.abc import Callable
 from dataclasses import dataclass
 
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
-from alpine_core import ConfigError, Mode, Session
+from alpine_core import ConfigError, Mode, Session, Settings, chatgpt_tokens, home_dir
+from alpine_core.chatgpt import (
+    ChatGPTError,
+    SignIn,
+    SignInError,
+    account_of,
+    fetch_models,
+    host_id,
+    is_chatgpt,
+    save_account,
+    sign_out,
+)
 
 from .theme import MODE_LABELS
 
@@ -125,6 +139,78 @@ def _cost(ctx: Context, arg: str) -> bool:
         f"+{u.cache_write_tokens:,} written to cache)\n"
         f"Output: {u.output_tokens:,} tokens\nCost: {cost}\nContext: {ctx.session.context_used:.0%} used"
     )
+    return True
+
+
+@command("login", "Sign in with ChatGPT to use your plan (/login [connection] signs in again)")
+def _login(ctx: Context, arg: str) -> bool:
+    settings = Settings.load()
+    previous = None
+    if arg:
+        connection = settings.connections.get(arg)
+        if connection is None or not is_chatgpt(connection):
+            ctx.console.print(f"[error]No ChatGPT connection named {arg!r}.[/]")
+            return True
+        previous = account_of(connection, settings.secrets)
+    try:
+        account = asyncio.run(_sign_in(ctx.console, previous, consent=previous is not None and not previous.plan_usage))
+    except KeyboardInterrupt:
+        ctx.console.print("[muted]Cancelled signing in.[/]")
+        return True
+    except SignInError as e:
+        ctx.console.print(f"[error]{escape(str(e))}[/]")
+        return True
+    name = save_account(account, settings.secrets, Settings.load().connections)
+    who = account.email or "your ChatGPT account"
+    if not account.plan_usage:
+        ctx.console.print(
+            f"Signed in as {escape(who)}, but using your ChatGPT plan was not allowed. "
+            f"Run [accent]/login {name}[/] to allow it."
+        )
+        return True
+    ctx.console.print(f"Signed in as {escape(who)} · connection [accent]{name}[/]. AI requests use your ChatGPT plan.")
+    settings = Settings.load()
+    try:
+        models = [m.slug for m in fetch_models(chatgpt_tokens(settings, settings.connections[name]).access_token())]
+    except ChatGPTError:
+        models = []
+    if models:
+        ctx.console.print(f"Models: {', '.join(models)}. Switch with [accent]/model {name}/{models[0]}[/].")
+    ctx.console.print("[muted]Manage usage: https://chatgpt.com/settings/usage[/]")
+    return True
+
+
+async def _sign_in(console: Console, previous, consent: bool):
+    sign_in = await SignIn.start(host_id(home_dir()), previous=previous, consent=consent)
+    console.print(f"Opening your browser to sign in with ChatGPT. If it does not open, visit:\n{sign_in.url}")
+    webbrowser.open(sign_in.url)
+    try:
+        with console.status("[muted]Waiting for the browser… (Ctrl+C to cancel)[/]"):
+            return await sign_in.wait()
+    finally:
+        sign_in.cancel()
+
+
+@command("logout", "Sign out of a ChatGPT connection (/logout [connection])")
+def _logout(ctx: Context, arg: str) -> bool:
+    settings = Settings.load()
+    signed_in = [c for c in settings.connections.values() if is_chatgpt(c)]
+    if arg:
+        signed_in = [c for c in signed_in if c.name == arg]
+    if len(signed_in) != 1:
+        names = ", ".join(c.name for c in signed_in) or "none"
+        ctx.console.print(
+            f"[error]Name the ChatGPT connection to sign out of: /logout <name> (connections: {names})[/]"
+        )
+        return True
+    connection = signed_in[0]
+    if sign_out(connection, settings.secrets):
+        ctx.console.print(f"Signed out of [accent]{connection.name}[/]. /login {connection.name} signs in again.")
+    else:
+        ctx.console.print(
+            f"Signed out of [accent]{connection.name}[/] here, but OpenAI did not confirm it. "
+            "You can disconnect alpine-code in ChatGPT settings."
+        )
     return True
 
 

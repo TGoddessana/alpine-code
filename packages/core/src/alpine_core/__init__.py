@@ -1,10 +1,11 @@
 """The UI-agnostic core of alpine-code.
 
-A frontend creates a ``Session`` with an ``on_event`` callback and an ``Approver``, then calls ``send``. Everything a
-frontend needs is exported here; frontends must not import alpineagents or core submodules directly.
+A frontend creates a ``Session`` with an ``on_event`` callback and an ``Approver``, then awaits ``asend`` (or calls
+``send`` without an event loop). Everything a frontend needs is exported here; frontends must not import alpineagents
+or core submodules directly.
 """
 
-from .approval import ApprovalRequest, Approver, Decision
+from .approval import ApprovalRequest, Approver, AsyncApprover, BlockingApprover, Decision
 from .config import ConfigError, Connection, Settings, config_file, save_connection, set_default_model
 from .events import (
     AssistantDone,
@@ -60,6 +61,8 @@ __all__ = [
     "PullRequest",
     "Mode",
     "Approver",
+    "BlockingApprover",
+    "AsyncApprover",
     "ApprovalRequest",
     "Decision",
     "Event",

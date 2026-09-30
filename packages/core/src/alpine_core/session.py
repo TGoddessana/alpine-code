@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import asyncio
+from collections.abc import Callable, Coroutine
 from pathlib import Path
+from typing import Any, TypeVar
 
 from alpineagents import (
     Agent,
@@ -31,9 +33,10 @@ from .tools import Workspace, default_tools
 class Session:
     """Owns the agent and the conversation state.
 
-    ``send`` blocks until the agent answers, reporting progress through ``on_event`` and asking ``approver`` before
-    tool calls the permission mode does not allow. Ctrl+C (KeyboardInterrupt) during ``send`` stops the run and
-    keeps the conversation. With ``projects``, the first message of a conversation records its folder there.
+    ``asend`` runs until the agent answers, reporting progress through ``on_event`` (on the event loop's thread) and
+    asking ``approver`` before tool calls the permission mode does not allow. Cancelling it stops the run and keeps
+    the conversation. ``send`` is the same for a frontend without an event loop, stopped with Ctrl+C. With
+    ``projects``, the first message of a conversation records its folder there.
 
     Raises:
         ConfigError: The settings cannot make a model.
@@ -74,9 +77,12 @@ class Session:
 
     # ------------------------------------------------------------ actions
 
-    def send(self, text: str) -> str | None:
+    async def asend(self, text: str) -> str | None:
         """Sends a user message and runs the agent until it answers. Returns the answer, or ``None`` if the run
-        was interrupted or failed (a ``Interrupted`` or ``Failed`` event says which)."""
+        was interrupted or failed (a ``Interrupted`` or ``Failed`` event says which).
+
+        Cancelling the task stops the run and keeps the conversation: ``Interrupted`` is emitted and
+        ``CancelledError`` propagates."""
         if self._state is None:
             self._state = State(text)
             if self._projects is not None:
@@ -84,8 +90,11 @@ class Session:
         else:
             self._state.add_user_message(text)
         try:
-            answer = self._agent.run(self._state)
-        except KeyboardInterrupt:
+            answer = await self._agent.arun(self._state)
+        except asyncio.CancelledError:
+            self._emit(Interrupted())
+            raise
+        except KeyboardInterrupt:  # Ctrl+C inside a blocking approver's prompt
             self._emit(Interrupted())
             return None
         except AlpineAgentsError as e:
@@ -98,16 +107,25 @@ class Session:
         self._emit(RunFinished(_stop_reason(stopped), self.usage))
         return answer if isinstance(answer, str) else None
 
+    def send(self, text: str) -> str | None:
+        """``asend`` on a new event loop, for a frontend without one. Ctrl+C stops the run and keeps the
+        conversation. Must not be called while an event loop is running on this thread."""
+        return _run(self.asend(text))
+
     def clear(self) -> None:
         """Starts a new conversation."""
         self._state = None
 
-    def compact(self) -> bool:
-        """Summarizes the conversation to free context. ``False`` if there is nothing to compact."""
+    async def acompact(self) -> bool:
+        """Summarizes the conversation to free context. ``False`` if there is nothing to compact or it failed.
+        Cancelling works as in ``asend``."""
         if self._state is None or not self._state.context:
             return False
         try:
-            self._agent.compact(self._state)
+            await self._agent.acompact(self._state)
+        except asyncio.CancelledError:
+            self._emit(Interrupted())
+            raise
         except KeyboardInterrupt:
             self._emit(Interrupted())
             return False
@@ -115,6 +133,10 @@ class Session:
             self._emit(Failed(_describe_error(e)))
             return False
         return True
+
+    def compact(self) -> bool:
+        """``acompact`` on a new event loop, like ``send``."""
+        return bool(_run(self.acompact()))
 
     def set_model(self, model: str) -> None:
         """Switches the model. The conversation restarts, because a conversation belongs to one model.
@@ -167,6 +189,18 @@ class Session:
     @property
     def has_conversation(self) -> bool:
         return self._state is not None
+
+
+T = TypeVar("T")
+
+
+def _run(coro: Coroutine[Any, Any, T]) -> T | None:
+    """Runs ``coro`` on a new event loop. ``None`` after Ctrl+C: ``asyncio.run`` cancels the task, which has already
+    reported ``Interrupted``."""
+    try:
+        return asyncio.run(coro)
+    except KeyboardInterrupt:
+        return None
 
 
 def _stop_reason(stopped: Stopped | None) -> StopReason | None:

@@ -54,25 +54,57 @@ class Decision:
     feedback: str | None = None
 
 
-class Approver(Protocol):
-    """Implemented by a frontend. Called on the thread running ``Session.send``, one call at a time."""
+class BlockingApprover(Protocol):
+    """Asks the user and blocks until they answer. Called on a worker thread, one call at a time, so it may run its
+    own prompt (a terminal) but must not touch the event loop running the session."""
 
     def approve(self, request: ApprovalRequest) -> Decision: ...
+
+
+class AsyncApprover(Protocol):
+    """Asks the user without blocking. Awaited on the event loop running the session, one call at a time; a
+    cancelled run cancels the wait."""
+
+    async def aapprove(self, request: ApprovalRequest) -> Decision: ...
+
+
+#: Implemented by a frontend: ``approve`` or ``aapprove``. With both, ``aapprove`` is used.
+Approver = BlockingApprover | AsyncApprover
 
 
 class DecideByApprover(DecidePermission):
     """Allows what the policy allows; asks the approver about everything else."""
 
     def __init__(self, policy: PermissionPolicy, approver: Approver) -> None:
+        if not callable(getattr(approver, "aapprove", None)) and not callable(getattr(approver, "approve", None)):
+            raise TypeError(f"approver {approver!r} has neither approve nor aapprove")
         self.policy = policy
         self.approver = approver
 
     def check(self, state: State, call: ToolCall, tool: Tool) -> Allowed | Denied:
+        verdict, request = self._ask(call, tool)
+        if request is None:
+            return Allowed()
+        return self._decide(verdict, self.approver.approve(request))  # type: ignore[union-attr]
+
+    async def acheck(self, state: State, call: ToolCall, tool: Tool) -> Allowed | Denied:
+        aapprove = getattr(self.approver, "aapprove", None)
+        if not callable(aapprove):
+            return await super().acheck(state, call, tool)  # check on a worker thread
+        verdict, request = self._ask(call, tool)
+        if request is None:
+            return Allowed()
+        return self._decide(verdict, await aapprove(request))
+
+    def _ask(self, call: ToolCall, tool: Tool) -> tuple[Verdict, ApprovalRequest | None]:
+        """The policy's verdict, and what to ask the user (``None`` when the policy allows the call)."""
         args = dict(call.args)
         verdict = self.policy.evaluate(call.name, args, tool)
         if verdict.allowed:
-            return Allowed()
-        decision = self.approver.approve(describe(call.name, args, self.policy.workspace, verdict))
+            return verdict, None
+        return verdict, describe(call.name, args, self.policy.workspace, verdict)
+
+    def _decide(self, verdict: Verdict, decision: Decision) -> Allowed | Denied:
         if decision.kind == "allow_always" and verdict.grant is not None:
             self.policy.remember(verdict.grant)
         if decision.kind != "deny":

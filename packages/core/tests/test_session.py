@@ -1,3 +1,8 @@
+import asyncio
+import os
+import signal
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -15,6 +20,7 @@ from alpine_core import (
     Session,
     Settings,
     ToolFinished,
+    ToolStarted,
 )
 from alpine_core import session as session_module
 
@@ -169,3 +175,83 @@ def test_first_message_records_the_folder(tmp_path, monkeypatch):
     session.send("hello")
     session.send("more")
     assert [p.path for p in projects.list()] == [tmp_path.resolve()]
+
+
+class AsyncApprover:
+    def __init__(self, *decisions: Decision) -> None:
+        self.decisions = list(decisions)
+        self.requests: list[ApprovalRequest] = []
+
+    async def aapprove(self, request: ApprovalRequest) -> Decision:
+        self.requests.append(request)
+        await asyncio.sleep(0)
+        return self.decisions.pop(0)
+
+
+def test_async_approver_is_awaited(tmp_path, monkeypatch):
+    replies = [tool_call("bash", command="echo hi"), "Done"]
+    monkeypatch.setattr(session_module, "make_model", lambda settings: FakeModel(replies))
+    events = []
+    approver = AsyncApprover(Decision("allow"))
+    session = Session(Settings(model="fake"), on_event=events.append, approver=approver, cwd=tmp_path)
+    assert asyncio.run(session.asend("say hi")) == "Done"
+    assert [r.title for r in approver.requests] == ["Run command"]
+    assert finished(events) == [("bash", "done")]
+
+
+def test_an_approver_needs_approve_or_aapprove(tmp_path, monkeypatch):
+    monkeypatch.setattr(session_module, "make_model", lambda settings: FakeModel([]))
+    with pytest.raises(TypeError):
+        Session(Settings(model="fake"), on_event=lambda e: None, approver=object(), cwd=tmp_path)
+
+
+def test_cancelling_asend_interrupts_and_keeps_the_conversation(tmp_path, monkeypatch):
+    replies = [tool_call("bash", command="sleep 30"), "Sure, what next?"]
+    session, events, _ = make_session(tmp_path, monkeypatch, replies, mode=Mode.YOLO)
+
+    async def main():
+        task = asyncio.create_task(session.asend("wait"))
+        while not any(isinstance(e, ToolStarted) for e in events):
+            await asyncio.sleep(0.01)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert isinstance(events[-1], Interrupted)
+        return await session.asend("never mind")
+
+    started = time.monotonic()
+    assert asyncio.run(main()) == "Sure, what next?"
+    assert time.monotonic() - started < 10
+    assert finished(events)[0] == ("bash", "interrupted")
+
+
+def test_ctrl_c_stops_send_and_keeps_the_conversation(tmp_path, monkeypatch):
+    replies = [tool_call("bash", command="sleep 30"), "Sure, what next?"]
+    monkeypatch.setattr(session_module, "make_model", lambda settings: FakeModel(replies))
+    events = []
+
+    def on_event(event):
+        events.append(event)
+        if isinstance(event, ToolStarted):
+            threading.Timer(0.2, os.kill, (os.getpid(), signal.SIGINT)).start()
+
+    session = Session(Settings(model="fake", mode=Mode.YOLO), on_event=on_event, approver=Approver(), cwd=tmp_path)
+    started = time.monotonic()
+    assert session.send("wait") is None
+    assert time.monotonic() - started < 10
+    assert isinstance(events[-1], Interrupted)
+    assert session.send("never mind") == "Sure, what next?"
+
+
+def test_ctrl_c_in_the_approval_prompt_interrupts(tmp_path, monkeypatch):
+    class CtrlC:
+        def approve(self, request):
+            raise KeyboardInterrupt
+
+    replies = [tool_call("bash", command="echo hi"), "Sure, what next?"]
+    monkeypatch.setattr(session_module, "make_model", lambda settings: FakeModel(replies))
+    events = []
+    session = Session(Settings(model="fake"), on_event=events.append, approver=CtrlC(), cwd=tmp_path)
+    assert session.send("say hi") is None
+    assert isinstance(events[-1], Interrupted)
+    assert session.send("never mind") == "Sure, what next?"

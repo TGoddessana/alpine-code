@@ -30,6 +30,58 @@ def test_notifications_get_no_reply():
 
 def test_every_protocol_method_has_a_handler():
     from alpine_protocol import METHODS
-    from alpine_server.stdio import HANDLERS
+    from alpine_server.methods import HANDLERS
 
     assert set(HANDLERS) == set(METHODS)
+
+
+def request(method: str, params: dict | None = None) -> dict:
+    [reply] = run(json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}))
+    return reply
+
+
+def test_connections_and_projects(tmp_path, monkeypatch):
+    monkeypatch.setenv("ALPINE_CODE_HOME", str(tmp_path / "home"))
+    for name in ("ALPINE_MODEL", "ALPINE_BASE_URL", "ANTHROPIC_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+
+    listed = request("connections/list")["result"]
+    assert listed["connections"] == [] and listed["defaultModel"] is None
+    assert {"id": "anthropic", "name": "Anthropic", "billing": "usage", "keyEnv": "ANTHROPIC_API_KEY"} in listed[
+        "providers"
+    ]
+
+    added = request("connections/add", {"provider": "anthropic", "apiKey": "sk-test", "model": "claude-sonnet-5"})
+    assert added["result"]["connection"] == {
+        "name": "anthropic",
+        "provider": "anthropic",
+        "baseUrl": None,
+        "billing": "usage",
+        "hasKey": True,
+    }
+    assert added["result"]["defaultModel"] == "anthropic/claude-sonnet-5"
+    local = request("connections/add", {"baseUrl": "http://localhost:11434/v1", "model": "qwen3", "makeDefault": False})
+    assert local["result"]["connection"]["name"] == "local"
+    assert request("connections/list")["result"]["defaultModel"] == "anthropic/claude-sonnet-5"
+
+    missing = request("projects/open", {"path": str(tmp_path / "missing")})
+    assert missing["error"]["data"] == {"reason": "not_a_folder"}
+    opened = request("projects/open", {"path": str(tmp_path)})["result"]["project"]
+    assert opened["name"] == tmp_path.name
+    listed = request("projects/list")["result"]
+    assert [p["path"] for p in listed["projects"]] == [opened["path"]] and listed["cloneParent"]
+    assert opened["branch"] is None
+
+    request("projects/hide", {"path": str(tmp_path)})
+    assert request("projects/list")["result"]["projects"][0]["hidden"] is True
+    assert request("connections/setDefault", {"model": "local/qwen3"})["result"] == {"defaultModel": "local/qwen3"}
+    assert request("connections/list")["result"]["defaultModel"] == "local/qwen3"
+
+    failed = request("projects/clone", {"address": str(tmp_path / "nope"), "parent": str(tmp_path)})
+    assert failed["error"]["data"] == {"reason": "clone_failed"}
+
+
+def test_model_list_errors_say_why(tmp_path, monkeypatch):
+    monkeypatch.setenv("ALPINE_CODE_HOME", str(tmp_path / "home"))
+    reply = request("connections/models", {"baseUrl": "http://127.0.0.1:9/v1"})
+    assert reply["error"]["data"] == {"reason": "unreachable"}

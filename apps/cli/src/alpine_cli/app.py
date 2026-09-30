@@ -7,7 +7,7 @@ import sys
 
 from prompt_toolkit.application import create_app_session
 
-from alpine_core import ConfigError, Mode, Session, Settings
+from alpine_core import ConfigError, Mode, ProjectList, Session, Settings
 
 from ._version import __version__
 from .approval import CliApprover
@@ -22,11 +22,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="alpine",
         description="A terminal coding agent built on alpineagents.",
-        epilog="Settings: ALPINE_MODEL, ALPINE_BASE_URL, ALPINE_API_KEY, or ~/.config/alpine-code/config.toml",
+        epilog="Settings: ~/.alpine-code/config.toml, or ALPINE_MODEL, ALPINE_BASE_URL, ALPINE_API_KEY",
     )
     parser.add_argument("prompt", nargs="*", help="Start with this message")
     parser.add_argument("-p", "--print", action="store_true", help="Answer the prompt and exit (non-interactive)")
-    parser.add_argument("-m", "--model", help="Model, e.g. anthropic/claude-sonnet-5")
+    parser.add_argument("-m", "--model", help="<connection>/<model>, e.g. anthropic/claude-sonnet-5")
     parser.add_argument("--base-url", help="Base URL of an OpenAI-compatible server")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--accept-edits", action="store_true", help="Edit files without asking")
@@ -48,10 +48,12 @@ def main(argv: list[str] | None = None) -> None:
         settings = Settings.load(model=args.model, base_url=args.base_url, mode=mode)
         if args.print:
             if not prompt:
-                console.print("[error]-p needs a prompt: alpine -p \"...\" (or pipe one in)[/]")
+                console.print('[error]-p needs a prompt: alpine -p "..." (or pipe one in)[/]')
                 sys.exit(2)
             sys.exit(run_headless(settings, prompt))
-        session = Session(settings, on_event=Renderer(console), approver=CliApprover(console))
+        session = Session(
+            settings, on_event=Renderer(console), approver=CliApprover(console), projects=ProjectList.default()
+        )
     except ConfigError as e:
         console.print(f"[error]{e}[/]")
         sys.exit(1)

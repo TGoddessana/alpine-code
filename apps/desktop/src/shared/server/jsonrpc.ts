@@ -1,4 +1,4 @@
-import type { Response } from '@alpine/protocol';
+import type { ErrorData, Response } from '@alpine/protocol';
 
 import { ServerError, type Notification, type ServerConnection } from './connection';
 
@@ -18,7 +18,10 @@ export function jsonRpcConnection(transport: Transport): ServerConnection {
     if (typeof message.id === 'number' && pending.has(message.id)) {
       const request = pending.get(message.id)!;
       pending.delete(message.id);
-      if (message.error) request.reject(new ServerError(message.error.code, message.error.message));
+      if (message.error)
+        request.reject(
+          new ServerError(message.error.code, message.error.message, message.error.data as ErrorData | undefined),
+        );
       else request.resolve(message.result as never);
     } else if (message.method) {
       listeners.forEach((listener) => listener({ method: message.method, params: message.params }));

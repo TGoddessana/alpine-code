@@ -19,7 +19,7 @@ export function Button({ variant = 'secondary', className, ...props }: ButtonPro
   return (
     <BaseButton
       className={clsx(
-        'inline-flex min-h-8 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 text-body font-medium whitespace-nowrap',
+        'inline-flex min-h-8 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 text-body whitespace-nowrap data-disabled:cursor-default data-disabled:opacity-50',
         variants[variant],
         className,
       )}

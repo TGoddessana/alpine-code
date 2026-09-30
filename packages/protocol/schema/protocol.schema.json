@@ -6,9 +6,301 @@
     "initialize": {
       "params": "InitializeParams",
       "result": "InitializeResult"
+    },
+    "connections/list": {
+      "params": "ConnectionsListParams",
+      "result": "ConnectionsListResult"
+    },
+    "connections/models": {
+      "params": "ConnectionsModelsParams",
+      "result": "ConnectionsModelsResult"
+    },
+    "connections/add": {
+      "params": "ConnectionsAddParams",
+      "result": "ConnectionsAddResult"
+    },
+    "connections/setDefault": {
+      "params": "ConnectionsSetDefaultParams",
+      "result": "ConnectionsSetDefaultResult"
+    },
+    "projects/list": {
+      "params": "ProjectsListParams",
+      "result": "ProjectsListResult"
+    },
+    "projects/open": {
+      "params": "ProjectsOpenParams",
+      "result": "ProjectsOpenResult"
+    },
+    "projects/hide": {
+      "params": "ProjectsHideParams",
+      "result": "ProjectsHideResult"
+    },
+    "projects/clone": {
+      "params": "ProjectsCloneParams",
+      "result": "ProjectsCloneResult"
     }
   },
   "$defs": {
+    "ConnectionInfo": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "baseUrl": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "billing": {
+          "enum": [
+            "subscription",
+            "usage",
+            "none"
+          ],
+          "type": "string"
+        },
+        "hasKey": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "provider",
+        "baseUrl",
+        "billing",
+        "hasKey"
+      ],
+      "title": "ConnectionInfo",
+      "type": "object"
+    },
+    "ConnectionsAddParams": {
+      "description": "Saves a connection, replacing the one for the same provider or address, and its key.",
+      "properties": {
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "baseUrl": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "apiKey": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model": {
+          "type": "string"
+        },
+        "makeDefault": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "model"
+      ],
+      "title": "ConnectionsAddParams",
+      "type": "object"
+    },
+    "ConnectionsAddResult": {
+      "properties": {
+        "connection": {
+          "$ref": "#/$defs/ConnectionInfo"
+        },
+        "defaultModel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "connection",
+        "defaultModel"
+      ],
+      "title": "ConnectionsAddResult",
+      "type": "object"
+    },
+    "ConnectionsListParams": {
+      "properties": {},
+      "title": "ConnectionsListParams",
+      "type": "object"
+    },
+    "ConnectionsListResult": {
+      "properties": {
+        "connections": {
+          "items": {
+            "$ref": "#/$defs/ConnectionInfo"
+          },
+          "type": "array"
+        },
+        "defaultModel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "providers": {
+          "items": {
+            "$ref": "#/$defs/ProviderInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "connections",
+        "defaultModel",
+        "providers"
+      ],
+      "title": "ConnectionsListResult",
+      "type": "object"
+    },
+    "ConnectionsModelsParams": {
+      "description": "A connection that may not be saved yet: a provider, or the address of a compatible server.",
+      "properties": {
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "baseUrl": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "apiKey": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "ConnectionsModelsParams",
+      "type": "object"
+    },
+    "ConnectionsModelsResult": {
+      "properties": {
+        "models": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "models"
+      ],
+      "title": "ConnectionsModelsResult",
+      "type": "object"
+    },
+    "ConnectionsSetDefaultParams": {
+      "properties": {
+        "model": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "model"
+      ],
+      "title": "ConnectionsSetDefaultParams",
+      "type": "object"
+    },
+    "ConnectionsSetDefaultResult": {
+      "properties": {
+        "defaultModel": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "defaultModel"
+      ],
+      "title": "ConnectionsSetDefaultResult",
+      "type": "object"
+    },
+    "ErrorData": {
+      "description": "``data`` of an error the app can act on, beyond its message.",
+      "properties": {
+        "reason": {
+          "enum": [
+            "auth",
+            "unreachable",
+            "unsupported",
+            "other",
+            "not_a_folder",
+            "invalid_config",
+            "exists",
+            "clone_failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "ErrorData",
+      "type": "object"
+    },
     "ErrorObject": {
       "properties": {
         "code": {
@@ -58,6 +350,166 @@
         "server"
       ],
       "title": "InitializeResult",
+      "type": "object"
+    },
+    "ProjectInfo": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "branch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastUsedAt": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "hidden": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path",
+        "name",
+        "branch",
+        "lastUsedAt",
+        "hidden"
+      ],
+      "title": "ProjectInfo",
+      "type": "object"
+    },
+    "ProjectsCloneParams": {
+      "description": "Clones into ``parent/<repo name>`` and opens it. Blocks until git is done.",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "parent": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "address",
+        "parent"
+      ],
+      "title": "ProjectsCloneParams",
+      "type": "object"
+    },
+    "ProjectsCloneResult": {
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/ProjectInfo"
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "title": "ProjectsCloneResult",
+      "type": "object"
+    },
+    "ProjectsHideParams": {
+      "description": "Takes a project off the rail; its sessions stay, and opening the folder shows it again.",
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "ProjectsHideParams",
+      "type": "object"
+    },
+    "ProjectsHideResult": {
+      "properties": {},
+      "title": "ProjectsHideResult",
+      "type": "object"
+    },
+    "ProjectsListParams": {
+      "properties": {},
+      "title": "ProjectsListParams",
+      "type": "object"
+    },
+    "ProjectsListResult": {
+      "properties": {
+        "projects": {
+          "items": {
+            "$ref": "#/$defs/ProjectInfo"
+          },
+          "type": "array"
+        },
+        "cloneParent": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projects",
+        "cloneParent"
+      ],
+      "title": "ProjectsListResult",
+      "type": "object"
+    },
+    "ProjectsOpenParams": {
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "ProjectsOpenParams",
+      "type": "object"
+    },
+    "ProjectsOpenResult": {
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/ProjectInfo"
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "title": "ProjectsOpenResult",
+      "type": "object"
+    },
+    "ProviderInfo": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "billing": {
+          "enum": [
+            "subscription",
+            "usage",
+            "none"
+          ],
+          "type": "string"
+        },
+        "keyEnv": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "billing",
+        "keyEnv"
+      ],
+      "title": "ProviderInfo",
       "type": "object"
     },
     "Request": {

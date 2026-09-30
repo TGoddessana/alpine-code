@@ -1,8 +1,7 @@
 from alpine_core.prompt import build_system_prompt, instruction_files
 
 
-def test_agents_md_is_preferred_and_collected_from_git_root(tmp_path, monkeypatch):
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+def test_agents_md_is_preferred_and_collected_from_git_root(tmp_path):
     (tmp_path / ".git").mkdir()
     (tmp_path / "AGENTS.md").write_text("root rules")
     sub = tmp_path / "pkg"

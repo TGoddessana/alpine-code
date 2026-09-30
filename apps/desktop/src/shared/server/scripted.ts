@@ -1,7 +1,7 @@
 import type { Notification, Method, Params, Result, ServerConnection } from './connection';
 
 export interface Script {
-  /** What each request returns, by method. */
+  /** What each request returns, by method. A function may throw a `ServerError` to script a failure. */
   results?: { [M in Method]?: Result<M> | ((params: Params<M>) => Result<M>) };
   /** Sent in order to each new subscriber, like a recorded session. */
   events?: Notification[];

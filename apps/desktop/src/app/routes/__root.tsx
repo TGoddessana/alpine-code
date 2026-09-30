@@ -1,15 +1,22 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router';
 
+import { FirstRun } from '@/features/first-run/FirstRun';
 import { Rail } from '@/features/rail/Rail';
 
-/** The three places: rail (where), centre (what happened), right panel (state). Features fill them. */
+import { useFolderOpening } from '../useFolderOpening';
+
+/** The three places: rail (where), centre (what happened), right panel (state). Routes fill the last two. */
 export const Route = createRootRoute({
-  component: () => (
+  component: Root,
+});
+
+function Root() {
+  useFolderOpening();
+  return (
     <div className="flex h-screen overflow-hidden bg-canvas-sunken">
       <Rail />
-      <main className="flex min-w-0 grow flex-col bg-canvas">
-        <Outlet />
-      </main>
+      <Outlet />
+      <FirstRun />
     </div>
-  ),
-});
+  );
+}

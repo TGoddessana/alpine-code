@@ -128,8 +128,8 @@ The protocol is a thin wrapper: the core builds items and numbers them, so the C
   `Storage(log, states)` holds both; frontends call `file_storage(...)`, `Session(storage=...)` and
   `Session.resume(storage, id)` and never import alpineagents. The session id is the State id. If the process dies
   between the two writes, the State wins and the item list ends with `run_stopped: interrupted`.
-- **Home folder.** Everything moves from `~/.config/alpine-code` to `~/.alpine-code` (`ALPINE_CODE_HOME` overrides):
-  `config.toml`, `AGENTS.md`, `sessions/`. One folder for all projects; each session records its `cwd` and the rail
+- **Home folder.** Everything lives in `~/.alpine-code` (`ALPINE_CODE_HOME` overrides; moved there with the
+  first run): `config.toml`, `auth.json`, `projects.json`, `AGENTS.md`, `sessions/`. One folder for all projects; each session records its `cwd` and the rail
   groups by it.
 - **Quitting.** The server is the app's child process, so quitting the app ends running sessions; they reopen ending
   in `run_stopped: interrupted`.

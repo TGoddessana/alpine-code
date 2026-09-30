@@ -146,3 +146,17 @@ def test_clear_starts_over(tmp_path, monkeypatch):
     assert session.has_conversation and session.usage.requests == 1
     session.clear()
     assert not session.has_conversation and session.usage.requests == 0
+
+
+def test_first_message_records_the_folder(tmp_path, monkeypatch):
+    from alpine_core import ProjectList
+
+    monkeypatch.setattr(session_module, "make_model", lambda settings: FakeModel(["hi", "again"]))
+    projects = ProjectList(tmp_path / "projects.json")
+    session = Session(
+        Settings(model="fake"), on_event=lambda e: None, approver=Approver(), cwd=tmp_path, projects=projects
+    )
+    assert projects.list() == []
+    session.send("hello")
+    session.send("more")
+    assert [p.path for p in projects.list()] == [tmp_path.resolve()]

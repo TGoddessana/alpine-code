@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import { setUpScript } from '@/shared/server';
+
 import { Settings } from './Settings';
 
 const meta = {
@@ -21,4 +23,9 @@ export const General: Story = {
 /** No result for `initialize`, so the request fails. */
 export const ServerUnavailable: Story = {
   parameters: { server: {} },
+};
+
+/** Board Connection: open the 'Model connection' tab. */
+export const Connections: Story = {
+  parameters: { server: setUpScript() },
 };

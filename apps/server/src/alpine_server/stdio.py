@@ -7,38 +7,19 @@ from __future__ import annotations
 
 import json
 import sys
-from importlib.metadata import version
+import traceback
 from typing import TextIO
 
 from pydantic import ValidationError
 
-from alpine_protocol import (
-    METHODS,
-    PROTOCOL_VERSION,
-    ErrorObject,
-    InitializeParams,
-    InitializeResult,
-    Request,
-    Response,
-    ServerInfo,
-)
+from alpine_protocol import METHODS, ErrorObject, Request, Response
+
+from .methods import HANDLERS, INVALID_PARAMS, MethodError
 
 PARSE_ERROR = -32700
 INVALID_REQUEST = -32600
 METHOD_NOT_FOUND = -32601
-INVALID_PARAMS = -32602
-
-
-def initialize(params: InitializeParams) -> InitializeResult:
-    return InitializeResult(
-        protocol_version=PROTOCOL_VERSION,
-        server=ServerInfo(name="alpine-code-server", version=version("alpine-code-server")),
-    )
-
-
-HANDLERS = {
-    "initialize": initialize,
-}
+INTERNAL_ERROR = -32603
 
 
 def handle(request: Request) -> Response | None:
@@ -53,8 +34,18 @@ def handle(request: Request) -> Response | None:
     except ValidationError as exc:
         error = ErrorObject(code=INVALID_PARAMS, message=str(exc))
         return None if request.id is None else Response(id=request.id, error=error)
-    result = method(params)
-    return None if request.id is None else Response(id=request.id, result=result.model_dump(by_alias=True))
+    try:
+        result = method(params)
+    except MethodError as e:
+        data = e.data.model_dump(by_alias=True) if e.data else None
+        error = ErrorObject(code=e.code, message=str(e), data=data)
+        return None if request.id is None else Response(id=request.id, error=error)
+    except Exception as e:
+        # A bug in one method must not end the server, which every window shares.
+        traceback.print_exc(file=sys.stderr)
+        error = ErrorObject(code=INTERNAL_ERROR, message=f"{type(e).__name__}: {e}")
+        return None if request.id is None else Response(id=request.id, error=error)
+    return None if request.id is None else Response(id=request.id, result=result.model_dump(by_alias=True, mode="json"))
 
 
 def handle_line(line: str) -> Response | None:

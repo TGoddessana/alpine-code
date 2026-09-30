@@ -16,7 +16,7 @@ function Tab({ className, ...props }: WithClass<typeof BaseTabs.Tab>) {
   return (
     <BaseTabs.Tab
       className={clsx(
-        '-mb-px flex min-h-10 cursor-pointer items-center border-b-2 border-transparent px-1 text-body text-fg-muted hover:text-fg data-active:border-fg data-active:font-medium data-active:text-fg',
+        '-mb-px flex min-h-10 cursor-pointer items-center border-b-2 border-transparent px-1 text-body text-fg-muted hover:text-fg data-active:border-fg data-active:text-fg',
         className,
       )}
       {...props}

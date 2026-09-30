@@ -34,8 +34,20 @@ export ALPINE_MODEL=ollama/qwen3-coder           # local Ollama
 export ALPINE_MODEL=<model> ALPINE_BASE_URL=https://.../v1 ALPINE_API_KEY=...
 ```
 
-Or put the same settings in `~/.config/alpine-code/config.toml` (`model`, `base_url`, `context_window`, `mode`).
-Keep API keys in the environment.
+Or save connections in `~/.alpine-code/config.toml` (the desktop app writes the same file):
+
+```toml
+default_model = "anthropic/claude-sonnet-5"   # <connection>/<model>
+
+[connections.anthropic]
+provider = "anthropic"          # anthropic, openai, google, openrouter, zai-coding-plan, kimi-for-coding, minimax-coding-plan
+
+[connections.local]
+base_url = "http://localhost:11434/v1"
+```
+
+A connection's key comes from its provider's variable (`ANTHROPIC_API_KEY`, `ZAI_API_KEY`...) or from
+`~/.alpine-code/auth.json`, where the app saves keys (readable only by you). `ALPINE_CODE_HOME` moves the folder.
 
 ## Use
 
@@ -59,7 +71,7 @@ Commands: `/help`, `/clear`, `/compact`, `/model [name]`, `/mode [mode]`, `/cost
 
 **Project instructions**: `AGENTS.md` files from the git root down to the current directory are added to the
 system prompt (`CLAUDE.md` is read where there is no `AGENTS.md`). A global one can go in
-`~/.config/alpine-code/AGENTS.md`.
+`~/.alpine-code/AGENTS.md`.
 
 **Permissions** (every rule is skipped in *yolo*):
 

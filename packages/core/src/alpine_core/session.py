@@ -14,6 +14,7 @@ from .events import Event, Failed, Interrupted, RunFinished, UsageInfo
 from .loop import TurnCancelled, build_loop
 from .models import make_model
 from .permissions import Mode, PermissionPolicy
+from .projects import ProjectList
 from .prompt import build_system_prompt
 from .tools import Workspace, default_tools
 
@@ -23,7 +24,7 @@ class Session:
 
     ``send`` blocks until the agent answers, reporting progress through ``on_event`` and asking ``approver`` before
     tool calls the permission mode does not allow. Ctrl+C (KeyboardInterrupt) during ``send`` stops the run and
-    keeps the conversation.
+    keeps the conversation. With ``projects``, the first message of a conversation records its folder there.
 
     Raises:
         ConfigError: The settings cannot make a model.
@@ -36,11 +37,13 @@ class Session:
         on_event: Callable[[Event], None],
         approver: Approver,
         cwd: Path | None = None,
+        projects: ProjectList | None = None,
     ) -> None:
         self.workspace = Workspace((cwd or Path.cwd()).resolve())
         self.policy = PermissionPolicy(self.workspace, settings.mode)
         self._emit = on_event
         self._approver = approver
+        self._projects = projects
         self._reporter = EventReporter(on_event)
         self._state: State | None = None
         self._settings = settings
@@ -66,6 +69,8 @@ class Session:
         was interrupted or failed (a ``Interrupted`` or ``Failed`` event says which)."""
         if self._state is None:
             self._state = State(text)
+            if self._projects is not None:
+                self._projects.open(self.workspace.root)
         else:
             self._state.add_user_message(text)
         try:

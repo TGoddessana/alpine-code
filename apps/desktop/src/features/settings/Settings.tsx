@@ -3,6 +3,7 @@ import { Tabs } from '@alpine/ui/primitives';
 import { LOCALES, useLocale, useMessages, type Locale } from '@/shared/i18n';
 import { useServerInfo } from '@/shared/server';
 
+import { ConnectionTab } from './Connection';
 import { messages } from './messages';
 
 const LANGUAGE_NAMES: Record<Locale, string> = { ko: '한국어', en: 'English' };
@@ -12,7 +13,7 @@ export function Settings() {
   const t = useMessages(messages);
   return (
     <div className="flex flex-col gap-6 px-6 py-5">
-      <h1 className="text-title font-semibold">{t.title}</h1>
+      <h1 className="text-title">{t.title}</h1>
       <Tabs.Root defaultValue="general">
         <Tabs.List>
           <Tabs.Tab value="general">{t.general}</Tabs.Tab>
@@ -22,6 +23,9 @@ export function Settings() {
         </Tabs.List>
         <Tabs.Panel value="general">
           <General />
+        </Tabs.Panel>
+        <Tabs.Panel value="connection">
+          <ConnectionTab />
         </Tabs.Panel>
       </Tabs.Root>
     </div>

@@ -1,6 +1,35 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
-// The new-session screen goes here.
+import { NewSession } from '@/features/new-session/NewSession';
+import { NoProject } from '@/features/new-session/NoProject';
+import { StatusPanel } from '@/features/status-panel/StatusPanel';
+import { useProjects } from '@/shared/server';
+
+/** `?project=` picks the project; without it, the most recently used one. */
 export const Route = createFileRoute('/')({
-  component: () => null,
+  validateSearch: (search: Record<string, unknown>): { project?: string } =>
+    typeof search.project === 'string' ? { project: search.project } : {},
+  component: NewSessionRoute,
 });
+
+function NewSessionRoute() {
+  const { project: chosen } = Route.useSearch();
+  const navigate = useNavigate();
+  const projects = useProjects();
+  const shown = projects.data?.projects.filter((p) => !p.hidden) ?? [];
+  const project = shown.find((p) => p.path === chosen) ?? shown[0];
+  const choose = (path: string) => void navigate({ to: '/', search: { project: path } });
+
+  return (
+    <>
+      {project ? (
+        <NewSession projects={shown} project={project} onProjectChange={choose} />
+      ) : projects.isSuccess ? (
+        <NoProject onProjectChange={choose} />
+      ) : (
+        <main className="flex min-w-120 grow flex-col bg-canvas" />
+      )}
+      <StatusPanel />
+    </>
+  );
+}

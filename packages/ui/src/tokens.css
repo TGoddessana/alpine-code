@@ -4,11 +4,9 @@
  * Names say what a value is for, not what it looks like: change the look here and every screen follows.
  * Tailwind's default palette and scales are switched off, so only these become classes
  * (`text-fg-muted`, `bg-canvas-raised`, `border-line`, `text-body`, `rounded-lg`...).
- * Values come from the design canvas's rules (stickyDS, 2026-09-29).
+ * Values come from the design canvas's rules (stickyDS, 2026-09-29; type one step smaller 2026-09-30).
  */
 @import '@fontsource/ibm-plex-sans-kr/400.css';
-@import '@fontsource/ibm-plex-sans-kr/500.css';
-@import '@fontsource/ibm-plex-sans-kr/600.css';
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
 @import '@fontsource/gowun-batang/400.css';
@@ -42,6 +40,9 @@
   --color-danger: #a3372a; /* risky approval, failure */
   --color-danger-hover: #8a2d22;
 
+  /* Behind a modal */
+  --color-scrim: rgb(28 34 38 / 0.32);
+
   --font-*: initial;
   --font-sans: 'IBM Plex Sans KR', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace; /* code only: paths, diffs, commands */
@@ -50,19 +51,18 @@
   --text-*: initial;
   --text-meta: 12px; /* meta, activity line, hints */
   --text-meta--line-height: 20px;
-  --text-body: 14px; /* answers, bubbles, options, rows */
+  --text-body: 13px; /* answers, bubbles, options, rows */
   --text-body--line-height: 20px;
-  --text-lead: 16px; /* dock question, right panel title */
-  --text-lead--line-height: 22px;
-  --text-title: 20px;
-  --text-title--line-height: 28px;
-  --text-display: 28px;
-  --text-display--line-height: 36px;
+  --text-lead: 14px; /* dock question, right panel title, section titles */
+  --text-lead--line-height: 20px;
+  --text-title: 16px;
+  --text-title--line-height: 24px;
+  --text-display: 24px;
+  --text-display--line-height: 32px;
 
+  /* One weight. Hierarchy comes from size and colour; selection shows as a background or underline. */
   --font-weight-*: initial;
   --font-weight-normal: 400;
-  --font-weight-medium: 500; /* buttons, the current row */
-  --font-weight-semibold: 600; /* titles */
 
   --radius-*: initial;
   --radius-sm: 4px;
@@ -71,10 +71,22 @@
   --radius-xl: 12px;
 
   --shadow-*: initial;
+  --shadow-overlay: 0 8px 24px rgb(28 34 38 / 0.1); /* modals, menus */
   /* Spacing keeps Tailwind's 4px step, which is the canvas's grid. */
 }
 
 @layer base {
+  /* Headings and table headers are bold by default; nothing here is. */
+  h1,
+  h2,
+  h3,
+  h4,
+  th,
+  b,
+  strong {
+    font-weight: var(--font-weight-normal);
+  }
+
   body {
     background-color: var(--color-canvas);
     color: var(--color-fg);

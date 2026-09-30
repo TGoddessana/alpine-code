@@ -109,10 +109,16 @@ The language follows the OS until chosen in Settings.
 | 2026-09-29 | Every session's events to every window | per-window subscriptions | the server sees one connection; the Rust shell does not read messages |
 | 2026-09-30 | Permissions in alpineagents (`Agent(permissions=)`) | checks inside the core's loop | no loop can skip them, so the loop can be opened to users later |
 | 2026-09-30 | Model behaviour as settings (model profiles) | code per model | the harness stays model-agnostic; what a model needs is switched on for it |
+| 2026-09-30 | Connections as `[connections.<name>]` in `config.toml`, models named `<connection>/<model>` | an app-only connections file | one file for people and the app, next to model profiles; the CLI sees what the app connected |
+| 2026-09-30 | Providers built into the core, each with its billing (subscription or usage) | the user types addresses | coding plans connect with a key but are subscriptions; the limit shown follows how it is paid |
+| 2026-09-30 | Keys in `auth.json` (mode 600) behind a `Secrets` port | the macOS keychain now | the keychain asks again for every binary (uv's Python, the CLI, the bundle); it becomes another `Secrets` when the app is signed |
+| 2026-09-30 | Opened folders in `projects.json`, kept by the core | the app's own storage | the CLI's folders show in the rail too; sessions attach to projects later without a merge |
 
 ## Open
 
 - **Shipping the server.** A bundled app runs `alpine-server` next to its own binary; building that binary
   (PyInstaller, one-folder) and signing and notarising it on macOS (tauri#11992) is untested.
+- **One request at a time.** The server answers requests in order, so a long `projects/clone` holds the others back
+  until the async server (session protocol) runs methods side by side.
 - **Session protocol.** Designed in [session-protocol.md](session-protocol.md), not implemented. It waits on
   alpineagents (permissions, `state.stopped`, `resolve_model` options); the core's async rewrite comes after.

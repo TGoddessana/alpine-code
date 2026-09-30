@@ -1,4 +1,4 @@
-import type { Methods } from '@alpine/protocol';
+import type { ErrorData, Methods } from '@alpine/protocol';
 
 export type Method = keyof Methods;
 export type Params<M extends Method> = Methods[M]['params'];
@@ -22,6 +22,8 @@ export class ServerError extends Error {
   constructor(
     readonly code: number,
     message: string,
+    /** Why, for errors an app can act on (a rejected key, a missing folder). */
+    readonly data?: ErrorData,
   ) {
     super(message);
   }

@@ -7,7 +7,7 @@ from datetime import date
 from importlib.resources import files
 from pathlib import Path
 
-from .config import config_dir
+from .home import home_dir
 
 #: Project instruction files, in order of preference within one directory. CLAUDE.md is read when there is no
 #: AGENTS.md, so projects set up for Claude Code work as is.
@@ -28,7 +28,7 @@ def find_git_root(start: Path) -> Path | None:
 def instruction_files(cwd: Path) -> list[Path]:
     """The global instruction file, then one file per directory from the git root (or cwd) down to cwd."""
     found: list[Path] = []
-    global_file = config_dir() / "AGENTS.md"
+    global_file = home_dir() / "AGENTS.md"
     if global_file.is_file():
         found.append(global_file)
     cwd = cwd.resolve()

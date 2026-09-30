@@ -1,0 +1,23 @@
+[project]
+name = "alpine-code-core"
+version = "0.1.0"
+description = "The UI-agnostic agent core of alpine-code"
+authors = [
+    { name = "tgoddessana", email = "twicegoddessana1229@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "alpineagents>=0.4.0",
+    "anthropic>=1.8.0",
+    "openai>=3.19.2",
+    "tomlkit>=0.15.1",
+    "tree-sitter>=0.26",
+    "tree-sitter-bash>=0.25.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "alpine_core"

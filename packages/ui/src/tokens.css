@@ -1,0 +1,102 @@
+/*
+ * Layer 1: design tokens. The only place a raw colour, size or font may appear.
+ *
+ * Names say what a value is for, not what it looks like: change the look here and every screen follows.
+ * Tailwind's default palette and scales are switched off, so only these become classes
+ * (`text-fg-muted`, `bg-canvas-raised`, `border-line`, `text-body`, `rounded-lg`...).
+ * Values come from the design canvas's rules (stickyDS, 2026-09-29; type one step smaller 2026-09-30).
+ */
+@import '@fontsource/ibm-plex-sans-kr/400.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/gowun-batang/400.css';
+
+@theme {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /* Text */
+  --color-fg: #1c2226;
+  --color-fg-muted: #5f676d; /* meta, hints, secondary lines */
+  --color-fg-faint: #8a9096; /* "not yet" marks, idle icons */
+  --color-on-fill: #ffffff; /* text on a filled button */
+
+  /* Surfaces */
+  --color-canvas: #faf9f6; /* centre column */
+  --color-canvas-sunken: #f3f2ee; /* rail, right panel */
+  --color-canvas-raised: #ffffff; /* dock, input, active rail row */
+  --color-hover: #ecebe6; /* row hover, my message bubble */
+  --color-selected: #eef4f7; /* chosen option */
+
+  /* Lines */
+  --color-line: #dcd9d1; /* outer borders, controls */
+  --color-line-subtle: #e7e5df; /* dividers inside a box */
+
+  /* Meaning. Each colour has one job. */
+  --color-interactive: #2c5a7a; /* can be pressed, selected, focused */
+  --color-interactive-hover: #234c68;
+  --color-attention: #c8691c; /* my turn */
+  --color-danger: #a3372a; /* risky approval, failure */
+  --color-danger-hover: #8a2d22;
+
+  /* Behind a modal */
+  --color-scrim: rgb(28 34 38 / 0.32);
+
+  --font-*: initial;
+  --font-sans: 'IBM Plex Sans KR', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace; /* code only: paths, diffs, commands */
+  --font-display: 'Gowun Batang', serif; /* first run and the map only */
+
+  --text-*: initial;
+  --text-meta: 12px; /* meta, activity line, hints */
+  --text-meta--line-height: 20px;
+  --text-body: 13px; /* answers, bubbles, options, rows */
+  --text-body--line-height: 20px;
+  --text-lead: 14px; /* dock question, right panel title, section titles */
+  --text-lead--line-height: 20px;
+  --text-title: 16px;
+  --text-title--line-height: 24px;
+  --text-display: 24px;
+  --text-display--line-height: 32px;
+
+  /* One weight. Hierarchy comes from size and colour; selection shows as a background or underline. */
+  --font-weight-*: initial;
+  --font-weight-normal: 400;
+
+  --radius-*: initial;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  --shadow-*: initial;
+  --shadow-overlay: 0 8px 24px rgb(28 34 38 / 0.1); /* modals, menus */
+  /* Spacing keeps Tailwind's 4px step, which is the canvas's grid. */
+}
+
+@layer base {
+  /* Headings and table headers are bold by default; nothing here is. */
+  h1,
+  h2,
+  h3,
+  h4,
+  th,
+  b,
+  strong {
+    font-weight: var(--font-weight-normal);
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-interactive);
+    outline-offset: 2px;
+  }
+}

@@ -1,0 +1,26 @@
+[project]
+name = "alpine-code-server"
+version = "0.1.0"
+description = "Runs the alpine-code core for an app, speaking the alpine-code protocol over stdio"
+authors = [
+    { name = "tgoddessana", email = "twicegoddessana1229@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "alpine-code-core",
+    "alpine-code-protocol",
+]
+
+[project.scripts]
+alpine-server = "alpine_server:main"
+
+[tool.uv.sources]
+alpine-code-core = { workspace = true }
+alpine-code-protocol = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "alpine_server"

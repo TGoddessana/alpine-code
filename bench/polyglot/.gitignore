@@ -1,0 +1,2 @@
+# Archived agent logs (tens of MB): regenerate with collect.py or keep locally
+results/*/logs.tar.gz

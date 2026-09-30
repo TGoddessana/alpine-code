@@ -1,0 +1,14 @@
+{
+  "name": "gen0",
+  "date": "2026-09-27/28",
+  "alpine_code": "eb337d3 (headless: alpine -p --yolo; an uncommitted repl.py change in the tree does not touch headless)",
+  "alpineagents": "0.1.0",
+  "model": "motif/motif-3",
+  "endpoint": "https://llm.onerouter.pro/v1 (Infron, free tier)",
+  "motifcode_kit": "a5624b092518e3780e0f6d5b7897b2b089795595 + kit/motifcode-kit.patch",
+  "dataset": "Aider-AI/polyglot-benchmark 7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f, 213 of 225 (same 12 exclusions as the report)",
+  "budget": "seed 0, one attempt, 870 s adapter deadline, 8 GB RSS cap, concurrency 3",
+  "reruns": "2 rows (ProviderError: Connection error mid-stream), both passed on re-run",
+  "toolchains": "node 24.12.0, go 1.27.1, rustc 1.95.0, JDK 21.0.9, python 3.13.5 + pytest 9.1.1, Apple clang 21.0.0, boost 1.92.0",
+  "wall_clock": "17:28Z to 02:42Z (9 h 13 min)"
+}

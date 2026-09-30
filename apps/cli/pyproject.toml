@@ -1,0 +1,28 @@
+[project]
+name = "alpine-code"
+version = "0.1.0"
+description = "A terminal coding agent built on alpineagents"
+readme = "README.md"
+authors = [
+    { name = "tgoddessana", email = "twicegoddessana1229@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "alpine-code-core",
+    "prompt-toolkit>=3.0.52",
+    "rich>=14.0",
+]
+
+[project.scripts]
+alpine = "alpine_cli:main"
+alpine-code = "alpine_cli:main"
+
+[tool.uv.sources]
+alpine-code-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "alpine_cli"

@@ -1,0 +1,18 @@
+[project]
+name = "alpine-code-protocol"
+version = "0.1.0"
+description = "Messages between alpine-code apps and the alpine-code server"
+authors = [
+    { name = "tgoddessana", email = "twicegoddessana1229@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "pydantic>=2.13",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "alpine_protocol"

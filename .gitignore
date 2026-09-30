@@ -13,3 +13,8 @@ wheels/
 .env
 .env.*
 !.env.example
+
+# Node
+node_modules/
+storybook-static/
+*.tsbuildinfo

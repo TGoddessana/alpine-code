@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "desktop-screens",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@alpine/desktop", "dev"],
+      "port": 1420
+    }
+  ]
+}

@@ -1,37 +1,29 @@
-[project]
-name = "alpine-code"
-version = "0.1.0"
-description = "A terminal coding agent built on alpineagents"
-readme = "README.md"
-authors = [
-    { name = "tgoddessana", email = "twicegoddessana1229@gmail.com" }
-]
-requires-python = ">=3.14"
-dependencies = [
-    "alpineagents>=0.1.0",
-    "prompt-toolkit>=3.0.52",
-    "rich>=14.0",
-    "tree-sitter>=0.26",
-    "tree-sitter-bash>=0.25.1",
-]
+# Python side of the alpine-code monorepo: a uv workspace with no package of its own.
+# TypeScript members live in pnpm-workspace.yaml. See docs/architecture.md for the layout.
 
-[project.scripts]
-alpine = "alpine_code.cli:main"
-alpine-code = "alpine_code.cli:main"
+[tool.uv.workspace]
+members = ["apps/cli", "apps/server", "packages/core", "packages/protocol/python"]
+
+[tool.uv.sources]
+alpine-code = { workspace = true }
+alpine-code-core = { workspace = true }
+alpine-code-protocol = { workspace = true }
+alpine-code-server = { workspace = true }
 
 [dependency-groups]
 dev = [
+    "alpine-code",
+    "alpine-code-core",
+    "alpine-code-protocol",
+    "alpine-code-server",
     "import-linter>=2.3",
     "pytest>=8.4",
     "ruff>=0.13",
 ]
 
-[build-system]
-requires = ["uv_build>=0.12.10,<0.13.0"]
-build-backend = "uv_build"
-
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["apps/cli/tests", "apps/server/tests", "packages/core/tests", "packages/protocol/python/tests"]
+addopts = ["--import-mode=importlib"]
 
 [tool.ruff]
 line-length = 120
@@ -39,13 +31,27 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
-# The core must stay usable from any frontend (terminal, TUI, IDE, web).
+[tool.ruff.lint.isort]
+known-first-party = ["alpine_cli", "alpine_core", "alpine_protocol", "alpine_server"]
+
+# Dependencies point one way: apps -> packages, never back, and apps never import each other.
 [tool.importlinter]
-root_package = "alpine_code"
+root_packages = ["alpine_cli", "alpine_core", "alpine_protocol", "alpine_server"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "core is UI-agnostic"
 type = "forbidden"
-source_modules = ["alpine_code.core"]
-forbidden_modules = ["alpine_code.cli", "rich", "prompt_toolkit"]
+source_modules = ["alpine_core"]
+forbidden_modules = ["alpine_cli", "alpine_server", "alpine_protocol", "rich", "prompt_toolkit"]
+
+[[tool.importlinter.contracts]]
+name = "protocol stands alone"
+type = "forbidden"
+source_modules = ["alpine_protocol"]
+forbidden_modules = ["alpine_core", "alpine_cli", "alpine_server"]
+
+[[tool.importlinter.contracts]]
+name = "apps do not import each other"
+type = "independence"
+modules = ["alpine_cli", "alpine_server"]

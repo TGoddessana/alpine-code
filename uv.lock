@@ -2,44 +2,94 @@ version = 1
 revision = 3
 requires-python = ">=3.14"
 
-[[package]]
-name = "alpine-code"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "alpineagents" },
-    { name = "prompt-toolkit" },
-    { name = "rich" },
-    { name = "tree-sitter" },
-    { name = "tree-sitter-bash" },
+[manifest]
+members = [
+    "alpine-code",
+    "alpine-code-core",
+    "alpine-code-protocol",
+    "alpine-code-server",
 ]
 
-[package.dev-dependencies]
+[manifest.dependency-groups]
 dev = [
-    { name = "import-linter" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "alpineagents", specifier = ">=0.1.0" },
-    { name = "prompt-toolkit", specifier = ">=3.0.52" },
-    { name = "rich", specifier = ">=14.0" },
-    { name = "tree-sitter", specifier = ">=0.26" },
-    { name = "tree-sitter-bash", specifier = ">=0.25.1" },
-]
-
-[package.metadata.requires-dev]
-dev = [
+    { name = "alpine-code", editable = "apps/cli" },
+    { name = "alpine-code-core", editable = "packages/core" },
+    { name = "alpine-code-protocol", editable = "packages/protocol/python" },
+    { name = "alpine-code-server", editable = "apps/server" },
     { name = "import-linter", specifier = ">=2.3" },
     { name = "pytest", specifier = ">=8.4" },
     { name = "ruff", specifier = ">=0.13" },
 ]
 
 [[package]]
-name = "alpineagents"
+name = "alpine-code"
 version = "0.1.0"
+source = { editable = "apps/cli" }
+dependencies = [
+    { name = "alpine-code-core" },
+    { name = "prompt-toolkit" },
+    { name = "rich" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alpine-code-core", editable = "packages/core" },
+    { name = "prompt-toolkit", specifier = ">=3.0.52" },
+    { name = "rich", specifier = ">=14.0" },
+]
+
+[[package]]
+name = "alpine-code-core"
+version = "0.1.0"
+source = { editable = "packages/core" }
+dependencies = [
+    { name = "alpineagents" },
+    { name = "anthropic" },
+    { name = "openai" },
+    { name = "tomlkit" },
+    { name = "tree-sitter" },
+    { name = "tree-sitter-bash" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alpineagents", specifier = ">=0.4.0" },
+    { name = "anthropic", specifier = ">=1.8.0" },
+    { name = "openai", specifier = ">=3.19.2" },
+    { name = "tomlkit", specifier = ">=0.15.1" },
+    { name = "tree-sitter", specifier = ">=0.26" },
+    { name = "tree-sitter-bash", specifier = ">=0.25.1" },
+]
+
+[[package]]
+name = "alpine-code-protocol"
+version = "0.1.0"
+source = { editable = "packages/protocol/python" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.13" }]
+
+[[package]]
+name = "alpine-code-server"
+version = "0.1.0"
+source = { editable = "apps/server" }
+dependencies = [
+    { name = "alpine-code-core" },
+    { name = "alpine-code-protocol" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alpine-code-core", editable = "packages/core" },
+    { name = "alpine-code-protocol", editable = "packages/protocol/python" },
+]
+
+[[package]]
+name = "alpineagents"
+version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anthropic" },
@@ -47,9 +97,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cb/17/b01857039e3449515e89684e146f2b4e655225bd1cf07acc40b38dff3ba8/alpineagents-0.1.0.tar.gz", hash = "sha256:f59d1d5a84070872d2204ef6a0b5beddeeda742608e7e4e8f3b74831fb8f9332", size = 275792, upload-time = "2026-09-26T05:26:18.482Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/d7/c06e6ff0c69ab02fd114a23d96f1e7687ec44b9c62434c71b75eb71caf82/alpineagents-0.4.0.tar.gz", hash = "sha256:c02d27efa16ad00151c59dcd08bc5aefcc69f76b03f322639168e782f140433e", size = 392035, upload-time = "2026-09-30T04:03:11.669Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/50/a2/dbe56f326c2e9868a79da80d9181119d0ffa783c6fde30ddfb521ab75fb5/alpineagents-0.1.0-py3-none-any.whl", hash = "sha256:089f2fd3b81a98100d86a375551f676e62d89b57624281df5c3677ef5c75e956", size = 101138, upload-time = "2026-09-26T05:26:16.494Z" },
+    { url = "https://files.pythonhosted.org/packages/71/86/2da8cf4d91020f7f4a2d79ed27f06430c89e2b3139df386c7037046794b5/alpineagents-0.4.0-py3-none-any.whl", hash = "sha256:bc114f74f1847751b3294e7769d73006f187c1d857f3e7e56d8ce70c1bdbe62a", size = 148961, upload-time = "2026-09-30T04:03:10.236Z" },
 ]
 
 [[package]]
@@ -506,6 +556,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a2/87/a6771e1546d97e7e041b6ae58d80074f81b7d5121207425c964ddf5cfdbd/sniffio-1.3.1.tar.gz", hash = "sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc", size = 20372, upload-time = "2024-02-25T23:20:04.057Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e9/44/75a9c9421471a6c4805dbf2356f7c181a29c1879239abab1ea2cc8f38b40/sniffio-1.3.1-py3-none-any.whl", hash = "sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2", size = 10235, upload-time = "2024-02-25T23:20:01.196Z" },
+]
+
+[[package]]
+name = "tomlkit"
+version = "0.15.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/96/e07752635b98536177fa1f37671c8f3cdde2e724c6bcf6034b2cfb571565/tomlkit-0.15.1.tar.gz", hash = "sha256:e25bbf38843005246210a12982776f27f99cb9be67160e14434d0c0d21ee1e97", size = 180129, upload-time = "2026-07-17T01:48:04.562Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/bc/8c13eb66537dce1d2bd3a57132902f38d0e7f5bb46fa9f4daed9fe9d76ee/tomlkit-0.15.1-py3-none-any.whl", hash = "sha256:177a05aece5a8ca5266fd3c448abb47b8d352f09d477d3ca8332db4d89b24304", size = 49449, upload-time = "2026-07-17T01:48:05.728Z" },
 ]
 
 [[package]]

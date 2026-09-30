@@ -1,0 +1,5 @@
+@import 'tailwindcss';
+@import '@alpine/ui/tokens.css';
+
+/* Tailwind only scans this app by default; the primitives' classes live in packages/ui. */
+@source '../../../../packages/ui/src';

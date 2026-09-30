@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from importlib.metadata import version
 from pathlib import Path
@@ -15,10 +16,13 @@ from alpine_core import (
     ModelListError,
     Project,
     ProjectList,
+    PullRequest,
     Settings,
     clone,
     current_branch,
+    git_status,
     list_models,
+    pull_request,
     save_connection,
     set_default_model,
 )
@@ -34,18 +38,24 @@ from alpine_protocol import (
     ConnectionsSetDefaultParams,
     ConnectionsSetDefaultResult,
     ErrorData,
+    GitInfo,
     InitializeParams,
     InitializeResult,
     ProjectInfo,
+    ProjectsArchiveParams,
+    ProjectsArchiveResult,
     ProjectsCloneParams,
     ProjectsCloneResult,
-    ProjectsHideParams,
-    ProjectsHideResult,
+    ProjectsDeleteParams,
+    ProjectsDeleteResult,
+    ProjectsGitParams,
+    ProjectsGitResult,
     ProjectsListParams,
     ProjectsListResult,
     ProjectsOpenParams,
     ProjectsOpenResult,
     ProviderInfo,
+    PullRequestInfo,
     ServerInfo,
 )
 
@@ -173,9 +183,14 @@ def open_project(params: ProjectsOpenParams) -> ProjectsOpenResult:
     return ProjectsOpenResult(project=_project_info(project))
 
 
-def hide_project(params: ProjectsHideParams) -> ProjectsHideResult:
-    ProjectList.default().hide(Path(params.path))
-    return ProjectsHideResult()
+def archive_project(params: ProjectsArchiveParams) -> ProjectsArchiveResult:
+    ProjectList.default().archive(Path(params.path))
+    return ProjectsArchiveResult()
+
+
+def delete_project(params: ProjectsDeleteParams) -> ProjectsDeleteResult:
+    ProjectList.default().delete(Path(params.path))
+    return ProjectsDeleteResult()
 
 
 def clone_project(params: ProjectsCloneParams) -> ProjectsCloneResult:
@@ -188,13 +203,39 @@ def clone_project(params: ProjectsCloneParams) -> ProjectsCloneResult:
     return ProjectsCloneResult(project=_project_info(ProjectList.default().open(folder)))
 
 
+#: Asking GitHub takes a second, so a branch's pull request is looked up at most once a minute.
+_PR_TTL = 60.0
+_pull_requests: dict[tuple[Path, str | None], tuple[float, PullRequest | None]] = {}
+
+
+def project_git(params: ProjectsGitParams) -> ProjectsGitResult:
+    folder = Path(params.path)
+    status = git_status(folder)
+    if status is None:
+        return ProjectsGitResult(git=None)
+    key = (folder, status.branch)
+    cached = _pull_requests.get(key)
+    if cached is None or time.monotonic() - cached[0] > _PR_TTL:
+        cached = (time.monotonic(), pull_request(folder) if status.branch else None)
+        _pull_requests[key] = cached
+    pr = cached[1]
+    return ProjectsGitResult(
+        git=GitInfo(
+            branch=status.branch,
+            added=status.added,
+            deleted=status.deleted,
+            pull_request=PullRequestInfo(number=pr.number, url=pr.url, checks=pr.checks) if pr else None,
+        )
+    )
+
+
 def _project_info(project: Project) -> ProjectInfo:
     return ProjectInfo(
         path=str(project.path),
         name=project.name,
         branch=current_branch(project.path),
         last_used_at=project.last_used_at,
-        hidden=project.hidden,
+        archived=project.archived,
     )
 
 
@@ -206,6 +247,8 @@ HANDLERS: dict[str, Callable[[Any], Any]] = {
     "connections/setDefault": set_default,
     "projects/list": list_projects,
     "projects/open": open_project,
-    "projects/hide": hide_project,
+    "projects/archive": archive_project,
+    "projects/delete": delete_project,
     "projects/clone": clone_project,
+    "projects/git": project_git,
 }

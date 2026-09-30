@@ -1,11 +1,14 @@
 import type { ProjectInfo } from '@alpine/protocol';
-import { ContextMenu, PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
+import { ContextMenu, Menu, PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import clsx from 'clsx';
+import { useState } from 'react';
 
 import { useFormat, useMessages } from '@/shared/i18n';
 import { revealInFinder, useOpenFolder } from '@/shared/platform';
-import { useHideProject, useProjects } from '@/shared/server';
+import { useArchiveProject, useProjects } from '@/shared/server';
 
+import { DeleteProjectDialog } from './DeleteProjectDialog';
 import { messages } from './messages';
 
 const item =
@@ -18,9 +21,10 @@ export function Rail() {
   const projects = useProjects();
   const navigate = useNavigate();
   const openFolder = useOpenFolder((path) => void navigate({ to: '/', search: { project: path } }));
-  const shown = projects.data?.projects.filter((project) => !project.hidden) ?? [];
+  const shown = projects.data?.projects.filter((project) => !project.archived) ?? [];
   const none = projects.isSuccess && shown.length === 0;
   const width = usePanelWidth({ storageKey: 'alpine.rail.width', initial: 260, min: 200, max: 360 });
+  const [deleting, setDeleting] = useState<ProjectInfo | null>(null);
 
   return (
     <nav
@@ -29,10 +33,6 @@ export function Rail() {
       className="relative flex min-w-50 shrink flex-col gap-3 border-r border-line bg-canvas-sunken px-3 py-4"
     >
       <PanelResizer panel={width} edge="right" label={t.resize} />
-      <div className="flex min-h-8 items-center gap-2 pr-1 pl-2">
-        <HareMark />
-        <span className="font-display text-title">Alpine</span>
-      </div>
       {!none && (
         <Link to="/" className={item} activeProps={active} activeOptions={{ exact: true, includeSearch: false }}>
           <span className="inline-flex size-4.5 items-center justify-center text-fg-muted">
@@ -63,7 +63,7 @@ export function Rail() {
             <span className="text-meta text-fg-muted">⌘O</span>
           </button>
         ) : (
-          shown.map((project) => <ProjectRow key={project.path} project={project} />)
+          shown.map((project) => <ProjectRow key={project.path} project={project} onDelete={setDeleting} />)
         )}
       </section>
       <div className="grow" />
@@ -72,60 +72,88 @@ export function Rail() {
           {t.settings}
         </Link>
       </div>
+      <DeleteProjectDialog project={deleting} onClose={() => setDeleting(null)} />
     </nav>
   );
 }
 
-/** A project: opens a new session in it. Right-click for the rest. */
-function ProjectRow({ project }: { project: ProjectInfo }) {
+/**
+ * A project: opens a new session in it. Hovering or focusing the row swaps its time for ⋮, which opens the
+ * project's menu; right-clicking opens the same menu.
+ */
+function ProjectRow({ project, onDelete }: { project: ProjectInfo; onDelete: (project: ProjectInfo) => void }) {
   const t = useMessages(messages);
   const format = useFormat();
   const navigate = useNavigate();
-  const hide = useHideProject();
+  const archive = useArchiveProject();
+  const [menuOpen, setMenuOpen] = useState(false);
   const chosen = useSearch({ strict: false, select: (search: { project?: string }) => search.project });
-  const newSession = () => void navigate({ to: '/', search: { project: project.path } });
+
+  const items = (
+    <>
+      <Menu.Item onClick={() => void navigate({ to: '/', search: { project: project.path } })}>
+        {t.newSession}
+      </Menu.Item>
+      <Menu.Item onClick={() => void revealInFinder(project.path)}>{t.revealInFinder}</Menu.Item>
+      <Menu.Separator />
+      <Menu.Item onClick={() => archive.mutate(project.path)}>{t.archive}</Menu.Item>
+      <Menu.Separator />
+      <Menu.Item className="text-danger" onClick={() => onDelete(project)}>
+        {t.delete}
+      </Menu.Item>
+    </>
+  );
+
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger
-        render={<Link to="/" search={{ project: project.path }} />}
-        className={item + (chosen === project.path ? ' bg-hover' : '')}
-        title={project.path}
-      >
-        <span className="inline-flex size-4.5 shrink-0 items-center justify-center rounded-sm bg-line-subtle text-meta text-fg-muted">
-          {project.name.charAt(0).toUpperCase()}
-        </span>
-        <span className="min-w-0 grow truncate">{project.name}</span>
-        <span className="text-meta whitespace-nowrap text-fg-muted">{format.since(new Date(project.lastUsedAt))}</span>
-      </ContextMenu.Trigger>
-      <ContextMenu.Popup aria-label={t.projectMenu(project.name)}>
-        <ContextMenu.Item onClick={newSession}>{t.newSession}</ContextMenu.Item>
-        <ContextMenu.Item onClick={() => void revealInFinder(project.path)}>{t.revealInFinder}</ContextMenu.Item>
-        <ContextMenu.Separator />
-        <ContextMenu.Item onClick={() => hide.mutate(project.path)}>{t.hide}</ContextMenu.Item>
-      </ContextMenu.Popup>
-    </ContextMenu.Root>
+    <div
+      className={clsx(
+        'group relative flex items-center rounded-md hover:bg-hover',
+        (chosen === project.path || menuOpen) && 'bg-hover',
+      )}
+    >
+      <ContextMenu.Root>
+        <ContextMenu.Trigger
+          render={<Link to="/" search={{ project: project.path }} />}
+          className={clsx(item, 'hover:bg-transparent')}
+          title={project.path}
+        >
+          <span className="inline-flex size-4.5 shrink-0 items-center justify-center rounded-sm bg-line-subtle text-meta text-fg-muted">
+            {project.name.charAt(0).toUpperCase()}
+          </span>
+          <span className="min-w-0 grow truncate">{project.name}</span>
+          <span
+            className={clsx(
+              'text-meta whitespace-nowrap text-fg-muted group-focus-within:invisible group-hover:invisible',
+              menuOpen && 'invisible',
+            )}
+          >
+            {format.since(new Date(project.lastUsedAt))}
+          </span>
+        </ContextMenu.Trigger>
+        <ContextMenu.Popup aria-label={t.projectMenu(project.name)}>{items}</ContextMenu.Popup>
+      </ContextMenu.Root>
+      <Menu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+        <Menu.Trigger
+          aria-label={t.projectMenu(project.name)}
+          className={clsx(
+            'absolute right-1 size-6 cursor-pointer items-center justify-center rounded-sm text-fg-muted hover:bg-line hover:text-fg group-focus-within:inline-flex group-hover:inline-flex data-popup-open:bg-line data-popup-open:text-fg',
+            menuOpen ? 'inline-flex' : 'hidden',
+          )}
+        >
+          <DotsIcon />
+        </Menu.Trigger>
+        <Menu.Popup aria-label={t.projectMenu(project.name)}>{items}</Menu.Popup>
+      </Menu.Root>
+    </div>
   );
 }
 
-/** The snow hare: two long ears over a round head. */
-function HareMark() {
+function DotsIcon() {
   return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 30 30"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M11 14C9 9 9 4 11 2.5C13 4 13.5 9 12.8 14" />
-      <path d="M17.2 14C16.5 9 17 4 19 2.5C21 4 21 9 19 14" />
-      <ellipse cx="15" cy="19.5" rx="7.5" ry="6.5" />
-      <circle cx="17.6" cy="18.5" r="0.9" fill="currentColor" stroke="none" />
-      <path d="M14 22.5h2" />
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+      <circle cx="7" cy="3" r="1.2" />
+      <circle cx="7" cy="7" r="1.2" />
+      <circle cx="7" cy="11" r="1.2" />
     </svg>
   );
 }

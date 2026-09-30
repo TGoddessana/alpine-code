@@ -1,7 +1,7 @@
 import { homeDir } from '@tauri-apps/api/path';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { open } from '@tauri-apps/plugin-dialog';
-import { revealItemInDir } from '@tauri-apps/plugin-opener';
+import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useCallback, useEffect, useState } from 'react';
 
 import { common, useMessages } from '@/shared/i18n';
@@ -19,6 +19,12 @@ export async function pickFolder(title: string): Promise<string | null> {
 /** Shows the folder in Finder. Does nothing in a plain browser. */
 export async function revealInFinder(path: string): Promise<void> {
   if (inTauri()) await revealItemInDir(path);
+}
+
+/** Opens a web page in the default browser. */
+export async function openInBrowser(url: string): Promise<void> {
+  if (inTauri()) await openUrl(url);
+  else window.open(url, '_blank', 'noopener');
 }
 
 /** Calls `listener` with the paths dropped on the window, until the returned function is called. */

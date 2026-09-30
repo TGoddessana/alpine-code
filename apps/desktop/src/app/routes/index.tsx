@@ -16,7 +16,7 @@ function NewSessionRoute() {
   const { project: chosen } = Route.useSearch();
   const navigate = useNavigate();
   const projects = useProjects();
-  const shown = projects.data?.projects.filter((p) => !p.hidden) ?? [];
+  const shown = projects.data?.projects.filter((p) => !p.archived) ?? [];
   const project = shown.find((p) => p.path === chosen) ?? shown[0];
   const choose = (path: string) => void navigate({ to: '/', search: { project: path } });
 

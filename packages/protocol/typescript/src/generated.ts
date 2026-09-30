@@ -113,6 +113,25 @@ export interface ErrorObject {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitInfo".
+ */
+export interface GitInfo {
+  branch: string | null;
+  added: number;
+  deleted: number;
+  pullRequest: PullRequestInfo | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PullRequestInfo".
+ */
+export interface PullRequestInfo {
+  number: number;
+  url: string;
+  checks: ('passing' | 'failing' | 'pending') | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "InitializeParams".
  */
 export interface InitializeParams {
@@ -144,8 +163,22 @@ export interface ProjectInfo {
   name: string;
   branch: string | null;
   lastUsedAt: string;
-  hidden: boolean;
+  archived: boolean;
 }
+/**
+ * Takes a project off the rail; its sessions stay, and opening the folder brings it back.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsArchiveParams".
+ */
+export interface ProjectsArchiveParams {
+  path: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsArchiveResult".
+ */
+export interface ProjectsArchiveResult {}
 /**
  * Clones into ``parent/<repo name>`` and opens it. Blocks until git is done.
  *
@@ -164,19 +197,33 @@ export interface ProjectsCloneResult {
   project: ProjectInfo;
 }
 /**
- * Takes a project off the rail; its sessions stay, and opening the folder shows it again.
+ * Forgets a project and what Alpine keeps about it. The folder and its files are never touched.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "ProjectsHideParams".
+ * via the `definition` "ProjectsDeleteParams".
  */
-export interface ProjectsHideParams {
+export interface ProjectsDeleteParams {
   path: string;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "ProjectsHideResult".
+ * via the `definition` "ProjectsDeleteResult".
  */
-export interface ProjectsHideResult {}
+export interface ProjectsDeleteResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsGitParams".
+ */
+export interface ProjectsGitParams {
+  path: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsGitResult".
+ */
+export interface ProjectsGitResult {
+  git: GitInfo | null;
+}
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ProjectsListParams".
@@ -237,6 +284,8 @@ export interface Methods {
   'connections/setDefault': { params: ConnectionsSetDefaultParams; result: ConnectionsSetDefaultResult };
   'projects/list': { params: ProjectsListParams; result: ProjectsListResult };
   'projects/open': { params: ProjectsOpenParams; result: ProjectsOpenResult };
-  'projects/hide': { params: ProjectsHideParams; result: ProjectsHideResult };
+  'projects/archive': { params: ProjectsArchiveParams; result: ProjectsArchiveResult };
+  'projects/delete': { params: ProjectsDeleteParams; result: ProjectsDeleteResult };
   'projects/clone': { params: ProjectsCloneParams; result: ProjectsCloneResult };
+  'projects/git': { params: ProjectsGitParams; result: ProjectsGitResult };
 }

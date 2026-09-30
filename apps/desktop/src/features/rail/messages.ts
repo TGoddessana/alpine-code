@@ -1,3 +1,5 @@
+import { josa } from 'es-hangul';
+
 import { defineMessages } from '@/shared/i18n';
 
 export const messages = defineMessages({
@@ -9,7 +11,17 @@ export const messages = defineMessages({
     settings: '설정',
     projectMenu: (name: string) => `${name} 메뉴`,
     revealInFinder: 'Finder에서 열기',
-    hide: '레일에서 숨기기',
+    archive: '보관',
+    delete: '삭제…',
+    deleteTitle: (name: string) => `${josa(name, '을/를')} 삭제할까요?`,
+    deleteLead: 'Alpine에 남은 이 프로젝트의 기록만 지워요. 폴더와 파일은 그대로예요.',
+    removed: '지워지는 것',
+    removedWhat: '이 프로젝트의 세션과 되돌리기 지점',
+    kept: '그대로인 것',
+    keptWhat: '폴더와 모든 파일, git 기록, AGENTS.md',
+    cannotUndo: '되돌릴 수 없어요',
+    cancel: '취소',
+    confirmDelete: '삭제',
     resize: '주 메뉴 너비',
   },
   en: {
@@ -20,7 +32,17 @@ export const messages = defineMessages({
     settings: 'Settings',
     projectMenu: (name: string) => `${name} menu`,
     revealInFinder: 'Show in Finder',
-    hide: 'Hide from the rail',
+    archive: 'Archive',
+    delete: 'Delete…',
+    deleteTitle: (name: string) => `Delete ${name}?`,
+    deleteLead: 'Only what Alpine keeps about this project is removed. The folder and its files stay.',
+    removed: 'Removed',
+    removedWhat: "This project's sessions and rewind points",
+    kept: 'Kept',
+    keptWhat: 'The folder and every file, git history, AGENTS.md',
+    cannotUndo: "This can't be undone",
+    cancel: 'Cancel',
+    confirmDelete: 'Delete',
     resize: 'Main menu width',
   },
 });

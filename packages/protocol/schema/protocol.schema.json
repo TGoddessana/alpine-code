@@ -31,13 +31,21 @@
       "params": "ProjectsOpenParams",
       "result": "ProjectsOpenResult"
     },
-    "projects/hide": {
-      "params": "ProjectsHideParams",
-      "result": "ProjectsHideResult"
+    "projects/archive": {
+      "params": "ProjectsArchiveParams",
+      "result": "ProjectsArchiveResult"
+    },
+    "projects/delete": {
+      "params": "ProjectsDeleteParams",
+      "result": "ProjectsDeleteResult"
     },
     "projects/clone": {
       "params": "ProjectsCloneParams",
       "result": "ProjectsCloneResult"
+    },
+    "projects/git": {
+      "params": "ProjectsGitParams",
+      "result": "ProjectsGitResult"
     }
   },
   "$defs": {
@@ -320,6 +328,44 @@
       "title": "ErrorObject",
       "type": "object"
     },
+    "GitInfo": {
+      "properties": {
+        "branch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "added": {
+          "type": "integer"
+        },
+        "deleted": {
+          "type": "integer"
+        },
+        "pullRequest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PullRequestInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "branch",
+        "added",
+        "deleted",
+        "pullRequest"
+      ],
+      "title": "GitInfo",
+      "type": "object"
+    },
     "InitializeParams": {
       "properties": {
         "protocolVersion": {
@@ -374,7 +420,7 @@
           "format": "date-time",
           "type": "string"
         },
-        "hidden": {
+        "archived": {
           "type": "boolean"
         }
       },
@@ -383,9 +429,27 @@
         "name",
         "branch",
         "lastUsedAt",
-        "hidden"
+        "archived"
       ],
       "title": "ProjectInfo",
+      "type": "object"
+    },
+    "ProjectsArchiveParams": {
+      "description": "Takes a project off the rail; its sessions stay, and opening the folder brings it back.",
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "ProjectsArchiveParams",
+      "type": "object"
+    },
+    "ProjectsArchiveResult": {
+      "properties": {},
+      "title": "ProjectsArchiveResult",
       "type": "object"
     },
     "ProjectsCloneParams": {
@@ -417,8 +481,8 @@
       "title": "ProjectsCloneResult",
       "type": "object"
     },
-    "ProjectsHideParams": {
-      "description": "Takes a project off the rail; its sessions stay, and opening the folder shows it again.",
+    "ProjectsDeleteParams": {
+      "description": "Forgets a project and what Alpine keeps about it. The folder and its files are never touched.",
       "properties": {
         "path": {
           "type": "string"
@@ -427,12 +491,43 @@
       "required": [
         "path"
       ],
-      "title": "ProjectsHideParams",
+      "title": "ProjectsDeleteParams",
       "type": "object"
     },
-    "ProjectsHideResult": {
+    "ProjectsDeleteResult": {
       "properties": {},
-      "title": "ProjectsHideResult",
+      "title": "ProjectsDeleteResult",
+      "type": "object"
+    },
+    "ProjectsGitParams": {
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "ProjectsGitParams",
+      "type": "object"
+    },
+    "ProjectsGitResult": {
+      "properties": {
+        "git": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GitInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "git"
+      ],
+      "title": "ProjectsGitResult",
       "type": "object"
     },
     "ProjectsListParams": {
@@ -510,6 +605,38 @@
         "keyEnv"
       ],
       "title": "ProviderInfo",
+      "type": "object"
+    },
+    "PullRequestInfo": {
+      "properties": {
+        "number": {
+          "type": "integer"
+        },
+        "url": {
+          "type": "string"
+        },
+        "checks": {
+          "anyOf": [
+            {
+              "enum": [
+                "passing",
+                "failing",
+                "pending"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "number",
+        "url",
+        "checks"
+      ],
+      "title": "PullRequestInfo",
       "type": "object"
     },
     "Request": {

@@ -72,13 +72,19 @@ def test_connections_and_projects(tmp_path, monkeypatch):
     assert [p["path"] for p in listed["projects"]] == [opened["path"]] and listed["cloneParent"]
     assert opened["branch"] is None
 
-    request("projects/hide", {"path": str(tmp_path)})
-    assert request("projects/list")["result"]["projects"][0]["hidden"] is True
+    request("projects/archive", {"path": str(tmp_path)})
+    assert request("projects/list")["result"]["projects"][0]["archived"] is True
     assert request("connections/setDefault", {"model": "local/qwen3"})["result"] == {"defaultModel": "local/qwen3"}
     assert request("connections/list")["result"]["defaultModel"] == "local/qwen3"
 
     failed = request("projects/clone", {"address": str(tmp_path / "nope"), "parent": str(tmp_path)})
     assert failed["error"]["data"] == {"reason": "clone_failed"}
+
+    assert request("projects/git", {"path": str(tmp_path)})["result"] == {"git": None}
+
+    request("projects/delete", {"path": str(tmp_path)})
+    assert request("projects/list")["result"]["projects"] == []
+    assert tmp_path.is_dir()
 
 
 def test_model_list_errors_say_why(tmp_path, monkeypatch):

@@ -19,8 +19,8 @@ class Project:
     path: Path
     added_at: datetime
     last_used_at: datetime
-    hidden: bool = False
-    """Hidden from the rail; its sessions and memory stay."""
+    archived: bool = False
+    """Off the rail; its sessions and memory stay."""
 
     @property
     def name(self) -> str:
@@ -42,7 +42,7 @@ class ProjectList:
         return sorted(self._read().values(), key=lambda p: p.last_used_at, reverse=True)
 
     def open(self, folder: Path) -> Project:
-        """Adds the folder, or marks it used now and shows it again if it was hidden.
+        """Adds the folder, or marks it used now and brings it back if it was archived.
 
         Raises:
             NotADirectoryError: The folder does not exist or is a file.
@@ -53,17 +53,27 @@ class ProjectList:
         projects = self._read()
         now = datetime.now(UTC)
         known = projects.get(folder)
-        project = replace(known, last_used_at=now, hidden=False) if known else Project(folder, now, now)
+        project = replace(known, last_used_at=now, archived=False) if known else Project(folder, now, now)
         projects[folder] = project
         self._write(projects)
         return project
 
-    def hide(self, folder: Path) -> None:
-        """Takes the folder off the rail. Opening it again shows it again."""
+    def archive(self, folder: Path) -> None:
+        """Takes the folder off the rail. Opening it again brings it back."""
         folder = folder.expanduser().resolve()
         projects = self._read()
         if folder in projects:
-            projects[folder] = replace(projects[folder], hidden=True)
+            projects[folder] = replace(projects[folder], archived=True)
+            self._write(projects)
+
+    def delete(self, folder: Path) -> None:
+        """Forgets the folder. Never touches the folder itself; opening it again starts it afresh.
+
+        What Alpine keeps about the project (its sessions, then its memory) goes with it once the core stores them.
+        """
+        folder = folder.expanduser().resolve()
+        projects = self._read()
+        if projects.pop(folder, None):
             self._write(projects)
 
     def clone_parent(self) -> Path:
@@ -83,7 +93,7 @@ class ProjectList:
                 path,
                 datetime.fromisoformat(entry["added_at"]),
                 datetime.fromisoformat(entry["last_used_at"]),
-                entry.get("hidden", False),
+                entry.get("archived", False),
             )
         return projects
 
@@ -94,7 +104,7 @@ class ProjectList:
                     "path": str(p.path),
                     "added_at": p.added_at.isoformat(),
                     "last_used_at": p.last_used_at.isoformat(),
-                    "hidden": p.hidden,
+                    "archived": p.archived,
                 }
                 for p in projects.values()
             ]

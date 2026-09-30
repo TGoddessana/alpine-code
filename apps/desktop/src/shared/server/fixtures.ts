@@ -29,9 +29,15 @@ export const CONNECTED: ConnectionsListResult = {
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
 
 export const PROJECTS: ProjectInfo[] = [
-  { path: '/Users/me/alpine-code', name: 'alpine-code', branch: 'main', lastUsedAt: hoursAgo(0.2), hidden: false },
-  { path: '/Users/me/docs-site', name: 'docs-site', branch: 'main', lastUsedAt: hoursAgo(2), hidden: false },
-  { path: '/Users/me/infra-terraform', name: 'infra-terraform', branch: null, lastUsedAt: hoursAgo(26), hidden: false },
+  { path: '/Users/me/alpine-code', name: 'alpine-code', branch: 'main', lastUsedAt: hoursAgo(0.2), archived: false },
+  { path: '/Users/me/docs-site', name: 'docs-site', branch: 'main', lastUsedAt: hoursAgo(2), archived: false },
+  {
+    path: '/Users/me/infra-terraform',
+    name: 'infra-terraform',
+    branch: null,
+    lastUsedAt: hoursAgo(26),
+    archived: false,
+  },
 ];
 
 const MODELS: Record<string, string[]> = {
@@ -55,7 +61,7 @@ export function statefulScript(start: ScriptState): Script {
     name: path.split('/').pop() ?? path,
     branch: 'main',
     lastUsedAt: new Date().toISOString(),
-    hidden: false,
+    archived: false,
   });
   return {
     results: {
@@ -95,8 +101,24 @@ export function statefulScript(start: ScriptState): Script {
         projects = [opened, ...projects.filter((p) => p.path !== path)];
         return { project: opened };
       },
-      'projects/hide': ({ path }) => {
-        projects = projects.map((p) => (p.path === path ? { ...p, hidden: true } : p));
+      'projects/archive': ({ path }) => {
+        projects = projects.map((p) => (p.path === path ? { ...p, archived: true } : p));
+        return {};
+      },
+      'projects/git': ({ path }) => ({
+        git: path.endsWith('infra-terraform')
+          ? null
+          : {
+              branch: 'main',
+              added: path.endsWith('alpine-code') ? 188 : 0,
+              deleted: path.endsWith('alpine-code') ? 42 : 0,
+              pullRequest: path.endsWith('alpine-code')
+                ? { number: 214, url: 'https://github.com/owner/alpine-code/pull/214', checks: 'pending' }
+                : null,
+            },
+      }),
+      'projects/delete': ({ path }) => {
+        projects = projects.filter((p) => p.path !== path);
         return {};
       },
       'projects/clone': ({ address, parent }) => {

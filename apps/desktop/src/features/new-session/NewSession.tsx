@@ -2,6 +2,7 @@ import type { ProjectInfo } from '@alpine/protocol';
 import { Button, Menu } from '@alpine/ui/primitives';
 import { useState } from 'react';
 
+import { GitBar } from '@/shared/components/git';
 import { useMessages } from '@/shared/i18n';
 import { tildePath, useHomeDir, useOpenFolder } from '@/shared/platform';
 
@@ -9,7 +10,7 @@ import { CloneDialog } from './CloneDialog';
 import { Composer } from './Composer';
 import { messages } from './messages';
 
-/** Board NewSession: pick the project under the input, then type. Where it runs shows in the header. */
+/** Board NewSession: pick the project under the input, then type. Where it runs shows in the header, its git beside the project. */
 export function NewSession({
   projects,
   project,
@@ -23,17 +24,17 @@ export function NewSession({
   const home = useHomeDir();
   const openFolder = useOpenFolder(onProjectChange);
   const [cloning, setCloning] = useState(false);
-  const where = [project.name, project.branch, tildePath(project.path, home), t.local].filter(Boolean).join(' · ');
+  const where = [project.name, tildePath(project.path, home), t.local].join(' · ');
 
   return (
     <main className="flex min-w-120 grow flex-col bg-canvas">
-      <header className="flex min-h-18 shrink-0 flex-col justify-center gap-1 border-b border-line px-6">
+      <header className="flex min-h-14 shrink-0 flex-col justify-center gap-1 border-b border-line px-6">
         <h1 className="truncate text-title">{t.newSession}</h1>
         <span className="truncate text-meta text-fg-muted">{where}</span>
       </header>
       <section aria-label={t.newSession} className="min-h-0 grow" />
       <div className="flex flex-col gap-2 px-6 pt-3 pb-4">
-        <div>
+        <div className="flex min-w-0 items-center gap-3">
           <Menu.Root>
             <Menu.Trigger render={<Button />} aria-label={`${t.project}: ${project.name}`}>
               {project.name}
@@ -55,6 +56,7 @@ export function NewSession({
               <Menu.Item onClick={() => setCloning(true)}>{t.cloneItem}</Menu.Item>
             </Menu.Popup>
           </Menu.Root>
+          <GitBar path={project.path} />
         </div>
         <Composer />
       </div>

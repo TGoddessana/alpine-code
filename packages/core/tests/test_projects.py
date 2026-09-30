@@ -22,13 +22,25 @@ def test_open_refuses_a_missing_folder(tmp_path):
         ProjectList(tmp_path / "projects.json").open(tmp_path / "missing")
 
 
-def test_hide_until_opened_again(tmp_path):
+def test_archive_until_opened_again(tmp_path):
     projects = ProjectList(tmp_path / "projects.json")
     folder = tmp_path / "a"
     folder.mkdir()
     projects.open(folder)
     assert projects.clone_parent() == tmp_path.resolve()
-    projects.hide(folder)
-    assert [p.hidden for p in projects.list()] == [True]
+    projects.archive(folder)
+    assert [p.archived for p in projects.list()] == [True]
     projects.open(folder)
-    assert [p.hidden for p in projects.list()] == [False]
+    assert [p.archived for p in projects.list()] == [False]
+
+
+def test_delete_forgets_the_project_but_keeps_the_folder(tmp_path):
+    projects = ProjectList(tmp_path / "projects.json")
+    folder = tmp_path / "a"
+    folder.mkdir()
+    (folder / "main.py").write_text("print()")
+    projects.open(folder)
+    projects.delete(folder)
+    assert projects.list() == []
+    assert (folder / "main.py").exists()
+    projects.delete(folder)  # already gone: nothing to do

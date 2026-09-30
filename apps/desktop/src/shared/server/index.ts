@@ -2,12 +2,14 @@ export { ServerError, type Notification, type ServerConnection } from './connect
 export { ServerProvider, useServer } from './context';
 export {
   useAddConnection,
+  useArchiveProject,
   useCloneProject,
   useConnectionModels,
   useConnections,
-  useHideProject,
+  useDeleteProject,
   useModelsOf,
   useOpenProject,
+  useProjectGit,
   useProjects,
   useServerInfo,
   useSetDefaultModel,

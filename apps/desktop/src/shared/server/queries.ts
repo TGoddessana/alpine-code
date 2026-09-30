@@ -81,12 +81,33 @@ export function useSetDefaultModel() {
   });
 }
 
-export function useHideProject() {
+export function useArchiveProject() {
   const server = useServer();
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (path: string) => server.request('projects/hide', { path }),
+    mutationFn: (path: string) => server.request('projects/archive', { path }),
     onSuccess: () => client.invalidateQueries({ queryKey: ['projects'] }),
+  });
+}
+
+/** Forgets the project in Alpine. The folder and its files stay. */
+export function useDeleteProject() {
+  const server = useServer();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (path: string) => server.request('projects/delete', { path }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['projects'] }),
+  });
+}
+
+/** The project's branch, what it changes and its pull request. Refreshed while the window is open. */
+export function useProjectGit(path: string) {
+  const server = useServer();
+  return useQuery({
+    queryKey: ['projects', 'git', path],
+    queryFn: () => server.request('projects/git', { path }),
+    refetchInterval: 10_000,
+    refetchOnWindowFocus: true,
   });
 }
 

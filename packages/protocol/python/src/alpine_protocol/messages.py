@@ -153,7 +153,7 @@ class ProjectInfo(Message):
     branch: str | None
     """The checked-out branch; ``None`` outside git or on a detached HEAD."""
     last_used_at: datetime
-    hidden: bool
+    archived: bool
 
 
 class ProjectsListParams(Message):
@@ -175,13 +175,23 @@ class ProjectsOpenResult(Message):
     project: ProjectInfo
 
 
-class ProjectsHideParams(Message):
-    """Takes a project off the rail; its sessions stay, and opening the folder shows it again."""
+class ProjectsArchiveParams(Message):
+    """Takes a project off the rail; its sessions stay, and opening the folder brings it back."""
 
     path: str
 
 
-class ProjectsHideResult(Message):
+class ProjectsArchiveResult(Message):
+    pass
+
+
+class ProjectsDeleteParams(Message):
+    """Forgets a project and what Alpine keeps about it. The folder and its files are never touched."""
+
+    path: str
+
+
+class ProjectsDeleteResult(Message):
     pass
 
 
@@ -197,6 +207,32 @@ class ProjectsCloneResult(Message):
     project: ProjectInfo
 
 
+class PullRequestInfo(Message):
+    number: int
+    url: str
+    checks: Literal["passing", "failing", "pending"] | None
+    """CI on its last commit; ``None`` when it has no checks."""
+
+
+class GitInfo(Message):
+    branch: str | None
+    """``None`` on a detached HEAD."""
+    added: int
+    deleted: int
+    """Lines the branch changes that the default branch does not have yet, uncommitted work included."""
+    pull_request: PullRequestInfo | None
+    """The branch's open pull request, when ``gh`` can find one."""
+
+
+class ProjectsGitParams(Message):
+    path: str
+
+
+class ProjectsGitResult(Message):
+    git: GitInfo | None
+    """``None`` outside a git repository."""
+
+
 #: Every method an app can call: name -> (params, result).
 METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "initialize": (InitializeParams, InitializeResult),
@@ -206,6 +242,8 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "connections/setDefault": (ConnectionsSetDefaultParams, ConnectionsSetDefaultResult),
     "projects/list": (ProjectsListParams, ProjectsListResult),
     "projects/open": (ProjectsOpenParams, ProjectsOpenResult),
-    "projects/hide": (ProjectsHideParams, ProjectsHideResult),
+    "projects/archive": (ProjectsArchiveParams, ProjectsArchiveResult),
+    "projects/delete": (ProjectsDeleteParams, ProjectsDeleteResult),
     "projects/clone": (ProjectsCloneParams, ProjectsCloneResult),
+    "projects/git": (ProjectsGitParams, ProjectsGitResult),
 }

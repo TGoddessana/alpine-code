@@ -21,7 +21,8 @@ from .events import (
     TurnStarted,
     UsageInfo,
 )
-from .git import CloneError, clone, current_branch
+from .git import CloneError, GitStatus, PullRequest, clone, current_branch, pull_request
+from .git import status as git_status
 from .home import home_dir
 from .models import ModelListError, list_models
 from .permissions import Mode
@@ -52,6 +53,10 @@ __all__ = [
     "clone",
     "CloneError",
     "current_branch",
+    "git_status",
+    "GitStatus",
+    "pull_request",
+    "PullRequest",
     "Mode",
     "Approver",
     "ApprovalRequest",

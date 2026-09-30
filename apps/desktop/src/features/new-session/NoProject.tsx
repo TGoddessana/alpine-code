@@ -15,7 +15,7 @@ export function NoProject({ onProjectChange }: { onProjectChange?: (path: string
   const [cloning, setCloning] = useState(false);
   return (
     <main className="flex min-w-120 grow flex-col bg-canvas">
-      <header className="flex min-h-18 shrink-0 items-center border-b border-line px-6">
+      <header className="flex min-h-14 shrink-0 items-center border-b border-line px-6">
         <h1 className="text-title">{t.start}</h1>
       </header>
       <section aria-labelledby="np-title" className="flex min-h-0 grow flex-col items-center justify-center px-6 pt-4">

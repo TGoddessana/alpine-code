@@ -22,8 +22,11 @@ def test_items_and_events_round_trip_by_kind_and_type():
     info = {
         "id": "s1", "title": "hi", "cwd": "/w", "model": "m", "mode": "default", "status": "idle",
         "createdAt": "2026-09-30T00:00:00Z", "updatedAt": "2026-09-30T00:00:00Z",
-        "usage": {"inputTokens": 1, "outputTokens": 2, "cacheReadTokens": 0, "requests": 1, "cost": 0.0},
-        "contextUsed": 3,
+        "usage": {
+            "inputTokens": 1, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0,
+            "requests": 1, "cost": None,
+        },
+        "contextUsed": 3, "contextWindow": None, "activity": None, "runStartedAt": None, "runUsage": None,
     }  # fmt: skip
     call = {"id": "c1", "kind": "tool_call", "name": "bash", "args": {"command": "ls"}, "status": "running"}
     snap = SessionOpenResult.model_validate(

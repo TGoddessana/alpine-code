@@ -153,7 +153,14 @@ export const SESSIONS = [
     title: 'Fix the flaky login test',
     createdAt: hoursAgo(5),
     updatedAt: hoursAgo(4),
-    usage: { inputTokens: 18_400, outputTokens: 2_100, cacheReadTokens: 9_000, requests: 6, cost: 0.11 },
+    usage: {
+      inputTokens: 18_400,
+      outputTokens: 2_100,
+      cacheReadTokens: 9_000,
+      cacheWriteTokens: 2_500,
+      requests: 6,
+      cost: 0.11,
+    },
     contextUsed: 20_500,
   }),
   sessionInfo({

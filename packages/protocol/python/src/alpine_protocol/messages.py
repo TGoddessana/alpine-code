@@ -254,8 +254,22 @@ class Usage(Message):
     input_tokens: int
     output_tokens: int
     cache_read_tokens: int
+    cache_write_tokens: int
     requests: int
-    cost: float
+    cost: float | None
+    """Dollars; ``None`` when the model has no known price."""
+
+
+ActivityKind = Literal["thinking", "writing", "running_tool", "waiting_approval", "compacting"]
+"""``thinking``: request sent, no text yet. ``writing``: reply text streaming. ``running_tool``: a tool call runs.
+``waiting_approval``: an approval is active. ``compacting``: the context is being summarized."""
+
+
+class Activity(Message):
+    kind: ActivityKind
+    tool_name: str | None
+    """The tool of ``running_tool`` (the latest, if several run together); ``None`` otherwise."""
+    since: datetime
 
 
 class SessionInfo(Message):
@@ -271,6 +285,14 @@ class SessionInfo(Message):
     usage: Usage
     context_used: int
     """Tokens the conversation takes of the model's context window."""
+    context_window: int | None
+    """The model's context window in tokens; ``None`` if unknown."""
+    activity: Activity | None
+    """What the session is doing; ``None`` when idle."""
+    run_started_at: datetime | None
+    """When the current run started; ``None`` when idle."""
+    run_usage: Usage | None
+    """Usage since the current run started; ``None`` when idle."""
 
 
 class ItemModel(Message):

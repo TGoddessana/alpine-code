@@ -84,6 +84,41 @@
     "session/event": "SessionEventParams"
   },
   "$defs": {
+    "Activity": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "thinking",
+            "writing",
+            "running_tool",
+            "waiting_approval",
+            "compacting"
+          ],
+          "type": "string"
+        },
+        "toolName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "since": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "toolName",
+        "since"
+      ],
+      "title": "Activity",
+      "type": "object"
+    },
     "AgentMessageItem": {
       "properties": {
         "id": {
@@ -1357,6 +1392,47 @@
         },
         "contextUsed": {
           "type": "integer"
+        },
+        "contextWindow": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "activity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Activity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runStartedAt": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runUsage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Usage"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1369,7 +1445,11 @@
         "createdAt",
         "updatedAt",
         "usage",
-        "contextUsed"
+        "contextUsed",
+        "contextWindow",
+        "activity",
+        "runStartedAt",
+        "runUsage"
       ],
       "title": "SessionInfo",
       "type": "object"
@@ -1710,17 +1790,28 @@
         "cacheReadTokens": {
           "type": "integer"
         },
+        "cacheWriteTokens": {
+          "type": "integer"
+        },
         "requests": {
           "type": "integer"
         },
         "cost": {
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
         "inputTokens",
         "outputTokens",
         "cacheReadTokens",
+        "cacheWriteTokens",
         "requests",
         "cost"
       ],

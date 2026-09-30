@@ -14,11 +14,9 @@ _EVENT = TypeAdapter(SessionEvent)
 
 
 def to_info(info: CoreInfo | dict[str, Any]) -> SessionInfo:
-    """A session's info. The wire has no cache writes, and an unpriced model costs 0."""
+    """A session's info, without the core's ``last_seq``."""
     data = info if isinstance(info, dict) else info.to_dict()
-    data = {key: value for key, value in data.items() if key != "last_seq"}
-    usage = data.get("usage") or {}
-    return SessionInfo.model_validate({**data, "usage": {**usage, "cost": usage.get("cost") or 0.0}})
+    return SessionInfo.model_validate({key: value for key, value in data.items() if key != "last_seq"})
 
 
 def to_item(item: Item) -> Any:

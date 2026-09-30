@@ -13,6 +13,7 @@ folder into place and refuses an id that already exists, so both cannot own one 
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import shutil
@@ -28,10 +29,34 @@ from alpineagents import FileStore, Store
 from .events import UsageInfo
 from .home import home_dir
 
-__all__ = ["SessionInfo", "SessionStatus", "Record", "SessionLog", "FileSessionLog", "Storage", "file_storage"]
+__all__ = [
+    "Activity",
+    "ActivityKind",
+    "SessionInfo",
+    "SessionStatus",
+    "Record",
+    "SessionLog",
+    "FileSessionLog",
+    "Storage",
+    "file_storage",
+]
 
 SessionStatus = Literal["idle", "running", "waiting", "failed"]
 """``waiting`` means an approval is active; ``failed`` means the last run failed, until the next message."""
+
+ActivityKind = Literal["thinking", "writing", "running_tool", "waiting_approval", "compacting"]
+
+
+@dataclass(frozen=True)
+class Activity:
+    """What a running session is doing right now."""
+
+    kind: ActivityKind
+    tool_name: str | None = None
+    """The tool of ``running_tool`` (the latest one, if several run together); ``None`` otherwise."""
+    since: str = ""
+    """UTC, ISO 8601: when the session started doing this."""
+
 
 Record = tuple[int, dict[str, Any]]
 """One stored item: its ``seq`` and the item as a JSON dict (opaque here)."""
@@ -60,6 +85,14 @@ class SessionInfo:
     usage: UsageInfo = field(default_factory=UsageInfo)
     context_used: int = 0
     """Tokens of context in use, as of the last request."""
+    context_window: int | None = None
+    """The model's context window in tokens, or ``None`` if unknown."""
+    activity: Activity | None = None
+    """What the session is doing, ``None`` when idle. Live only: it is not restored from the log."""
+    run_started_at: str | None = None
+    """UTC, ISO 8601: when the current run started, ``None`` when idle."""
+    run_usage: UsageInfo | None = None
+    """Usage since the current run started, ``None`` when idle."""
     last_seq: int = 0
     """The highest event ``seq`` emitted when the info was saved, so ``seq`` keeps growing across restarts. Not on the
     wire."""
@@ -75,22 +108,22 @@ class SessionInfo:
             "status": self.status,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
-            "usage": {
-                "input_tokens": self.usage.input_tokens,
-                "output_tokens": self.usage.output_tokens,
-                "cache_read_tokens": self.usage.cache_read_tokens,
-                "cache_write_tokens": self.usage.cache_write_tokens,
-                "requests": self.usage.requests,
-                "cost": self.usage.cost,
-            },
+            "usage": _usage_to_dict(self.usage),
             "context_used": self.context_used,
+            "context_window": self.context_window,
+            "activity": None
+            if self.activity is None
+            else {"kind": self.activity.kind, "tool_name": self.activity.tool_name, "since": self.activity.since},
+            "run_started_at": self.run_started_at,
+            "run_usage": None if self.run_usage is None else _usage_to_dict(self.run_usage),
             "last_seq": self.last_seq,
         }
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> SessionInfo:
         """The inverse of ``to_dict``. Missing optional fields get their defaults."""
-        usage = data.get("usage") or {}
+        activity = data.get("activity")
+        run_usage = data.get("run_usage")
         return cls(
             id=data["id"],
             title=data.get("title", ""),
@@ -100,17 +133,38 @@ class SessionInfo:
             status=data.get("status", "idle"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at", ""),
-            usage=UsageInfo(
-                input_tokens=usage.get("input_tokens", 0),
-                output_tokens=usage.get("output_tokens", 0),
-                cache_read_tokens=usage.get("cache_read_tokens", 0),
-                cache_write_tokens=usage.get("cache_write_tokens", 0),
-                requests=usage.get("requests", 0),
-                cost=usage.get("cost"),
-            ),
+            usage=_usage_from_dict(data.get("usage") or {}),
             context_used=data.get("context_used", 0),
+            context_window=data.get("context_window"),
+            activity=None
+            if activity is None
+            else Activity(activity["kind"], activity.get("tool_name"), activity.get("since", "")),
+            run_started_at=data.get("run_started_at"),
+            run_usage=None if run_usage is None else _usage_from_dict(run_usage),
             last_seq=data.get("last_seq", 0),
         )
+
+
+def _usage_to_dict(usage: UsageInfo) -> dict[str, Any]:
+    return {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cache_read_tokens": usage.cache_read_tokens,
+        "cache_write_tokens": usage.cache_write_tokens,
+        "requests": usage.requests,
+        "cost": usage.cost,
+    }
+
+
+def _usage_from_dict(data: Mapping[str, Any]) -> UsageInfo:
+    return UsageInfo(
+        input_tokens=data.get("input_tokens", 0),
+        output_tokens=data.get("output_tokens", 0),
+        cache_read_tokens=data.get("cache_read_tokens", 0),
+        cache_write_tokens=data.get("cache_write_tokens", 0),
+        requests=data.get("requests", 0),
+        cost=data.get("cost"),
+    )
 
 
 @runtime_checkable
@@ -288,6 +342,8 @@ def _write(path: Path, data: bytes, *, append: bool) -> None:
 
 
 def _write_info(path: Path, info: SessionInfo) -> None:
+    # The live fields describe a running process, so a saved session never has them.
+    info = dataclasses.replace(info, activity=None, run_started_at=None, run_usage=None)
     _write(path, _dump(info.to_dict()).encode("utf-8"), append=False)
 
 

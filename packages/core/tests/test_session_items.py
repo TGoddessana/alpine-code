@@ -80,7 +80,7 @@ def test_a_text_reply_makes_user_and_agent_items_with_growing_seq(tmp_path, monk
     assert seqs == list(range(1, len(seqs) + 1)) and snap.seq == seqs[-1]
     assert {sid for sid, _, _ in log} == {session.id}
     statuses = [e.info.status for _, _, e in log if isinstance(e, InfoChanged)]
-    assert statuses == ["running", "idle"]
+    assert [s for i, s in enumerate(statuses) if i == 0 or s != statuses[i - 1]] == ["running", "idle"]
 
 
 def test_a_tool_call_with_an_approval_item(tmp_path, monkeypatch):
@@ -95,7 +95,12 @@ def test_a_tool_call_with_an_approval_item(tmp_path, monkeypatch):
     assert approval.decision == "allow_always" and approval.call_id == call.id and call.status == "done"
     assert approver.requests[0].request_id == approval.id and approver.requests[0].call_id == call.id
     statuses = [e.info.status for _, _, e in log if isinstance(e, InfoChanged)]
-    assert statuses == ["running", "waiting", "running", "idle"]
+    assert [s for i, s in enumerate(statuses) if i == 0 or s != statuses[i - 1]] == [
+        "running",
+        "waiting",
+        "running",
+        "idle",
+    ]
 
 
 def test_deny_without_feedback_is_a_permission_stop(tmp_path, monkeypatch):
@@ -226,3 +231,74 @@ def test_set_mode_updates_info_and_delete_removes_everything(tmp_path, monkeypat
     session.delete()
     assert list_sessions(storage) == [] and storage.states.read(session.id) is None
     delete_session(storage, session.id)  # again: nothing happens
+
+
+def _activities(log):
+    """The distinct consecutive (kind, tool) pairs the info_changed events showed."""
+    seen: list[tuple[str, str | None]] = []
+    for _, _, event in log:
+        if isinstance(event, InfoChanged):
+            act = event.info.activity
+            pair = None if act is None else (act.kind, act.tool_name)
+            if not seen or seen[-1] != pair:
+                seen.append(pair)
+    return seen
+
+
+def test_activity_follows_a_run_with_a_tool_call_and_an_approval(tmp_path, monkeypatch):
+    approver = SyncApprover(Decision("allow"))
+    session, log = make(tmp_path, monkeypatch, [tool_call("bash", command="echo 1"), "All done"], approver)
+    assert session.info.activity is None and session.info.run_started_at is None and session.info.run_usage is None
+    session.send("go")
+    assert _activities(log) == [
+        ("thinking", None),
+        ("waiting_approval", None),
+        ("running_tool", "bash"),
+        ("thinking", None),
+        ("writing", None),
+        None,
+    ]
+    info = session.info
+    assert info.status == "idle" and info.activity is None and info.run_started_at is None and info.run_usage is None
+    assert info.context_window == 200_000
+    # every activity change carries a start time, and a run has one start time
+    infos = [e.info for _, _, e in log if isinstance(e, InfoChanged)]
+    running = [i for i in infos if i.activity is not None]
+    assert all(i.activity.since and i.run_started_at for i in running)
+    assert len({i.run_started_at for i in running}) == 1
+
+
+def test_info_is_announced_after_every_model_call_with_usage_growing(tmp_path, monkeypatch):
+    approver = SyncApprover(Decision("allow"))
+    session, log = make(tmp_path, monkeypatch, [tool_call("bash", command="echo 1"), "All done"], approver)
+    session.send("go")
+    infos = [e.info for _, _, e in log if isinstance(e, InfoChanged)]
+    by_requests: dict[int, list] = {}
+    for info in infos:
+        by_requests.setdefault(info.usage.requests, []).append(info)
+    assert sorted(by_requests) == [0, 1, 2]  # info was announced with the usage of each model call
+    # inside a run, run_usage is the growth since the run started, and usage includes it
+    for info in infos:
+        if info.run_usage is not None:
+            assert info.run_usage.requests == info.usage.requests
+            assert info.run_usage.input_tokens + info.run_usage.output_tokens > 0 or info.usage.requests == 0
+    assert all(i.context_window == 200_000 for i in infos if i.usage.requests)
+    assert max(i.context_used for i in infos) > 0
+
+
+def test_run_usage_counts_from_the_start_of_each_run(tmp_path, monkeypatch):
+    session, log = make(tmp_path, monkeypatch, ["one", "two"])
+    session.send("a")
+    session.send("b")
+    infos = [e.info for _, _, e in log if isinstance(e, InfoChanged)]
+    second = [i for i in infos if i.run_usage is not None and i.usage.requests >= 1 and i.run_started_at][-1]
+    assert second.usage.requests == 2 and second.run_usage.requests == 1
+    assert session.info.usage.requests == 2 and session.info.run_usage is None
+
+
+def test_compacting_activity(tmp_path, monkeypatch):
+    session, log = make(tmp_path, monkeypatch, ["hello", "a summary"])
+    session.send("hi")
+    log.clear()
+    assert session.compact()
+    assert ("compacting", None) in _activities(log) and _activities(log)[-1] is None

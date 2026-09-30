@@ -333,3 +333,44 @@ def test_a_slow_method_does_not_block_a_session(folder, monkeypatch):
             assert [p["path"] for p in listed["result"]["projects"]] == [str(folder.resolve())]
 
     run(scenario())
+
+
+def test_info_carries_activity_usage_and_context_on_the_wire(folder, monkeypatch):
+    fake_model(monkeypatch, tool_call("bash", command="echo 1"), "done")
+
+    async def scenario():
+        async with Client([]) as client:
+            sid = await client.new(folder)
+            idle = client.events(sid, "info_changed")[0]["event"]["info"]
+            assert idle["activity"] is None and idle["runStartedAt"] is None and idle["runUsage"] is None
+            assert idle["contextWindow"] == 200_000 and "cacheWriteTokens" in idle["usage"]
+            await client.call("session/send", sessionId=sid, text="go")
+            request = await client.until(approval_id(client, sid))
+            await client.status(sid, "waiting")
+            waiting = client.events(sid, "info_changed")[-1]["event"]["info"]
+            assert waiting["activity"]["kind"] == "waiting_approval" and waiting["runStartedAt"]
+            await client.call("session/answer", sessionId=sid, requestId=request, decision="allow")
+            await client.status(sid, "idle")
+            infos = [e["event"]["info"] for e in client.events(sid, "info_changed")]
+            seen: list = []
+            for info in infos:
+                a = info["activity"]
+                pair = None if a is None else (a["kind"], a["toolName"])
+                if not seen or seen[-1] != pair:
+                    seen.append(pair)
+            assert seen == [
+                None,
+                ("thinking", None),
+                ("waiting_approval", None),
+                ("running_tool", "bash"),
+                ("thinking", None),
+                ("writing", None),
+                None,
+            ]
+            requests = [i["usage"]["requests"] for i in infos]
+            assert requests == sorted(requests) and requests[-1] == 2
+            assert infos[-1]["runUsage"] is None and infos[-1]["runStartedAt"] is None
+            during = [i for i in infos if i["runUsage"] is not None]
+            assert during[-1]["runUsage"]["requests"] == 2 and during[-1]["runUsage"]["cost"] is None
+
+    run(scenario())

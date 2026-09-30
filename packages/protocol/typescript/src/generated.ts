@@ -4,6 +4,15 @@ export const PROTOCOL_VERSION = 1;
 
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "Activity".
+ */
+export interface Activity {
+  kind: 'thinking' | 'writing' | 'running_tool' | 'waiting_approval' | 'compacting';
+  toolName: string | null;
+  since: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "AgentMessageItem".
  */
 export interface AgentMessageItem {
@@ -195,6 +204,10 @@ export interface SessionInfo {
   updatedAt: string;
   usage: Usage;
   contextUsed: number;
+  contextWindow: number | null;
+  activity: Activity | null;
+  runStartedAt: string | null;
+  runUsage: Usage | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -204,8 +217,9 @@ export interface Usage {
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
+  cacheWriteTokens: number;
   requests: number;
-  cost: number;
+  cost: number | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema

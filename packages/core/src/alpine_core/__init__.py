@@ -55,7 +55,16 @@ from .projects import Project, ProjectList
 from .providers import PROVIDERS, Api, Billing, Provider
 from .secrets import FileSecrets, Secrets
 from .session import Session, Snapshot, delete_session, list_sessions
-from .storage import FileSessionLog, SessionInfo, SessionLog, SessionStatus, Storage, file_storage
+from .storage import (
+    Activity,
+    ActivityKind,
+    FileSessionLog,
+    SessionInfo,
+    SessionLog,
+    SessionStatus,
+    Storage,
+    file_storage,
+)
 
 __all__ = [
     "Session",
@@ -65,6 +74,8 @@ __all__ = [
     "Storage",
     "SessionLog",
     "FileSessionLog",
+    "Activity",
+    "ActivityKind",
     "SessionInfo",
     "SessionStatus",
     "file_storage",

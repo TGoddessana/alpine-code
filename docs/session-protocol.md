@@ -84,7 +84,16 @@ tell windows apart. A subscription filter can be added for remote transports wit
 ### Session info
 
 `id`, `title`, `cwd`, `model`, `mode`, `status`, `createdAt`, `updatedAt`, `usage` (`inputTokens`, `outputTokens`,
-`cacheReadTokens`, `requests`, `cost`), `contextUsed`.
+`cacheReadTokens`, `cacheWriteTokens`, `requests`, `cost`), `contextUsed`, `contextWindow`, `activity`, `runStartedAt`,
+`runUsage`.
+
+`cost` is dollars, or `null` when the model has no known price. `contextUsed` is tokens as of the last model call and
+`contextWindow` the model's window in tokens (`null` if unknown). While a run goes, `runStartedAt` is its start and
+`runUsage` (same shape as `usage`) is what it has used so far; both are `null` when idle. `activity` is `null` when
+idle, else `{ kind, toolName, since }` with `kind` one of `thinking` (request sent, no text yet), `writing` (reply text
+streaming), `running_tool` (`toolName` is the latest of the calls running together), `waiting_approval` or
+`compacting`. `info_changed` is sent when the activity changes and after every model call, not for
+every text delta. Context compaction inside a run shows as `thinking`.
 
 `status` is `idle`, `running`, `waiting` (an approval is active: the rail's "my turn") or `failed` (the last run
 failed; until the next message). The title is the first user message, shortened; model-written titles come later.

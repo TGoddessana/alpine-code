@@ -26,14 +26,27 @@ from alpineagents.types import Stopped
 from .approval import ApprovalRequest, Approver, Decision, build_permissions
 from .bridge import EventReporter
 from .config import ConfigError, Settings
-from .events import Event, Failed, Interrupted, RunFinished, StopReason, UsageInfo
+from .events import (
+    AssistantDone,
+    ContextCompacted,
+    Event,
+    Failed,
+    Interrupted,
+    RunFinished,
+    StopReason,
+    TextDelta,
+    ToolFinished,
+    ToolStarted,
+    TurnStarted,
+    UsageInfo,
+)
 from .items import Item, ItemCompleted, ItemEvent, ItemRecorder, item_from_dict, item_to_dict
 from .loop import coding
 from .models import make_model
 from .permissions import Mode, PermissionPolicy
 from .projects import ProjectList
 from .prompt import build_system_prompt
-from .storage import Record, SessionInfo, SessionStatus, Storage
+from .storage import Activity, ActivityKind, Record, SessionInfo, SessionStatus, Storage
 from .tools import Workspace, default_tools
 
 #: Longest session title, in characters.
@@ -111,6 +124,10 @@ class Session:
         self._title = NEW_TITLE
         self._status: SessionStatus = "idle"
         self._created = self._updated = ""
+        self._activity: Activity | None = None
+        self._run_started_at: str | None = None
+        self._run_base = UsageInfo()
+        self._running_tools: dict[str, str] = {}
         self._recorder = ItemRecorder(self._on_recorded)
         if _saved is None:
             self._begin_conversation()
@@ -195,32 +212,32 @@ class Session:
         else:
             self._state.add_user_message(text)
         self._recorder.add_user_message(text)
-        self._set_status("running")
+        self._begin_run("thinking")
         try:
             answer = await self._agent.arun(self._state)
         except asyncio.CancelledError:
             self._dispatch(Interrupted())
-            self._set_status("idle")
+            self._end_run("idle")
             raise
         except KeyboardInterrupt:  # Ctrl+C inside a blocking approver's prompt
             self._dispatch(Interrupted())
-            self._set_status("idle")
+            self._end_run("idle")
             return None
         except AlpineAgentsError as e:
             self._dispatch(Failed(_describe_error(e)))
-            self._set_status("failed")
+            self._end_run("failed")
             return None
         except Exception as e:  # a bug: still leave the screen record closed
             self._dispatch(Failed(_describe_error(e)))
-            self._set_status("failed")
+            self._end_run("failed")
             raise
         stopped = self._state.stopped
         if isinstance(stopped, StoppedByPermission):  # the user declined a call without saying what to do instead
             self._dispatch(Interrupted())
-            self._set_status("idle")
+            self._end_run("idle")
             return None
         self._dispatch(RunFinished(_stop_reason(stopped), self.usage))
-        self._set_status("idle")
+        self._end_run("idle")
         return answer if isinstance(answer, str) else None
 
     def send(self, text: str) -> str | None:
@@ -239,22 +256,22 @@ class Session:
         Cancelling works as in ``asend``."""
         if self._state is None or not self._state.context:
             return False
-        self._set_status("running")
+        self._begin_run("compacting")
         try:
             await self._agent.acompact(self._state)
         except asyncio.CancelledError:
             self._dispatch(Interrupted())
-            self._set_status("idle")
+            self._end_run("idle")
             raise
         except KeyboardInterrupt:
             self._dispatch(Interrupted())
-            self._set_status("idle")
+            self._end_run("idle")
             return False
         except AlpineAgentsError as e:
             self._dispatch(Failed(_describe_error(e)))
-            self._set_status("failed")
+            self._end_run("failed")
             return False
-        self._set_status("idle")
+        self._end_run("idle")
         return True
 
     def compact(self) -> bool:
@@ -311,6 +328,10 @@ class Session:
             updated_at=self._updated,
             usage=self.usage,
             context_used=self._state.context_tokens if self._state is not None else 0,
+            context_window=self._context_window(),
+            activity=self._activity,
+            run_started_at=self._run_started_at,
+            run_usage=self._run_usage(),
         )
 
     @property
@@ -344,6 +365,27 @@ class Session:
             cost=u.cost,
         )
 
+    def _context_window(self) -> int | None:
+        try:
+            window = self._agent.model.context_window
+        except Exception:  # a model that cannot say
+            return None
+        return window if isinstance(window, int) and window > 0 else None
+
+    def _run_usage(self) -> UsageInfo | None:
+        """The usage since the run started, ``None`` when idle."""
+        if self._run_started_at is None:
+            return None
+        now, base = self.usage, self._run_base
+        return UsageInfo(
+            input_tokens=now.input_tokens - base.input_tokens,
+            output_tokens=now.output_tokens - base.output_tokens,
+            cache_read_tokens=now.cache_read_tokens - base.cache_read_tokens,
+            cache_write_tokens=now.cache_write_tokens - base.cache_write_tokens,
+            requests=now.requests - base.requests,
+            cost=None if now.cost is None or base.cost is None else now.cost - base.cost,
+        )
+
     @property
     def context_used(self) -> float:
         """Fraction of the model's context window in use, 0.0 to 1.0."""
@@ -358,8 +400,57 @@ class Session:
     def _dispatch(self, event: Event) -> None:
         """A core event: the item recorder first (so ``snapshot()`` is current), then the frontend's callback."""
         self._recorder.handle(event)
+        self._track(event)
         if self._on_event is not None:
             self._on_event(event)
+
+    def _track(self, event: Event) -> None:
+        """Follows what the run is doing. Info is announced when the activity changes and after every model call
+        (its usage and context), not for every text delta."""
+        activity = self._activity
+        if activity is None or activity.kind == "compacting":
+            if isinstance(event, ContextCompacted):
+                self._touch()
+            return
+        match event:
+            case TurnStarted():
+                self._running_tools.clear()
+                self._set_activity("thinking")
+            case TextDelta():
+                if activity.kind == "thinking":
+                    self._set_activity("writing")
+            case AssistantDone() | ContextCompacted():
+                self._touch()
+            case ToolStarted(id, name):
+                self._running_tools[id] = name
+                self._set_activity("running_tool", name)
+            case ToolFinished(id):
+                self._running_tools.pop(id, None)
+                if self._running_tools:
+                    self._set_activity("running_tool", next(reversed(self._running_tools.values())))
+                elif activity.kind == "running_tool":
+                    self._set_activity("thinking")
+
+    def _set_activity(self, kind: ActivityKind, tool_name: str | None = None) -> None:
+        """Changes what the session is doing and announces it, if it is different."""
+        current = self._activity
+        if current is not None and (current.kind, current.tool_name) == (kind, tool_name):
+            return
+        self._activity = Activity(kind, tool_name, _now())
+        self._touch()
+
+    def _begin_run(self, kind: ActivityKind) -> None:
+        self._run_started_at = _now()
+        self._run_base = self.usage
+        self._running_tools.clear()
+        self._activity = Activity(kind, None, self._run_started_at)
+        self._set_status("running")
+
+    def _end_run(self, status: SessionStatus) -> None:
+        self._run_started_at = None
+        self._activity = None
+        self._running_tools.clear()
+        self._set_status(status)
 
     def _on_recorded(self, seq: int, event: ItemEvent) -> None:
         if isinstance(event, ItemCompleted) and self._storage is not None and not self._closed:
@@ -385,6 +476,7 @@ class Session:
         self._id = uuid.uuid4().hex
         self._title = NEW_TITLE
         self._status = "idle"
+        self._activity = self._run_started_at = None
         self._created = self._updated = _now()
         self._recorder = ItemRecorder(self._on_recorded)
         if self._storage is not None:
@@ -466,10 +558,12 @@ class _ItemApprover:
         item = session._recorder.start_approval(
             request.call_id, request.title, request.preview, request.preview_kind, request.reason, request.remember
         )
+        session._activity = Activity("waiting_approval", None, _now())
         session._set_status("waiting")
         request = dataclasses.replace(request, request_id=item.id)
         decision = await self._ask(request)
         session._recorder.finish_approval(item.id, decision.kind, decision.feedback)
+        session._activity = Activity("running_tool", request.tool, _now())
         session._set_status("running")
         return decision
 

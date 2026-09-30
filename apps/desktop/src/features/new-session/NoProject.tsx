@@ -8,16 +8,13 @@ import { CloneDialog } from './CloneDialog';
 import { Composer } from './Composer';
 import { messages } from './messages';
 
-/** A new session with no project yet: the centre asks for a folder, and the input waits until there is one. */
+/** A new session with no project yet: the centre asks for a folder, and the input waits where it will be. */
 export function NoProject({ onProjectChange }: { onProjectChange?: (path: string) => void }) {
   const t = useMessages(messages);
   const openFolder = useOpenFolder(onProjectChange);
   const [cloning, setCloning] = useState(false);
   return (
-    <main className="flex min-w-120 grow flex-col bg-canvas">
-      <header className="flex min-h-14 shrink-0 items-center border-b border-line px-6">
-        <h1 className="text-title">{t.start}</h1>
-      </header>
+    <main aria-label={t.start} className="flex min-w-120 grow flex-col bg-canvas">
       <section aria-labelledby="np-title" className="flex min-h-0 grow flex-col items-center justify-center px-6 pt-4">
         <div className="flex w-full max-w-100 flex-col gap-4">
           <svg
@@ -47,7 +44,7 @@ export function NoProject({ onProjectChange }: { onProjectChange?: (path: string
           </div>
         </div>
       </section>
-      <div className="px-6 pt-3 pb-4">
+      <div className="mx-auto w-full max-w-202 px-6 pt-3 pb-6">
         <Composer locked />
       </div>
       <CloneDialog open={cloning} onOpenChange={setCloning} onCloned={(path) => onProjectChange?.(path)} />

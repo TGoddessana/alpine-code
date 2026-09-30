@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
 import { NewSession } from '@/features/new-session/NewSession';
 import { NoProject } from '@/features/new-session/NoProject';
-import { StatusPanel } from '@/features/status-panel/StatusPanel';
 import { useProjects } from '@/shared/server';
 
 /** `?project=` picks the project; without it, the most recently used one. */
@@ -29,7 +28,6 @@ function NewSessionRoute() {
       ) : (
         <main className="flex min-w-120 grow flex-col bg-canvas" />
       )}
-      <StatusPanel />
     </>
   );
 }

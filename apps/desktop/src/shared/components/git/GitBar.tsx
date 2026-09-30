@@ -8,14 +8,26 @@ import { useProjectGit } from '@/shared/server';
 import { messages } from './messages';
 
 /**
- * The line over the input: branch · +added −deleted · PR #n · CI. Nothing outside git.
+ * The line over the input: where it runs, then branch · +added −deleted · PR #n · CI, or 'no git'.
  * Numbers stay grey: red means risk or failure here, so only failing CI gets a red dot.
  */
 export function GitBar({ path }: { path: string }) {
   const t = useMessages(messages);
   const format = useFormat();
-  const git = useProjectGit(path).data?.git;
-  if (!git) return null;
+  const query = useProjectGit(path);
+  const git = query.data?.git;
+  if (!git)
+    return (
+      <div aria-label={t.label} className="flex min-h-6 items-center gap-2 text-meta whitespace-nowrap text-fg-muted">
+        <span>{t.local}</span>
+        {query.isSuccess && (
+          <>
+            <Sep />
+            <span>{t.noGit}</span>
+          </>
+        )}
+      </div>
+    );
   const pr = git.pullRequest;
   const added = format.number(git.added);
   const deleted = format.number(git.deleted);
@@ -25,6 +37,8 @@ export function GitBar({ path }: { path: string }) {
       aria-label={t.label}
       className="flex min-h-6 min-w-0 items-center gap-2 text-meta whitespace-nowrap text-fg-muted"
     >
+      <span>{t.local}</span>
+      <Sep />
       <span className="inline-flex min-w-0 items-center gap-1 font-mono text-fg">
         <BranchIcon />
         <span className="truncate">{git.branch ?? t.detached}</span>

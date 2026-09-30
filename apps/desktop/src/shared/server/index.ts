@@ -34,6 +34,21 @@ export {
   useSetDefaultModel,
 } from './queries';
 export {
+  useCheckTool,
+  useConfirmTool,
+  useDeleteProfile,
+  useDeleteTool,
+  useDraftTool,
+  useInstallPackages,
+  useProfiles,
+  useResolveProfile,
+  useSaveProfile,
+  useSaveTool,
+  useTestTool,
+  useToolSource,
+  useTools,
+} from './tools';
+export {
   CONNECTED,
   chatScript,
   firstRunScript,

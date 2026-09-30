@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SessionSessionIdRouteImport } from './routes/session.$sessionId'
+import { Route as SettingsToolsNameRouteImport } from './routes/settings_.tools.$name'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +29,49 @@ const SessionSessionIdRoute = SessionSessionIdRouteImport.update({
   path: '/session/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsToolsNameRoute = SettingsToolsNameRouteImport.update({
+  id: '/settings_/tools/$name',
+  path: '/settings/tools/$name',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/session/$sessionId': typeof SessionSessionIdRoute
+  '/settings/tools/$name': typeof SettingsToolsNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/session/$sessionId': typeof SessionSessionIdRoute
+  '/settings/tools/$name': typeof SettingsToolsNameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/session/$sessionId': typeof SessionSessionIdRoute
+  '/settings_/tools/$name': typeof SettingsToolsNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings' | '/session/$sessionId'
+  fullPaths: '/' | '/settings' | '/session/$sessionId' | '/settings/tools/$name'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings' | '/session/$sessionId'
-  id: '__root__' | '/' | '/settings' | '/session/$sessionId'
+  to: '/' | '/settings' | '/session/$sessionId' | '/settings/tools/$name'
+  id:
+    | '__root__'
+    | '/'
+    | '/settings'
+    | '/session/$sessionId'
+    | '/settings_/tools/$name'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SettingsRoute: typeof SettingsRoute
   SessionSessionIdRoute: typeof SessionSessionIdRoute
+  SettingsToolsNameRoute: typeof SettingsToolsNameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +97,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SessionSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings_/tools/$name': {
+      id: '/settings_/tools/$name'
+      path: '/settings/tools/$name'
+      fullPath: '/settings/tools/$name'
+      preLoaderRoute: typeof SettingsToolsNameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +111,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SettingsRoute: SettingsRoute,
   SessionSessionIdRoute: SessionSessionIdRoute,
+  SettingsToolsNameRoute: SettingsToolsNameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { Composer } from '@/shared/components/composer';
+import { Composer, SessionProfile } from '@/shared/components/composer';
 import { StatusWord } from '@/shared/components/status';
 import { useMessages } from '@/shared/i18n';
 import {
@@ -94,6 +94,7 @@ export function Session({ sessionId }: { sessionId: string }) {
           bar={
             <>
               <ContextMeter info={info} />
+              <SessionProfile profileId={info.profile} />
               <span aria-label={t.model(info.model)} title={info.model} className="px-2 text-meta text-fg-muted">
                 {info.model.slice(info.model.indexOf('/') + 1)}
               </span>

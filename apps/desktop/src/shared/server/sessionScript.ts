@@ -34,6 +34,7 @@ export function sessionInfo(overrides: Partial<SessionInfo> = {}): SessionInfo {
     activity: null,
     runStartedAt: null,
     runUsage: null,
+    profile: 'default',
     ...overrides,
   };
 }

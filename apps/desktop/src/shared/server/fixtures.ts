@@ -3,6 +3,7 @@ import type { ConnectionInfo, ConnectionsListResult, ProjectInfo, ProviderInfo }
 import { ServerError } from './connection';
 import { mergeScripts, type Script } from './scripted';
 import { sessionInfo, sessionScript, type SessionScriptOptions } from './sessionScript';
+import { toolsScript } from './toolsScript';
 
 /** The providers the server ships, for scripts. */
 export const PROVIDERS: ProviderInfo[] = [
@@ -144,7 +145,8 @@ export function statefulScript(start: ScriptState): Script {
 export const firstRunScript = () => statefulScript({ connections: NOTHING_CONNECTED, projects: [] });
 
 /** Everything set up: three connections and three projects. */
-export const setUpScript = () => statefulScript({ connections: CONNECTED, projects: PROJECTS });
+export const setUpScript = () =>
+  mergeScripts(statefulScript({ connections: CONNECTED, projects: PROJECTS }), toolsScript());
 
 /** Two earlier sessions, for a rail that is not empty. */
 export const SESSIONS = [

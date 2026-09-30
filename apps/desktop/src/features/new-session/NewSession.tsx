@@ -2,7 +2,7 @@ import type { ProjectInfo } from '@alpine/protocol';
 import { Button, Menu } from '@alpine/ui/primitives';
 import { useRef, useState } from 'react';
 
-import { Composer } from '@/shared/components/composer';
+import { Composer, ModelPicker, ProfileChip } from '@/shared/components/composer';
 import { GitBar } from '@/shared/components/git';
 import { useMessages } from '@/shared/i18n';
 import { useOpenFolder } from '@/shared/platform';
@@ -37,12 +37,16 @@ export function NewSession({
   const made = useRef<{ path: string; id: string } | null>(null);
   const openFolder = useOpenFolder(onProjectChange);
   const [cloning, setCloning] = useState(false);
+  // A profile picked in the chip, for this project only; otherwise the one the project and model match.
+  const [profile, setProfile] = useState<{ path: string; id: string } | null>(null);
+  const chosen = profile?.path === project.path ? profile.id : null;
 
   const start = async (text: string) => {
     if (made.current?.path !== project.path) {
       const info = await newSession.mutateAsync({
         cwd: project.path,
         ...(defaultModel ? { model: defaultModel } : {}),
+        ...(chosen ? { profile: chosen } : {}),
       });
       made.current = { path: project.path, id: info.id };
     }
@@ -80,7 +84,20 @@ export function NewSession({
           </Menu.Root>
           <GitBar path={project.path} />
         </div>
-        <Composer onSend={start} />
+        <Composer
+          onSend={start}
+          bar={
+            <>
+              <ProfileChip
+                cwd={project.path}
+                model={defaultModel ?? null}
+                chosen={chosen}
+                onChoose={(id) => setProfile(id ? { path: project.path, id } : null)}
+              />
+              <ModelPicker />
+            </>
+          }
+        />
       </div>
       <CloneDialog open={cloning} onOpenChange={setCloning} onCloned={onProjectChange} />
     </main>

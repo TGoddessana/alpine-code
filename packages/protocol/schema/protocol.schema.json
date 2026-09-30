@@ -47,6 +47,58 @@
       "params": "ProjectsGitParams",
       "result": "ProjectsGitResult"
     },
+    "tools/list": {
+      "params": "ToolsListParams",
+      "result": "ToolsListResult"
+    },
+    "tools/source": {
+      "params": "ToolsSourceParams",
+      "result": "ToolsSourceResult"
+    },
+    "tools/check": {
+      "params": "ToolsCheckParams",
+      "result": "ToolsCheckResult"
+    },
+    "tools/save": {
+      "params": "ToolsSaveParams",
+      "result": "ToolsSaveResult"
+    },
+    "tools/confirm": {
+      "params": "ToolsConfirmParams",
+      "result": "ToolsConfirmResult"
+    },
+    "tools/delete": {
+      "params": "ToolsDeleteParams",
+      "result": "ToolsDeleteResult"
+    },
+    "tools/install": {
+      "params": "ToolsInstallParams",
+      "result": "ToolsInstallResult"
+    },
+    "tools/test": {
+      "params": "ToolsTestParams",
+      "result": "ToolsTestResult"
+    },
+    "tools/draft": {
+      "params": "ToolsDraftParams",
+      "result": "ToolsDraftResult"
+    },
+    "profiles/list": {
+      "params": "ProfilesListParams",
+      "result": "ProfilesListResult"
+    },
+    "profiles/save": {
+      "params": "ProfilesSaveParams",
+      "result": "ProfilesSaveResult"
+    },
+    "profiles/delete": {
+      "params": "ProfilesDeleteParams",
+      "result": "ProfilesDeleteResult"
+    },
+    "profiles/resolve": {
+      "params": "ProfilesResolveParams",
+      "result": "ProfilesResolveResult"
+    },
     "session/new": {
       "params": "SessionNewParams",
       "result": "SessionNewResult"
@@ -535,7 +587,13 @@
             "not_a_folder",
             "invalid_config",
             "exists",
-            "clone_failed"
+            "clone_failed",
+            "invalid_name",
+            "package_not_approved",
+            "install_failed",
+            "name_taken",
+            "profile_conflict",
+            "model_failed"
           ],
           "type": "string"
         }
@@ -831,6 +889,189 @@
         "source"
       ],
       "title": "NoticeItem",
+      "type": "object"
+    },
+    "PackageInfo": {
+      "description": "What the approval of a package Alpine has not reviewed shows. Facts PyPI did not give are ``None``.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "firstRelease": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastMonthDownloads": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "similar": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "firstRelease",
+        "lastMonthDownloads",
+        "similar"
+      ],
+      "title": "PackageInfo",
+      "type": "object"
+    },
+    "ProfileInfo": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "project": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "project",
+        "model",
+        "tools"
+      ],
+      "title": "ProfileInfo",
+      "type": "object"
+    },
+    "ProfilesDeleteParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "ProfilesDeleteParams",
+      "type": "object"
+    },
+    "ProfilesDeleteResult": {
+      "properties": {},
+      "title": "ProfilesDeleteResult",
+      "type": "object"
+    },
+    "ProfilesListParams": {
+      "properties": {},
+      "title": "ProfilesListParams",
+      "type": "object"
+    },
+    "ProfilesListResult": {
+      "properties": {
+        "profiles": {
+          "items": {
+            "$ref": "#/$defs/ProfileInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "profiles"
+      ],
+      "title": "ProfilesListResult",
+      "type": "object"
+    },
+    "ProfilesResolveParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "title": "ProfilesResolveParams",
+      "type": "object"
+    },
+    "ProfilesResolveResult": {
+      "properties": {
+        "profile": {
+          "$ref": "#/$defs/ProfileInfo"
+        }
+      },
+      "required": [
+        "profile"
+      ],
+      "title": "ProfilesResolveResult",
+      "type": "object"
+    },
+    "ProfilesSaveParams": {
+      "properties": {
+        "profile": {
+          "$ref": "#/$defs/ProfileInfo"
+        }
+      },
+      "required": [
+        "profile"
+      ],
+      "title": "ProfilesSaveParams",
+      "type": "object"
+    },
+    "ProfilesSaveResult": {
+      "properties": {
+        "profile": {
+          "$ref": "#/$defs/ProfileInfo"
+        }
+      },
+      "required": [
+        "profile"
+      ],
+      "title": "ProfilesSaveResult",
       "type": "object"
     },
     "ProjectInfo": {
@@ -1433,6 +1674,16 @@
               "type": "null"
             }
           ]
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1449,7 +1700,8 @@
         "contextWindow",
         "activity",
         "runStartedAt",
-        "runUsage"
+        "runUsage",
+        "profile"
       ],
       "title": "SessionInfo",
       "type": "object"
@@ -1498,6 +1750,17 @@
                 "accept_edits",
                 "yolo"
               ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "profile": {
+          "anyOf": [
+            {
               "type": "string"
             },
             {
@@ -1777,6 +2040,463 @@
         "images"
       ],
       "title": "ToolCallItem",
+      "type": "object"
+    },
+    "ToolFileInfo": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ready",
+            "unconfirmed",
+            "error"
+          ],
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "missingPackage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "changedAt": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tools": {
+          "items": {
+            "$ref": "#/$defs/ToolSummary"
+          },
+          "type": "array"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "status",
+        "error",
+        "missingPackage",
+        "changedAt",
+        "tools",
+        "packages"
+      ],
+      "title": "ToolFileInfo",
+      "type": "object"
+    },
+    "ToolParam": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "items": {},
+              "type": "array"
+            },
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "description",
+        "required",
+        "default"
+      ],
+      "title": "ToolParam",
+      "type": "object"
+    },
+    "ToolSummary": {
+      "description": "A tool as the model sees it.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "params": {
+          "items": {
+            "$ref": "#/$defs/ToolParam"
+          },
+          "type": "array"
+        },
+        "readOnly": {
+          "type": "boolean"
+        },
+        "openWorld": {
+          "type": "boolean"
+        },
+        "ask": {
+          "enum": [
+            "never",
+            "edit",
+            "ask"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "params",
+        "readOnly",
+        "openWorld",
+        "ask"
+      ],
+      "title": "ToolSummary",
+      "type": "object"
+    },
+    "ToolsCheckParams": {
+      "properties": {
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "ToolsCheckParams",
+      "type": "object"
+    },
+    "ToolsCheckResult": {
+      "description": "The unsaved source, loaded. Nothing is loaded while ``needs_approval`` is not empty.",
+      "properties": {
+        "tools": {
+          "items": {
+            "$ref": "#/$defs/ToolSummary"
+          },
+          "type": "array"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "missingPackage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "needsApproval": {
+          "items": {
+            "$ref": "#/$defs/PackageInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "tools",
+        "packages",
+        "error",
+        "missingPackage",
+        "needsApproval"
+      ],
+      "title": "ToolsCheckResult",
+      "type": "object"
+    },
+    "ToolsConfirmParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ToolsConfirmParams",
+      "type": "object"
+    },
+    "ToolsConfirmResult": {
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/ToolFileInfo"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "title": "ToolsConfirmResult",
+      "type": "object"
+    },
+    "ToolsDeleteParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ToolsDeleteParams",
+      "type": "object"
+    },
+    "ToolsDeleteResult": {
+      "properties": {},
+      "title": "ToolsDeleteResult",
+      "type": "object"
+    },
+    "ToolsDraftParams": {
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "description"
+      ],
+      "title": "ToolsDraftParams",
+      "type": "object"
+    },
+    "ToolsDraftResult": {
+      "properties": {
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "ToolsDraftResult",
+      "type": "object"
+    },
+    "ToolsInstallParams": {
+      "properties": {
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "packages"
+      ],
+      "title": "ToolsInstallParams",
+      "type": "object"
+    },
+    "ToolsInstallResult": {
+      "properties": {},
+      "title": "ToolsInstallResult",
+      "type": "object"
+    },
+    "ToolsListParams": {
+      "properties": {},
+      "title": "ToolsListParams",
+      "type": "object"
+    },
+    "ToolsListResult": {
+      "properties": {
+        "builtin": {
+          "items": {
+            "$ref": "#/$defs/ToolSummary"
+          },
+          "type": "array"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/ToolFileInfo"
+          },
+          "type": "array"
+        },
+        "folder": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "builtin",
+        "files",
+        "folder"
+      ],
+      "title": "ToolsListResult",
+      "type": "object"
+    },
+    "ToolsSaveParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "enableIn": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "name",
+        "source"
+      ],
+      "title": "ToolsSaveParams",
+      "type": "object"
+    },
+    "ToolsSaveResult": {
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/ToolFileInfo"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "title": "ToolsSaveResult",
+      "type": "object"
+    },
+    "ToolsSourceParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ToolsSourceParams",
+      "type": "object"
+    },
+    "ToolsSourceResult": {
+      "properties": {
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "ToolsSourceResult",
+      "type": "object"
+    },
+    "ToolsTestParams": {
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": true,
+          "type": "object"
+        }
+      },
+      "required": [
+        "source",
+        "tool",
+        "args"
+      ],
+      "title": "ToolsTestParams",
+      "type": "object"
+    },
+    "ToolsTestResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "output": {
+          "type": "string"
+        },
+        "seconds": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "ok",
+        "output",
+        "seconds"
+      ],
+      "title": "ToolsTestResult",
       "type": "object"
     },
     "Usage": {

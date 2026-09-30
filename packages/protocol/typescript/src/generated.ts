@@ -149,7 +149,20 @@ export interface DeletedEvent {
  */
 export interface ErrorData {
   reason:
-    'auth' | 'unreachable' | 'unsupported' | 'other' | 'not_a_folder' | 'invalid_config' | 'exists' | 'clone_failed';
+    | 'auth'
+    | 'unreachable'
+    | 'unsupported'
+    | 'other'
+    | 'not_a_folder'
+    | 'invalid_config'
+    | 'exists'
+    | 'clone_failed'
+    | 'invalid_name'
+    | 'package_not_approved'
+    | 'install_failed'
+    | 'name_taken'
+    | 'profile_conflict'
+    | 'model_failed';
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -208,6 +221,7 @@ export interface SessionInfo {
   activity: Activity | null;
   runStartedAt: string | null;
   runUsage: Usage | null;
+  profile: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -359,6 +373,82 @@ export interface ItemStartedEvent {
     | StatusLineItem
     | CompactionItem
     | RunStoppedItem;
+}
+/**
+ * What the approval of a package Alpine has not reviewed shows. Facts PyPI did not give are ``None``.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PackageInfo".
+ */
+export interface PackageInfo {
+  name: string;
+  firstRelease: string | null;
+  lastMonthDownloads: number | null;
+  similar: string[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProfileInfo".
+ */
+export interface ProfileInfo {
+  id: string;
+  name: string;
+  project: string | null;
+  model: string | null;
+  tools: string[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProfilesDeleteParams".
+ */
+export interface ProfilesDeleteParams {
+  id: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProfilesDeleteResult".
+ */
+export interface ProfilesDeleteResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProfilesListParams".
+ */
+export interface ProfilesListParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProfilesListResult".
+ */
+export interface ProfilesListResult {
+  profiles: ProfileInfo[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProfilesResolveParams".
+ */
+export interface ProfilesResolveParams {
+  cwd: string;
+  model?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProfilesResolveResult".
+ */
+export interface ProfilesResolveResult {
+  profile: ProfileInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProfilesSaveParams".
+ */
+export interface ProfilesSaveParams {
+  profile: ProfileInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProfilesSaveResult".
+ */
+export interface ProfilesSaveResult {
+  profile: ProfileInfo;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -551,6 +641,7 @@ export interface SessionNewParams {
   cwd: string;
   model?: string | null;
   mode?: ('default' | 'accept_edits' | 'yolo') | null;
+  profile?: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -624,6 +715,189 @@ export interface SessionSetModeParams {
 export interface SessionSetModeResult {
   info: SessionInfo;
 }
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolFileInfo".
+ */
+export interface ToolFileInfo {
+  name: string;
+  status: 'ready' | 'unconfirmed' | 'error';
+  error: string | null;
+  missingPackage: string | null;
+  changedAt: string | null;
+  tools: ToolSummary[];
+  packages: string[];
+}
+/**
+ * A tool as the model sees it.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolSummary".
+ */
+export interface ToolSummary {
+  name: string;
+  description: string;
+  params: ToolParam[];
+  readOnly: boolean;
+  openWorld: boolean;
+  ask: 'never' | 'edit' | 'ask';
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolParam".
+ */
+export interface ToolParam {
+  name: string;
+  type: string;
+  description: string;
+  required: boolean;
+  default:
+    | string
+    | number
+    | boolean
+    | unknown[]
+    | {
+        [k: string]: unknown;
+      }
+    | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsCheckParams".
+ */
+export interface ToolsCheckParams {
+  source: string;
+}
+/**
+ * The unsaved source, loaded. Nothing is loaded while ``needs_approval`` is not empty.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsCheckResult".
+ */
+export interface ToolsCheckResult {
+  tools: ToolSummary[];
+  packages: string[];
+  error: string | null;
+  missingPackage: string | null;
+  needsApproval: PackageInfo[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsConfirmParams".
+ */
+export interface ToolsConfirmParams {
+  name: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsConfirmResult".
+ */
+export interface ToolsConfirmResult {
+  file: ToolFileInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsDeleteParams".
+ */
+export interface ToolsDeleteParams {
+  name: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsDeleteResult".
+ */
+export interface ToolsDeleteResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsDraftParams".
+ */
+export interface ToolsDraftParams {
+  description: string;
+  model?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsDraftResult".
+ */
+export interface ToolsDraftResult {
+  source: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsInstallParams".
+ */
+export interface ToolsInstallParams {
+  packages: string[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsInstallResult".
+ */
+export interface ToolsInstallResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsListParams".
+ */
+export interface ToolsListParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsListResult".
+ */
+export interface ToolsListResult {
+  builtin: ToolSummary[];
+  files: ToolFileInfo[];
+  folder: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsSaveParams".
+ */
+export interface ToolsSaveParams {
+  name: string;
+  source: string;
+  enableIn?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsSaveResult".
+ */
+export interface ToolsSaveResult {
+  file: ToolFileInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsSourceParams".
+ */
+export interface ToolsSourceParams {
+  name: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsSourceResult".
+ */
+export interface ToolsSourceResult {
+  source: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsTestParams".
+ */
+export interface ToolsTestParams {
+  source: string;
+  tool: string;
+  args: {
+    [k: string]: unknown;
+  };
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolsTestResult".
+ */
+export interface ToolsTestResult {
+  ok: boolean;
+  output: string;
+  seconds: number;
+}
 
 export interface Methods {
   'initialize': { params: InitializeParams; result: InitializeResult };
@@ -637,6 +911,19 @@ export interface Methods {
   'projects/delete': { params: ProjectsDeleteParams; result: ProjectsDeleteResult };
   'projects/clone': { params: ProjectsCloneParams; result: ProjectsCloneResult };
   'projects/git': { params: ProjectsGitParams; result: ProjectsGitResult };
+  'tools/list': { params: ToolsListParams; result: ToolsListResult };
+  'tools/source': { params: ToolsSourceParams; result: ToolsSourceResult };
+  'tools/check': { params: ToolsCheckParams; result: ToolsCheckResult };
+  'tools/save': { params: ToolsSaveParams; result: ToolsSaveResult };
+  'tools/confirm': { params: ToolsConfirmParams; result: ToolsConfirmResult };
+  'tools/delete': { params: ToolsDeleteParams; result: ToolsDeleteResult };
+  'tools/install': { params: ToolsInstallParams; result: ToolsInstallResult };
+  'tools/test': { params: ToolsTestParams; result: ToolsTestResult };
+  'tools/draft': { params: ToolsDraftParams; result: ToolsDraftResult };
+  'profiles/list': { params: ProfilesListParams; result: ProfilesListResult };
+  'profiles/save': { params: ProfilesSaveParams; result: ProfilesSaveResult };
+  'profiles/delete': { params: ProfilesDeleteParams; result: ProfilesDeleteResult };
+  'profiles/resolve': { params: ProfilesResolveParams; result: ProfilesResolveResult };
   'session/new': { params: SessionNewParams; result: SessionNewResult };
   'session/list': { params: SessionListParams; result: SessionListResult };
   'session/open': { params: SessionOpenParams; result: SessionOpenResult };

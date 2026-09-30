@@ -66,12 +66,28 @@ class ErrorData(Message):
     """``data`` of an error the app can act on, beyond its message."""
 
     reason: Literal[
-        "auth", "unreachable", "unsupported", "other", "not_a_folder", "invalid_config", "exists", "clone_failed"
+        "auth",
+        "unreachable",
+        "unsupported",
+        "other",
+        "not_a_folder",
+        "invalid_config",
+        "exists",
+        "clone_failed",
+        "invalid_name",
+        "package_not_approved",
+        "install_failed",
+        "name_taken",
+        "profile_conflict",
+        "model_failed",
     ]
     """``auth``: the key is missing or rejected. ``unreachable``: no answer from the address. ``unsupported``: the
     server does not list its models, so the model name has to be typed. ``not_a_folder``: the path is not a folder.
     ``invalid_config``: config.toml cannot be read; the message says where. ``exists``: the clone's folder is already
-    there. ``clone_failed``: git could not clone; the message is git's."""
+    there. ``clone_failed``: git could not clone; the message is git's. ``invalid_name``: a tool file name is not
+lowercase letters, digits and ``_``. ``package_not_approved``: a tool needs a package nobody approved.
+``install_failed``: a package did not install. ``name_taken``: a tool name is already used. ``profile_conflict``:
+another profile applies to the same project and model. ``model_failed``: the model call behind a draft failed."""
 
 
 # Model connections: where models come from. Keys are write-only; the app never reads one back.
@@ -237,6 +253,192 @@ class ProjectsGitResult(Message):
     """``None`` outside a git repository."""
 
 
+# Tools: built-in ones, the user's Python files, and profiles that choose which a session gets.
+
+ToolAsk = Literal["never", "edit", "ask"]
+"""When a call asks: ``never`` (reads local files), ``edit`` (as editing files, by the safety mode) or ``ask``."""
+
+
+class ToolParam(Message):
+    name: str
+    type: str
+    """The JSON Schema type, e.g. ``string``."""
+    description: str
+    required: bool
+    default: str | int | float | bool | list[Any] | dict[str, Any] | None
+    """The value used when the model leaves it out."""
+
+
+class ToolSummary(Message):
+    """A tool as the model sees it."""
+
+    name: str
+    description: str
+    params: list[ToolParam]
+    read_only: bool
+    open_world: bool
+    ask: ToolAsk
+
+
+class ToolFileInfo(Message):
+    name: str
+    """The file name without ``.py``."""
+    status: Literal["ready", "unconfirmed", "error"]
+    """``unconfirmed``: new or changed outside the app, not loaded until confirmed. ``error``: cannot load."""
+    error: str | None
+    missing_package: str | None
+    changed_at: datetime | None
+    tools: list[ToolSummary]
+    """Empty unless ``ready``."""
+    packages: list[str]
+
+
+class PackageInfo(Message):
+    """What the approval of a package Alpine has not reviewed shows. Facts PyPI did not give are ``None``."""
+
+    name: str
+    first_release: str | None
+    """``YYYY-MM``."""
+    last_month_downloads: int | None
+    similar: list[str]
+    """Reviewed packages with a look-alike name."""
+
+
+class ToolsListParams(Message):
+    pass
+
+
+class ToolsListResult(Message):
+    builtin: list[ToolSummary]
+    files: list[ToolFileInfo]
+    folder: str
+    """Where the files are."""
+
+
+class ToolsSourceParams(Message):
+    name: str
+
+
+class ToolsSourceResult(Message):
+    source: str
+
+
+class ToolsCheckParams(Message):
+    source: str
+
+
+class ToolsCheckResult(Message):
+    """The unsaved source, loaded. Nothing is loaded while ``needs_approval`` is not empty."""
+
+    tools: list[ToolSummary]
+    packages: list[str]
+    error: str | None
+    missing_package: str | None
+    needs_approval: list[PackageInfo]
+
+
+class ToolsSaveParams(Message):
+    name: str
+    source: str
+    enable_in: str | None = None
+    """A profile id to turn the file's new tools on in."""
+
+
+class ToolsSaveResult(Message):
+    file: ToolFileInfo
+
+
+class ToolsConfirmParams(Message):
+    name: str
+
+
+class ToolsConfirmResult(Message):
+    file: ToolFileInfo
+
+
+class ToolsDeleteParams(Message):
+    name: str
+
+
+class ToolsDeleteResult(Message):
+    pass
+
+
+class ToolsInstallParams(Message):
+    packages: list[str]
+    """Approves and installs them."""
+
+
+class ToolsInstallResult(Message):
+    pass
+
+
+class ToolsTestParams(Message):
+    source: str
+    tool: str
+    args: dict[str, Any]
+
+
+class ToolsTestResult(Message):
+    ok: bool
+    output: str
+    seconds: float
+
+
+class ToolsDraftParams(Message):
+    description: str
+    model: str | None = None
+    """The default model when omitted."""
+
+
+class ToolsDraftResult(Message):
+    source: str
+
+
+class ProfileInfo(Message):
+    id: str
+    """``default`` for the profile that always exists and applies everywhere; empty to add a new one."""
+    name: str
+    """Empty for the default profile."""
+    project: str | None
+    model: str | None
+    tools: list[str]
+
+
+class ProfilesListParams(Message):
+    pass
+
+
+class ProfilesListResult(Message):
+    profiles: list[ProfileInfo]
+    """The default profile first."""
+
+
+class ProfilesSaveParams(Message):
+    profile: ProfileInfo
+
+
+class ProfilesSaveResult(Message):
+    profile: ProfileInfo
+
+
+class ProfilesDeleteParams(Message):
+    id: str
+
+
+class ProfilesDeleteResult(Message):
+    pass
+
+
+class ProfilesResolveParams(Message):
+    cwd: str
+    model: str | None = None
+
+
+class ProfilesResolveResult(Message):
+    profile: ProfileInfo
+
+
 # Sessions: see docs/session-protocol.md
 
 Mode = Literal["default", "accept_edits", "yolo"]
@@ -293,6 +495,8 @@ class SessionInfo(Message):
     """When the current run started; ``None`` when idle."""
     run_usage: Usage | None
     """Usage since the current run started; ``None`` when idle."""
+    profile: str | None
+    """The id of the profile whose tools the session has."""
 
 
 class ItemModel(Message):
@@ -393,6 +597,8 @@ class SessionNewParams(Message):
     model: str | None = None
     """``<connection>/<model>``; the default model when omitted."""
     mode: Mode | None = None
+    profile: str | None = None
+    """A profile id; the one the folder and model match when omitted."""
 
 
 class SessionNewResult(Message):
@@ -532,6 +738,19 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "projects/delete": (ProjectsDeleteParams, ProjectsDeleteResult),
     "projects/clone": (ProjectsCloneParams, ProjectsCloneResult),
     "projects/git": (ProjectsGitParams, ProjectsGitResult),
+    "tools/list": (ToolsListParams, ToolsListResult),
+    "tools/source": (ToolsSourceParams, ToolsSourceResult),
+    "tools/check": (ToolsCheckParams, ToolsCheckResult),
+    "tools/save": (ToolsSaveParams, ToolsSaveResult),
+    "tools/confirm": (ToolsConfirmParams, ToolsConfirmResult),
+    "tools/delete": (ToolsDeleteParams, ToolsDeleteResult),
+    "tools/install": (ToolsInstallParams, ToolsInstallResult),
+    "tools/test": (ToolsTestParams, ToolsTestResult),
+    "tools/draft": (ToolsDraftParams, ToolsDraftResult),
+    "profiles/list": (ProfilesListParams, ProfilesListResult),
+    "profiles/save": (ProfilesSaveParams, ProfilesSaveResult),
+    "profiles/delete": (ProfilesDeleteParams, ProfilesDeleteResult),
+    "profiles/resolve": (ProfilesResolveParams, ProfilesResolveResult),
     "session/new": (SessionNewParams, SessionNewResult),
     "session/list": (SessionListParams, SessionListResult),
     "session/open": (SessionOpenParams, SessionOpenResult),

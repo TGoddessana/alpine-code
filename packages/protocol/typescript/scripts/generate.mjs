@@ -23,8 +23,13 @@ const methods = Object.entries(schema['x-methods'])
   .map(([name, { params, result }]) => `  '${name}': { params: ${params}; result: ${result} };`)
   .join('\n');
 
+// Notification name -> params.
+const notifications = Object.entries(schema['x-notifications'])
+  .map(([name, params]) => `  '${name}': ${params};`)
+  .join('\n');
+
 const header = '// Generated from packages/protocol/python by `pnpm protocol:generate`. Do not edit.\n\n';
 await writeFile(
   outUrl,
-  `${header}export const PROTOCOL_VERSION = ${version};\n\n${body}\nexport interface Methods {\n${methods}\n}\n`,
+  `${header}export const PROTOCOL_VERSION = ${version};\n\n${body}\nexport interface Methods {\n${methods}\n}\n\nexport interface Notifications {\n${notifications}\n}\n`,
 );

@@ -4,6 +4,41 @@ export const PROTOCOL_VERSION = 1;
 
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "AgentMessageItem".
+ */
+export interface AgentMessageItem {
+  id: string;
+  kind: 'agent_message';
+  text: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ApprovalItem".
+ */
+export interface ApprovalItem {
+  id: string;
+  kind: 'approval';
+  callId: string;
+  title: string;
+  preview: string | null;
+  previewKind: ('command' | 'diff' | 'text') | null;
+  reason: string | null;
+  remember: string | null;
+  decision: ('allow' | 'allow_always' | 'deny') | null;
+  feedback: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CompactionItem".
+ */
+export interface CompactionItem {
+  id: string;
+  kind: 'compaction';
+  beforeTokens: number;
+  afterTokens: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ConnectionInfo".
  */
 export interface ConnectionInfo {
@@ -91,6 +126,13 @@ export interface ConnectionsSetDefaultResult {
   defaultModel: string;
 }
 /**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DeletedEvent".
+ */
+export interface DeletedEvent {
+  type?: 'deleted';
+}
+/**
  * ``data`` of an error the app can act on, beyond its message.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -132,6 +174,41 @@ export interface PullRequestInfo {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "InfoChangedEvent".
+ */
+export interface InfoChangedEvent {
+  type?: 'info_changed';
+  info: SessionInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionInfo".
+ */
+export interface SessionInfo {
+  id: string;
+  title: string;
+  cwd: string;
+  model: string;
+  mode: 'default' | 'accept_edits' | 'yolo';
+  status: 'idle' | 'running' | 'waiting' | 'failed';
+  createdAt: string;
+  updatedAt: string;
+  usage: Usage;
+  contextUsed: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "Usage".
+ */
+export interface Usage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  requests: number;
+  cost: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "InitializeParams".
  */
 export interface InitializeParams {
@@ -153,6 +230,121 @@ export interface InitializeResult {
 export interface ServerInfo {
   name: string;
   version: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ItemCompletedEvent".
+ */
+export interface ItemCompletedEvent {
+  type?: 'item_completed';
+  item:
+    | UserMessageItem
+    | AgentMessageItem
+    | ToolCallItem
+    | ApprovalItem
+    | NoticeItem
+    | StatusLineItem
+    | CompactionItem
+    | RunStoppedItem;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "UserMessageItem".
+ */
+export interface UserMessageItem {
+  id: string;
+  kind: 'user_message';
+  text: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolCallItem".
+ */
+export interface ToolCallItem {
+  id: string;
+  kind: 'tool_call';
+  name: string;
+  args: {
+    [k: string]: unknown;
+  };
+  status: 'running' | 'done' | 'error' | 'input_error' | 'aborted' | 'interrupted' | 'denied' | 'cancelled';
+  result: string | null;
+  images: number;
+}
+/**
+ * A message the model reads that the user did not write.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "NoticeItem".
+ */
+export interface NoticeItem {
+  id: string;
+  kind: 'notice';
+  text: string;
+  source: string;
+}
+/**
+ * A line only the user reads.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "StatusLineItem".
+ */
+export interface StatusLineItem {
+  id: string;
+  kind: 'status_line';
+  text: string;
+}
+/**
+ * Why a run ended other than by answering.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "RunStoppedItem".
+ */
+export interface RunStoppedItem {
+  id: string;
+  kind: 'run_stopped';
+  reason: 'interrupted' | 'failed' | 'limit' | 'repeating' | 'permission';
+  message: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ItemDeltaEvent".
+ */
+export interface ItemDeltaEvent {
+  type?: 'item_delta';
+  itemId: string;
+  text: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ItemDiscardedEvent".
+ */
+export interface ItemDiscardedEvent {
+  type?: 'item_discarded';
+  itemId: string;
+}
+/**
+ * Base of the items. Serialized in full, so ``kind`` and nulls are always present.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ItemModel".
+ */
+export interface ItemModel {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ItemStartedEvent".
+ */
+export interface ItemStartedEvent {
+  type?: 'item_started';
+  item:
+    | UserMessageItem
+    | AgentMessageItem
+    | ToolCallItem
+    | ApprovalItem
+    | NoticeItem
+    | StatusLineItem
+    | CompactionItem
+    | RunStoppedItem;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -275,6 +467,149 @@ export interface Response {
   };
   error?: ErrorObject | null;
 }
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionAnswerParams".
+ */
+export interface SessionAnswerParams {
+  sessionId: string;
+  requestId: string;
+  decision: 'allow' | 'allow_always' | 'deny';
+  feedback?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionAnswerResult".
+ */
+export interface SessionAnswerResult {
+  accepted: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionCancelParams".
+ */
+export interface SessionCancelParams {
+  sessionId: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionCancelResult".
+ */
+export interface SessionCancelResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionDeleteParams".
+ */
+export interface SessionDeleteParams {
+  sessionId: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionDeleteResult".
+ */
+export interface SessionDeleteResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionEventParams".
+ */
+export interface SessionEventParams {
+  sessionId: string;
+  seq: number;
+  event: InfoChangedEvent | DeletedEvent | ItemStartedEvent | ItemDeltaEvent | ItemCompletedEvent | ItemDiscardedEvent;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionListParams".
+ */
+export interface SessionListParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionListResult".
+ */
+export interface SessionListResult {
+  sessions: SessionInfo[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionNewParams".
+ */
+export interface SessionNewParams {
+  cwd: string;
+  model?: string | null;
+  mode?: ('default' | 'accept_edits' | 'yolo') | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionNewResult".
+ */
+export interface SessionNewResult {
+  info: SessionInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionOpenParams".
+ */
+export interface SessionOpenParams {
+  sessionId: string;
+}
+/**
+ * A snapshot. Apply the events whose ``seq`` is greater than ``seq``.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionOpenResult".
+ */
+export interface SessionOpenResult {
+  info: SessionInfo;
+  seq: number;
+  items: (
+    | UserMessageItem
+    | AgentMessageItem
+    | ToolCallItem
+    | ApprovalItem
+    | NoticeItem
+    | StatusLineItem
+    | CompactionItem
+    | RunStoppedItem
+  )[];
+  active: (
+    | UserMessageItem
+    | AgentMessageItem
+    | ToolCallItem
+    | ApprovalItem
+    | NoticeItem
+    | StatusLineItem
+    | CompactionItem
+    | RunStoppedItem
+  )[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionSendParams".
+ */
+export interface SessionSendParams {
+  sessionId: string;
+  text: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionSendResult".
+ */
+export interface SessionSendResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionSetModeParams".
+ */
+export interface SessionSetModeParams {
+  sessionId: string;
+  mode: 'default' | 'accept_edits' | 'yolo';
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionSetModeResult".
+ */
+export interface SessionSetModeResult {
+  info: SessionInfo;
+}
 
 export interface Methods {
   'initialize': { params: InitializeParams; result: InitializeResult };
@@ -288,4 +623,16 @@ export interface Methods {
   'projects/delete': { params: ProjectsDeleteParams; result: ProjectsDeleteResult };
   'projects/clone': { params: ProjectsCloneParams; result: ProjectsCloneResult };
   'projects/git': { params: ProjectsGitParams; result: ProjectsGitResult };
+  'session/new': { params: SessionNewParams; result: SessionNewResult };
+  'session/list': { params: SessionListParams; result: SessionListResult };
+  'session/open': { params: SessionOpenParams; result: SessionOpenResult };
+  'session/send': { params: SessionSendParams; result: SessionSendResult };
+  'session/cancel': { params: SessionCancelParams; result: SessionCancelResult };
+  'session/answer': { params: SessionAnswerParams; result: SessionAnswerResult };
+  'session/setMode': { params: SessionSetModeParams; result: SessionSetModeResult };
+  'session/delete': { params: SessionDeleteParams; result: SessionDeleteResult };
+}
+
+export interface Notifications {
+  'session/event': SessionEventParams;
 }

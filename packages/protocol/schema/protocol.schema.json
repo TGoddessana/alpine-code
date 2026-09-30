@@ -46,9 +46,200 @@
     "projects/git": {
       "params": "ProjectsGitParams",
       "result": "ProjectsGitResult"
+    },
+    "session/new": {
+      "params": "SessionNewParams",
+      "result": "SessionNewResult"
+    },
+    "session/list": {
+      "params": "SessionListParams",
+      "result": "SessionListResult"
+    },
+    "session/open": {
+      "params": "SessionOpenParams",
+      "result": "SessionOpenResult"
+    },
+    "session/send": {
+      "params": "SessionSendParams",
+      "result": "SessionSendResult"
+    },
+    "session/cancel": {
+      "params": "SessionCancelParams",
+      "result": "SessionCancelResult"
+    },
+    "session/answer": {
+      "params": "SessionAnswerParams",
+      "result": "SessionAnswerResult"
+    },
+    "session/setMode": {
+      "params": "SessionSetModeParams",
+      "result": "SessionSetModeResult"
+    },
+    "session/delete": {
+      "params": "SessionDeleteParams",
+      "result": "SessionDeleteResult"
     }
   },
+  "x-notifications": {
+    "session/event": "SessionEventParams"
+  },
   "$defs": {
+    "AgentMessageItem": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "agent_message",
+          "default": "agent_message",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "text"
+      ],
+      "title": "AgentMessageItem",
+      "type": "object"
+    },
+    "ApprovalItem": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "approval",
+          "default": "approval",
+          "type": "string"
+        },
+        "callId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "preview": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "previewKind": {
+          "anyOf": [
+            {
+              "enum": [
+                "command",
+                "diff",
+                "text"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "remember": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "decision": {
+          "anyOf": [
+            {
+              "enum": [
+                "allow",
+                "allow_always",
+                "deny"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "feedback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "callId",
+        "title",
+        "preview",
+        "previewKind",
+        "reason",
+        "remember",
+        "decision",
+        "feedback"
+      ],
+      "title": "ApprovalItem",
+      "type": "object"
+    },
+    "CompactionItem": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "compaction",
+          "default": "compaction",
+          "type": "string"
+        },
+        "beforeTokens": {
+          "type": "integer"
+        },
+        "afterTokens": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "beforeTokens",
+        "afterTokens"
+      ],
+      "title": "CompactionItem",
+      "type": "object"
+    },
     "ConnectionInfo": {
       "properties": {
         "name": {
@@ -286,6 +477,17 @@
       "title": "ConnectionsSetDefaultResult",
       "type": "object"
     },
+    "DeletedEvent": {
+      "properties": {
+        "type": {
+          "const": "deleted",
+          "default": "deleted",
+          "type": "string"
+        }
+      },
+      "title": "DeletedEvent",
+      "type": "object"
+    },
     "ErrorData": {
       "description": "``data`` of an error the app can act on, beyond its message.",
       "properties": {
@@ -366,6 +568,23 @@
       "title": "GitInfo",
       "type": "object"
     },
+    "InfoChangedEvent": {
+      "properties": {
+        "type": {
+          "const": "info_changed",
+          "default": "info_changed",
+          "type": "string"
+        },
+        "info": {
+          "$ref": "#/$defs/SessionInfo"
+        }
+      },
+      "required": [
+        "info"
+      ],
+      "title": "InfoChangedEvent",
+      "type": "object"
+    },
     "InitializeParams": {
       "properties": {
         "protocolVersion": {
@@ -396,6 +615,187 @@
         "server"
       ],
       "title": "InitializeResult",
+      "type": "object"
+    },
+    "ItemCompletedEvent": {
+      "properties": {
+        "type": {
+          "const": "item_completed",
+          "default": "item_completed",
+          "type": "string"
+        },
+        "item": {
+          "discriminator": {
+            "mapping": {
+              "agent_message": "#/$defs/AgentMessageItem",
+              "approval": "#/$defs/ApprovalItem",
+              "compaction": "#/$defs/CompactionItem",
+              "notice": "#/$defs/NoticeItem",
+              "run_stopped": "#/$defs/RunStoppedItem",
+              "status_line": "#/$defs/StatusLineItem",
+              "tool_call": "#/$defs/ToolCallItem",
+              "user_message": "#/$defs/UserMessageItem"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/UserMessageItem"
+            },
+            {
+              "$ref": "#/$defs/AgentMessageItem"
+            },
+            {
+              "$ref": "#/$defs/ToolCallItem"
+            },
+            {
+              "$ref": "#/$defs/ApprovalItem"
+            },
+            {
+              "$ref": "#/$defs/NoticeItem"
+            },
+            {
+              "$ref": "#/$defs/StatusLineItem"
+            },
+            {
+              "$ref": "#/$defs/CompactionItem"
+            },
+            {
+              "$ref": "#/$defs/RunStoppedItem"
+            }
+          ]
+        }
+      },
+      "required": [
+        "item"
+      ],
+      "title": "ItemCompletedEvent",
+      "type": "object"
+    },
+    "ItemDeltaEvent": {
+      "properties": {
+        "type": {
+          "const": "item_delta",
+          "default": "item_delta",
+          "type": "string"
+        },
+        "itemId": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "itemId",
+        "text"
+      ],
+      "title": "ItemDeltaEvent",
+      "type": "object"
+    },
+    "ItemDiscardedEvent": {
+      "properties": {
+        "type": {
+          "const": "item_discarded",
+          "default": "item_discarded",
+          "type": "string"
+        },
+        "itemId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "itemId"
+      ],
+      "title": "ItemDiscardedEvent",
+      "type": "object"
+    },
+    "ItemModel": {
+      "description": "Base of the items. Serialized in full, so ``kind`` and nulls are always present.",
+      "properties": {},
+      "title": "ItemModel",
+      "type": "object"
+    },
+    "ItemStartedEvent": {
+      "properties": {
+        "type": {
+          "const": "item_started",
+          "default": "item_started",
+          "type": "string"
+        },
+        "item": {
+          "discriminator": {
+            "mapping": {
+              "agent_message": "#/$defs/AgentMessageItem",
+              "approval": "#/$defs/ApprovalItem",
+              "compaction": "#/$defs/CompactionItem",
+              "notice": "#/$defs/NoticeItem",
+              "run_stopped": "#/$defs/RunStoppedItem",
+              "status_line": "#/$defs/StatusLineItem",
+              "tool_call": "#/$defs/ToolCallItem",
+              "user_message": "#/$defs/UserMessageItem"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/UserMessageItem"
+            },
+            {
+              "$ref": "#/$defs/AgentMessageItem"
+            },
+            {
+              "$ref": "#/$defs/ToolCallItem"
+            },
+            {
+              "$ref": "#/$defs/ApprovalItem"
+            },
+            {
+              "$ref": "#/$defs/NoticeItem"
+            },
+            {
+              "$ref": "#/$defs/StatusLineItem"
+            },
+            {
+              "$ref": "#/$defs/CompactionItem"
+            },
+            {
+              "$ref": "#/$defs/RunStoppedItem"
+            }
+          ]
+        }
+      },
+      "required": [
+        "item"
+      ],
+      "title": "ItemStartedEvent",
+      "type": "object"
+    },
+    "NoticeItem": {
+      "description": "A message the model reads that the user did not write.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "notice",
+          "default": "notice",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "text",
+        "source"
+      ],
+      "title": "NoticeItem",
       "type": "object"
     },
     "ProjectInfo": {
@@ -723,6 +1123,48 @@
       "title": "Response",
       "type": "object"
     },
+    "RunStoppedItem": {
+      "description": "Why a run ended other than by answering.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "run_stopped",
+          "default": "run_stopped",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "interrupted",
+            "failed",
+            "limit",
+            "repeating",
+            "permission"
+          ],
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "reason",
+        "message"
+      ],
+      "title": "RunStoppedItem",
+      "type": "object"
+    },
     "ServerInfo": {
       "properties": {
         "name": {
@@ -737,6 +1179,574 @@
         "version"
       ],
       "title": "ServerInfo",
+      "type": "object"
+    },
+    "SessionAnswerParams": {
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "decision": {
+          "enum": [
+            "allow",
+            "allow_always",
+            "deny"
+          ],
+          "type": "string"
+        },
+        "feedback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "sessionId",
+        "requestId",
+        "decision"
+      ],
+      "title": "SessionAnswerParams",
+      "type": "object"
+    },
+    "SessionAnswerResult": {
+      "properties": {
+        "accepted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "accepted"
+      ],
+      "title": "SessionAnswerResult",
+      "type": "object"
+    },
+    "SessionCancelParams": {
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "title": "SessionCancelParams",
+      "type": "object"
+    },
+    "SessionCancelResult": {
+      "properties": {},
+      "title": "SessionCancelResult",
+      "type": "object"
+    },
+    "SessionDeleteParams": {
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "title": "SessionDeleteParams",
+      "type": "object"
+    },
+    "SessionDeleteResult": {
+      "properties": {},
+      "title": "SessionDeleteResult",
+      "type": "object"
+    },
+    "SessionEventParams": {
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "event": {
+          "discriminator": {
+            "mapping": {
+              "deleted": "#/$defs/DeletedEvent",
+              "info_changed": "#/$defs/InfoChangedEvent",
+              "item_completed": "#/$defs/ItemCompletedEvent",
+              "item_delta": "#/$defs/ItemDeltaEvent",
+              "item_discarded": "#/$defs/ItemDiscardedEvent",
+              "item_started": "#/$defs/ItemStartedEvent"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/InfoChangedEvent"
+            },
+            {
+              "$ref": "#/$defs/DeletedEvent"
+            },
+            {
+              "$ref": "#/$defs/ItemStartedEvent"
+            },
+            {
+              "$ref": "#/$defs/ItemDeltaEvent"
+            },
+            {
+              "$ref": "#/$defs/ItemCompletedEvent"
+            },
+            {
+              "$ref": "#/$defs/ItemDiscardedEvent"
+            }
+          ]
+        }
+      },
+      "required": [
+        "sessionId",
+        "seq",
+        "event"
+      ],
+      "title": "SessionEventParams",
+      "type": "object"
+    },
+    "SessionInfo": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "default",
+            "accept_edits",
+            "yolo"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "idle",
+            "running",
+            "waiting",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "createdAt": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "updatedAt": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/Usage"
+        },
+        "contextUsed": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "cwd",
+        "model",
+        "mode",
+        "status",
+        "createdAt",
+        "updatedAt",
+        "usage",
+        "contextUsed"
+      ],
+      "title": "SessionInfo",
+      "type": "object"
+    },
+    "SessionListParams": {
+      "properties": {},
+      "title": "SessionListParams",
+      "type": "object"
+    },
+    "SessionListResult": {
+      "properties": {
+        "sessions": {
+          "items": {
+            "$ref": "#/$defs/SessionInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "sessions"
+      ],
+      "title": "SessionListResult",
+      "type": "object"
+    },
+    "SessionNewParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "default",
+                "accept_edits",
+                "yolo"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "title": "SessionNewParams",
+      "type": "object"
+    },
+    "SessionNewResult": {
+      "properties": {
+        "info": {
+          "$ref": "#/$defs/SessionInfo"
+        }
+      },
+      "required": [
+        "info"
+      ],
+      "title": "SessionNewResult",
+      "type": "object"
+    },
+    "SessionOpenParams": {
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "title": "SessionOpenParams",
+      "type": "object"
+    },
+    "SessionOpenResult": {
+      "description": "A snapshot. Apply the events whose ``seq`` is greater than ``seq``.",
+      "properties": {
+        "info": {
+          "$ref": "#/$defs/SessionInfo"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "items": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "agent_message": "#/$defs/AgentMessageItem",
+                "approval": "#/$defs/ApprovalItem",
+                "compaction": "#/$defs/CompactionItem",
+                "notice": "#/$defs/NoticeItem",
+                "run_stopped": "#/$defs/RunStoppedItem",
+                "status_line": "#/$defs/StatusLineItem",
+                "tool_call": "#/$defs/ToolCallItem",
+                "user_message": "#/$defs/UserMessageItem"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/UserMessageItem"
+              },
+              {
+                "$ref": "#/$defs/AgentMessageItem"
+              },
+              {
+                "$ref": "#/$defs/ToolCallItem"
+              },
+              {
+                "$ref": "#/$defs/ApprovalItem"
+              },
+              {
+                "$ref": "#/$defs/NoticeItem"
+              },
+              {
+                "$ref": "#/$defs/StatusLineItem"
+              },
+              {
+                "$ref": "#/$defs/CompactionItem"
+              },
+              {
+                "$ref": "#/$defs/RunStoppedItem"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "active": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "agent_message": "#/$defs/AgentMessageItem",
+                "approval": "#/$defs/ApprovalItem",
+                "compaction": "#/$defs/CompactionItem",
+                "notice": "#/$defs/NoticeItem",
+                "run_stopped": "#/$defs/RunStoppedItem",
+                "status_line": "#/$defs/StatusLineItem",
+                "tool_call": "#/$defs/ToolCallItem",
+                "user_message": "#/$defs/UserMessageItem"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/UserMessageItem"
+              },
+              {
+                "$ref": "#/$defs/AgentMessageItem"
+              },
+              {
+                "$ref": "#/$defs/ToolCallItem"
+              },
+              {
+                "$ref": "#/$defs/ApprovalItem"
+              },
+              {
+                "$ref": "#/$defs/NoticeItem"
+              },
+              {
+                "$ref": "#/$defs/StatusLineItem"
+              },
+              {
+                "$ref": "#/$defs/CompactionItem"
+              },
+              {
+                "$ref": "#/$defs/RunStoppedItem"
+              }
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "info",
+        "seq",
+        "items",
+        "active"
+      ],
+      "title": "SessionOpenResult",
+      "type": "object"
+    },
+    "SessionSendParams": {
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "text"
+      ],
+      "title": "SessionSendParams",
+      "type": "object"
+    },
+    "SessionSendResult": {
+      "properties": {},
+      "title": "SessionSendResult",
+      "type": "object"
+    },
+    "SessionSetModeParams": {
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "default",
+            "accept_edits",
+            "yolo"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "mode"
+      ],
+      "title": "SessionSetModeParams",
+      "type": "object"
+    },
+    "SessionSetModeResult": {
+      "properties": {
+        "info": {
+          "$ref": "#/$defs/SessionInfo"
+        }
+      },
+      "required": [
+        "info"
+      ],
+      "title": "SessionSetModeResult",
+      "type": "object"
+    },
+    "StatusLineItem": {
+      "description": "A line only the user reads.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "status_line",
+          "default": "status_line",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "text"
+      ],
+      "title": "StatusLineItem",
+      "type": "object"
+    },
+    "ToolCallItem": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "tool_call",
+          "default": "tool_call",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "status": {
+          "enum": [
+            "running",
+            "done",
+            "error",
+            "input_error",
+            "aborted",
+            "interrupted",
+            "denied",
+            "cancelled"
+          ],
+          "type": "string"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "images": {
+          "default": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "args",
+        "status",
+        "result",
+        "images"
+      ],
+      "title": "ToolCallItem",
+      "type": "object"
+    },
+    "Usage": {
+      "properties": {
+        "inputTokens": {
+          "type": "integer"
+        },
+        "outputTokens": {
+          "type": "integer"
+        },
+        "cacheReadTokens": {
+          "type": "integer"
+        },
+        "requests": {
+          "type": "integer"
+        },
+        "cost": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "inputTokens",
+        "outputTokens",
+        "cacheReadTokens",
+        "requests",
+        "cost"
+      ],
+      "title": "Usage",
+      "type": "object"
+    },
+    "UserMessageItem": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "user_message",
+          "default": "user_message",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "text"
+      ],
+      "title": "UserMessageItem",
       "type": "object"
     }
   }

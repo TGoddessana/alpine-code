@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 #: Bumped on every change an older app or server cannot read.
 PROTOCOL_VERSION = 1
+
+#: JSON-RPC error codes of the session methods.
+SESSION_NOT_FOUND = -32001
+SESSION_RUNNING = -32002
 
 
 class Message(BaseModel):
@@ -233,6 +237,266 @@ class ProjectsGitResult(Message):
     """``None`` outside a git repository."""
 
 
+# Sessions: see docs/session-protocol.md
+
+Mode = Literal["default", "accept_edits", "yolo"]
+"""The core's permission modes: ask before edits and commands, ask before commands only, or never ask."""
+
+SessionStatus = Literal["idle", "running", "waiting", "failed"]
+"""``waiting``: an approval is active. ``failed``: the last run failed; until the next message."""
+
+ToolStatus = Literal["running", "done", "error", "input_error", "aborted", "interrupted", "denied", "cancelled"]
+"""``running``, then an outcome of alpineagents. A turn stopped at an approval leaves the call it stopped ``denied``
+and the turn's other calls ``cancelled``."""
+
+
+class Usage(Message):
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    requests: int
+    cost: float
+
+
+class SessionInfo(Message):
+    id: str
+    title: str
+    """The first user message, shortened."""
+    cwd: str
+    model: str
+    mode: Mode
+    status: SessionStatus
+    created_at: datetime
+    updated_at: datetime
+    usage: Usage
+    context_used: int
+    """Tokens the conversation takes of the model's context window."""
+
+
+class ItemModel(Message):
+    """Base of the items. Serialized in full, so ``kind`` and nulls are always present."""
+
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+
+
+class UserMessageItem(ItemModel):
+    id: str
+    kind: Literal["user_message"] = "user_message"
+    text: str
+
+
+class AgentMessageItem(ItemModel):
+    id: str
+    kind: Literal["agent_message"] = "agent_message"
+    text: str
+
+
+class ToolCallItem(ItemModel):
+    id: str
+    """The model's call id."""
+    kind: Literal["tool_call"] = "tool_call"
+    name: str
+    args: dict[str, Any]
+    status: ToolStatus
+    result: str | None = None
+    images: int = 0
+    """How many images the tool sent to the model; the images themselves are not kept."""
+
+
+class ApprovalItem(ItemModel):
+    id: str
+    """The ``requestId`` of ``session/answer``."""
+    kind: Literal["approval"] = "approval"
+    call_id: str
+    title: str
+    preview: str | None = None
+    preview_kind: Literal["command", "diff", "text"] | None = None
+    reason: str | None = None
+    """Why the core asks, e.g. the path is outside the working directory."""
+    remember: str | None = None
+    """What "don't ask again" would remember, worded for the user; ``None`` when it cannot be remembered."""
+    decision: Literal["allow", "allow_always", "deny"] | None = None
+    """``None`` while active."""
+    feedback: str | None = None
+
+
+class NoticeItem(ItemModel):
+    """A message the model reads that the user did not write."""
+
+    id: str
+    kind: Literal["notice"] = "notice"
+    text: str
+    source: str
+
+
+class StatusLineItem(ItemModel):
+    """A line only the user reads."""
+
+    id: str
+    kind: Literal["status_line"] = "status_line"
+    text: str
+
+
+class CompactionItem(ItemModel):
+    id: str
+    kind: Literal["compaction"] = "compaction"
+    before_tokens: int
+    after_tokens: int
+
+
+class RunStoppedItem(ItemModel):
+    """Why a run ended other than by answering."""
+
+    id: str
+    kind: Literal["run_stopped"] = "run_stopped"
+    reason: Literal["interrupted", "failed", "limit", "repeating", "permission"]
+    message: str | None = None
+
+
+Item = Annotated[
+    UserMessageItem
+    | AgentMessageItem
+    | ToolCallItem
+    | ApprovalItem
+    | NoticeItem
+    | StatusLineItem
+    | CompactionItem
+    | RunStoppedItem,
+    Field(discriminator="kind"),
+]
+
+
+class SessionNewParams(Message):
+    cwd: str
+    model: str | None = None
+    """``<connection>/<model>``; the default model when omitted."""
+    mode: Mode | None = None
+
+
+class SessionNewResult(Message):
+    info: SessionInfo
+
+
+class SessionListParams(Message):
+    pass
+
+
+class SessionListResult(Message):
+    sessions: list[SessionInfo]
+    """Every session of every project, most recently updated first."""
+
+
+class SessionOpenParams(Message):
+    session_id: str
+
+
+class SessionOpenResult(Message):
+    """A snapshot. Apply the events whose ``seq`` is greater than ``seq``."""
+
+    info: SessionInfo
+    seq: int
+    items: list[Item]
+    """Finished items."""
+    active: list[Item]
+    """Unfinished items: a streaming reply, running tool calls, an active approval."""
+
+
+class SessionSendParams(Message):
+    session_id: str
+    text: str
+
+
+class SessionSendResult(Message):
+    pass
+
+
+class SessionCancelParams(Message):
+    session_id: str
+
+
+class SessionCancelResult(Message):
+    pass
+
+
+class SessionAnswerParams(Message):
+    session_id: str
+    request_id: str
+    decision: Literal["allow", "allow_always", "deny"]
+    feedback: str | None = None
+    """With ``deny``: tells the model what to do instead; without it a denial stops the turn."""
+
+
+class SessionAnswerResult(Message):
+    accepted: bool
+    """``False`` if the approval was already answered."""
+
+
+class SessionSetModeParams(Message):
+    session_id: str
+    mode: Mode
+
+
+class SessionSetModeResult(Message):
+    info: SessionInfo
+
+
+class SessionDeleteParams(Message):
+    session_id: str
+
+
+class SessionDeleteResult(Message):
+    pass
+
+
+# session/event: the one notification, server -> app
+
+
+class InfoChangedEvent(Message):
+    type: Literal["info_changed"] = "info_changed"
+    info: SessionInfo
+    """Also announces a new session."""
+
+
+class DeletedEvent(Message):
+    type: Literal["deleted"] = "deleted"
+
+
+class ItemStartedEvent(Message):
+    type: Literal["item_started"] = "item_started"
+    item: Item
+
+
+class ItemDeltaEvent(Message):
+    type: Literal["item_delta"] = "item_delta"
+    item_id: str
+    text: str
+
+
+class ItemCompletedEvent(Message):
+    type: Literal["item_completed"] = "item_completed"
+    item: Item
+    """The whole item; replaces what the deltas built."""
+
+
+class ItemDiscardedEvent(Message):
+    type: Literal["item_discarded"] = "item_discarded"
+    item_id: str
+    """Drop an unfinished item, e.g. a reply whose stream broke and is being asked again."""
+
+
+SessionEvent = Annotated[
+    InfoChangedEvent | DeletedEvent | ItemStartedEvent | ItemDeltaEvent | ItemCompletedEvent | ItemDiscardedEvent,
+    Field(discriminator="type"),
+]
+
+
+class SessionEventParams(Message):
+    session_id: str
+    seq: int
+    """Counts per session and only grows, across server restarts too."""
+    event: SessionEvent
+
+
 #: Every method an app can call: name -> (params, result).
 METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "initialize": (InitializeParams, InitializeResult),
@@ -246,4 +510,17 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "projects/delete": (ProjectsDeleteParams, ProjectsDeleteResult),
     "projects/clone": (ProjectsCloneParams, ProjectsCloneResult),
     "projects/git": (ProjectsGitParams, ProjectsGitResult),
+    "session/new": (SessionNewParams, SessionNewResult),
+    "session/list": (SessionListParams, SessionListResult),
+    "session/open": (SessionOpenParams, SessionOpenResult),
+    "session/send": (SessionSendParams, SessionSendResult),
+    "session/cancel": (SessionCancelParams, SessionCancelResult),
+    "session/answer": (SessionAnswerParams, SessionAnswerResult),
+    "session/setMode": (SessionSetModeParams, SessionSetModeResult),
+    "session/delete": (SessionDeleteParams, SessionDeleteResult),
+}
+
+#: Every notification the server sends: name -> params.
+NOTIFICATIONS: dict[str, type[Message]] = {
+    "session/event": SessionEventParams,
 }

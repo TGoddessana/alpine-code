@@ -34,6 +34,7 @@ def build() -> dict:
             name: {"params": params.__name__, "result": result.__name__}
             for name, (params, result) in messages.METHODS.items()
         },
+        "x-notifications": {name: params.__name__ for name, params in messages.NOTIFICATIONS.items()},
         **schema,
     }
 

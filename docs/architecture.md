@@ -112,13 +112,14 @@ The language follows the OS until chosen in Settings.
 | 2026-09-30 | Connections as `[connections.<name>]` in `config.toml`, models named `<connection>/<model>` | an app-only connections file | one file for people and the app, next to model profiles; the CLI sees what the app connected |
 | 2026-09-30 | Providers built into the core, each with its billing (subscription or usage) | the user types addresses | coding plans connect with a key but are subscriptions; the limit shown follows how it is paid |
 | 2026-09-30 | Keys in `auth.json` (mode 600) behind a `Secrets` port | the macOS keychain now | the keychain asks again for every binary (uv's Python, the CLI, the bundle); it becomes another `Secrets` when the app is signed |
+| 2026-09-30 | `sessions/<id>` and `states/<id>` as sibling folders | model memory inside the session folder | alpineagents' `FileStore` owns its folder, so the core's files cannot share it |
 | 2026-09-30 | Opened folders in `projects.json`, kept by the core | the app's own storage | the CLI's folders show in the rail too; sessions attach to projects later without a merge |
 
 ## Open
 
 - **Shipping the server.** A bundled app runs `alpine-server` next to its own binary; building that binary
   (PyInstaller, one-folder) and signing and notarising it on macOS (tauri#11992) is untested.
-- **One request at a time.** The server answers requests in order, so a long `projects/clone` holds the others back
-  until the async server (session protocol) runs methods side by side.
-- **Session protocol.** Designed in [session-protocol.md](session-protocol.md), not implemented. It waits on
-  alpineagents (permissions, `state.stopped`, `resolve_model` options); the core's async rewrite comes after.
+- **Session protocol.** Implemented ([session-protocol.md](session-protocol.md)): the server is async over stdio and
+  runs requests side by side, so a long `projects/clone` no longer holds the others back. Sessions are saved under
+  `~/.alpine-code/sessions/<id>/`, model memory under `~/.alpine-code/states/<id>/`. Not yet: model profiles and a
+  subscription filter for remote transports.

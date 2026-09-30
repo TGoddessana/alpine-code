@@ -1,7 +1,7 @@
 # Session protocol v1
 
 How an app creates, runs, watches and resumes sessions, and what the core does underneath. Decided 2026-09-29/30;
-nothing here is implemented yet. [architecture.md](architecture.md) has the three rules every method follows.
+implemented in the core, the server and the protocol package. [architecture.md](architecture.md) has the three rules every method follows.
 
 ## Scope
 
@@ -22,7 +22,7 @@ finished items are stored; text deltas are sent live and never saved.
 |---|---|---|
 | `user_message` | `text` | the user's bubble |
 | `agent_message` | `text` | the agent's prose |
-| `tool_call` | `name`, `args`, `status`, `result`, `images` | a tool line or card; `id` is the model's call id |
+| `tool_call` | `name`, `args`, `status`, `result`, `images` | a tool line or card; `id` is the model's call id; `images` is how many images the tool sent to the model (a count, not the images) |
 | `approval` | `callId`, `title`, `preview`, `previewKind`, `reason`, `remember`, `decision`, `feedback` | while active: the dock; when finished: the "선택" bubble |
 | `notice` | `text`, `source` | a message the **model reads** that the user did not write (e.g. a hand-back after a reply with no tool call) |
 | `status_line` | `text` | a line only the user reads (e.g. a model fallback) |
@@ -130,8 +130,11 @@ The protocol is a thin wrapper: the core builds items and numbers them, so the C
   `Storage(log, states)` holds both; frontends call `file_storage(...)`, `Session(storage=...)` and
   `Session.resume(storage, id)` and never import alpineagents. The session id is the State id. If the process dies
   between the two writes, the State wins and the item list ends with `run_stopped: interrupted`.
+- **Layout on disk.** `sessions/<id>/` is the screen record and `states/<id>/` is the model memory: sibling folders,
+  because alpineagents' `FileStore` owns its whole folder. `SessionInfo.last_seq` is kept so `seq` keeps growing
+  across restarts.
 - **Home folder.** Everything lives in `~/.alpine-code` (`ALPINE_CODE_HOME` overrides; moved there with the
-  first run): `config.toml`, `auth.json`, `projects.json`, `AGENTS.md`, `sessions/`. One folder for all projects; each session records its `cwd` and the rail
+  first run): `config.toml`, `auth.json`, `projects.json`, `AGENTS.md`, `sessions/`, `states/`. One folder for all projects; each session records its `cwd` and the rail
   groups by it.
 - **Quitting.** The server is the app's child process, so quitting the app ends running sessions; they reopen ending
   in `run_stopped: interrupted`.

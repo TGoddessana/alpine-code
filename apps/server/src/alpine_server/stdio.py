@@ -19,8 +19,9 @@ from typing import Any, TextIO
 
 from pydantic import ValidationError
 
-from alpine_protocol import METHODS, ErrorObject, Request, Response, SessionEventParams
+from alpine_protocol import METHODS, ChatGPTSignInFinishedParams, ErrorObject, Request, Response, SessionEventParams
 
+from .chatgpt import ChatGPTSignIns
 from .methods import HANDLERS, INVALID_PARAMS, MethodError
 from .sessions import SessionManager
 
@@ -39,15 +40,25 @@ class _Failure(Exception):
 
 
 class Server:
-    """Answers requests and sends session events through ``write``, which takes one finished line."""
+    """Answers requests and sends notifications (session events, the end of a sign-in) through ``write``, which
+    takes one finished line."""
 
-    def __init__(self, write: Write, manager: SessionManager | None = None) -> None:
+    def __init__(
+        self, write: Write, manager: SessionManager | None = None, sign_ins: ChatGPTSignIns | None = None
+    ) -> None:
         self._write = write
         self.sessions = manager or SessionManager(self._send_event)
-        self._async_handlers = self.sessions.handlers()
+        self.sign_ins = sign_ins or ChatGPTSignIns(self._send_sign_in_finished)
+        self._async_handlers = self.sessions.handlers() | self.sign_ins.handlers()
 
     def _send_event(self, params: SessionEventParams) -> None:
-        message = {"jsonrpc": "2.0", "method": "session/event", "params": params.model_dump(by_alias=True, mode="json")}
+        self._notify("session/event", params)
+
+    def _send_sign_in_finished(self, params: ChatGPTSignInFinishedParams) -> None:
+        self._notify("chatgpt/signInFinished", params)
+
+    def _notify(self, method: str, params: Any) -> None:
+        message = {"jsonrpc": "2.0", "method": method, "params": params.model_dump(by_alias=True, mode="json")}
         self._write(json.dumps(message) + "\n")
 
     async def handle_line(self, line: str) -> None:
@@ -101,7 +112,8 @@ class Server:
         return result.model_dump(by_alias=True, mode="json")
 
     async def close(self) -> None:
-        """Stops running sessions so they are saved ending in ``run_stopped: interrupted``."""
+        """Stops running sessions so they are saved ending in ``run_stopped: interrupted``, and waiting sign-ins."""
+        await self.sign_ins.shutdown()
         await self.sessions.shutdown()
 
 

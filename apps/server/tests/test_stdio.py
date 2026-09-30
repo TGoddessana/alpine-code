@@ -30,10 +30,12 @@ def test_notifications_get_no_reply():
 
 def test_every_protocol_method_has_a_handler():
     from alpine_protocol import METHODS
+    from alpine_server.chatgpt import ChatGPTSignIns
     from alpine_server.methods import HANDLERS
     from alpine_server.sessions import SessionManager
 
-    assert set(HANDLERS) | set(SessionManager(lambda params: None).handlers()) == set(METHODS)
+    async_handlers = SessionManager(lambda params: None).handlers() | ChatGPTSignIns(lambda params: None).handlers()
+    assert set(HANDLERS) | set(async_handlers) == set(METHODS)
 
 
 def request(method: str, params: dict | None = None) -> dict:
@@ -59,6 +61,7 @@ def test_connections_and_projects(tmp_path, monkeypatch):
         "baseUrl": None,
         "billing": "usage",
         "hasKey": True,
+        "account": None,
     }
     assert added["result"]["defaultModel"] == "anthropic/claude-sonnet-5"
     local = request("connections/add", {"baseUrl": "http://localhost:11434/v1", "model": "qwen3", "makeDefault": False})

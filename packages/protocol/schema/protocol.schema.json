@@ -23,6 +23,18 @@
       "params": "ConnectionsSetDefaultParams",
       "result": "ConnectionsSetDefaultResult"
     },
+    "chatgpt/signIn": {
+      "params": "ChatGPTSignInParams",
+      "result": "ChatGPTSignInResult"
+    },
+    "chatgpt/cancelSignIn": {
+      "params": "ChatGPTCancelSignInParams",
+      "result": "ChatGPTCancelSignInResult"
+    },
+    "chatgpt/signOut": {
+      "params": "ChatGPTSignOutParams",
+      "result": "ChatGPTSignOutResult"
+    },
     "projects/list": {
       "params": "ProjectsListParams",
       "result": "ProjectsListResult"
@@ -81,7 +93,8 @@
     }
   },
   "x-notifications": {
-    "session/event": "SessionEventParams"
+    "session/event": "SessionEventParams",
+    "chatgpt/signInFinished": "ChatGPTSignInFinishedParams"
   },
   "$defs": {
     "Activity": {
@@ -249,6 +262,160 @@
       "title": "ApprovalItem",
       "type": "object"
     },
+    "ChatGPTAccountInfo": {
+      "description": "The ChatGPT account behind a connection that signs in instead of using a key. Tokens never leave the server.",
+      "properties": {
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "signedIn": {
+          "type": "boolean"
+        },
+        "planUsage": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "email",
+        "signedIn",
+        "planUsage"
+      ],
+      "title": "ChatGPTAccountInfo",
+      "type": "object"
+    },
+    "ChatGPTCancelSignInParams": {
+      "properties": {
+        "attemptId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attemptId"
+      ],
+      "title": "ChatGPTCancelSignInParams",
+      "type": "object"
+    },
+    "ChatGPTCancelSignInResult": {
+      "properties": {},
+      "title": "ChatGPTCancelSignInResult",
+      "type": "object"
+    },
+    "ChatGPTSignInFinishedParams": {
+      "description": "The end of a sign-in, whichever way it ended.",
+      "properties": {
+        "attemptId": {
+          "type": "string"
+        },
+        "result": {
+          "enum": [
+            "connected",
+            "declined",
+            "cancelled",
+            "timed_out",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "connection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConnectionInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "attemptId",
+        "result"
+      ],
+      "title": "ChatGPTSignInFinishedParams",
+      "type": "object"
+    },
+    "ChatGPTSignInParams": {
+      "description": "Starts a sign-in. The app opens ``url`` in the browser and waits for ``chatgpt/signInFinished``. Starting one\ncancels the sign-in still waiting, if any.",
+      "properties": {
+        "connection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "consent": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "title": "ChatGPTSignInParams",
+      "type": "object"
+    },
+    "ChatGPTSignInResult": {
+      "properties": {
+        "attemptId": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attemptId",
+        "url"
+      ],
+      "title": "ChatGPTSignInResult",
+      "type": "object"
+    },
+    "ChatGPTSignOutParams": {
+      "description": "Ends the connection's sign-in at OpenAI and forgets its tokens. The connection stays, signed out.",
+      "properties": {
+        "connection": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "connection"
+      ],
+      "title": "ChatGPTSignOutParams",
+      "type": "object"
+    },
+    "ChatGPTSignOutResult": {
+      "properties": {
+        "revoked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "revoked"
+      ],
+      "title": "ChatGPTSignOutResult",
+      "type": "object"
+    },
     "CompactionItem": {
       "properties": {
         "id": {
@@ -310,6 +477,17 @@
         },
         "hasKey": {
           "type": "boolean"
+        },
+        "account": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChatGPTAccountInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -434,8 +612,19 @@
       "type": "object"
     },
     "ConnectionsModelsParams": {
-      "description": "A connection that may not be saved yet: a provider, or the address of a compatible server.",
+      "description": "A saved connection by ``connection``, or one that may not be saved yet: a provider, or the address of a\ncompatible server. A ChatGPT connection is always a saved one.",
       "properties": {
+        "connection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "provider": {
           "anyOf": [
             {

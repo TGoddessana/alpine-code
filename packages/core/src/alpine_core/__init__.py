@@ -49,7 +49,7 @@ from .items import (
     item_from_dict,
     item_to_dict,
 )
-from .models import ModelListError, list_models
+from .models import ModelListError, chatgpt_tokens, list_models
 from .permissions import Mode
 from .projects import Project, ProjectList
 from .providers import PROVIDERS, Api, Auth, Billing, Provider
@@ -93,6 +93,7 @@ __all__ = [
     "Billing",
     "Secrets",
     "FileSecrets",
+    "chatgpt_tokens",
     "list_models",
     "ModelListError",
     "Project",

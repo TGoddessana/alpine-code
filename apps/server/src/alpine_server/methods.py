@@ -10,6 +10,7 @@ from typing import Any
 
 from alpine_core import (
     PROVIDERS,
+    Auth,
     CloneError,
     ConfigError,
     Connection,
@@ -87,7 +88,9 @@ def list_connections(params: ConnectionsListParams) -> ConnectionsListResult:
         connections=[_connection_info(c, settings) for c in settings.connections.values()],
         default_model=settings.model,
         providers=[
-            ProviderInfo(id=p.id, name=p.name, billing=p.billing.value, key_env=p.key_env) for p in PROVIDERS.values()
+            ProviderInfo(id=p.id, name=p.name, billing=p.billing.value, key_env=p.key_env)
+            for p in PROVIDERS.values()
+            if p.auth is Auth.API_KEY and p.key_env  # ChatGPT signs in instead (chatgpt/signIn)
         ],
     )
 

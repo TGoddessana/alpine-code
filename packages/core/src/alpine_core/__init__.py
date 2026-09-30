@@ -52,7 +52,7 @@ from .items import (
 from .models import ModelListError, list_models
 from .permissions import Mode
 from .projects import Project, ProjectList
-from .providers import PROVIDERS, Api, Billing, Provider
+from .providers import PROVIDERS, Api, Auth, Billing, Provider
 from .secrets import FileSecrets, Secrets
 from .session import Session, Snapshot, delete_session, list_sessions
 from .storage import (
@@ -89,6 +89,7 @@ __all__ = [
     "Provider",
     "PROVIDERS",
     "Api",
+    "Auth",
     "Billing",
     "Secrets",
     "FileSecrets",

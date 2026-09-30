@@ -114,8 +114,9 @@ class Settings:
 
     def api_key_for(self, connection: Connection) -> str | None:
         """The provider's environment variable, else the saved key."""
-        if connection.provider and os.environ.get(connection.provider.key_env):
-            return os.environ[connection.provider.key_env]
+        env = connection.provider.key_env if connection.provider else None
+        if env and os.environ.get(env):
+            return os.environ[env]
         return self.secrets.get(connection.name) if self.secrets else None
 
 

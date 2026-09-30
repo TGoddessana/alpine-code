@@ -176,7 +176,10 @@ core functions as the server.
    `Api.RESPONSES`) and the `OAuthTokens` port on `FileSecrets`. Tests run against a fake authorization server
    (`tests/test_chatgpt.py`). A real sign-in ran the CLI end to end (`alpine-code -p` with a `read` tool call) and a
    forced refresh.
-3. **Protocol and server methods.**
+3. **Protocol and server methods** (done 2026-09-30). The methods and the notification in [Protocol](#protocol), in
+   `alpine_server/chatgpt.py`. A real sign-in through `alpine-server` over stdio went from `chatgpt/signIn` to
+   `connected` to `connections/models`. Still open: a used-up plan reaches the app only as a `failed` run with a
+   message. The limit screen needs its own reason, which is a change to the core's session (step 4).
 4. **Canvas boards, then the desktop.**
 5. **CLI** `/login`, `/logout`.
 6. Decision rows in [architecture.md](architecture.md).

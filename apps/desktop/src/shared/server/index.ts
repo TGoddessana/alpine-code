@@ -1,3 +1,4 @@
+export { CHATGPT_USAGE_URL, useChatGPTSignIn, useChatGPTSignOut, type SignInState } from './chatgpt';
 export { ServerError, type Notification, type ServerConnection } from './connection';
 export { ServerProvider, useServer } from './context';
 export {
@@ -34,6 +35,7 @@ export {
   useSetDefaultModel,
 } from './queries';
 export {
+  CHATGPT_CONNECTION,
   CONNECTED,
   chatScript,
   firstRunScript,

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { Composer } from '@/shared/components/composer';
+import { PlanLine } from '@/shared/components/connect';
 import { StatusWord } from '@/shared/components/status';
 import { useMessages } from '@/shared/i18n';
 import {
@@ -89,6 +90,9 @@ export function Session({ sessionId }: { sessionId: string }) {
       <div className="mx-auto flex w-full max-w-202 flex-col gap-2 px-6 pt-3 pb-6">
         {running && <ProgressLine info={info} />}
         {approval && <ApprovalDock key={approval.id} sessionId={sessionId} approval={approval} />}
+        <div className="flex justify-end empty:hidden">
+          <PlanLine model={info.model} />
+        </div>
         <Composer
           running={running}
           bar={

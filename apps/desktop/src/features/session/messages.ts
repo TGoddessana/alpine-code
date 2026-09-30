@@ -42,6 +42,9 @@ export const messages = defineMessages({
     stopped_limit: '한도에 닿아 멈췄어요',
     stopped_repeating: '같은 동작을 반복해서 멈췄어요',
     stopped_permission: '허용되지 않아서 멈췄어요',
+    stopped_plan_limit: 'ChatGPT 사용량 한도에 닿아 멈췄어요',
+    stopped_signed_out: 'ChatGPT 로그인이 끝나서 멈췄어요 · 설정 › 모델 연결에서 다시 로그인해 주세요',
+    manageUsage: '사용량 관리 ↗',
     compaction: (before: string, after: string) => `대화를 정리했어요 · ${before} → ${after} 토큰`,
 
     // Progress line
@@ -99,6 +102,9 @@ export const messages = defineMessages({
     stopped_limit: 'Stopped at a limit',
     stopped_repeating: 'Stopped because it kept repeating itself',
     stopped_permission: 'Stopped because it was not allowed',
+    stopped_plan_limit: 'Stopped: the ChatGPT usage limit was reached',
+    stopped_signed_out: 'Stopped: the ChatGPT sign-in ended · sign in again in Settings › Model connection',
+    manageUsage: 'Manage usage ↗',
     compaction: (before: string, after: string) => `Conversation compacted · ${before} → ${after} tokens`,
 
     activity_thinking: 'Thinking',

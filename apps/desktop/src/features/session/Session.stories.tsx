@@ -168,6 +168,30 @@ export const StoppedRun: Story = {
   },
 };
 
+/** Board LimitHit, as far as the app goes today: a ChatGPT session that stopped at the plan's limit. */
+export const ChatGPTLimitHit: Story = {
+  parameters: {
+    server: mergeScripts(
+      setUpScript(),
+      sessionScript({
+        sessions: [
+          {
+            info: sessionInfo({ id: ID, title: '세션 목록이 사라지는 문제', model: 'chatgpt/gpt-5.5' }),
+            items: [
+              { id: 'l1', kind: 'user_message', text: '세션 목록이 가끔 사라지는 문제 고쳐 줘.' },
+              { id: 'l2', kind: 'agent_message', text: '원인을 찾았어요. 파싱이 실패하면 빈 목록을 돌려줘요.' },
+              { id: 'l3', kind: 'run_stopped', reason: 'plan_limit', message: 'The plan is used up.' },
+            ],
+          },
+        ],
+      }),
+    ),
+  },
+  play: async () => {
+    await waitFor(() => expect(screen.getByText(/ChatGPT 사용량 한도|ChatGPT usage limit/)).toBeVisible());
+  },
+};
+
 export const NotFound: Story = {
   args: { sessionId: 's-missing' },
   parameters: { server: server() },

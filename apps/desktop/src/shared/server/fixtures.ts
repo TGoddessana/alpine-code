@@ -15,6 +15,16 @@ export const PROVIDERS: ProviderInfo[] = [
   { id: 'minimax-coding-plan', name: 'MiniMax Coding Plan', billing: 'subscription', keyEnv: 'MINIMAX_API_KEY' },
 ];
 
+/** A signed-in ChatGPT account, as the server reports it. */
+export const CHATGPT_CONNECTION: ConnectionInfo = {
+  name: 'chatgpt',
+  provider: 'chatgpt',
+  baseUrl: 'https://api.openai.com/v1',
+  billing: 'subscription',
+  hasKey: true,
+  account: { email: 'you@example.com', signedIn: true, planUsage: true },
+};
+
 export const NOTHING_CONNECTED: ConnectionsListResult = { connections: [], defaultModel: null, providers: PROVIDERS };
 
 export const CONNECTED: ConnectionsListResult = {
@@ -22,6 +32,7 @@ export const CONNECTED: ConnectionsListResult = {
     { name: 'anthropic', provider: 'anthropic', baseUrl: null, billing: 'usage', hasKey: true },
     { name: 'zai-coding-plan', provider: 'zai-coding-plan', baseUrl: null, billing: 'subscription', hasKey: false },
     { name: 'local', provider: null, baseUrl: 'http://localhost:11434/v1', billing: 'none', hasKey: false },
+    CHATGPT_CONNECTION,
   ],
   defaultModel: 'anthropic/claude-sonnet-5',
   providers: PROVIDERS,
@@ -44,11 +55,14 @@ export const PROJECTS: ProjectInfo[] = [
 const MODELS: Record<string, string[]> = {
   anthropic: ['claude-sonnet-5', 'claude-opus-5-5', 'claude-haiku-4-5'],
   local: ['gpt-oss:20b', 'qwen3-coder:30b'],
+  chatgpt: ['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5'],
 };
 
 interface ScriptState {
   connections: ConnectionsListResult;
   projects: ProjectInfo[];
+  /** How a ChatGPT sign-in ends, a moment after it starts: signed in (the default), or with plan usage declined. */
+  chatgpt?: 'connected' | 'declined';
 }
 
 /**
@@ -57,6 +71,7 @@ interface ScriptState {
  */
 export function statefulScript(start: ScriptState): Script {
   let { connections, projects } = start;
+  const signIns = new Map<string, ReturnType<typeof setTimeout>>();
   const project = (path: string): ProjectInfo => ({
     path,
     name: path.split('/').pop() ?? path,
@@ -68,12 +83,16 @@ export function statefulScript(start: ScriptState): Script {
     results: {
       initialize: { protocolVersion: 1, server: { name: 'scripted', version: 'browser' } },
       'connections/list': () => connections,
-      'connections/models': ({ provider, baseUrl, apiKey }) => {
+      'connections/models': ({ connection: name, provider: askedProvider, baseUrl, apiKey }) => {
+        const saved = name ? connections.connections.find((c) => c.name === name) : undefined;
+        if (saved?.account) return { models: MODELS.chatgpt! };
+        if (saved && !saved.provider) return { models: MODELS.local! };
+        const provider = saved?.provider ?? askedProvider;
         if (baseUrl && !baseUrl.includes('localhost'))
           throw new ServerError(-32000, 'Connection error.', { reason: 'unreachable' });
         if (baseUrl) return { models: MODELS.local! };
-        const saved = connections.connections.find((c) => c.provider === provider)?.hasKey;
-        if (!apiKey?.startsWith('sk-') && !(apiKey === undefined && saved))
+        const hasKey = connections.connections.find((c) => c.provider === provider)?.hasKey;
+        if (!apiKey?.startsWith('sk-') && !(apiKey === undefined && hasKey))
           throw new ServerError(-32000, 'invalid x-api-key', { reason: 'auth' });
         return { models: MODELS[provider ?? ''] ?? ['glm-5.2', 'glm-5.2-air'] };
       },
@@ -91,6 +110,45 @@ export function statefulScript(start: ScriptState): Script {
         const defaultModel = makeDefault ? `${name}/${model}` : connections.defaultModel;
         connections = { ...connections, connections: [...others, connection], defaultModel };
         return { connection, defaultModel };
+      },
+      'chatgpt/signIn': ({ connection: again, consent }, context) => {
+        const attemptId = `attempt-${signIns.size + 1}`;
+        const planUsage = consent || start.chatgpt !== 'declined';
+        const timer = setTimeout(() => {
+          signIns.delete(attemptId);
+          const name = again ?? 'chatgpt';
+          const connection: ConnectionInfo = {
+            ...CHATGPT_CONNECTION,
+            name,
+            hasKey: planUsage,
+            account: { email: 'you@example.com', signedIn: true, planUsage },
+          };
+          connections = {
+            ...connections,
+            connections: [...connections.connections.filter((c) => c.name !== name), connection],
+          };
+          context.emit({
+            method: 'chatgpt/signInFinished',
+            params: { attemptId, result: 'connected', connection, message: null },
+          });
+        }, 1500);
+        signIns.set(attemptId, timer);
+        return { attemptId, url: 'https://auth.openai.com/api/accounts/authorize?client_id=dynamic_agent_client' };
+      },
+      'chatgpt/cancelSignIn': ({ attemptId }, context) => {
+        clearTimeout(signIns.get(attemptId));
+        signIns.delete(attemptId);
+        context.emit({ method: 'chatgpt/signInFinished', params: { attemptId, result: 'cancelled' } });
+        return {};
+      },
+      'chatgpt/signOut': ({ connection: name }) => {
+        connections = {
+          ...connections,
+          connections: connections.connections.map((c) =>
+            c.name === name && c.account ? { ...c, hasKey: false, account: { ...c.account, signedIn: false } } : c,
+          ),
+        };
+        return { revoked: true };
       },
       'connections/setDefault': ({ model }) => {
         connections = { ...connections, defaultModel: model };
@@ -141,7 +199,8 @@ export function statefulScript(start: ScriptState): Script {
 }
 
 /** A first run: nothing connected, no projects. */
-export const firstRunScript = () => statefulScript({ connections: NOTHING_CONNECTED, projects: [] });
+export const firstRunScript = (chatgpt: ScriptState['chatgpt'] = 'connected') =>
+  statefulScript({ connections: NOTHING_CONNECTED, projects: [], chatgpt });
 
 /** Everything set up: three connections and three projects. */
 export const setUpScript = () => statefulScript({ connections: CONNECTED, projects: PROJECTS });

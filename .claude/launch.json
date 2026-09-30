@@ -6,6 +6,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@alpine/desktop", "dev"],
       "port": 1420
+    },
+    {
+      "name": "storybook",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@alpine/desktop", "storybook"],
+      "port": 6006
     }
   ]
 }

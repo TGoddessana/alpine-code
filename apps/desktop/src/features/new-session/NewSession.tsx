@@ -3,6 +3,7 @@ import { Button, Menu } from '@alpine/ui/primitives';
 import { useRef, useState } from 'react';
 
 import { Composer } from '@/shared/components/composer';
+import { PlanLine } from '@/shared/components/connect';
 import { GitBar } from '@/shared/components/git';
 import { useMessages } from '@/shared/i18n';
 import { useOpenFolder } from '@/shared/platform';
@@ -79,6 +80,8 @@ export function NewSession({
             </Menu.Popup>
           </Menu.Root>
           <GitBar path={project.path} />
+          <span className="grow" />
+          <PlanLine model={defaultModel} />
         </div>
         <Composer onSend={start} />
       </div>

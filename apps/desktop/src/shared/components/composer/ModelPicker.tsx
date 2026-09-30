@@ -20,11 +20,7 @@ export function ModelPicker({ disabled = false }: { disabled?: boolean }) {
   const data = useConnections().data;
   const setDefault = useSetDefaultModel();
   const ask = useConnectPrompt((state) => state.ask);
-  const lists = useModelsOf(
-    (data?.connections ?? []).map((connection) =>
-      connection.provider ? { provider: connection.provider } : { baseUrl: connection.baseUrl ?? '' },
-    ),
-  );
+  const lists = useModelsOf((data?.connections ?? []).map((connection) => ({ connection: connection.name })));
   if (!data) return null;
   if (data.connections.length === 0)
     return (

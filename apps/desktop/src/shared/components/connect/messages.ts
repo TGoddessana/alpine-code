@@ -42,6 +42,7 @@ export const messages = defineMessages({
     connectFailed: (message: string) => `연결하지 못했어요 · ${message}`,
     apiKeyConnection: (provider: string) => `${provider} API 키`,
     localConnection: (address: string) => `로컬 서버 · ${address}`,
+    compatibleConnection: (address: string) => `호환 서버 · ${address}`,
     noKey: (env: string) => `키가 없어요 · ${env}를 설정하거나 바꾸기로 넣어 주세요`,
     continueWithChatGPT: 'ChatGPT로 계속하기',
     chatgptLead: '브라우저에서 로그인하고, Alpine이 ChatGPT 요금제를 쓰도록 허용해 주세요. 끝나면 여기로 돌아와요.',
@@ -114,6 +115,7 @@ export const messages = defineMessages({
     connectFailed: (message: string) => `Couldn't connect · ${message}`,
     apiKeyConnection: (provider: string) => `${provider} API key`,
     localConnection: (address: string) => `Local server · ${address}`,
+    compatibleConnection: (address: string) => `Compatible server · ${address}`,
     noKey: (env: string) => `No key · set ${env} or add one with Change`,
     continueWithChatGPT: 'Continue with ChatGPT',
     chatgptLead:

@@ -27,7 +27,7 @@ export function Composer({ locked = false }: { locked?: boolean }) {
   };
 
   return (
-    <div className="flex flex-col gap-1 rounded-xl border border-line bg-canvas-raised pt-3 pr-3 pb-2 pl-4 focus-within:border-interactive focus-within:ring-1 focus-within:ring-interactive">
+    <div className="flex flex-col gap-1 rounded-xl border border-line bg-canvas-raised pt-3 pr-3 pb-2 pl-4">
       <label htmlFor="composer" className="sr-only">
         {t.message}
       </label>

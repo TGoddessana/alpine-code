@@ -136,7 +136,14 @@ class Session:
         if self._state is None:
             return UsageInfo()
         u = self._state.usage
-        return UsageInfo(u.input_tokens, u.output_tokens, u.cache_read_tokens, u.requests, u.cost)
+        return UsageInfo(
+            input_tokens=u.input_tokens,
+            output_tokens=u.output_tokens,
+            cache_read_tokens=u.cache_read_tokens,
+            cache_write_tokens=u.cache_write_tokens,
+            requests=u.requests,
+            cost=u.cost,
+        )
 
     @property
     def context_used(self) -> float:

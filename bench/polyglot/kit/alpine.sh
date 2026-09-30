@@ -12,7 +12,10 @@ mkdir -p "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$XDG_CONFIG_HOME"
 # The runner passes the endpoint root (https://llm.onerouter.pro); alpine wants the OpenAI-compatible base.
 BASE_URL="${ENDPOINT%/}"; case "$BASE_URL" in */v1) ;; *) BASE_URL="$BASE_URL/v1" ;; esac
 cd "$CWD" || exit 97
-run_with_deadline "$ALPINE_REPO/.venv/bin/alpine" -p --yolo -m "$MODEL" --base-url "$BASE_URL" "$PROMPT" \
+# usage.json: token totals and per-step counts, input split into uncached / cache read / cache write. It is
+# rewritten before every model request, so a row killed at the deadline keeps the steps it finished.
+run_with_deadline "$ALPINE_REPO/.venv/bin/alpine" -p --yolo -m "$MODEL" --base-url "$BASE_URL" \
+  --usage-file "$LOGDIR/usage.json" "$PROMPT" \
   < /dev/null > "$LOGDIR/agent.log" 2> "$LOGDIR/agent.err"
 code=$?
 reason=done

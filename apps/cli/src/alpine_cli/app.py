@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from prompt_toolkit.application import create_app_session
 
@@ -31,6 +32,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--accept-edits", action="store_true", help="Edit files without asking")
     mode.add_argument("--yolo", action="store_true", help="Never ask before editing files or running commands")
+    parser.add_argument(
+        "--usage-file",
+        type=Path,
+        metavar="PATH",
+        help="With -p: write token usage (cached and uncached) to PATH as JSON",
+    )
     parser.add_argument("-v", "--version", action="version", version=f"alpine-code {__version__}")
     return parser.parse_args(argv)
 
@@ -50,7 +57,7 @@ def main(argv: list[str] | None = None) -> None:
             if not prompt:
                 console.print('[error]-p needs a prompt: alpine -p "..." (or pipe one in)[/]')
                 sys.exit(2)
-            sys.exit(run_headless(settings, prompt))
+            sys.exit(run_headless(settings, prompt, usage_path=args.usage_file))
         session = Session(
             settings, on_event=Renderer(console), approver=CliApprover(console), projects=ProjectList.default()
         )

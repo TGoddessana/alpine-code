@@ -58,6 +58,28 @@ def boot_ci(diffs: list[int], reps: int = 20000, seed: int = 0) -> tuple[float, 
     return means[int(0.025 * reps)], means[int(0.975 * reps) - 1]
 
 
+def print_usage(usage: list[dict], n: int) -> None:
+    """Token totals. The three input counts do not overlap: uncached + cache read + cache write is all input."""
+    keys = ("input_tokens", "cache_read_tokens", "cache_write_tokens", "output_tokens", "requests")
+    total = {k: sum(u[k] for u in usage) for k in keys}
+    all_input = total["input_tokens"] + total["cache_read_tokens"] + total["cache_write_tokens"]
+    incomplete = sum(not u["complete"] for u in usage)
+    print(f"\ntokens ({len(usage)} of {n} rows report usage; {incomplete} were killed mid-step and miss that step)")
+    print(f"  input total    {all_input:>14,}")
+    for k, label in (
+        ("input_tokens", "uncached"),
+        ("cache_read_tokens", "cache read"),
+        ("cache_write_tokens", "cache write"),
+    ):
+        share = total[k] / all_input if all_input else 0
+        print(f"    {label:12s} {total[k]:>14,}  {share:6.1%}")
+    print(f"  output         {total['output_tokens']:>14,}")
+    print(f"  requests       {total['requests']:>14,}  ({total['requests'] / len(usage):.1f} per row)")
+    costs = [u.get("cost") for u in usage]
+    if all(c is not None for c in costs):
+        print(f"  cost           {'$' + format(sum(costs), ',.2f'):>14s}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("run", type=Path, help="run directory with rows.jsonl")
@@ -107,6 +129,10 @@ def main() -> None:
     print("\nend reasons:", dict(reasons))
     failed = collections.Counter(run[i].get("agentEndReason") for i in ids if not a[i])
     print("end reasons of failed rows:", dict(failed))
+
+    usage = [run[i]["usage"] for i in ids if "usage" in run[i]]
+    if usage:
+        print_usage(usage, n)
 
     if args.rows:
         for h, b in base.items():

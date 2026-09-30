@@ -3,8 +3,10 @@
 
     python3 bench/polyglot/collect.py ~/Developments/Motifcode/packages/eval/polyglot-bench gen1
 
-Writes rows.jsonl, rerun.jsonl, rerun.txt, campaign.log (alpine lines), manifest.json, failures.tsv (one line per
-failed row, classified from the logs) and logs.tar.gz (git-ignored). Run compare.py afterwards for summary.txt.
+Writes rows.jsonl and rerun.jsonl (each final row gets a ``usage`` field from the adapter's usage.json: token totals
+with input split into uncached / cache read / cache write, and ``complete: false`` for a row killed mid-step),
+rerun.txt, campaign.log (alpine lines), manifest.json, failures.tsv (one line per failed row, classified from the
+logs) and logs.tar.gz (git-ignored, with each row's per-step usage.json). Run compare.py afterwards for summary.txt.
 """
 
 from __future__ import annotations
@@ -18,6 +20,23 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 
 
+def with_usage(kit: Path, text: str, skip: set[str] = frozenset()) -> str:
+    """Adds ``usage`` (totals, ``complete``, ``steps`` count) from each row's usage.json; the per-step counts stay
+    in the logs."""
+    lines = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        r = json.loads(line)
+        lang, ex = r["instanceId"].split("/")
+        f = kit / f"logs/alpine/alpine--{lang}/{ex}--0--1/usage.json"
+        if r["instanceId"] not in skip and f.exists():
+            doc = json.loads(f.read_text())
+            r["usage"] = {**doc["total"], "complete": doc["complete"], "steps": len(doc["steps"])}
+        lines.append(json.dumps(r) + "\n")
+    return "".join(lines)
+
+
 def main() -> None:
     kit, name = Path(sys.argv[1]).expanduser().resolve(), sys.argv[2]
     out = HERE / "results" / name
@@ -26,9 +45,14 @@ def main() -> None:
     # Grader output quotes toolchain paths under the home directory; keep the username out of the repository.
     home = str(Path.home())
     chunks = sorted((kit / "results/alpine").glob("chunk*.jsonl"))
-    (out / "rows.jsonl").write_text("".join(c.read_text() for c in chunks).replace(home, "~"))
-    if (kit / "results/alpine/rerun.jsonl").exists():
-        (out / "rerun.jsonl").write_text((kit / "results/alpine/rerun.jsonl").read_text().replace(home, "~"))
+    rerun_file = kit / "results/alpine/rerun.jsonl"
+    rerun_text = rerun_file.read_text() if rerun_file.exists() else ""
+    # A row's log directory holds its last attempt, so usage goes on the re-run row when there is one.
+    rerun_ids = {json.loads(line)["instanceId"] for line in rerun_text.splitlines() if line.strip()}
+    rows_text = "".join(c.read_text() for c in chunks)
+    (out / "rows.jsonl").write_text(with_usage(kit, rows_text, skip=rerun_ids).replace(home, "~"))
+    if rerun_text:
+        (out / "rerun.jsonl").write_text(with_usage(kit, rerun_text).replace(home, "~"))
     for src, dst in (("results/rerun.txt", "rerun.txt"), ("results/campaign.log", "campaign.log")):
         if (kit / src).exists():
             lines = [line for line in (kit / src).read_text().splitlines() if "alpine" in line or "reruns" in line]

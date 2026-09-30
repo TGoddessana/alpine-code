@@ -34,12 +34,12 @@ failures (as the report does) and passed. Without the re-run gen0 is 171/213.
 
 | path | |
 |---|---|
-| `kit/alpine.sh` | the adapter: the runner's argv/journal contract around `alpine -p --yolo` |
+| `kit/alpine.sh` | the adapter: the runner's argv/journal contract around `alpine -p --yolo`; writes each row's token usage to `logs/.../usage.json` |
 | `kit/motifcode-kit.patch` | changes to Motifcode's kit: `alpine` in the harness lists, pytest venv on `PATH`, provider connection errors classified as transport |
 | `kit/install.sh` | applies the patch and copies the adapter into a Motifcode checkout |
 | `baselines/motif-3.json` | the published per-instance rows (Motifcode REPORT.md Appendix A, Apache-2.0) |
-| `compare.py` | pass rates, paired bootstrap CI and McNemar against the baselines and other alpine runs |
-| `collect.py` | copies a finished campaign out of the kit into `results/<name>/` |
+| `compare.py` | pass rates, paired bootstrap CI and McNemar against the baselines and other alpine runs; token totals with input split into uncached / cache read / cache write |
+| `collect.py` | copies a finished campaign out of the kit into `results/<name>/`, adding each row's token totals as `usage` |
 | `results/<name>/` | `rows.jsonl`, `rerun.jsonl`, `failures.tsv`, `summary.txt`, `meta.json`, `manifest.json`, `campaign.log`; `logs.tar.gz` is git-ignored |
 
 ## Run
@@ -74,6 +74,10 @@ python3 ~/Developments/alpine-code/bench/polyglot/compare.py ~/Developments/alpi
 ```
 
 Clear `results/alpine/`, `logs/alpine/` and `chunks/claimed/alpine/` in the kit before starting another campaign.
+
+Token usage is recorded from gen1 on; gen0 has none. `alpine -p --usage-file` rewrites the file before every
+model request, so a row killed at the deadline keeps every step but the one in flight (`complete: false`). Infron
+reports cache reads (`prompt_tokens_details.cached_tokens`) but not cache writes, so `cache_write_tokens` stays 0 there.
 
 One seed at temperature 1.0 does not resolve differences below about 8 pp; compare variants paired, on the same
 instances.

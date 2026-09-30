@@ -15,9 +15,15 @@ ToolResultKind = Literal["done", "error", "input_error", "aborted", "interrupted
 
 @dataclass(frozen=True)
 class UsageInfo:
+    """Token counts. The three input counts do not overlap: total input is their sum."""
+
     input_tokens: int = 0
+    """Input tokens that did not go through the cache."""
     output_tokens: int = 0
     cache_read_tokens: int = 0
+    """Input tokens read from the cache."""
+    cache_write_tokens: int = 0
+    """Input tokens newly written to the cache."""
     requests: int = 0
     cost: float | None = None
     """Dollars, or ``None`` when the model has no known price."""

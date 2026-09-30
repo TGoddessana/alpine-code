@@ -123,7 +123,8 @@ def _cost(ctx: Context, arg: str) -> bool:
     u = ctx.session.usage
     cost = f"${u.cost:.4f}" if u.cost is not None else "unknown (no price for this model)"
     ctx.console.print(
-        f"Requests: {u.requests}\nInput: {u.input_tokens:,} tokens (+{u.cache_read_tokens:,} cached)\n"
+        f"Requests: {u.requests}\nInput: {u.input_tokens:,} tokens (+{u.cache_read_tokens:,} read from cache, "
+        f"+{u.cache_write_tokens:,} written to cache)\n"
         f"Output: {u.output_tokens:,} tokens\nCost: {cost}\nContext: {ctx.session.context_used:.0%} used"
     )
     return True

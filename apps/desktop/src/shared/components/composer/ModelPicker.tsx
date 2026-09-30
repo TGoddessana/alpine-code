@@ -1,18 +1,20 @@
-import { Menu } from '@alpine/ui/primitives';
-import { Fragment } from 'react';
+import { Combobox } from '@alpine/ui/primitives';
+import { useState } from 'react';
 
 import { connectionLabel, connectMessages, useConnectPrompt } from '@/shared/components/connect';
 import { useMessages } from '@/shared/i18n';
 import { useConnections, useModelsOf, useSetDefaultModel } from '@/shared/server';
 
 import { messages } from './messages';
+import { modelGroups, readRecent, RECENT_GROUP, rememberRecent, type ModelGroup } from './modelGroups';
 
 const chip =
   'inline-flex min-h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-meta whitespace-nowrap text-fg-muted hover:bg-canvas-sunken hover:text-fg data-popup-open:bg-canvas-sunken';
 
 /**
  * The model a new session starts with, which is the default model (Settings › Model connection shows the same).
- * With nothing connected it offers to connect one.
+ * A search box on top; a connection with many models (a router) stays folded until opened or searched, and the
+ * models chosen lately come first. With nothing connected it offers to connect one.
  */
 export function ModelPicker({ disabled = false }: { disabled?: boolean }) {
   const t = useMessages(messages);
@@ -20,11 +22,20 @@ export function ModelPicker({ disabled = false }: { disabled?: boolean }) {
   const data = useConnections().data;
   const setDefault = useSetDefaultModel();
   const ask = useConnectPrompt((state) => state.ask);
-  const lists = useModelsOf(
-    (data?.connections ?? []).map((connection) =>
-      connection.provider ? { provider: connection.provider } : { baseUrl: connection.baseUrl ?? '' },
-    ),
-  );
+  const [query, setQuery] = useState('');
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const [recent, setRecent] = useState(readRecent);
+  const lists = useModelsOf((data?.connections ?? []).map((connection) => ({ connection: connection.name })));
+
+  const sources = (data?.connections ?? []).map((connection, i) => ({
+    name: connection.name,
+    label: connectionLabel(connection, data?.providers ?? [], c),
+    models: lists[i]?.data?.models ?? [],
+  }));
+  const current = data?.defaultModel ?? null;
+  const groups = modelGroups({ sources, current, recent, query, expanded, recentLabel: t.recent });
+  const all = groups.flatMap((g) => g.items);
+
   if (!data) return null;
   if (data.connections.length === 0)
     return (
@@ -33,30 +44,61 @@ export function ModelPicker({ disabled = false }: { disabled?: boolean }) {
       </button>
     );
 
-  const current = data.defaultModel;
+  const choose = (model: string | null) => {
+    if (!model || model === current) return;
+    setDefault.mutate(model);
+    setRecent(rememberRecent(model));
+  };
+
   return (
-    <Menu.Root>
-      <Menu.Trigger disabled={disabled} className={chip} aria-label={t.modelLabel(current ?? t.chooseModel)}>
+    <Combobox.Root
+      items={all}
+      filteredItems={groups}
+      value={current}
+      onValueChange={(model: string | null) => choose(model)}
+      inputValue={query}
+      onInputValueChange={setQuery}
+      onOpenChange={(open) => {
+        if (!open) setQuery('');
+      }}
+      itemToStringLabel={(model: string) => model.slice(model.indexOf('/') + 1)}
+      disabled={disabled}
+    >
+      <Combobox.Trigger className={chip} aria-label={t.modelLabel(current ?? t.chooseModel)}>
         <span className="text-fg">{current ? current.slice(current.indexOf('/') + 1) : t.chooseModel}</span>
         <Chevron />
-      </Menu.Trigger>
-      <Menu.Popup side="top" align="end" className="max-h-100 w-72 overflow-y-auto">
-        <Menu.RadioGroup value={current ?? ''} onValueChange={(model: string) => setDefault.mutate(model)}>
-          {data.connections.map((connection, i) => (
-            <Fragment key={connection.name}>
-              <div className="flex min-h-7 items-center px-2 text-meta text-fg-muted">
-                {connectionLabel(connection, data.providers, c)}
-              </div>
-              {(lists[i]?.data?.models ?? []).map((model) => (
-                <Menu.RadioItem key={model} value={`${connection.name}/${model}`}>
-                  <span className="min-w-0 grow truncate">{model}</span>
-                </Menu.RadioItem>
-              ))}
-            </Fragment>
-          ))}
-        </Menu.RadioGroup>
-      </Menu.Popup>
-    </Menu.Root>
+      </Combobox.Trigger>
+      <Combobox.Popup side="top" align="end" className="max-h-[min(28rem,var(--available-height))] w-80">
+        <Combobox.Input placeholder={t.findModel} aria-label={t.findModel} />
+        <Combobox.Empty>{query.trim() ? <p className="py-2">{t.noModel}</p> : null}</Combobox.Empty>
+        <Combobox.List>
+          {(group: ModelGroup) => (
+            <Combobox.Group key={group.id} items={group.items} className="pb-1 last:pb-0">
+              <Combobox.GroupLabel>
+                <span className="min-w-0 grow truncate">{group.label}</span>
+                {group.folded !== null && group.id !== RECENT_GROUP && (
+                  <button
+                    type="button"
+                    className="shrink-0 cursor-pointer rounded-sm px-1 text-interactive hover:underline"
+                    aria-label={t.showAll(group.folded)}
+                    onClick={() => setExpanded((open) => new Set(open).add(group.id))}
+                  >
+                    {t.modelCount(group.folded)} ›
+                  </button>
+                )}
+              </Combobox.GroupLabel>
+              <Combobox.Collection>
+                {(model: string) => (
+                  <Combobox.Item key={`${group.id}:${model}`} value={model}>
+                    <span className="min-w-0 grow truncate">{model.slice(model.indexOf('/') + 1)}</span>
+                  </Combobox.Item>
+                )}
+              </Combobox.Collection>
+            </Combobox.Group>
+          )}
+        </Combobox.List>
+      </Combobox.Popup>
+    </Combobox.Root>
   );
 }
 

@@ -15,6 +15,15 @@ class Api(StrEnum):
     ANTHROPIC = "anthropic"
     OPENAI = "openai"
     """Chat Completions, as OpenAI and most other servers speak it."""
+    RESPONSES = "responses"
+    """OpenAI's Responses API."""
+
+
+class Auth(StrEnum):
+    API_KEY = "api_key"
+    """A key the user pastes, or the provider's environment variable."""
+    CHATGPT = "chatgpt"
+    """Sign in with ChatGPT: the user's ChatGPT plan pays (``alpine_core.chatgpt``)."""
 
 
 class Billing(StrEnum):
@@ -34,8 +43,9 @@ class Provider:
     base_url: str | None
     """``None`` means the SDK's own default (Anthropic's or OpenAI's API)."""
     billing: Billing
-    key_env: str
-    """The environment variable that holds its key; it wins over a saved key."""
+    key_env: str | None
+    """The environment variable that holds its key; it wins over a saved key. ``None`` when it takes no key."""
+    auth: Auth = Auth.API_KEY
 
 
 PROVIDERS: dict[str, Provider] = {
@@ -78,6 +88,10 @@ PROVIDERS: dict[str, Provider] = {
             "https://api.minimax.io/v1",
             Billing.SUBSCRIPTION,
             "MINIMAX_API_KEY",
+        ),
+        # Signed in, not keyed: the ChatGPT Plus/Pro plan pays through OpenAI's Responses API.
+        Provider(
+            "chatgpt", "ChatGPT", Api.RESPONSES, "https://api.openai.com/v1", Billing.SUBSCRIPTION, None, Auth.CHATGPT
         ),
     ]
 }

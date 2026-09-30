@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 import { useState } from 'react';
 
-import { chatScript, PROJECTS } from '@/shared/server';
+import { chatScript, PROJECTS, withRouterScript } from '@/shared/server';
 
 import { NewSession } from './NewSession';
 
@@ -29,6 +29,19 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Ready: Story = {};
+
+/** The model picker with a router of 320 models: folded until opened, found by searching. */
+export const ManyModels: Story = {
+  parameters: { server: withRouterScript() },
+  play: async () => {
+    await userEvent.click(await screen.findByRole('combobox', { name: /새 세션 모델|New session model/ }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /모델 320개 모두 보기|Show all 320/ })).toBeVisible(),
+    );
+    await userEvent.type(screen.getByRole('combobox', { name: /모델 찾기|Find a model/ }), 'qwen/model-3');
+    await waitFor(() => expect(screen.getByRole('option', { name: 'qwen/model-3' })).toBeVisible());
+  },
+};
 
 export const PickingAProject: Story = {
   play: async () => {

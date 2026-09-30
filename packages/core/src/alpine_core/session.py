@@ -26,6 +26,7 @@ from alpineagents.types import Stopped
 
 from .approval import ApprovalRequest, Approver, Decision, build_permissions
 from .bridge import EventReporter
+from .chatgpt import PlanUsageOff, SignInNeeded, UsageLimitError
 from .config import ConfigError, Settings
 from .events import (
     AssistantDone,
@@ -257,11 +258,11 @@ class Session:
             self._end_run("idle")
             return None
         except AlpineAgentsError as e:
-            self._dispatch(Failed(_describe_error(e)))
+            self._dispatch(_failed(e))
             self._end_run("failed")
             return None
         except Exception as e:  # a bug: still leave the screen record closed
-            self._dispatch(Failed(_describe_error(e)))
+            self._dispatch(_failed(e))
             self._end_run("failed")
             raise
         stopped = self._state.stopped
@@ -301,7 +302,7 @@ class Session:
             self._end_run("idle")
             return False
         except AlpineAgentsError as e:
-            self._dispatch(Failed(_describe_error(e)))
+            self._dispatch(_failed(e))
             self._end_run("failed")
             return False
         self._end_run("idle")
@@ -626,6 +627,16 @@ class _ItemApprover:
 
         threading.Thread(target=target, name="alpine-approver", daemon=True).start()
         return await future
+
+
+def _failed(error: BaseException) -> Failed:
+    """The ``Failed`` event for ``error``: a used-up ChatGPT plan or an ended sign-in gets its own reason, and its
+    message is the core's own sentence rather than an exception dump."""
+    if isinstance(error, UsageLimitError):
+        return Failed(str(error), "plan_limit")
+    if isinstance(error, (SignInNeeded, PlanUsageOff)):
+        return Failed(str(error), "signed_out")
+    return Failed(_describe_error(error))
 
 
 def _describe_error(error: BaseException) -> str:

@@ -116,7 +116,7 @@ describe('sessionScript', () => {
   it('deletes a session', async () => {
     const { connection, id, state } = await setup();
     await connection.request('session/delete', { sessionId: id });
-    expect(state().deleted).toBe(true);
+    await vi.waitFor(() => expect(state().deleted).toBe(true));
     await expect(connection.request('session/open', { sessionId: id })).rejects.toMatchObject({ code: -32001 });
   });
 });

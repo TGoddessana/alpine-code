@@ -8,6 +8,7 @@ import anthropic
 import openai
 from alpineagents import Anthropic, Model, OpenAICompatible
 
+from .chatgpt import ChatGPTError, ChatGPTModel, ChatGPTTokens, PlanUsageOff, SignInNeeded, fetch_models, is_chatgpt
 from .config import ConfigError, Connection, Settings
 from .providers import Api
 
@@ -36,6 +37,8 @@ def make_model(settings: Settings) -> Model | str:
     if connection is not None:
         if not model:
             raise ConfigError(f"No model after the connection name: write {prefix}/<model>")
+        if is_chatgpt(connection):
+            return ChatGPTModel(model, chatgpt_tokens(settings, connection), context_window=settings.context_window)
         key = settings.api_key_for(connection)
         if connection.api is Api.ANTHROPIC:
             return Anthropic(model, api_key=key, base_url=connection.url, **window)
@@ -45,6 +48,14 @@ def make_model(settings: Settings) -> Model | str:
     if prefix == "openai" and model:
         return OpenAICompatible(model, **window)
     return name
+
+
+def chatgpt_tokens(settings: Settings, connection: Connection) -> ChatGPTTokens:
+    """The tokens of a ChatGPT connection, kept where ``settings`` keeps its keys."""
+    store = settings.secrets
+    if store is None or not hasattr(store, "get_oauth"):
+        raise ConfigError("This key store cannot hold a ChatGPT sign-in.")
+    return ChatGPTTokens(store, connection.name)  # type: ignore[arg-type]  # FileSecrets is also OAuthTokens
 
 
 class ModelListError(Exception):
@@ -64,13 +75,25 @@ class ModelListError(Exception):
         self.kind = kind
 
 
-def list_models(connection: Connection, api_key: str | None, *, timeout: float = 15) -> list[str]:
-    """The model ids the connection offers, which also checks its key.
+def list_models(
+    connection: Connection, api_key: str | None, *, tokens: ChatGPTTokens | None = None, timeout: float = 15
+) -> list[str]:
+    """The model ids the connection offers, which also checks its key. A ChatGPT connection needs ``tokens``
+    instead of ``api_key``, and lists its models in OpenAI's order.
 
     Raises:
         ModelListError: The list could not be read.
     """
     kind = ModelListError.Kind
+    if is_chatgpt(connection):
+        if tokens is None:
+            raise ModelListError(kind.AUTH, f"Connection {connection.name!r} needs its ChatGPT sign-in.")
+        try:
+            return [m.slug for m in fetch_models(tokens.access_token(), timeout=timeout)]
+        except (SignInNeeded, PlanUsageOff) as e:
+            raise ModelListError(kind.AUTH, str(e)) from e
+        except ChatGPTError as e:
+            raise ModelListError(kind.OTHER, str(e)) from e
     try:
         if connection.api is Api.ANTHROPIC:
             client = anthropic.Anthropic(api_key=api_key, base_url=connection.url, timeout=timeout, max_retries=0)

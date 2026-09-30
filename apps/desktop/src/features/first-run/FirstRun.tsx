@@ -1,14 +1,20 @@
 import { Button, Dialog, OptionList } from '@alpine/ui/primitives';
 import { useState } from 'react';
 
-import { ApiKeyForm, connectMessages, LocalServerForm, useConnectPrompt } from '@/shared/components/connect';
+import {
+  ApiKeyForm,
+  ChatGPTSignIn,
+  connectMessages,
+  LocalServerForm,
+  useConnectPrompt,
+} from '@/shared/components/connect';
 import { useMessages } from '@/shared/i18n';
 import { useConnections } from '@/shared/server';
 
 import { messages } from './messages';
 
 type Method = 'chatgpt' | 'copilot' | 'api-key' | 'local';
-type Step = 'method' | 'api-key' | 'local';
+type Step = 'method' | 'chatgpt' | 'api-key' | 'local';
 
 /**
  * The one thing the first run asks: connect a model. Opens over the empty new session while nothing is connected;
@@ -22,9 +28,22 @@ export function FirstRun() {
     connections.isSuccess && connections.data.connections.length === 0 && connections.data.defaultModel === null;
 
   return (
-    <Dialog.Root open={needed && !dismissed} onOpenChange={(open) => !open && dismiss()} disablePointerDismissal>
+    // A ChatGPT sign-in connects before its welcome is read, so the sheet stays until that step is done.
+    <Dialog.Root
+      open={(needed || step === 'chatgpt') && !dismissed}
+      onOpenChange={(open) => !open && dismiss()}
+      disablePointerDismissal
+    >
       <Dialog.Popup>
         {step === 'method' && <MethodStep onNext={setStep} />}
+        {step === 'chatgpt' && (
+          <ChatGPTSignIn
+            onBack={() => setStep('method')}
+            onApiKey={() => setStep('api-key')}
+            onDone={() => setStep('method')}
+            makeDefault
+          />
+        )}
         {step === 'api-key' && (
           <ApiKeyForm providers={connections.data?.providers ?? []} onBack={() => setStep('method')} makeDefault />
         )}
@@ -37,8 +56,8 @@ export function FirstRun() {
 function MethodStep({ onNext }: { onNext: (step: Step) => void }) {
   const t = useMessages(messages);
   const c = useMessages(connectMessages);
-  // Subscription sign-in comes with its own work; until then those rows show what is coming.
-  const [method, setMethod] = useState<Method>('api-key');
+  // Copilot sign-in comes with its own work; until then its row shows what is coming.
+  const [method, setMethod] = useState<Method>('chatgpt');
   return (
     <>
       <div className="flex flex-col gap-2">
@@ -50,7 +69,7 @@ function MethodStep({ onNext }: { onNext: (step: Step) => void }) {
         value={method}
         onValueChange={setMethod}
         options={[
-          { value: 'chatgpt', label: c.chatgpt, description: c.soon, disabled: true },
+          { value: 'chatgpt', label: c.chatgpt, description: c.chatgptNote },
           { value: 'copilot', label: c.copilot, description: c.soon, disabled: true },
           { value: 'api-key', label: c.apiKey, description: c.apiKeyNote },
           { value: 'local', label: c.local, description: c.localNote },
@@ -59,8 +78,8 @@ function MethodStep({ onNext }: { onNext: (step: Step) => void }) {
       <p className="text-meta text-fg-muted">{c.claudeNote}</p>
       <div className="flex justify-end gap-2 pt-2">
         <Dialog.Close render={<Button />}>{t.later}</Dialog.Close>
-        <Button variant="primary" onClick={() => onNext(method === 'local' ? 'local' : 'api-key')}>
-          {t.next}
+        <Button variant="primary" onClick={() => onNext(method === 'copilot' ? 'api-key' : method)}>
+          {method === 'chatgpt' ? c.continueWithChatGPT : t.next}
         </Button>
       </div>
     </>

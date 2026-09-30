@@ -105,6 +105,16 @@ class ProviderInfo(Message):
     """The environment variable that holds its key, which wins over a saved one."""
 
 
+class ChatGPTAccountInfo(Message):
+    """The ChatGPT account behind a connection that signs in instead of using a key. Tokens never leave the server."""
+
+    email: str | None
+    signed_in: bool
+    """``False`` after signing out, or when the sign-in ended and has to be done again (``chatgpt/signIn``)."""
+    plan_usage: bool
+    """The user allowed alpine-code to use their ChatGPT plan. Without it, sign in again with ``consent``."""
+
+
 class ConnectionInfo(Message):
     name: str
     """What model names start with: ``<name>/<model>``."""
@@ -113,7 +123,9 @@ class ConnectionInfo(Message):
     base_url: str | None
     billing: Billing
     has_key: bool
-    """A key is saved or set in the environment."""
+    """A key is saved or set in the environment, or a ChatGPT sign-in can run models."""
+    account: ChatGPTAccountInfo | None = None
+    """Set for a ChatGPT connection."""
 
 
 class ConnectionsListParams(Message):
@@ -128,8 +140,10 @@ class ConnectionsListResult(Message):
 
 
 class ConnectionsModelsParams(Message):
-    """A connection that may not be saved yet: a provider, or the address of a compatible server."""
+    """A saved connection by ``connection``, or one that may not be saved yet: a provider, or the address of a
+    compatible server. A ChatGPT connection is always a saved one."""
 
+    connection: str | None = None
     provider: str | None = None
     base_url: str | None = None
     api_key: str | None = None
@@ -162,6 +176,57 @@ class ConnectionsSetDefaultParams(Message):
 
 class ConnectionsSetDefaultResult(Message):
     default_model: str
+
+
+# ChatGPT: a connection that signs in with the user's ChatGPT account and runs on their plan
+# (docs/chatgpt-sign-in.md). The browser does the signing in; the server waits for it and announces the end with
+# chatgpt/signInFinished.
+
+
+class ChatGPTSignInParams(Message):
+    """Starts a sign-in. The app opens ``url`` in the browser and waits for ``chatgpt/signInFinished``. Starting one
+    cancels the sign-in still waiting, if any."""
+
+    connection: str | None = None
+    """Sign in again to this connection's account; ``None`` adds an account (or renews the one it turns out to be)."""
+    consent: bool = False
+    """Ask again for permission to use the plan, after the user declined it."""
+
+
+class ChatGPTSignInResult(Message):
+    attempt_id: str
+    url: str
+    """OpenAI's sign-in page. Also show it, for when no browser opens."""
+
+
+class ChatGPTCancelSignInParams(Message):
+    attempt_id: str
+
+
+class ChatGPTCancelSignInResult(Message):
+    pass
+
+
+class ChatGPTSignOutParams(Message):
+    """Ends the connection's sign-in at OpenAI and forgets its tokens. The connection stays, signed out."""
+
+    connection: str
+
+
+class ChatGPTSignOutResult(Message):
+    revoked: bool
+    """OpenAI confirmed it. When ``False``, the user can disconnect alpine-code in ChatGPT settings."""
+
+
+class ChatGPTSignInFinishedParams(Message):
+    """The end of a sign-in, whichever way it ended."""
+
+    attempt_id: str
+    result: Literal["connected", "declined", "cancelled", "timed_out", "failed"]
+    connection: ConnectionInfo | None = None
+    """With ``connected``: the connection now signed in, new or renewed."""
+    message: str | None = None
+    """With ``failed``: what went wrong, in English."""
 
 
 # Projects: folders the user works in
@@ -575,7 +640,9 @@ class RunStoppedItem(ItemModel):
 
     id: str
     kind: Literal["run_stopped"] = "run_stopped"
-    reason: Literal["interrupted", "failed", "limit", "repeating", "permission"]
+    reason: Literal["interrupted", "failed", "limit", "repeating", "permission", "plan_limit", "signed_out"]
+    """``plan_limit``: the ChatGPT plan's usage limit (or this app's share of it) was reached; point to ChatGPT's
+    usage settings. ``signed_out``: the ChatGPT sign-in ended; sign in again (``chatgpt/signIn``)."""
     message: str | None = None
 
 
@@ -732,6 +799,9 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "connections/models": (ConnectionsModelsParams, ConnectionsModelsResult),
     "connections/add": (ConnectionsAddParams, ConnectionsAddResult),
     "connections/setDefault": (ConnectionsSetDefaultParams, ConnectionsSetDefaultResult),
+    "chatgpt/signIn": (ChatGPTSignInParams, ChatGPTSignInResult),
+    "chatgpt/cancelSignIn": (ChatGPTCancelSignInParams, ChatGPTCancelSignInResult),
+    "chatgpt/signOut": (ChatGPTSignOutParams, ChatGPTSignOutResult),
     "projects/list": (ProjectsListParams, ProjectsListResult),
     "projects/open": (ProjectsOpenParams, ProjectsOpenResult),
     "projects/archive": (ProjectsArchiveParams, ProjectsArchiveResult),
@@ -764,4 +834,5 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
 #: Every notification the server sends: name -> params.
 NOTIFICATIONS: dict[str, type[Message]] = {
     "session/event": SessionEventParams,
+    "chatgpt/signInFinished": ChatGPTSignInFinishedParams,
 }

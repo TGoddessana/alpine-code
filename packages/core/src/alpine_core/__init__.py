@@ -49,12 +49,12 @@ from .items import (
     item_from_dict,
     item_to_dict,
 )
-from .models import ModelListError, list_models
+from .models import ModelListError, chatgpt_tokens, list_models
 from .permissions import Mode
 from .profiles import DEFAULT_ID as DEFAULT_PROFILE
 from .profiles import Profile, ProfileConflict, ProfileList
 from .projects import Project, ProjectList
-from .providers import PROVIDERS, Api, Billing, Provider
+from .providers import PROVIDERS, Api, Auth, Billing, Provider
 from .secrets import FileSecrets, Secrets
 from .session import Session, Snapshot, delete_session, list_sessions
 from .storage import (
@@ -107,9 +107,11 @@ __all__ = [
     "Provider",
     "PROVIDERS",
     "Api",
+    "Auth",
     "Billing",
     "Secrets",
     "FileSecrets",
+    "chatgpt_tokens",
     "list_models",
     "ModelListError",
     "Project",

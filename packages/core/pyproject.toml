@@ -10,6 +10,7 @@ dependencies = [
     "alpineagents>=0.4.0",
     "anthropic>=1.8.0",
     "openai>=3.19.2",
+    "pyjwt[crypto]>=2.10",
     "tomlkit>=0.15.1",
     "tree-sitter>=0.26",
     "tree-sitter-bash>=0.25.1",

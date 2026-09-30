@@ -2,13 +2,24 @@ import type { ConnectionInfo, ConnectionsListResult } from '@alpine/protocol';
 import { Dialog, LinkButton, NativeSelect } from '@alpine/ui/primitives';
 import { useState, type ReactNode } from 'react';
 
-import { ApiKeyForm, connectionLabel, connectMessages, LocalServerForm } from '@/shared/components/connect';
+import {
+  ApiKeyForm,
+  ChatGPTSignIn,
+  connectionLabel,
+  connectMessages,
+  LocalServerForm,
+} from '@/shared/components/connect';
+import { openInBrowser } from '@/shared/platform';
 import { useMessages } from '@/shared/i18n';
-import { useConnections, useModelsOf, useSetDefaultModel } from '@/shared/server';
+import { CHATGPT_USAGE_URL, useChatGPTSignOut, useConnections, useModelsOf, useSetDefaultModel } from '@/shared/server';
 
 import { messages } from './messages';
 
-type Sheet = { kind: 'api-key'; provider?: string } | { kind: 'local'; address?: string } | null;
+type Sheet =
+  | { kind: 'api-key'; provider?: string }
+  | { kind: 'local'; address?: string }
+  | { kind: 'chatgpt'; connection?: string; consent?: boolean }
+  | null;
 
 const row =
   'grid min-h-10 grid-cols-[200px_minmax(0,1fr)_auto] items-center gap-4 text-body not-first:border-t not-first:border-line-subtle';
@@ -32,24 +43,36 @@ export function ConnectionTab() {
             <div key={connection.name} className={row}>
               <span className="truncate">{connectionLabel(connection, data.providers, c)}</span>
               <Status connection={connection} data={data} />
-              <LinkButton
-                onClick={() =>
-                  setSheet(
-                    connection.provider
-                      ? { kind: 'api-key', provider: connection.provider }
-                      : { kind: 'local', address: connection.baseUrl ?? undefined },
-                  )
-                }
-              >
-                {t.change}
-              </LinkButton>
+              {connection.account ? (
+                <ChatGPTActions
+                  connection={connection}
+                  onSignIn={(consent) => setSheet({ kind: 'chatgpt', connection: connection.name, consent })}
+                />
+              ) : (
+                <LinkButton
+                  onClick={() =>
+                    setSheet(
+                      connection.provider
+                        ? { kind: 'api-key', provider: connection.provider }
+                        : { kind: 'local', address: connection.baseUrl ?? undefined },
+                    )
+                  }
+                >
+                  {t.change}
+                </LinkButton>
+              )}
             </div>
           ))
         )}
       </Section>
 
       <Section title={t.addConnection}>
-        <AddRow label={c.chatgpt} note={c.soon} />
+        <AddRow
+          label={c.chatgpt}
+          note={c.chatgptNote}
+          link={`${c.continueWithChatGPT} ›`}
+          onConnect={() => setSheet({ kind: 'chatgpt' })}
+        />
         <AddRow label={c.copilot} note={c.soon} />
         <AddRow label={c.apiKey} note={c.apiKeyNote} onConnect={() => setSheet({ kind: 'api-key' })} />
         <AddRow label={c.local} note={c.localNote} onConnect={() => setSheet({ kind: 'local' })} />
@@ -76,6 +99,15 @@ export function ConnectionTab() {
               onDone={() => setSheet(null)}
             />
           )}
+          {sheet?.kind === 'chatgpt' && (
+            <ChatGPTSignIn
+              connection={sheet.connection}
+              consent={sheet.consent}
+              makeDefault={data.defaultModel === null}
+              onApiKey={() => setSheet({ kind: 'api-key' })}
+              onDone={() => setSheet(null)}
+            />
+          )}
           {sheet?.kind === 'local' && (
             <LocalServerForm
               initialAddress={sheet.address}
@@ -98,13 +130,23 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function AddRow({ label, note, onConnect }: { label: string; note: string; onConnect?: () => void }) {
+function AddRow({
+  label,
+  note,
+  link,
+  onConnect,
+}: {
+  label: string;
+  note: string;
+  link?: string;
+  onConnect?: () => void;
+}) {
   const t = useMessages(messages);
   return (
     <div className={row}>
       <span className={onConnect ? undefined : 'text-fg-muted'}>{label}</span>
       <span className="text-meta text-fg-muted">{note}</span>
-      {onConnect ? <LinkButton onClick={onConnect}>{t.connectLink}</LinkButton> : <span />}
+      {onConnect ? <LinkButton onClick={onConnect}>{link ?? t.connectLink}</LinkButton> : <span />}
     </div>
   );
 }
@@ -112,6 +154,11 @@ function AddRow({ label, note, onConnect }: { label: string; note: string; onCon
 /** How it is paid for, or what is missing. Limits and spend come with usage tracking. */
 function Status({ connection, data }: { connection: ConnectionInfo; data: ConnectionsListResult }) {
   const c = useMessages(connectMessages);
+  if (connection.account) {
+    const { signedIn, planUsage } = connection.account;
+    const text = !signedIn ? c.chatgptSignedOut : !planUsage ? c.chatgptPlanOff : c.chatgptUsageThere;
+    return <span className={signedIn ? 'text-meta text-fg-muted' : 'text-meta text-danger'}>{text}</span>;
+  }
   const provider = data.providers.find((p) => p.id === connection.provider);
   if (provider && !connection.hasKey) return <span className="text-meta text-danger">{c.noKey(provider.keyEnv)}</span>;
   if (!provider) return <span className="truncate font-mono text-meta text-fg-muted">{connection.baseUrl}</span>;
@@ -125,11 +172,7 @@ function DefaultModel({ id, data }: { id: string; data: ConnectionsListResult })
   const t = useMessages(messages);
   const c = useMessages(connectMessages);
   const setDefault = useSetDefaultModel();
-  const lists = useModelsOf(
-    data.connections.map((connection) =>
-      connection.provider ? { provider: connection.provider } : { baseUrl: connection.baseUrl ?? '' },
-    ),
-  );
+  const lists = useModelsOf(data.connections.map((connection) => ({ connection: connection.name })));
   const listed = new Set(
     data.connections.flatMap((connection, i) => (lists[i]?.data?.models ?? []).map((m) => `${connection.name}/${m}`)),
   );
@@ -147,5 +190,38 @@ function DefaultModel({ id, data }: { id: string; data: ConnectionsListResult })
         </optgroup>
       ))}
     </NativeSelect>
+  );
+}
+
+/** A ChatGPT account's actions: while signed in, its usage page and signing out; otherwise signing in again. */
+function ChatGPTActions({
+  connection,
+  onSignIn,
+}: {
+  connection: ConnectionInfo;
+  onSignIn: (consent: boolean) => void;
+}) {
+  const c = useMessages(connectMessages);
+  const signOut = useChatGPTSignOut();
+  const account = connection.account!;
+  if (!account.signedIn)
+    return (
+      <span className="inline-flex items-center gap-1">
+        {signOut.data?.revoked === false && (
+          <span className="text-meta text-fg-muted" role="status">
+            {c.signOutUnconfirmed}
+          </span>
+        )}
+        <LinkButton onClick={() => onSignIn(false)}>{c.signInAgain}</LinkButton>
+      </span>
+    );
+  if (!account.planUsage) return <LinkButton onClick={() => onSignIn(true)}>{c.allowAgain}</LinkButton>;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <LinkButton onClick={() => void openInBrowser(CHATGPT_USAGE_URL)}>{c.manageUsage}</LinkButton>
+      <LinkButton disabled={signOut.isPending} onClick={() => signOut.mutate(connection.name)}>
+        {c.signOut}
+      </LinkButton>
+    </span>
   );
 }

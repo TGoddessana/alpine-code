@@ -5,10 +5,13 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Notification, ServerConnection } from './connection';
 import { sessionInfo } from './sessionScript';
 import type { SessionState } from './sessionState';
-import { SessionStore, sessionKey, sessionsKey } from './sessionStore';
+import { type Scheduler, SessionStore, sessionKey, sessionsKey } from './sessionStore';
+
+/** Runs each flush at once, so events are applied as they arrive. */
+const now: Scheduler = (flush) => flush();
 
 /** A server whose `session/open` answers are decided by the test, one per call. */
-function harness(snapshots: SessionOpenResult[]) {
+function harness(snapshots: SessionOpenResult[], schedule = now) {
   const listeners = new Set<(n: Notification) => void>();
   const opens: ((snapshot: SessionOpenResult) => void)[] = [];
   const connection = {
@@ -25,7 +28,7 @@ function harness(snapshots: SessionOpenResult[]) {
     },
   } as unknown as ServerConnection;
   const client = new QueryClient();
-  const store = new SessionStore(connection, client);
+  const store = new SessionStore(connection, client, schedule);
   store.start();
   const send = (params: SessionEventParams) =>
     listeners.forEach((listener) => listener({ method: 'session/event', params }));
@@ -77,6 +80,24 @@ describe('SessionStore', () => {
     h.send(delta(7, 'd')); // A repeat changes nothing.
     h.send(delta(8, 'e'));
     expect(h.state()?.items[0]).toMatchObject({ text: 'abcde' });
+  });
+
+  it('applies the events of one frame together, as one new state', async () => {
+    const frames: (() => void)[] = [];
+    const h = harness([snapshot(6, 'abc')], (flush) => frames.push(flush));
+    const opening = h.store.open('s');
+    await h.answer(0);
+    await opening;
+    const changes = vi.fn();
+    h.client.getQueryCache().subscribe(changes);
+    h.send(delta(7, 'd'));
+    h.send(delta(8, 'e'));
+    h.send(delta(9, 'f'));
+    expect(h.state()?.items[0]).toMatchObject({ text: 'abc' });
+    expect(frames).toHaveLength(1);
+    frames.shift()!();
+    expect(h.state()).toMatchObject({ seq: 9, items: [{ text: 'abcdef' }] });
+    expect(changes.mock.calls.filter(([event]) => event.type === 'updated')).toHaveLength(1);
   });
 
   it('opens the session again on a gap in seq', async () => {

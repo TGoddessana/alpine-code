@@ -1,11 +1,15 @@
-"""Where saved API keys live. A port, so the macOS keychain can replace the file without touching its callers."""
+"""Where saved API keys and sign-ins live. Ports, so the macOS keychain can replace the file without touching its
+callers."""
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class Secrets(Protocol):
@@ -16,6 +20,19 @@ class Secrets(Protocol):
     def set(self, name: str, value: str) -> None: ...
 
     def delete(self, name: str) -> None: ...
+
+
+class OAuthTokens(Protocol):
+    """Sign-ins by connection name: a JSON object per connection (a ChatGPT sign-in's tokens and account)."""
+
+    def get_oauth(self, name: str) -> dict[str, Any] | None: ...
+
+    def set_oauth(self, name: str, record: dict[str, Any]) -> None: ...
+
+    def locked(self) -> Iterator[None]:
+        """A context manager held across read, refresh and write. It must also keep other processes out: the CLI
+        and the app refresh the same rotating token, and the second one to use it loses the sign-in."""
+        ...
 
 
 class FileSecrets:
@@ -41,6 +58,27 @@ class FileSecrets:
         data = self._read()
         if data.pop(name, None) is not None:
             self._write(data)
+
+    def get_oauth(self, name: str) -> dict[str, Any] | None:
+        entry = self._read().get(name)
+        record = entry.get("oauth") if isinstance(entry, dict) else None
+        return record if isinstance(record, dict) else None
+
+    def set_oauth(self, name: str, record: dict[str, Any]) -> None:
+        data = self._read()
+        data[name] = {"oauth": record}
+        self._write(data)
+
+    @contextmanager
+    def locked(self) -> Iterator[None]:
+        """An exclusive ``flock`` on ``auth.json.lock``, which also blocks other threads (each opens its own file)."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(self.path.with_name(self.path.name + ".lock"), os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            os.close(fd)  # closing releases the lock
 
     def _read(self) -> dict:
         try:

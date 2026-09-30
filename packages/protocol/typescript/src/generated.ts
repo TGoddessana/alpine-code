@@ -37,14 +37,39 @@ export interface ApprovalItem {
   feedback: string | null;
 }
 /**
+ * The ChatGPT account behind a connection that signs in instead of using a key. Tokens never leave the server.
+ *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "CompactionItem".
+ * via the `definition` "ChatGPTAccountInfo".
  */
-export interface CompactionItem {
-  id: string;
-  kind: 'compaction';
-  beforeTokens: number;
-  afterTokens: number;
+export interface ChatGPTAccountInfo {
+  email: string | null;
+  signedIn: boolean;
+  planUsage: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ChatGPTCancelSignInParams".
+ */
+export interface ChatGPTCancelSignInParams {
+  attemptId: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ChatGPTCancelSignInResult".
+ */
+export interface ChatGPTCancelSignInResult {}
+/**
+ * The end of a sign-in, whichever way it ended.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ChatGPTSignInFinishedParams".
+ */
+export interface ChatGPTSignInFinishedParams {
+  attemptId: string;
+  result: 'connected' | 'declined' | 'cancelled' | 'timed_out' | 'failed';
+  connection?: ConnectionInfo | null;
+  message?: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -56,6 +81,52 @@ export interface ConnectionInfo {
   baseUrl: string | null;
   billing: 'subscription' | 'usage' | 'none';
   hasKey: boolean;
+  account?: ChatGPTAccountInfo | null;
+}
+/**
+ * Starts a sign-in. The app opens ``url`` in the browser and waits for ``chatgpt/signInFinished``. Starting one
+ * cancels the sign-in still waiting, if any.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ChatGPTSignInParams".
+ */
+export interface ChatGPTSignInParams {
+  connection?: string | null;
+  consent?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ChatGPTSignInResult".
+ */
+export interface ChatGPTSignInResult {
+  attemptId: string;
+  url: string;
+}
+/**
+ * Ends the connection's sign-in at OpenAI and forgets its tokens. The connection stays, signed out.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ChatGPTSignOutParams".
+ */
+export interface ChatGPTSignOutParams {
+  connection: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ChatGPTSignOutResult".
+ */
+export interface ChatGPTSignOutResult {
+  revoked: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CompactionItem".
+ */
+export interface CompactionItem {
+  id: string;
+  kind: 'compaction';
+  beforeTokens: number;
+  afterTokens: number;
 }
 /**
  * Saves a connection, replacing the one for the same provider or address, and its key.
@@ -103,12 +174,14 @@ export interface ProviderInfo {
   keyEnv: string;
 }
 /**
- * A connection that may not be saved yet: a provider, or the address of a compatible server.
+ * A saved connection by ``connection``, or one that may not be saved yet: a provider, or the address of a
+ * compatible server. A ChatGPT connection is always a saved one.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ConnectionsModelsParams".
  */
 export interface ConnectionsModelsParams {
+  connection?: string | null;
   provider?: string | null;
   baseUrl?: string | null;
   apiKey?: string | null;
@@ -331,7 +404,7 @@ export interface StatusLineItem {
 export interface RunStoppedItem {
   id: string;
   kind: 'run_stopped';
-  reason: 'interrupted' | 'failed' | 'limit' | 'repeating' | 'permission';
+  reason: 'interrupted' | 'failed' | 'limit' | 'repeating' | 'permission' | 'plan_limit' | 'signed_out';
   message: string | null;
 }
 /**
@@ -905,6 +978,9 @@ export interface Methods {
   'connections/models': { params: ConnectionsModelsParams; result: ConnectionsModelsResult };
   'connections/add': { params: ConnectionsAddParams; result: ConnectionsAddResult };
   'connections/setDefault': { params: ConnectionsSetDefaultParams; result: ConnectionsSetDefaultResult };
+  'chatgpt/signIn': { params: ChatGPTSignInParams; result: ChatGPTSignInResult };
+  'chatgpt/cancelSignIn': { params: ChatGPTCancelSignInParams; result: ChatGPTCancelSignInResult };
+  'chatgpt/signOut': { params: ChatGPTSignOutParams; result: ChatGPTSignOutResult };
   'projects/list': { params: ProjectsListParams; result: ProjectsListResult };
   'projects/open': { params: ProjectsOpenParams; result: ProjectsOpenResult };
   'projects/archive': { params: ProjectsArchiveParams; result: ProjectsArchiveResult };
@@ -936,4 +1012,5 @@ export interface Methods {
 
 export interface Notifications {
   'session/event': SessionEventParams;
+  'chatgpt/signInFinished': ChatGPTSignInFinishedParams;
 }

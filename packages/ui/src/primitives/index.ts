@@ -1,6 +1,7 @@
 // Layer 2: behaviour from Base UI, looks from the tokens. No alpine words here (session, plan, dock...):
 // a component that knows them is a product component and lives in the app.
 export { Button, type ButtonProps } from './Button';
+export { Combobox } from './Combobox';
 export { Dialog } from './Dialog';
 export { Input, NativeSelect, type InputProps, type NativeSelectProps } from './Input';
 export { LinkButton, type LinkButtonProps } from './LinkButton';

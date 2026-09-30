@@ -18,7 +18,7 @@ from alpineagents import (
 )
 from alpineagents.types import Stopped
 
-from .approval import Approver, DecideByApprover
+from .approval import Approver, build_permissions
 from .bridge import EventReporter
 from .config import ConfigError, Settings
 from .events import Event, Failed, Interrupted, RunFinished, StopReason, UsageInfo
@@ -54,7 +54,7 @@ class Session:
         self.workspace = Workspace((cwd or Path.cwd()).resolve())
         self.policy = PermissionPolicy(self.workspace, settings.mode)
         self._emit = on_event
-        self._permission = DecideByApprover(self.policy, approver)
+        self._permissions = build_permissions(self.policy, approver)
         self._projects = projects
         self._reporter = EventReporter(on_event)
         self._state: State | None = None
@@ -68,7 +68,7 @@ class Session:
                 system=build_system_prompt(self.workspace.root),
                 tools=default_tools(self.workspace),
                 loop=coding,
-                permissions=[self._permission],
+                permissions=self._permissions,
                 reporter=self._reporter,
                 human=None,
             )

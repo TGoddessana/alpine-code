@@ -1,7 +1,8 @@
-"""How the core asks a frontend whether a tool call may run.
+"""The permissions the Agent runs, and how they ask a frontend whether a tool call may run.
 
-``DecideByApprover`` is the permission the Agent runs: it lets through what the ``PermissionPolicy`` allows and asks the
-frontend's ``Approver`` about the rest.
+``build_permissions`` builds the list alpineagents asks about every call: deny permissions first (none yet; rules
+the user writes will go there), then ``AllowByPolicy`` for what the mode and the conversation's "don't ask again"
+answers allow, then ``DecideByApprover``, which asks the frontend's ``Approver`` about the rest.
 """
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
 from alpineagents import State, Tool, ToolCall
-from alpineagents.permissions import Allowed, DecidePermission, Denied
+from alpineagents.permissions import Allowed, AllowPermission, DecidePermission, Denied, Permission
 
 from .permissions import PermissionPolicy, Remembered, Verdict
 from .tools import Workspace, preview_edit
@@ -75,9 +76,30 @@ class AsyncApprover(Protocol):
 Approver = BlockingApprover | AsyncApprover
 
 
+def build_permissions(policy: PermissionPolicy, approver: Approver) -> list[Permission]:
+    """The permissions for ``Agent(permissions=...)``, in the order alpineagents asks them."""
+    return [AllowByPolicy(policy), DecideByApprover(policy, approver)]
+
+
+class AllowByPolicy(AllowPermission):
+    """Allows what the mode and the conversation's "don't ask again" answers allow. Passes on everything else,
+    including files outside the working directory and secret files unless an answer covers them."""
+
+    def __init__(self, policy: PermissionPolicy) -> None:
+        self.policy = policy
+
+    def check(self, state: State, call: ToolCall, tool: Tool) -> Allowed | None:
+        allowed = self.policy.evaluate(call.name, dict(call.args), tool, remembered(state)).allowed
+        return Allowed() if allowed else None
+
+    async def acheck(self, state: State, call: ToolCall, tool: Tool) -> Allowed | None:
+        return self.check(state, call, tool)  # quick: no worker thread
+
+
 class DecideByApprover(DecidePermission):
-    """Allows what the policy and the conversation's "don't ask again" answers allow; asks the approver about
-    everything else. Those answers live in ``state.root.data[REMEMBERED]``, so they are saved with the State."""
+    """Asks the approver about a call, saying why it needs approval and what "don't ask again" would allow; an
+    ``allow_always`` answer is added to ``state.root.data[REMEMBERED]``, so it is saved with the State. A call the
+    policy allows (``AllowByPolicy`` usually let it through already) runs without asking."""
 
     def __init__(self, policy: PermissionPolicy, approver: Approver) -> None:
         if not callable(getattr(approver, "aapprove", None)) and not callable(getattr(approver, "approve", None)):

@@ -10,6 +10,15 @@ export const sessionKey = (id: string) => ['session', id] as const;
 /** How many times a snapshot may be followed by a gap before giving up. */
 const MAX_REOPENS = 3;
 
+/** Calls `flush` later, once; the store passes everything that arrived until then in one go. */
+export type Scheduler = (flush: () => void) => void;
+
+/** Before the next frame is drawn: however fast events come, the screen changes at most once a frame. */
+const nextFrame: Scheduler = (flush) => {
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(flush);
+  else setTimeout(flush, 16);
+};
+
 const newestFirst = (a: SessionInfo, b: SessionInfo) => b.updatedAt.localeCompare(a.updatedAt);
 
 /** Puts `info` into the list of sessions, if the list is loaded. */
@@ -30,16 +39,19 @@ export function removeSession(client: QueryClient, id: string) {
  * cache under `sessionKey(id)`; the store only decides what to do with each event:
  *
  * - while `session/open` is in flight, events for that session are kept, then those newer than the snapshot are applied
- * - once open, events are applied in order
+ * - once open, events are applied in order, all that arrived within a frame at once (`schedule`)
  * - a gap in `seq` means events were missed, so the session is opened again
  */
 export class SessionStore {
   private readonly buffers = new Map<string, SessionEventParams[]>();
   private readonly opening = new Map<string, Promise<SessionState>>();
+  private readonly pending = new Map<string, SessionEventParams[]>();
+  private scheduled = false;
 
   constructor(
     private readonly connection: ServerConnection,
     private readonly client: QueryClient,
+    private readonly schedule: Scheduler = nextFrame,
   ) {}
 
   /** Calls `handle` for every notification until the returned function is called. */
@@ -58,12 +70,36 @@ export class SessionStore {
     const buffer = this.buffers.get(sessionId);
     if (buffer) return void buffer.push(params);
 
-    const state = this.client.getQueryData<SessionState>(sessionKey(sessionId));
-    if (!state) return; // Not opened in this window: `session/open` will bring it up to date.
-    const next = applyEvent(state, params);
-    if (next === 'stale') return;
-    if (next === 'gap') return void this.reopen(sessionId);
-    this.client.setQueryData(sessionKey(sessionId), next);
+    const pending = this.pending.get(sessionId);
+    if (pending) pending.push(params);
+    else this.pending.set(sessionId, [params]);
+    if (!this.scheduled) {
+      this.scheduled = true;
+      this.schedule(() => this.flush());
+    }
+  }
+
+  /** Applies the events that arrived since the last flush: one new state per session, however many events. */
+  private flush() {
+    this.scheduled = false;
+    const pending = [...this.pending];
+    this.pending.clear();
+    for (const [sessionId, events] of pending) {
+      const before = this.client.getQueryData<SessionState>(sessionKey(sessionId));
+      if (!before) continue; // Not opened in this window: `session/open` will bring it up to date.
+      let state = before;
+      let gap = false;
+      for (const params of events) {
+        const next = applyEvent(state, params);
+        if (next === 'gap') {
+          gap = true;
+          break;
+        }
+        if (next !== 'stale') state = next;
+      }
+      if (state !== before) this.client.setQueryData(sessionKey(sessionId), state);
+      if (gap) this.reopen(sessionId);
+    }
   }
 
   /** Asks the server for the session and catches up with the events that arrived meanwhile. */

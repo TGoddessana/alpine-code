@@ -114,6 +114,9 @@ The language follows the OS until chosen in Settings.
 | 2026-09-30 | Keys in `auth.json` (mode 600) behind a `Secrets` port | the macOS keychain now | the keychain asks again for every binary (uv's Python, the CLI, the bundle); it becomes another `Secrets` when the app is signed |
 | 2026-09-30 | `sessions/<id>` and `states/<id>` as sibling folders | model memory inside the session folder | alpineagents' `FileStore` owns its folder, so the core's files cannot share it |
 | 2026-09-30 | Opened folders in `projects.json`, kept by the core | the app's own storage | the CLI's folders show in the rail too; sessions attach to projects later without a merge |
+| 2026-09-30 | Replies as markdown with Streamdown, drawn by our components | react-markdown assembled by hand | the streaming parts (closing what is left open, parsing only the growing block) come built; its styling is replaced so tokens stay the only look |
+| 2026-09-30 | Streaming paced on screen: events applied once a frame, text let out over about 0.2 s, code coloured in a worker | drawing every delta as it arrives | models send text in bursts; the CLI stuttered from re-parsing on every delta; colouring a language the first time blocks for ~150 ms |
+| 2026-09-30 | No HTML and no images in replies (HTML shows as text, images as links) | rendering them | an image address can carry project data out; HTML is not needed to explain anything |
 
 ## Open
 

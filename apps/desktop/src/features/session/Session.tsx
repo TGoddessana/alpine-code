@@ -33,14 +33,22 @@ export function Session({ sessionId }: { sessionId: string }) {
   const send = useSendMessage();
   const cancel = useCancelSession();
   const scroller = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
   const following = useRef(true);
   const state = session.data;
+  const shown = Boolean(state && !state.deleted);
 
-  // Follow the end of the chat as text streams in, unless the reader scrolled up.
+  // Follow the end of the chat as it grows, unless the reader scrolled up. The chat's height is watched rather than
+  // the items, because a reply keeps growing on screen after its text arrived (it is let out at an even pace).
   useEffect(() => {
     const element = scroller.current;
-    if (element && following.current) element.scrollTop = element.scrollHeight;
-  }, [state?.items]);
+    if (!element || !content.current) return;
+    const observer = new ResizeObserver(() => {
+      if (following.current) element.scrollTop = element.scrollHeight;
+    });
+    observer.observe(content.current);
+    return () => observer.disconnect();
+  }, [shown]);
 
   if (!state || state.deleted) {
     const missing =
@@ -82,7 +90,7 @@ export function Session({ sessionId }: { sessionId: string }) {
         }}
         className="min-h-0 grow overflow-y-auto"
       >
-        <div className="mx-auto w-full max-w-202 px-6 py-6">
+        <div ref={content} className="mx-auto w-full max-w-202 px-6 py-6">
           <Chat items={state.items} activeIds={state.activeIds} />
         </div>
       </div>

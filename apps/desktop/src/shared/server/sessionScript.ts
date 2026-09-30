@@ -14,6 +14,11 @@ export interface SessionScriptOptions {
   stepMs?: number;
   /** Milliseconds between the words of a streamed reply; defaults to `stepMs`. */
   wordMs?: number;
+  /**
+   * When given, every run only streams this reply, the way models deliver text: small pieces in bursts with pauses
+   * between them (`wordMs` per piece on average). For seeing long markdown stream in.
+   */
+  reply?: string;
 }
 
 /** A session info with sensible values, for scripts and stories. */
@@ -151,16 +156,18 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
       await sleep(ms);
       if (control.cancelled) throw new Cancelled();
     };
-    const say = async (reply: string) => {
+    const say = async (
+      reply: string,
+      pieces = (reply.match(/\S+\s*/g) ?? []).map((text) => ({ text, ms: wordMs })),
+    ) => {
       const message: Item = { id: id(live, 'msg'), kind: 'agent_message', text: '' };
       emit(context, live, { type: 'item_started', item: message });
-      const words = reply.match(/\S+\s*/g) ?? [];
       let streamed = '';
       try {
-        for (const word of words) {
-          await step(wordMs);
-          streamed += word;
-          emit(context, live, { type: 'item_delta', itemId: message.id, text: word });
+        for (const piece of pieces) {
+          await step(piece.ms);
+          streamed += piece.text;
+          emit(context, live, { type: 'item_delta', itemId: message.id, text: piece.text });
         }
       } finally {
         // A reply cut short is kept as far as it got.
@@ -179,6 +186,19 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
     const user: Item = { id: id(live, 'user'), kind: 'user_message', text };
     emit(context, live, { type: 'item_started', item: user });
     emit(context, live, { type: 'item_completed', item: user });
+
+    if (options.reply !== undefined) {
+      try {
+        await step();
+        setActivity(context, live, 'writing');
+        await say(options.reply, bursts(options.reply, wordMs));
+        modelCall(context, live, { input: 1800, output: 900, cacheRead: 0, cacheWrite: 1500 });
+      } catch (error) {
+        if (!(error instanceof Cancelled)) throw error;
+      }
+      finish(context, live, 'idle');
+      return;
+    }
 
     let read: ToolCallItem | null = null;
     let call: ToolCallItem | null = null;
@@ -373,6 +393,26 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
       },
     },
   };
+}
+
+/**
+ * `text` cut into pieces of a few characters (about a token each), sent in bursts: a burst of 4 to 30 pieces arrives
+ * at once after a pause as long as its pieces would take one by one. The same text always gives the same bursts.
+ */
+function bursts(text: string, pieceMs: number): { text: string; ms: number }[] {
+  let seed = 7;
+  const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const pieces: { text: string; ms: number }[] = [];
+  let at = 0;
+  while (at < text.length) {
+    const count = 4 + Math.floor(random() * 27);
+    for (let i = 0; i < count && at < text.length; i++) {
+      const size = 2 + Math.floor(random() * 3);
+      pieces.push({ text: text.slice(at, at + size), ms: i === 0 ? pieceMs * count : 0 });
+      at += size;
+    }
+  }
+  return pieces;
 }
 
 function shorten(text: string): string {

@@ -42,6 +42,11 @@ class ApprovalRequest:
     remember: str | None = None
     """What "don't ask again" would allow, e.g. ``bash commands starting with `git status```. ``None`` when
     nothing can safely be remembered; a frontend then offers only yes and no."""
+    call_id: str = ""
+    """The model's id for the call, which is also the id of the ``tool_call`` item."""
+    request_id: str = ""
+    """The id of the ``approval`` item the core started for this request; a server answers with it. Empty when the
+    approver is called without a ``Session``."""
 
 
 @dataclass(frozen=True)
@@ -128,7 +133,7 @@ class DecideByApprover(DecidePermission):
         verdict = self.policy.evaluate(call.name, args, tool, remembered(state))
         if verdict.allowed:
             return verdict, None
-        return verdict, describe(call.name, args, self.policy.workspace, verdict)
+        return verdict, describe(call.name, args, self.policy.workspace, verdict, call.id)
 
     def _decide(self, state: State, verdict: Verdict, decision: Decision) -> Allowed | Denied:
         if decision.kind == "allow_always" and verdict.grant is not None:
@@ -149,10 +154,14 @@ def remembered(state: State) -> Remembered:
     return Remembered.from_data(state.root.data.get(REMEMBERED))
 
 
-def describe(name: str, args: dict[str, Any], workspace: Workspace, verdict: Verdict) -> ApprovalRequest:
+def describe(
+    name: str, args: dict[str, Any], workspace: Workspace, verdict: Verdict, call_id: str = ""
+) -> ApprovalRequest:
     """Builds the request shown to the user for one tool call."""
     title, preview, kind = _preview(name, args, workspace)
-    return ApprovalRequest(name, args, title, preview, kind, reason=verdict.reason, remember=verdict.remember)
+    return ApprovalRequest(
+        name, args, title, preview, kind, reason=verdict.reason, remember=verdict.remember, call_id=call_id
+    )
 
 
 def _preview(name: str, args: dict[str, Any], workspace: Workspace) -> tuple[str, str | None, PreviewKind]:

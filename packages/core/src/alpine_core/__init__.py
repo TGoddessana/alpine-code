@@ -26,15 +26,48 @@ from .events import (
 from .git import CloneError, GitStatus, PullRequest, clone, current_branch, pull_request
 from .git import status as git_status
 from .home import home_dir
+from .items import (
+    AgentMessage,
+    ApprovalItem,
+    Compaction,
+    Deleted,
+    InfoChanged,
+    Item,
+    ItemCompleted,
+    ItemDelta,
+    ItemDiscarded,
+    ItemEvent,
+    ItemRecorder,
+    ItemStarted,
+    NoticeItem,
+    RunStopped,
+    StatusLine,
+    ToolCallItem,
+    UserMessage,
+    event_from_dict,
+    event_to_dict,
+    item_from_dict,
+    item_to_dict,
+)
 from .models import ModelListError, list_models
 from .permissions import Mode
 from .projects import Project, ProjectList
 from .providers import PROVIDERS, Api, Billing, Provider
 from .secrets import FileSecrets, Secrets
-from .session import Session
+from .session import Session, Snapshot, delete_session, list_sessions
+from .storage import FileSessionLog, SessionInfo, SessionLog, SessionStatus, Storage, file_storage
 
 __all__ = [
     "Session",
+    "Snapshot",
+    "list_sessions",
+    "delete_session",
+    "Storage",
+    "SessionLog",
+    "FileSessionLog",
+    "SessionInfo",
+    "SessionStatus",
+    "file_storage",
     "Settings",
     "ConfigError",
     "home_dir",
@@ -79,4 +112,25 @@ __all__ = [
     "Interrupted",
     "Failed",
     "UsageInfo",
+    "AgentMessage",
+    "ApprovalItem",
+    "Compaction",
+    "Deleted",
+    "InfoChanged",
+    "Item",
+    "ItemCompleted",
+    "ItemDelta",
+    "ItemDiscarded",
+    "ItemEvent",
+    "ItemRecorder",
+    "ItemStarted",
+    "NoticeItem",
+    "RunStopped",
+    "StatusLine",
+    "ToolCallItem",
+    "UserMessage",
+    "event_from_dict",
+    "event_to_dict",
+    "item_from_dict",
+    "item_to_dict",
 ]

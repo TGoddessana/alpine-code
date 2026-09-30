@@ -3,6 +3,7 @@ import { defineMessages } from '@/shared/i18n';
 export const messages = defineMessages({
   ko: {
     title: '세션 상태',
+    all: '전체',
     plan: '계획',
     verification: '검증',
     changes: '변경',
@@ -12,6 +13,7 @@ export const messages = defineMessages({
   },
   en: {
     title: 'Session status',
+    all: 'All',
     plan: 'Plan',
     verification: 'Verification',
     changes: 'Changes',

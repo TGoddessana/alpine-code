@@ -21,6 +21,7 @@ from alpineagents import (
     StoppedByPermission,
     StoppedByUntil,
 )
+from alpineagents.tool import collect_tools
 from alpineagents.types import Stopped
 
 from .approval import ApprovalRequest, Approver, Decision, build_permissions
@@ -44,9 +45,11 @@ from .items import Item, ItemCompleted, ItemEvent, ItemRecorder, item_from_dict,
 from .loop import coding
 from .models import make_model
 from .permissions import Mode, PermissionPolicy
+from .profiles import Profile, ProfileList
 from .projects import ProjectList
 from .prompt import build_system_prompt
 from .storage import Activity, ActivityKind, Record, SessionInfo, SessionStatus, Storage
+from .toolbox import Toolbox
 from .tools import Workspace, default_tools
 
 #: Longest session title, in characters.
@@ -82,7 +85,9 @@ class Session:
     ``asend`` runs until the agent answers, reporting progress through ``on_event`` (core events, on the event
     loop's thread) and asking ``approver`` before tool calls the permission mode does not allow. Cancelling it stops
     the run and keeps the conversation. ``send`` is the same for a frontend without an event loop, stopped with
-    Ctrl+C. With ``projects``, the first message of a conversation records its folder there.
+    Ctrl+C. With ``projects``, the first message of a conversation records its folder there. With ``profiles``, the
+    agent gets the tools of ``profile`` (an id) or of the profile its folder and model match, including the user's
+    tools from ``toolbox``; the choice is saved with the session.
 
     The conversation is also kept as items (``docs/session-protocol.md``): ``on_item_event(session_id, seq,
     event)`` gets every item event, and ``snapshot()`` returns the items so far. With ``storage``, the session is
@@ -104,6 +109,9 @@ class Session:
         projects: ProjectList | None = None,
         storage: Storage | None = None,
         mode: Mode | None = None,
+        profiles: ProfileList | None = None,
+        toolbox: Toolbox | None = None,
+        profile: str | None = None,
         _saved: _Saved | None = None,
     ) -> None:
         if mode is not None:
@@ -118,6 +126,9 @@ class Session:
         self._reporter = EventReporter(self._dispatch)
         self._state: State | None = None
         self._settings = settings
+        self._profiles = profiles
+        self._toolbox = toolbox
+        self._profile = self._pick_profile(settings, _saved.info.profile if _saved else profile)
         self._agent = self._build_agent(settings)
         self._closed = False
         self._id = ""
@@ -146,6 +157,8 @@ class Session:
         approver: Approver,
         cwd: Path | None = None,
         projects: ProjectList | None = None,
+        profiles: ProfileList | None = None,
+        toolbox: Toolbox | None = None,
     ) -> Session:
         """Opens a saved session and continues it: the items and ``seq`` from the log, the conversation from the
         store. The session's own model, mode and folder win over ``settings`` and ``cwd``. If the process died
@@ -177,6 +190,8 @@ class Session:
             cwd=folder,
             projects=projects,
             storage=storage,
+            profiles=profiles,
+            toolbox=toolbox,
             _saved=_Saved(info, records, state),
         )
 
@@ -185,7 +200,7 @@ class Session:
             return Agent(
                 make_model(settings),
                 system=build_system_prompt(self.workspace.root),
-                tools=default_tools(self.workspace),
+                tools=self._tools(),
                 loop=coding,
                 permissions=self._permissions,
                 reporter=self._reporter,
@@ -194,6 +209,24 @@ class Session:
             )
         except (ValueError, TypeError) as e:
             raise ConfigError(str(e)) from e
+
+    def _pick_profile(self, settings: Settings, saved_id: str | None) -> Profile | None:
+        """The session's profile: the one it was saved with, or the one its folder and model match."""
+        if self._profiles is None:
+            return None
+        saved = self._profiles.get(saved_id) if saved_id else None
+        return saved or self._profiles.resolve(self.workspace.root, settings.model)
+
+    def _tools(self) -> list[Any]:
+        """The built-in tools, and the user's tools, that the profile turns on. Without profiles, the built-ins."""
+        builtin = default_tools(self.workspace)
+        if self._profile is None:
+            return builtin
+        on = set(self._profile.tools)
+        tools: list[Any] = [tool for name, tool in collect_tools(builtin).items() if name in on]
+        if self._toolbox is not None:
+            tools += self._toolbox.load(on)
+        return tools
 
     # ------------------------------------------------------------ actions
 
@@ -285,6 +318,7 @@ class Session:
             ConfigError: The model cannot be used. The current model stays.
         """
         settings = self._settings.with_model(model)
+        self._profile = self._pick_profile(settings, None)
         self._agent = self._build_agent(settings)
         self._settings = settings
         self._state = None
@@ -332,6 +366,7 @@ class Session:
             activity=self._activity,
             run_started_at=self._run_started_at,
             run_usage=self._run_usage(),
+            profile=self._profile.id if self._profile is not None else None,
         )
 
     @property

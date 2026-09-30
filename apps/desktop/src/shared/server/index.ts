@@ -45,6 +45,7 @@ export {
   SESSIONS,
   setUpScript,
   statefulScript,
+  withRouterScript,
 } from './fixtures';
 export { mergeScripts, scriptedConnection, type Script, type ScriptContext } from './scripted';
 export {

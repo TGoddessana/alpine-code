@@ -58,6 +58,24 @@ const MODELS: Record<string, string[]> = {
   chatgpt: ['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5'],
 };
 
+/** What a model router answers: hundreds of models. */
+const ROUTER_MODELS = ['anthropic', 'amazon', 'google', 'meta-llama', 'mistralai', 'openai', 'qwen', 'x-ai'].flatMap(
+  (vendor) => Array.from({ length: 40 }, (_, i) => `${vendor}/model-${i + 1}`),
+);
+
+/** Everything set up, plus a router with hundreds of models, for the model picker. */
+export const withRouterScript = () =>
+  statefulScript({
+    connections: {
+      ...CONNECTED,
+      connections: [
+        ...CONNECTED.connections,
+        { name: 'router', provider: null, baseUrl: 'https://llm.router.example/v1', billing: 'none', hasKey: true },
+      ],
+    },
+    projects: PROJECTS,
+  });
+
 interface ScriptState {
   connections: ConnectionsListResult;
   projects: ProjectInfo[];
@@ -86,7 +104,8 @@ export function statefulScript(start: ScriptState): Script {
       'connections/models': ({ connection: name, provider: askedProvider, baseUrl, apiKey }) => {
         const saved = name ? connections.connections.find((c) => c.name === name) : undefined;
         if (saved?.account) return { models: MODELS.chatgpt! };
-        if (saved && !saved.provider) return { models: MODELS.local! };
+        if (saved && !saved.provider)
+          return { models: saved.baseUrl?.includes('router') ? ROUTER_MODELS : MODELS.local! };
         const provider = saved?.provider ?? askedProvider;
         if (baseUrl && !baseUrl.includes('localhost'))
           throw new ServerError(-32000, 'Connection error.', { reason: 'unreachable' });

@@ -1364,7 +1364,9 @@
             "failed",
             "limit",
             "repeating",
-            "permission"
+            "permission",
+            "plan_limit",
+            "signed_out"
           ],
           "type": "string"
         },

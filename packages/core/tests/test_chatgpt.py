@@ -416,3 +416,13 @@ def test_respond_refreshes_once_after_a_401_and_stops_on_a_used_up_plan(monkeypa
 
 def test_plan_scope_is_what_allows_plan_usage():
     assert PLAN_SCOPE == "chatgpt.tokens.use.direct" and PLAN_SCOPE in SCOPES
+
+
+def test_a_used_up_plan_or_an_ended_sign_in_stops_the_run_with_its_own_reason():
+    from alpine_core.session import _failed
+
+    assert _failed(UsageLimitError("used up", "subscription_sharing_usage_limit_exceeded")).reason == "plan_limit"
+    assert _failed(SignInNeeded("ended")).reason == "signed_out"
+    assert _failed(PlanUsageOff("off")).reason == "signed_out"
+    other = _failed(RuntimeError("boom"))
+    assert other.reason == "failed" and other.message == "RuntimeError: boom"

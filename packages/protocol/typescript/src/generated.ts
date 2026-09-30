@@ -390,7 +390,7 @@ export interface StatusLineItem {
 export interface RunStoppedItem {
   id: string;
   kind: 'run_stopped';
-  reason: 'interrupted' | 'failed' | 'limit' | 'repeating' | 'permission';
+  reason: 'interrupted' | 'failed' | 'limit' | 'repeating' | 'permission' | 'plan_limit' | 'signed_out';
   message: string | null;
 }
 /**

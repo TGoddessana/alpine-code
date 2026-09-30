@@ -436,7 +436,9 @@ class RunStoppedItem(ItemModel):
 
     id: str
     kind: Literal["run_stopped"] = "run_stopped"
-    reason: Literal["interrupted", "failed", "limit", "repeating", "permission"]
+    reason: Literal["interrupted", "failed", "limit", "repeating", "permission", "plan_limit", "signed_out"]
+    """``plan_limit``: the ChatGPT plan's usage limit (or this app's share of it) was reached; point to ChatGPT's
+    usage settings. ``signed_out``: the ChatGPT sign-in ended; sign in again (``chatgpt/signIn``)."""
     message: str | None = None
 
 

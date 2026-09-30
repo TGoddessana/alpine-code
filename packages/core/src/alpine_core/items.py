@@ -31,7 +31,7 @@ from .events import (
 )
 
 ToolCallStatus = Literal["running", "done", "error", "input_error", "aborted", "interrupted", "denied", "cancelled"]
-RunStopReason = Literal["interrupted", "failed", "limit", "repeating", "permission"]
+RunStopReason = Literal["interrupted", "failed", "limit", "repeating", "permission", "plan_limit", "signed_out"]
 ApprovalDecision = Literal["allow", "allow_always", "deny"]
 PreviewKind = Literal["diff", "command", "text"]
 
@@ -424,8 +424,8 @@ class ItemRecorder:
                 reason: RunStopReason = "permission" if self._stop_asked else "interrupted"
                 self._stop_asked = False
                 self.stop_run(reason)
-            case Failed(message):
-                self.stop_run("failed", message)
+            case Failed(message, reason):
+                self.stop_run(reason, message)
 
     # ------------------------------------------------------------------ internals
 

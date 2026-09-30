@@ -4,7 +4,7 @@ from pathlib import Path
 
 from alpineagents import Image, ToolError, tool
 
-from ._common import Workspace, os_error
+from ._common import WorkspaceTool, os_error
 
 DEFAULT_LIMIT = 2000
 MAX_LINE_CHARS = 2000
@@ -13,10 +13,7 @@ MAX_ENTRIES = 500
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
 
-class Read:
-    def __init__(self, workspace: Workspace) -> None:
-        self.workspace = workspace
-
+class Read(WorkspaceTool):
     @tool(name="read", exception_handler=os_error, read_only=True, open_world=False)
     def read(self, path: str, offset: int | None = None, limit: int | None = None) -> str | Image:
         """Read a text file, view an image (PNG, JPEG, GIF, WebP) or list a directory. File lines are prefixed
@@ -44,23 +41,26 @@ class Read:
             return image
         if b"\0" in data[:8192]:
             raise ToolError(f"{path} looks like a binary file")
-        lines = data.decode("utf-8", errors="replace").splitlines()
-        if not lines:
-            return "(empty file)"
+        return number_lines(data.decode("utf-8", errors="replace").splitlines(), offset, limit)
 
-        start = max((offset or 1) - 1, 0)
-        end = start + (limit or DEFAULT_LIMIT)
-        if start >= len(lines):
-            raise ToolError(f"offset {offset} is past the end of the file ({len(lines)} lines)")
-        width = len(str(min(end, len(lines))))
-        out = []
-        for number, line in enumerate(lines[start:end], start=start + 1):
-            if len(line) > MAX_LINE_CHARS:
-                line = line[:MAX_LINE_CHARS] + " [line truncated]"
-            out.append(f"{number:>{width}}\t{line}")
-        if end < len(lines):
-            out.append(f"[{len(lines) - end} more lines. Read on with offset={end + 1}]")
-        return "\n".join(out)
+
+def number_lines(lines: list[str], offset: int | None, limit: int | None) -> str:
+    """``limit`` lines from line ``offset`` on, each prefixed with its number and a tab."""
+    if not lines:
+        return "(empty file)"
+    start = max((offset or 1) - 1, 0)
+    end = start + (limit or DEFAULT_LIMIT)
+    if start >= len(lines):
+        raise ToolError(f"offset {offset} is past the end of the file ({len(lines)} lines)")
+    width = len(str(min(end, len(lines))))
+    out = []
+    for number, line in enumerate(lines[start:end], start=start + 1):
+        if len(line) > MAX_LINE_CHARS:
+            line = line[:MAX_LINE_CHARS] + " [line truncated]"
+        out.append(f"{number:>{width}}\t{line}")
+    if end < len(lines):
+        out.append(f"[{len(lines) - end} more lines. Read on with offset={end + 1}]")
+    return "\n".join(out)
 
 
 def as_image(data: bytes) -> Image | None:

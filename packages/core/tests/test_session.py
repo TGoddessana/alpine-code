@@ -47,7 +47,7 @@ def test_read_runs_without_asking(tmp_path, monkeypatch):
     assert session.send("what is in a.txt?") == "It says hello"
     assert approver.requests == []
     assert finished(events) == [("read", "done")]
-    assert isinstance(events[-1], RunFinished) and events[-1].stopped_by == "is_answered"
+    assert isinstance(events[-1], RunFinished) and events[-1].stopped_by == "answered"
     assert any(isinstance(e, AssistantDone) and e.text == "It says hello" for e in events)
 
 
@@ -116,6 +116,15 @@ def test_deny_without_feedback_stops_and_conversation_continues(tmp_path, monkey
     assert session.send("clean up") is None
     assert isinstance(events[-1], Interrupted)
     assert session.send("never mind, say hi") == "Sure, what next?"
+
+
+def test_declining_one_call_cancels_the_rest_of_the_turn(tmp_path, monkeypatch):
+    replies = [[tool_call("bash", command="echo 1"), tool_call("bash", command="echo 2")], "Sure"]
+    session, events, approver = make_session(tmp_path, monkeypatch, replies, Decision("deny"))
+    assert session.send("go") is None
+    assert len(approver.requests) == 1
+    assert finished(events) == [("bash", "denied"), ("bash", "cancelled")]
+    assert isinstance(events[-1], Interrupted)
 
 
 def test_allow_always_stops_asking(tmp_path, monkeypatch):

@@ -9,7 +9,17 @@ from pathlib import Path
 
 from rich.console import Console
 
-from alpine_core import ApprovalRequest, Decision, Failed, Interrupted, Session, Settings, TurnStarted, UsageInfo
+from alpine_core import (
+    ApprovalRequest,
+    Decision,
+    Event,
+    Failed,
+    Interrupted,
+    Session,
+    Settings,
+    TurnStarted,
+    UsageInfo,
+)
 
 from .render import Renderer
 from .theme import THEME
@@ -39,12 +49,7 @@ class UsageFile:
         self._seen = UsageInfo()
 
     def update(self, usage: UsageInfo, *, complete: bool) -> None:
-        seen = self._seen
-        step: dict = {
-            f.name: getattr(usage, f.name) - getattr(seen, f.name) for f in fields(UsageInfo) if f.name != "cost"
-        }
-        seen_cost = seen.cost if seen.requests else 0.0
-        step["cost"] = None if usage.cost is None or seen_cost is None else usage.cost - seen_cost
+        step = _difference(usage, self._seen)
         if step["requests"]:
             self.steps.append(step)
         self._seen = usage
@@ -54,17 +59,27 @@ class UsageFile:
         tmp.replace(self.path)
 
 
-def run_headless(settings: Settings, prompt: str, *, usage_path: Path | None = None) -> int:
-    stderr = Console(stderr=True, theme=THEME)
-    renderer = Renderer(stderr, show_text=False)
-    outcome: list = []
-    usage_file = UsageFile(usage_path) if usage_path else None
-    session: Session | None = None
+def _difference(now: UsageInfo, before: UsageInfo) -> dict:
+    """What was used between two readings. Cost is ``None`` when either reading has no price."""
+    step: dict = {f.name: getattr(now, f.name) - getattr(before, f.name) for f in fields(UsageInfo) if f.name != "cost"}
+    before_cost = before.cost if before.requests else 0.0
+    step["cost"] = None if now.cost is None or before_cost is None else now.cost - before_cost
+    return step
 
-    def on_event(event) -> None:
-        if isinstance(event, (Failed, Interrupted)):
-            outcome.append(event)
-        if usage_file and session and isinstance(event, TurnStarted):
+
+def run_headless(settings: Settings, prompt: str, *, usage_path: Path | None = None) -> int:
+    """Runs ``prompt`` and returns the exit code: 0 when it answered, 1 when it failed, 130 when interrupted."""
+    renderer = Renderer(Console(stderr=True, theme=THEME), show_text=False)
+    usage_file = UsageFile(usage_path) if usage_path else None
+    exit_code = 0
+
+    def on_event(event: Event) -> None:
+        nonlocal exit_code
+        if isinstance(event, Interrupted):
+            exit_code = exit_code or 130
+        elif isinstance(event, Failed):
+            exit_code = exit_code or 1
+        elif isinstance(event, TurnStarted) and usage_file:
             usage_file.update(session.usage, complete=False)
         renderer(event)
 
@@ -76,6 +91,4 @@ def run_headless(settings: Settings, prompt: str, *, usage_path: Path | None = N
             usage_file.update(session.usage, complete=True)
     if answer:
         sys.stdout.write(answer.rstrip() + "\n")
-    if outcome:
-        return 130 if isinstance(outcome[0], Interrupted) else 1
-    return 0
+    return exit_code

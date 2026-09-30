@@ -10,7 +10,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-ToolResultKind = Literal["done", "error", "input_error", "aborted", "interrupted", "denied"]
+ToolResultKind = Literal["done", "error", "input_error", "aborted", "interrupted", "denied", "cancelled"]
+"""How a tool call ended. ``denied``: the user or the permission rules refused it. ``cancelled``: not run because the
+user declined another call of the same turn."""
+
+StopReason = Literal["answered", "limit", "finish"]
 
 
 @dataclass(frozen=True)
@@ -59,7 +63,7 @@ class ToolStarted:
 
 @dataclass(frozen=True)
 class ToolFinished:
-    """A tool call ended. A call the user declined gets this without a ``ToolStarted``."""
+    """A tool call ended. A call that was denied or cancelled gets this without a ``ToolStarted``."""
 
     id: str
     name: str
@@ -90,9 +94,9 @@ class Notice:
 
 @dataclass(frozen=True)
 class RunFinished:
-    """``Session.send`` finished normally. ``stopped_by`` is ``"is_answered"``, ``"limit"`` or ``"finish"``."""
+    """``Session.send`` finished normally."""
 
-    stopped_by: str | None
+    stopped_by: StopReason | None
     usage: UsageInfo
 
 

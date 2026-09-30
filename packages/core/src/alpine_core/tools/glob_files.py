@@ -2,15 +2,12 @@ from __future__ import annotations
 
 from alpineagents import ToolError, tool
 
-from ._common import RG_EXCLUDES, Workspace, run_rg
+from ._common import RG_EXCLUDES, WorkspaceTool, run_rg
 
 MAX_RESULTS = 200
 
 
-class Glob:
-    def __init__(self, workspace: Workspace) -> None:
-        self.workspace = workspace
-
+class Glob(WorkspaceTool):
     @tool(name="glob", read_only=True, open_world=False)
     def glob(self, pattern: str, path: str | None = None) -> str:
         """Find files by name pattern, like "*.py" (any depth), "src/**/test_*.ts" or "**/package.json".

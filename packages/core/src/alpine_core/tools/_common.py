@@ -35,6 +35,13 @@ class Workspace:
             return str(path)
 
 
+class WorkspaceTool:
+    """Base of the built-in tools: an object whose ``@tool`` method works in ``workspace``."""
+
+    def __init__(self, workspace: Workspace) -> None:
+        self.workspace = workspace
+
+
 def truncate_tail(text: str, limit: int = MAX_OUTPUT_CHARS) -> str:
     """Keeps the end of ``text`` (where errors usually are) and says how much was cut."""
     if len(text) <= limit:

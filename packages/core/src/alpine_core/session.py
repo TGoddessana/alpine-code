@@ -5,13 +5,22 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from alpineagents import Agent, AlpineAgentsError, State
+from alpineagents import (
+    Agent,
+    AlpineAgentsError,
+    State,
+    StoppedByFinish,
+    StoppedByLimit,
+    StoppedByPermission,
+    StoppedByUntil,
+)
+from alpineagents.types import Stopped
 
-from .approval import Approver
+from .approval import Approver, DecideByApprover
 from .bridge import EventReporter
 from .config import ConfigError, Settings
-from .events import Event, Failed, Interrupted, RunFinished, UsageInfo
-from .loop import TurnCancelled, build_loop
+from .events import Event, Failed, Interrupted, RunFinished, StopReason, UsageInfo
+from .loop import coding
 from .models import make_model
 from .permissions import Mode, PermissionPolicy
 from .projects import ProjectList
@@ -42,7 +51,7 @@ class Session:
         self.workspace = Workspace((cwd or Path.cwd()).resolve())
         self.policy = PermissionPolicy(self.workspace, settings.mode)
         self._emit = on_event
-        self._approver = approver
+        self._permission = DecideByApprover(self.policy, approver)
         self._projects = projects
         self._reporter = EventReporter(on_event)
         self._state: State | None = None
@@ -55,7 +64,8 @@ class Session:
                 make_model(settings),
                 system=build_system_prompt(self.workspace.root),
                 tools=default_tools(self.workspace),
-                loop=build_loop(self.policy, self._approver, self.workspace),
+                loop=coding,
+                permissions=[self._permission],
                 reporter=self._reporter,
                 human=None,
             )
@@ -75,13 +85,17 @@ class Session:
             self._state.add_user_message(text)
         try:
             answer = self._agent.run(self._state)
-        except (KeyboardInterrupt, TurnCancelled):
+        except KeyboardInterrupt:
             self._emit(Interrupted())
             return None
         except AlpineAgentsError as e:
             self._emit(Failed(_describe_error(e)))
             return None
-        self._emit(RunFinished(self._state.stopped_by, self.usage))
+        stopped = self._state.stopped
+        if isinstance(stopped, StoppedByPermission):  # the user declined a call without saying what to do instead
+            self._emit(Interrupted())
+            return None
+        self._emit(RunFinished(_stop_reason(stopped), self.usage))
         return answer if isinstance(answer, str) else None
 
     def clear(self) -> None:
@@ -153,6 +167,17 @@ class Session:
     @property
     def has_conversation(self) -> bool:
         return self._state is not None
+
+
+def _stop_reason(stopped: Stopped | None) -> StopReason | None:
+    match stopped:
+        case StoppedByUntil():
+            return "answered"
+        case StoppedByLimit():
+            return "limit"
+        case StoppedByFinish():
+            return "finish"
+    return None
 
 
 def _describe_error(error: BaseException) -> str:

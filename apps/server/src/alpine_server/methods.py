@@ -205,7 +205,7 @@ def clone_project(params: ProjectsCloneParams) -> ProjectsCloneResult:
 
 #: Asking GitHub takes a second, so a branch's pull request is looked up at most once a minute.
 _PR_TTL = 60.0
-_pull_requests: dict[tuple[Path, str | None], tuple[float, PullRequest | None]] = {}
+_pull_requests: dict[tuple[Path, str], tuple[float, PullRequest | None]] = {}
 
 
 def project_git(params: ProjectsGitParams) -> ProjectsGitResult:
@@ -213,12 +213,7 @@ def project_git(params: ProjectsGitParams) -> ProjectsGitResult:
     status = git_status(folder)
     if status is None:
         return ProjectsGitResult(git=None)
-    key = (folder, status.branch)
-    cached = _pull_requests.get(key)
-    if cached is None or time.monotonic() - cached[0] > _PR_TTL:
-        cached = (time.monotonic(), pull_request(folder) if status.branch else None)
-        _pull_requests[key] = cached
-    pr = cached[1]
+    pr = _cached_pull_request(folder, status.branch)
     return ProjectsGitResult(
         git=GitInfo(
             branch=status.branch,
@@ -227,6 +222,16 @@ def project_git(params: ProjectsGitParams) -> ProjectsGitResult:
             pull_request=PullRequestInfo(number=pr.number, url=pr.url, checks=pr.checks) if pr else None,
         )
     )
+
+
+def _cached_pull_request(folder: Path, branch: str | None) -> PullRequest | None:
+    if branch is None:
+        return None
+    checked_at, pr = _pull_requests.get((folder, branch), (None, None))
+    if checked_at is None or time.monotonic() - checked_at > _PR_TTL:
+        pr = pull_request(folder)
+        _pull_requests[(folder, branch)] = (time.monotonic(), pr)
+    return pr
 
 
 def _project_info(project: Project) -> ProjectInfo:

@@ -52,13 +52,23 @@ class CliApprover:
 
     def _panel(self, request: ApprovalRequest) -> Panel:
         body: list = []
-        if request.preview_kind == "diff" and request.preview:
-            body.append(Syntax(request.preview, "diff", theme="ansi_dark", background_color="default"))
-        elif request.preview_kind == "command" and request.preview:
-            body.append(Syntax(request.preview, "bash", theme="ansi_dark", background_color="default", word_wrap=True))
-        elif request.preview:
-            body.append(Text(request.preview))
         if request.reason:
-            body.insert(0, Text(f"⚠ {request.reason}", style="warn"))
-        return Panel(Group(*body) if body else Text(""), title=Text(request.title, style="bold"),
-                     title_align="left", border_style="warn", padding=(0, 1))
+            body.append(Text(f"⚠ {request.reason}", style="warn"))
+        if request.preview:
+            body.append(_preview(request.preview, request.preview_kind))
+        return Panel(
+            Group(*body),
+            title=Text(request.title, style="bold"),
+            title_align="left",
+            border_style="warn",
+            padding=(0, 1),
+        )
+
+
+def _preview(preview: str, kind: str) -> Syntax | Text:
+    match kind:
+        case "diff":
+            return Syntax(preview, "diff", theme="ansi_dark", background_color="default")
+        case "command":
+            return Syntax(preview, "bash", theme="ansi_dark", background_color="default", word_wrap=True)
+    return Text(preview)

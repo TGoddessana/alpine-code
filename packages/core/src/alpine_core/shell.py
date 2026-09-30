@@ -73,20 +73,21 @@ def analyze(script: str) -> Analysis:
     tree = _parser().parse(script.encode())
     paths = _PathCollector()
     commands: list[tuple[str, ...]] = []
-    state = {"writes": False, "opaque": tree.root_node.has_error}
+    writes_files = False
+    opaque = tree.root_node.has_error
 
     def visit(node: Node) -> None:
         # Pre-order, so commands are seen in the order they appear and cd affects the paths after it.
+        nonlocal writes_files, opaque
         if node.type == "command":
             words = _words(node)
             if words is None:
-                state["opaque"] = True
+                opaque = True
             elif words:
                 commands.append(words)
             paths.command(node)
         elif node.type == "file_redirect":
-            if _writes(node):
-                state["writes"] = True
+            writes_files = writes_files or _writes(node)
             target = _destination(node)
             if target is not None:
                 paths.argument(target)
@@ -94,7 +95,7 @@ def analyze(script: str) -> Analysis:
             visit(child)
 
     visit(tree.root_node)
-    return Analysis(tuple(commands), state["writes"], state["opaque"], tuple(paths.paths), tuple(paths.unresolved))
+    return Analysis(tuple(commands), writes_files, opaque, tuple(paths.paths), tuple(paths.unresolved))
 
 
 class _PathCollector:

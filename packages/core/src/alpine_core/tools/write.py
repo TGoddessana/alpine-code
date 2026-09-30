@@ -2,13 +2,10 @@ from __future__ import annotations
 
 from alpineagents import ToolError, tool
 
-from ._common import Workspace, os_error
+from ._common import WorkspaceTool, os_error
 
 
-class Write:
-    def __init__(self, workspace: Workspace) -> None:
-        self.workspace = workspace
-
+class Write(WorkspaceTool):
     @tool(name="write", exception_handler=os_error, read_only=False, idempotent=True, open_world=False)
     def write(self, path: str, content: str) -> str:
         """Write a file, replacing it if it exists. Creates missing parent directories.

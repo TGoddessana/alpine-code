@@ -7,7 +7,7 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "alpineagents>=0.3.0",
+    "alpineagents>=0.4.0",
     "anthropic>=1.8.0",
     "openai>=3.19.2",
     "tomlkit>=0.15.1",

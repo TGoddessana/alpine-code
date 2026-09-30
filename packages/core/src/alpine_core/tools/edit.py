@@ -2,13 +2,10 @@ from __future__ import annotations
 
 from alpineagents import ToolError, tool
 
-from ._common import Workspace, os_error
+from ._common import Workspace, WorkspaceTool, os_error
 
 
-class Edit:
-    def __init__(self, workspace: Workspace) -> None:
-        self.workspace = workspace
-
+class Edit(WorkspaceTool):
     @tool(name="edit", exception_handler=os_error, read_only=False, open_world=False)
     def edit(self, path: str, old_string: str, new_string: str, replace_all: bool = False) -> str:
         """Replace an exact piece of text in a file. Read the file first.

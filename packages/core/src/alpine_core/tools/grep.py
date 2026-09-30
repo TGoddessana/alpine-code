@@ -4,16 +4,13 @@ import re
 
 from alpineagents import ToolError, tool
 
-from ._common import RG_EXCLUDES, Workspace, run_rg
+from ._common import RG_EXCLUDES, WorkspaceTool, run_rg
 
 MAX_MATCHES = 200
 MAX_LINE_CHARS = 300
 
 
-class Grep:
-    def __init__(self, workspace: Workspace) -> None:
-        self.workspace = workspace
-
+class Grep(WorkspaceTool):
     @tool(name="grep", read_only=True, open_world=False)
     def grep(self, pattern: str, path: str | None = None, glob: str | None = None, ignore_case: bool = False) -> str:
         """Search file contents with a regular expression (ripgrep syntax). Returns matching lines as

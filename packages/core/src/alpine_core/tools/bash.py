@@ -6,16 +6,13 @@ import signal
 
 from alpineagents import ToolError, tool
 
-from ._common import Workspace, os_error, truncate_tail
+from ._common import WorkspaceTool, os_error, truncate_tail
 
 DEFAULT_TIMEOUT = 120
 MAX_TIMEOUT = 600
 
 
-class Bash:
-    def __init__(self, workspace: Workspace) -> None:
-        self.workspace = workspace
-
+class Bash(WorkspaceTool):
     @tool(name="bash", parallel=False, exception_handler=os_error, open_world=True)
     async def bash(self, command: str, timeout: int = DEFAULT_TIMEOUT) -> str:
         """Run a shell command in the working directory and return its output (stdout and stderr together)

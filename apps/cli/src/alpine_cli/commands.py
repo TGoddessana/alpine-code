@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from rich.console import Console
 from rich.table import Table
 
-from alpine_core import ConfigError, Session
+from alpine_core import ConfigError, Mode, Session
 
 from .theme import MODE_LABELS
 
@@ -106,8 +106,6 @@ def _model(ctx: Context, arg: str) -> bool:
 
 @command("mode", "Show or set the permission mode (default, accept_edits, yolo)")
 def _mode(ctx: Context, arg: str) -> bool:
-    from alpine_core import Mode
-
     if arg:
         try:
             ctx.session.mode = Mode(arg)

@@ -31,8 +31,8 @@ from .theme import BULLET, PEAK, RESULT
 PREVIEW_LINES = 4
 #: Characters of a tool argument shown in the tool call line.
 ARG_CHARS = 80
-#: Tools whose result is a list; summarized as a count.
-COUNTED = {"glob": ("Found", "files"), "grep": ("Found", "matches")}
+#: Tools whose result is a list, summarized as a count of these.
+COUNTED = {"glob": "files", "grep": "matches"}
 
 
 class Renderer:
@@ -102,9 +102,7 @@ class Renderer:
             self._live = None
 
     def _print_tool(self, event: ToolFinished) -> None:
-        color = "error" if event.is_error else "ok"
-        if event.kind == "denied":
-            color = "warn"
+        color = "warn" if event.kind in ("denied", "cancelled") else "error" if event.is_error else "ok"
         arg = call_label(event.name, event.args, full=False)
         head = Text.assemble((f"{BULLET} ", color), (event.name, "tool"), f"({arg})")
         self.console.print(head)
@@ -125,33 +123,43 @@ def call_label(name: str, args: dict[str, Any], *, full: bool = True) -> str:
 
 
 def summarize(event: ToolFinished) -> list[Text]:
+    """The lines shown under a finished tool call."""
+    match event.kind:
+        case "denied":
+            return [_line("Declined", "warn")]
+        case "cancelled":
+            return [_line("Not run", "warn")]
+        case "interrupted":
+            return [_line("Interrupted", "error")]
     result = event.result.rstrip()
-    if event.kind == "denied":
-        return [Text("Declined", style="warn")]
-    if event.kind == "interrupted":
-        return [Text("Interrupted", style="error")]
     if event.is_error:
-        first = result.splitlines()[0] if result else event.kind
-        return [Text(first, style="error")]
+        return [_line(result.splitlines()[0] if result else event.kind, "error")]
     if event.name == "read":
-        if event.images:
-            return [Text(f"Viewed image {result}", style="muted")]
-        lines = result.splitlines()
-        numbered = sum(1 for line in lines if "\t" in line)
-        if numbered or not lines or result.startswith("(empty file)"):
-            return [Text(f"Read {numbered} lines", style="muted")]
-        return [Text(f"Listed {len(lines)} entries", style="muted")]
+        return [_line(_summarize_read(result, event.images))]
     if event.name in COUNTED:
-        if result.startswith("No ") or result.startswith("(empty"):
-            return [Text(result.splitlines()[0], style="muted")]
-        n = sum(1 for line in result.splitlines() if not line.startswith("["))
-        noun = COUNTED[event.name]
-        return [Text(f"{noun[0]} {n} {noun[1]}", style="muted")]
+        if result.startswith(("No ", "(empty")):
+            return [_line(result.splitlines()[0])]
+        count = sum(1 for line in result.splitlines() if not line.startswith("["))  # "[12 more ...]" is not one
+        return [_line(f"Found {count} {COUNTED[event.name]}")]
     lines = result.splitlines() or ["(no output)"]
-    shown = [Text(line, style="muted") for line in lines[:PREVIEW_LINES]]
+    shown = [_line(line) for line in lines[:PREVIEW_LINES]]
     if len(lines) > PREVIEW_LINES:
-        shown.append(Text(f"… +{len(lines) - PREVIEW_LINES} lines", style="muted"))
+        shown.append(_line(f"… +{len(lines) - PREVIEW_LINES} lines"))
     return shown
+
+
+def _summarize_read(result: str, images: int) -> str:
+    if images:
+        return f"Viewed image {result}"
+    lines = result.splitlines()
+    numbered = sum(1 for line in lines if "\t" in line)  # file lines are "<number>\t<text>"
+    if numbered or not lines or result.startswith("(empty file)"):
+        return f"Read {numbered} lines"
+    return f"Listed {len(lines)} entries"
+
+
+def _line(text: str, style: str = "muted") -> Text:
+    return Text(text, style=style)
 
 
 def _bulleted(renderable: Any, style: str = "default") -> Table:

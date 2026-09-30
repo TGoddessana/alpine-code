@@ -23,7 +23,7 @@ from rich.markup import escape
 from rich.table import Table
 from rich.text import Text
 
-from alpine_core import Session
+from alpine_core import Mode, Session
 
 from . import commands
 from ._version import __version__
@@ -32,6 +32,9 @@ from .theme import HARE, MODE, MODE_LABELS, PIXELS, PROMPT, PT_STYLE, pixel_art
 
 #: Seconds the terminal size must stay put before the scrollback is printed again.
 RESIZE_SETTLE = 0.15
+
+#: Between the parts of the status line.
+SEPARATOR = " · "
 
 
 class SlashCompleter(Completer):
@@ -182,25 +185,19 @@ class Repl:
     def _toolbar(self):
         """Model, context, cost and mode, dropping the least useful parts first when the terminal is narrow."""
         s = self.session
-        mode = s.mode.value
-        mode_style = "bottom-toolbar.yolo" if mode == "yolo" else "bottom-toolbar.mode"
         parts = [f"  {s.model_name}", f"{s.context_used:.0%} context"]
-        cost = s.usage.cost
-        if cost:
-            parts.append(f"${cost:.2f}")
-        width = get_app().output.get_size().columns
+        if s.usage.cost:
+            parts.append(f"${s.usage.cost:.2f}")
+        mode = f"{MODE} {MODE_LABELS[s.mode]}"
         hint = " (shift+tab to cycle)"
-        mode_text = f"{MODE} {MODE_LABELS[mode]}"
-        while len(parts) > 1 and len(" · ".join(parts)) + 3 + len(mode_text) >= width:
+        width = get_app().output.get_size().columns
+        while len(parts) > 1 and len(SEPARATOR.join(parts) + SEPARATOR + mode) >= width:
             parts.pop()
-        head = " · ".join(parts) + " · "
-        if len(head) + len(mode_text) + len(hint) >= width:
+        head = SEPARATOR.join(parts) + SEPARATOR
+        if len(head + mode + hint) >= width:
             hint = ""
-        return [
-            ("class:bottom-toolbar", head),
-            (f"class:{mode_style}", mode_text),
-            ("class:bottom-toolbar", hint),
-        ]
+        mode_style = "class:bottom-toolbar.yolo" if s.mode is Mode.YOLO else "class:bottom-toolbar.mode"
+        return [("class:bottom-toolbar", head), (mode_style, mode), ("class:bottom-toolbar", hint)]
 
     def banner(self) -> None:
         info = (

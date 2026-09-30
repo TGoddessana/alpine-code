@@ -36,6 +36,7 @@ from .permissions import Mode
 from .providers import PROVIDERS, Api, Billing, Provider
 from .secrets import FileSecrets, Secrets
 
+#: Settings fields -> the environment variables that override them.
 _ENV = {
     "model": "ALPINE_MODEL",
     "base_url": "ALPINE_BASE_URL",
@@ -98,34 +99,13 @@ class Settings:
 
         ``secrets`` defaults to ``auth.json`` in the home folder.
         """
-        file = config_file()
-        data = _read(file)
-        values: dict[str, Any] = {}
-        unknown = sorted(set(data) - set(_FILE_KEYS) - {"connections"})
-        if unknown:
-            raise ConfigError(f"Unknown settings in {file}: {', '.join(unknown)}")
-        for key, name in _FILE_KEYS.items():
-            if key in data:
-                values[name] = data[key]
-        values["connections"] = _connections(data.get("connections", {}), file)
-        for key, env in _ENV.items():
-            if os.environ.get(env):
-                values[key] = os.environ[env]
-        values.update({k: v for k, v in overrides.items() if v is not None})
-
-        known = {f.name for f in fields(cls)}
-        unknown = sorted(set(values) - known)
+        values = _from_file(config_file())
+        values.update({key: os.environ[env] for key, env in _ENV.items() if os.environ.get(env)})
+        values.update({key: value for key, value in overrides.items() if value is not None})
+        unknown = sorted(set(values) - {f.name for f in fields(cls)})
         if unknown:
             raise ConfigError(f"Unknown settings: {', '.join(unknown)}")
-        if values.get("context_window") is not None:
-            try:
-                values["context_window"] = int(values["context_window"])
-            except ValueError as e:
-                raise ConfigError(f"context_window must be an integer (got {values['context_window']!r})") from e
-        try:
-            values["mode"] = Mode(values.get("mode", Mode.DEFAULT))
-        except ValueError as e:
-            raise ConfigError(f"mode must be one of: {', '.join(Mode)}") from e
+        _convert(values)
         values["secrets"] = secrets if secrets is not None else FileSecrets(home_dir() / "auth.json")
         return cls(**values)
 
@@ -168,6 +148,30 @@ def _read(file: Path) -> dict[str, Any]:
         return tomllib.loads(file.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as e:
         raise ConfigError(f"{file} is not valid TOML: {e}") from e
+
+
+def _from_file(file: Path) -> dict[str, Any]:
+    """The settings config.toml sets, by ``Settings`` field name."""
+    data = _read(file)
+    unknown = sorted(set(data) - set(_FILE_KEYS) - {"connections"})
+    if unknown:
+        raise ConfigError(f"Unknown settings in {file}: {', '.join(unknown)}")
+    values = {name: data[key] for key, name in _FILE_KEYS.items() if key in data}
+    values["connections"] = _connections(data.get("connections", {}), file)
+    return values
+
+
+def _convert(values: dict[str, Any]) -> None:
+    """Turns the text values of the file and the environment into their types, in place."""
+    if values.get("context_window") is not None:
+        try:
+            values["context_window"] = int(values["context_window"])
+        except ValueError as e:
+            raise ConfigError(f"context_window must be an integer (got {values['context_window']!r})") from e
+    try:
+        values["mode"] = Mode(values.get("mode", Mode.DEFAULT))
+    except ValueError as e:
+        raise ConfigError(f"mode must be one of: {', '.join(Mode)}") from e
 
 
 def _connections(tables: Any, file: Path) -> dict[str, Connection]:

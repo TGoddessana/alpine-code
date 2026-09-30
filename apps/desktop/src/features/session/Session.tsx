@@ -1,0 +1,105 @@
+import { useEffect, useRef } from 'react';
+
+import { Composer } from '@/shared/components/composer';
+import { StatusWord } from '@/shared/components/status';
+import { useMessages } from '@/shared/i18n';
+import {
+  activeApproval,
+  SESSION_NOT_FOUND,
+  ServerError,
+  useCancelSession,
+  useProjects,
+  useSendMessage,
+  useSession,
+} from '@/shared/server';
+
+import { ApprovalDock } from './ApprovalDock';
+import { Chat } from './Chat';
+import { messages } from './messages';
+
+/** Within this many pixels of the end, the chat follows new text; further up, the reader is left where they are. */
+const FOLLOW_PX = 80;
+
+/**
+ * A session's centre column: the header (title · project, state), the chat, the approval dock while one waits, and
+ * the input at the bottom. While the run goes on the send button is a stop button.
+ */
+export function Session({ sessionId }: { sessionId: string }) {
+  const t = useMessages(messages);
+  const session = useSession(sessionId);
+  const projects = useProjects();
+  const send = useSendMessage();
+  const cancel = useCancelSession();
+  const scroller = useRef<HTMLDivElement>(null);
+  const following = useRef(true);
+  const state = session.data;
+
+  // Follow the end of the chat as text streams in, unless the reader scrolled up.
+  useEffect(() => {
+    const element = scroller.current;
+    if (element && following.current) element.scrollTop = element.scrollHeight;
+  }, [state?.items]);
+
+  if (!state || state.deleted) {
+    const missing =
+      state?.deleted || (session.error instanceof ServerError && session.error.code === SESSION_NOT_FOUND);
+    return (
+      <main aria-label={t.conversation} className="flex min-w-120 grow flex-col items-center justify-center bg-canvas">
+        {(missing || session.isError) && (
+          <p role="status" className="text-body text-fg-muted">
+            {missing ? t.notFound : t.loadFailed}
+          </p>
+        )}
+      </main>
+    );
+  }
+
+  const { info } = state;
+  const project = projects.data?.projects.find((p) => p.path === info.cwd)?.name ?? info.cwd.split('/').pop();
+  const running = info.status === 'running' || info.status === 'waiting';
+  const approval = activeApproval(state);
+  const title = info.title || t.untitled;
+
+  return (
+    <main aria-label={title} className="flex min-w-120 grow flex-col bg-canvas">
+      <header className="flex min-h-14 shrink-0 items-center gap-3 border-b border-line px-6">
+        <h1 className="min-w-0 truncate text-title" title={title}>
+          {title}
+        </h1>
+        <span className="shrink-0 text-meta text-fg-muted" title={info.cwd}>
+          · {project}
+        </span>
+        <span className="grow" />
+        <StatusWord status={info.status} />
+      </header>
+      <div
+        ref={scroller}
+        onScroll={(event) => {
+          const { scrollHeight, scrollTop, clientHeight } = event.currentTarget;
+          following.current = scrollHeight - scrollTop - clientHeight < FOLLOW_PX;
+        }}
+        className="min-h-0 grow overflow-y-auto"
+      >
+        <div className="mx-auto w-full max-w-202 px-6 py-6">
+          <Chat items={state.items} activeIds={state.activeIds} />
+        </div>
+      </div>
+      <div className="mx-auto flex w-full max-w-202 flex-col gap-2 px-6 pt-3 pb-6">
+        {approval && <ApprovalDock key={approval.id} sessionId={sessionId} approval={approval} />}
+        <Composer
+          running={running}
+          bar={
+            <span aria-label={t.model(info.model)} title={info.model} className="px-2 text-meta text-fg-muted">
+              {info.model.slice(info.model.indexOf('/') + 1)}
+            </span>
+          }
+          onSend={(text) => {
+            following.current = true;
+            return send.mutateAsync({ sessionId, text });
+          }}
+          onStop={() => cancel.mutate(sessionId)}
+        />
+      </div>
+    </main>
+  );
+}

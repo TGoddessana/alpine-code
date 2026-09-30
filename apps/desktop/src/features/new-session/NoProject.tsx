@@ -1,11 +1,11 @@
 import { Button } from '@alpine/ui/primitives';
 import { useState } from 'react';
 
+import { Composer } from '@/shared/components/composer';
 import { useMessages } from '@/shared/i18n';
 import { useOpenFolder } from '@/shared/platform';
 
 import { CloneDialog } from './CloneDialog';
-import { Composer } from './Composer';
 import { messages } from './messages';
 
 /** A new session with no project yet: the centre asks for a folder, and the input waits where it will be. */

@@ -1,17 +1,19 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, screen, userEvent, waitFor } from 'storybook/test';
+import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 import { useState } from 'react';
 
-import { PROJECTS, setUpScript } from '@/shared/server';
+import { chatScript, PROJECTS } from '@/shared/server';
 
 import { NewSession } from './NewSession';
+
+const started = fn();
 
 function Example() {
   const [path, setPath] = useState(PROJECTS[0]!.path);
   const project = PROJECTS.find((p) => p.path === path) ?? PROJECTS[0]!;
   return (
     <div className="flex h-screen">
-      <NewSession projects={PROJECTS} project={project} onProjectChange={setPath} />
+      <NewSession projects={PROJECTS} project={project} onProjectChange={setPath} onStarted={started} />
     </div>
   );
 }
@@ -20,7 +22,7 @@ function Example() {
 const meta = {
   title: 'New session/New session',
   component: Example,
-  parameters: { server: setUpScript(), layout: 'fullscreen' },
+  parameters: { server: chatScript(), layout: 'fullscreen' },
 } satisfies Meta<typeof Example>;
 
 export default meta;
@@ -42,5 +44,13 @@ export const CloneFailed: Story = {
     await userEvent.type(await screen.findByLabelText(/저장소 주소|Repository address/), 'owner/fails');
     await userEvent.click(screen.getByRole('button', { name: /^(복제|Clone)$/ }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeVisible());
+  },
+};
+
+/** Sending makes the session and the message, then hands over the new session's id. */
+export const Sent: Story = {
+  play: async () => {
+    await userEvent.type(await screen.findByLabelText(/^(메시지|Message)$/), '안녕하세요{Enter}');
+    await waitFor(() => expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/)));
   },
 };

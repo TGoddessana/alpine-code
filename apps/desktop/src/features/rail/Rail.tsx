@@ -1,4 +1,4 @@
-import type { ProjectInfo } from '@alpine/protocol';
+import type { ProjectInfo, SessionInfo } from '@alpine/protocol';
 import { ContextMenu, Menu, PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import clsx from 'clsx';
@@ -6,14 +6,19 @@ import { useState } from 'react';
 
 import { useFormat, useMessages } from '@/shared/i18n';
 import { revealInFinder, useOpenFolder } from '@/shared/platform';
-import { useArchiveProject, useProjects } from '@/shared/server';
+import { useArchiveProject, useProjects, useSessions } from '@/shared/server';
 
 import { DeleteProjectDialog } from './DeleteProjectDialog';
+import { DeleteSessionDialog } from './DeleteSessionDialog';
 import { messages } from './messages';
+import { SessionRow } from './SessionRow';
 
 const item =
   'flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-body text-fg hover:bg-hover';
 const active = { className: 'bg-canvas-raised' };
+
+/** Sessions shown under a project before "show more". */
+const SESSIONS_SHOWN = 5;
 
 /** Where you are: my turn, projects and their sessions. Holds no session content. */
 export function Rail() {
@@ -25,6 +30,8 @@ export function Rail() {
   const none = projects.isSuccess && shown.length === 0;
   const width = usePanelWidth({ storageKey: 'alpine.rail.width', initial: 260, min: 200, max: 360 });
   const [deleting, setDeleting] = useState<ProjectInfo | null>(null);
+  const [deletingSession, setDeletingSession] = useState<SessionInfo | null>(null);
+  const sessions = useSessions().data ?? [];
 
   return (
     <nav
@@ -63,7 +70,15 @@ export function Rail() {
             <span className="text-meta text-fg-muted">⌘O</span>
           </button>
         ) : (
-          shown.map((project) => <ProjectRow key={project.path} project={project} onDelete={setDeleting} />)
+          shown.map((project) => (
+            <div key={project.path} className="flex flex-col gap-0.5">
+              <ProjectRow project={project} onDelete={setDeleting} />
+              <ProjectSessions
+                sessions={sessions.filter((session) => session.cwd === project.path)}
+                onDelete={setDeletingSession}
+              />
+            </div>
+          ))
         )}
       </section>
       <div className="grow" />
@@ -73,7 +88,38 @@ export function Rail() {
         </Link>
       </div>
       <DeleteProjectDialog project={deleting} onClose={() => setDeleting(null)} />
+      <DeleteSessionDialog session={deletingSession} onClose={() => setDeletingSession(null)} />
     </nav>
+  );
+}
+
+/** A project's sessions, most recently used first (the list already comes in that order). */
+function ProjectSessions({
+  sessions,
+  onDelete,
+}: {
+  sessions: SessionInfo[];
+  onDelete: (session: SessionInfo) => void;
+}) {
+  const t = useMessages(messages);
+  const [all, setAll] = useState(false);
+  const shown = all ? sessions : sessions.slice(0, SESSIONS_SHOWN);
+  const hidden = sessions.length - SESSIONS_SHOWN;
+  return (
+    <>
+      {shown.map((session) => (
+        <SessionRow key={session.id} session={session} onDelete={onDelete} />
+      ))}
+      {hidden > 0 && (
+        <button
+          type="button"
+          onClick={() => setAll(!all)}
+          className="flex min-h-7 w-full cursor-pointer items-center rounded-md pl-8 text-left text-meta text-fg-muted hover:bg-hover"
+        >
+          {all ? t.showLess : t.showMore(hidden)}
+        </button>
+      )}
+    </>
   );
 }
 

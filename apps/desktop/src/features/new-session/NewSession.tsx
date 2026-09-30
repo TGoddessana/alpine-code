@@ -1,31 +1,56 @@
 import type { ProjectInfo } from '@alpine/protocol';
 import { Button, Menu } from '@alpine/ui/primitives';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
+import { Composer } from '@/shared/components/composer';
 import { GitBar } from '@/shared/components/git';
 import { useMessages } from '@/shared/i18n';
 import { useOpenFolder } from '@/shared/platform';
+import { useConnections, useNewSession, useSendMessage } from '@/shared/server';
 
 import { CloneDialog } from './CloneDialog';
-import { Composer } from './Composer';
 import { messages } from './messages';
 
 /**
  * Board NewSession: pick the project over the input, then type. No header and no status panel yet: they belong to
  * a session and appear with the first message, while the input stays where it is.
+ *
+ * Sending starts the session in the project's folder with the default model, sends the message, and calls
+ * `onStarted` with the new session's id so the app can show it.
  */
 export function NewSession({
   projects,
   project,
   onProjectChange,
+  onStarted,
 }: {
   projects: ProjectInfo[];
   project: ProjectInfo;
   onProjectChange: (path: string) => void;
+  onStarted: (sessionId: string) => void;
 }) {
   const t = useMessages(messages);
+  const defaultModel = useConnections().data?.defaultModel;
+  const newSession = useNewSession();
+  const sendMessage = useSendMessage();
+  // A session made for a message that then failed to send is used again on retry, not made twice.
+  const made = useRef<{ path: string; id: string } | null>(null);
   const openFolder = useOpenFolder(onProjectChange);
   const [cloning, setCloning] = useState(false);
+
+  const start = async (text: string) => {
+    if (made.current?.path !== project.path) {
+      const info = await newSession.mutateAsync({
+        cwd: project.path,
+        ...(defaultModel ? { model: defaultModel } : {}),
+      });
+      made.current = { path: project.path, id: info.id };
+    }
+    const { id } = made.current;
+    await sendMessage.mutateAsync({ sessionId: id, text });
+    made.current = null;
+    onStarted(id);
+  };
 
   return (
     <main aria-label={t.newSession} className="flex min-w-120 grow flex-col bg-canvas">
@@ -55,7 +80,7 @@ export function NewSession({
           </Menu.Root>
           <GitBar path={project.path} />
         </div>
-        <Composer />
+        <Composer onSend={start} />
       </div>
       <CloneDialog open={cloning} onOpenChange={setCloning} onCloned={onProjectChange} />
     </main>

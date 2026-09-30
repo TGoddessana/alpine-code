@@ -1,6 +1,25 @@
 export { ServerError, type Notification, type ServerConnection } from './connection';
 export { ServerProvider, useServer } from './context';
 export {
+  useAnswerApproval,
+  useCancelSession,
+  useDeleteSession,
+  useNewSession,
+  useSendMessage,
+  useSession,
+  useSessions,
+  useSetSessionMode,
+} from './sessions';
+export {
+  activeApproval,
+  applyEvent,
+  fromSnapshot,
+  toSnapshot,
+  type Item,
+  type SessionEvent,
+  type SessionState,
+} from './sessionState';
+export {
   useAddConnection,
   useArchiveProject,
   useCloneProject,
@@ -16,12 +35,21 @@ export {
 } from './queries';
 export {
   CONNECTED,
+  chatScript,
   firstRunScript,
   NOTHING_CONNECTED,
   PROJECTS,
   PROVIDERS,
+  SESSIONS,
   setUpScript,
   statefulScript,
 } from './fixtures';
-export { scriptedConnection, type Script } from './scripted';
+export { mergeScripts, scriptedConnection, type Script, type ScriptContext } from './scripted';
+export {
+  SESSION_NOT_FOUND,
+  SESSION_RUNNING,
+  sessionInfo,
+  sessionScript,
+  type SessionScriptOptions,
+} from './sessionScript';
 export { tauriConnection } from './tauri';

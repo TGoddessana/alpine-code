@@ -1,7 +1,8 @@
 import type { ConnectionInfo, ConnectionsListResult, ProjectInfo, ProviderInfo } from '@alpine/protocol';
 
 import { ServerError } from './connection';
-import type { Script } from './scripted';
+import { mergeScripts, type Script } from './scripted';
+import { sessionInfo, sessionScript, type SessionScriptOptions } from './sessionScript';
 
 /** The providers the server ships, for scripts. */
 export const PROVIDERS: ProviderInfo[] = [
@@ -144,3 +145,29 @@ export const firstRunScript = () => statefulScript({ connections: NOTHING_CONNEC
 
 /** Everything set up: three connections and three projects. */
 export const setUpScript = () => statefulScript({ connections: CONNECTED, projects: PROJECTS });
+
+/** Two earlier sessions, for a rail that is not empty. */
+export const SESSIONS = [
+  sessionInfo({
+    id: 's-old-1',
+    title: 'Fix the flaky login test',
+    createdAt: hoursAgo(5),
+    updatedAt: hoursAgo(4),
+    usage: { inputTokens: 18_400, outputTokens: 2_100, cacheReadTokens: 9_000, requests: 6, cost: 0.11 },
+    contextUsed: 20_500,
+  }),
+  sessionInfo({
+    id: 's-old-2',
+    title: 'Explain the build setup',
+    cwd: '/Users/me/docs-site',
+    createdAt: hoursAgo(30),
+    updatedAt: hoursAgo(29),
+  }),
+];
+
+/**
+ * Everything set up, and a server that runs sessions: `session/send` plays a turn (see `sessionScript`), so a story
+ * can send a message, answer the approval and watch the reply.
+ */
+export const chatScript = (options: SessionScriptOptions = {}) =>
+  mergeScripts(setUpScript(), sessionScript({ sessions: SESSIONS.map((info) => ({ info })), ...options }));

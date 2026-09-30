@@ -35,6 +35,31 @@ describe('jsonRpcConnection', () => {
     await expect(reply).rejects.toEqual(new ServerError(-32601, 'Unknown method'));
   });
 
+  it('ignores responses meant for another window', async () => {
+    const mine = fakeTransport();
+    const other = fakeTransport();
+    const a = jsonRpcConnection(mine.transport, 'a');
+    const b = jsonRpcConnection(other.transport, 'b');
+    const params = { protocolVersion: 1, clientName: 'test' };
+    const first = a.request('initialize', params);
+    const second = b.request('initialize', params);
+    const idA = JSON.parse(mine.sent[0]!).id;
+    const idB = JSON.parse(other.sent[0]!).id;
+    expect(idA).not.toEqual(idB);
+    // The shell hands both windows every response.
+    const answer = (id: string, name: string) => ({
+      jsonrpc: '2.0',
+      id,
+      result: { protocolVersion: 1, server: { name, version: '1' } },
+    });
+    for (const fake of [mine, other]) {
+      fake.receive(answer(idA, 'for-a'));
+      fake.receive(answer(idB, 'for-b'));
+    }
+    await expect(first).resolves.toMatchObject({ server: { name: 'for-a' } });
+    await expect(second).resolves.toMatchObject({ server: { name: 'for-b' } });
+  });
+
   it('passes notifications to subscribers', () => {
     const fake = fakeTransport();
     const connection = jsonRpcConnection(fake.transport);

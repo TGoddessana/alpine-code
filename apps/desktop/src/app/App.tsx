@@ -1,7 +1,7 @@
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { useState } from 'react';
 
-import { firstRunScript, scriptedConnection, tauriConnection, type ServerConnection } from '@/shared/server';
+import { chatScript, scriptedConnection, tauriConnection, type ServerConnection } from '@/shared/server';
 
 import { Providers } from './providers';
 import { routeTree } from './routeTree.gen';
@@ -14,10 +14,10 @@ declare module '@tanstack/react-router' {
   }
 }
 
-/** Inside Tauri, the real server. In a plain browser (`pnpm dev`), a scripted first run, so screens still render. */
+/** Inside Tauri, the real server. In a plain browser (`pnpm dev`), a scripted server that runs sessions, so screens still render. */
 function connect(): ServerConnection {
   if ('__TAURI_INTERNALS__' in window) return tauriConnection();
-  return scriptedConnection(firstRunScript());
+  return scriptedConnection(chatScript({ stepMs: 400, wordMs: 80 }));
 }
 
 export function App() {

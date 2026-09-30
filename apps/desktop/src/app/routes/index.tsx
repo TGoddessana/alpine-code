@@ -22,7 +22,12 @@ function NewSessionRoute() {
   return (
     <>
       {project ? (
-        <NewSession projects={shown} project={project} onProjectChange={choose} />
+        <NewSession
+          projects={shown}
+          project={project}
+          onProjectChange={choose}
+          onStarted={(sessionId) => void navigate({ to: '/session/$sessionId', params: { sessionId } })}
+        />
       ) : projects.isSuccess ? (
         <NoProject onProjectChange={choose} />
       ) : (

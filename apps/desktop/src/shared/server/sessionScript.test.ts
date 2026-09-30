@@ -1,0 +1,99 @@
+import { QueryClient } from '@tanstack/react-query';
+import { describe, expect, it } from 'vitest';
+
+import { ServerError } from './connection';
+import { scriptedConnection } from './scripted';
+import { sessionScript } from './sessionScript';
+import { activeApproval, type SessionState } from './sessionState';
+import { SessionStore, sessionKey } from './sessionStore';
+import { vi } from 'vitest';
+
+async function setup() {
+  const connection = scriptedConnection(sessionScript());
+  const client = new QueryClient();
+  new SessionStore(connection, client).start();
+  const store = new SessionStore(connection, client);
+  store.start();
+  const { info } = await connection.request('session/new', { cwd: '/work' });
+  const state = () => client.getQueryData<SessionState>(sessionKey(info.id));
+  const opened = await store.open(info.id);
+  expect(opened.items).toEqual([]);
+  return { connection, id: info.id, state: () => state()! };
+}
+
+const kinds = (state: SessionState) =>
+  state.items.map((i) => (i.kind === 'tool_call' ? `${i.name}:${i.status}` : i.kind));
+
+describe('sessionScript', () => {
+  it('runs a turn with an approval and a final reply', async () => {
+    const { connection, id, state } = await setup();
+    await connection.request('session/send', { sessionId: id, text: 'run the tests' });
+    await vi.waitFor(() => expect(activeApproval(state())).not.toBeNull());
+    expect(state().info.status).toBe('waiting');
+    expect(state().info.title).toBe('run the tests');
+    const approval = activeApproval(state())!;
+    await expect(connection.request('session/send', { sessionId: id, text: 'again' })).rejects.toEqual(
+      new ServerError(-32002, 'The session is running'),
+    );
+    await expect(
+      connection.request('session/answer', { sessionId: id, requestId: approval.id, decision: 'allow' }),
+    ).resolves.toEqual({ accepted: true });
+    await expect(
+      connection.request('session/answer', { sessionId: id, requestId: approval.id, decision: 'deny' }),
+    ).resolves.toEqual({ accepted: false });
+    await vi.waitFor(() => expect(state().info.status).toBe('idle'));
+    expect(kinds(state())).toEqual([
+      'user_message',
+      'agent_message',
+      'read_file:done',
+      'bash:done',
+      'approval',
+      'agent_message',
+    ]);
+    expect(state().activeIds).toEqual([]);
+  });
+
+  it('stops the run when a denial has no feedback', async () => {
+    const { connection, id, state } = await setup();
+    await connection.request('session/send', { sessionId: id, text: 'edit the readme' });
+    await vi.waitFor(() => expect(activeApproval(state())).not.toBeNull());
+    const approval = activeApproval(state())!;
+    expect(approval.previewKind).toBe('diff');
+    await connection.request('session/answer', { sessionId: id, requestId: approval.id, decision: 'deny' });
+    await vi.waitFor(() => expect(state().info.status).toBe('idle'));
+    expect(kinds(state()).slice(-3)).toEqual(['edit_file:denied', 'approval', 'run_stopped']);
+  });
+
+  it('cancels at the approval', async () => {
+    const { connection, id, state } = await setup();
+    await connection.request('session/send', { sessionId: id, text: 'go' });
+    await vi.waitFor(() => expect(activeApproval(state())).not.toBeNull());
+    await connection.request('session/cancel', { sessionId: id });
+    await vi.waitFor(() => expect(state().info.status).toBe('idle'));
+    expect(kinds(state()).slice(-3)).toEqual(['bash:denied', 'approval', 'run_stopped']);
+    expect(state().items.at(-1)).toMatchObject({ reason: 'interrupted' });
+  });
+
+  it('cancels a streaming reply and keeps what it said', async () => {
+    const connection = scriptedConnection(sessionScript({ wordMs: 40 }));
+    const client = new QueryClient();
+    const store = new SessionStore(connection, client);
+    store.start();
+    const { info } = await connection.request('session/new', { cwd: '/work' });
+    await store.open(info.id);
+    const state = () => client.getQueryData<SessionState>(sessionKey(info.id))!;
+    await connection.request('session/send', { sessionId: info.id, text: 'go' });
+    await vi.waitFor(() => expect(state().items.some((i) => i.kind === 'agent_message' && i.text)).toBe(true));
+    await connection.request('session/cancel', { sessionId: info.id });
+    await vi.waitFor(() => expect(state().info.status).toBe('idle'));
+    expect(state().activeIds).toEqual([]);
+    expect(kinds(state())).toEqual(['user_message', 'agent_message', 'run_stopped']);
+  });
+
+  it('deletes a session', async () => {
+    const { connection, id, state } = await setup();
+    await connection.request('session/delete', { sessionId: id });
+    expect(state().deleted).toBe(true);
+    await expect(connection.request('session/open', { sessionId: id })).rejects.toMatchObject({ code: -32001 });
+  });
+});

@@ -19,6 +19,8 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  // Module workers, so the code-colouring worker loads each language's grammar only when it is first needed.
+  worker: { format: 'es' },
   clearScreen: false,
   server: { port: 1420, strictPort: true, watch: { ignored: ['**/src-tauri/**'] } },
   test: { environment: 'jsdom' },

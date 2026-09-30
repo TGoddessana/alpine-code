@@ -7,6 +7,7 @@
  * Values come from the design canvas's rules (stickyDS, 2026-09-29; type one step smaller 2026-09-30).
  */
 @import '@fontsource/ibm-plex-sans-kr/400.css';
+@import '@fontsource/ibm-plex-sans-kr/500.css';
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
 @import '@fontsource/gowun-batang/400.css';
@@ -60,9 +61,13 @@
   --text-display: 24px;
   --text-display--line-height: 32px;
 
-  /* One weight. Hierarchy comes from size and colour; selection shows as a background or underline. */
+  /*
+   * One weight for the UI. Hierarchy comes from size and colour; selection shows as a background or underline.
+   * Emphasis is only for what someone wrote (`**` in a reply), one step heavier.
+   */
   --font-weight-*: initial;
   --font-weight-normal: 400;
+  --font-weight-emphasis: 500;
 
   --radius-*: initial;
   --radius-sm: 4px;
@@ -73,6 +78,24 @@
   --shadow-*: initial;
   --shadow-overlay: 0 8px 24px rgb(28 34 38 / 0.1); /* modals, menus */
   /* Spacing keeps Tailwind's 4px step, which is the canvas's grid. */
+}
+
+/*
+ * Code colours, read by the code highlighter (Shiki's css-variables theme) rather than by classes. Quiet on purpose:
+ * code sits in the conversation, so it follows the same greys and muted hues instead of an editor theme.
+ */
+:root {
+  --code-foreground: #1c2226;
+  --code-background: transparent;
+  --code-token-keyword: #6a4c8c;
+  --code-token-string: #3d6b45;
+  --code-token-string-expression: #3d6b45;
+  --code-token-constant: #8a5a1c;
+  --code-token-function: #2c5a7a;
+  --code-token-parameter: #1c2226;
+  --code-token-punctuation: #5f676d;
+  --code-token-comment: #8a9096;
+  --code-token-link: #2c5a7a;
 }
 
 @layer base {

@@ -117,6 +117,9 @@ The language follows the OS until chosen in Settings.
 | 2026-09-30 | ChatGPT plans through OpenAI's Sign in with ChatGPT ([chatgpt-sign-in.md](chatgpt-sign-in.md)) | reusing Codex CLI's OAuth client | the approved path for open-source apps on the user's computer |
 | 2026-09-30 | One ChatGPT account = one connection | an account switcher inside one connection | the connection list, default model and settings already handle several |
 | 2026-09-30 | The Responses adapter in the core for now | waiting for alpineagents | the ChatGPT route has its own rules; the generic part moves to alpineagents later |
+| 2026-09-30 | Replies as markdown with Streamdown, drawn by our components | react-markdown assembled by hand | the streaming parts (closing what is left open, parsing only the growing block) come built; its styling is replaced so tokens stay the only look |
+| 2026-09-30 | Streaming paced on screen: events applied once a frame, text let out over about 0.2 s, code coloured in a worker | drawing every delta as it arrives | models send text in bursts; the CLI stuttered from re-parsing on every delta; colouring a language the first time blocks for ~150 ms |
+| 2026-09-30 | No HTML and no images in replies (HTML shows as text, images as links) | rendering them | an image address can carry project data out; HTML is not needed to explain anything |
 
 ## Open
 

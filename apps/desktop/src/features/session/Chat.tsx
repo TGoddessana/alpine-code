@@ -1,5 +1,7 @@
 import { LinkButton } from '@alpine/ui/primitives';
+import { memo } from 'react';
 
+import { Markdown } from '@/shared/components/markdown';
 import { useFormat, useMessages } from '@/shared/i18n';
 import { openInBrowser } from '@/shared/platform';
 import { CHATGPT_USAGE_URL, type Item } from '@/shared/server';
@@ -7,6 +9,7 @@ import { CHATGPT_USAGE_URL, type Item } from '@/shared/server';
 import { ActivityLine } from './ActivityLine';
 import { toBlocks, type Block } from './blocks';
 import { messages } from './messages';
+import { useRevealed } from './reveal';
 
 const quiet = 'text-meta text-fg-muted whitespace-pre-wrap';
 
@@ -17,19 +20,45 @@ const quiet = 'text-meta text-fg-muted whitespace-pre-wrap';
 export function Chat({ items, activeIds }: { items: Item[]; activeIds: readonly string[] }) {
   return (
     <div className="flex flex-col gap-4">
-      {toBlocks(items, activeIds).map((block) => (
-        <BlockView key={block.type === 'tools' ? block.id : block.item.id} block={block} />
-      ))}
+      {toBlocks(items, activeIds).map((block) =>
+        block.type === 'tools' ? (
+          <Tools key={block.id} calls={block.calls} />
+        ) : (
+          <ItemView key={block.item.id} item={block.item} active={activeIds.includes(block.item.id)} />
+        ),
+      )}
     </div>
   );
 }
 
-function BlockView({ block }: { block: Block }) {
+/**
+ * Drawn again only when one of its calls changed. The chat is drawn on every frame while a reply streams, and
+ * without this every activity line above would be too.
+ */
+const Tools = memo(
+  function Tools({ calls }: { calls: Extract<Block, { type: 'tools' }>['calls'] }) {
+    return <ActivityLine calls={calls} />;
+  },
+  (before, after) =>
+    before.calls.length === after.calls.length && before.calls.every((call, i) => call === after.calls[i]),
+);
+
+/** A reply as it streams in: let out at an even pace, drawn as markdown. */
+function AgentMessage({ text, streaming }: { text: string; streaming: boolean }) {
+  const shown = useRevealed(text, streaming);
+  return shown ? <Markdown text={shown} streaming={streaming} /> : null;
+}
+
+/** Drawn again only when its item changed (items keep their identity until an event changes them). */
+const ItemView = memo(function ItemView({
+  item,
+  active,
+}: {
+  item: Extract<Block, { type: 'item' }>['item'];
+  active: boolean;
+}) {
   const t = useMessages(messages);
   const format = useFormat();
-  if (block.type === 'tools') return <ActivityLine calls={block.calls} />;
-
-  const { item } = block;
   switch (item.kind) {
     case 'user_message':
       return (
@@ -38,8 +67,7 @@ function BlockView({ block }: { block: Block }) {
         </div>
       );
     case 'agent_message':
-      // Markdown is not rendered yet (no library in the app); line breaks are kept.
-      return item.text ? <p className="text-body whitespace-pre-wrap">{item.text}</p> : null;
+      return <AgentMessage text={item.text} streaming={active} />;
     case 'approval': {
       const word = { allow: t.chosenAllow, allow_always: t.chosenAllowAlways, deny: t.chosenDeny }[
         item.decision ?? 'deny'
@@ -85,4 +113,4 @@ function BlockView({ block }: { block: Block }) {
         </div>
       );
   }
-}
+});

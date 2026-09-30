@@ -153,8 +153,12 @@ Boards go on the design canvas first. Wording follows OpenAI's
   Manage usage in ChatGPT settings." [Got it]
 - **In use.** "Using ChatGPT plan · Manage usage" next to the composer's model selector when the session's model is
   on a ChatGPT connection.
-- **Usage limit.** A modal or compact message. The primary action is Manage usage (ChatGPT settings → Usage). The
-  secondary action is switching to another connection; we sell no credits.
+- **Usage limit.** A modal or compact message. The primary action is Manage usage (ChatGPT settings → Usage,
+  `https://chatgpt.com/settings/usage`). The secondary action is switching to another connection; we sell no credits.
+  The core ends such a run as `run_stopped` with reason `plan_limit` (and an ended sign-in as `signed_out`), so the app
+  words it itself.
+- **No numbers we do not have.** SIWC reports neither what is left of the plan nor when it resets, so no screen shows
+  a ChatGPT percentage or a reset time; only tokens used, plus Manage usage.
 - **Declined consent.** "ChatGPT plan use isn't allowed", with [Allow again] (the same `client_id` plus
   `prompt=consent`) and [Connect with an API key].
 - **Needs sign-in.** The connection row shows [Sign in again].
@@ -180,9 +184,15 @@ core functions as the server.
    `alpine_server/chatgpt.py`. A real sign-in through `alpine-server` over stdio went from `chatgpt/signIn` to
    `connected` to `connections/models`. Still open: a used-up plan reaches the app only as a `failed` run with a
    message. The limit screen needs its own reason, which is a change to the core's session (step 4).
-4. **Canvas boards, then the desktop.**
-5. **CLI** `/login`, `/logout`.
-6. Decision rows in [architecture.md](architecture.md).
+4. **Canvas boards, then the desktop** (done 2026-09-30). Boards FirstRunChatGPT, FirstRunChatGPTDone and
+   FirstRunChatGPTDeclined, plus fixes to Connection, Usage and LimitHit (canvas v59). Desktop:
+   `shared/components/connect/ChatGPTSignIn.tsx` (waiting, the one-time welcome with a model, declined), `PlanLine`
+   near the input, ChatGPT rows in Settings › Model connection, the first run's ChatGPT row, and `useChatGPTSignIn`
+   in `shared/server/chatgpt.ts`. The core got `run_stopped` reasons `plan_limit` and `signed_out`; the chat words
+   them and links to Manage usage. Checked in Storybook against the scripted server. Not yet: the LimitHit dock's
+   choices (the session screen cannot change its model yet), and a run in the real Tauri window.
+5. **CLI** (done 2026-09-30). `/login [connection]` and `/logout [connection]` (`alpine_cli/commands.py`).
+6. Decision rows in [architecture.md](architecture.md) (done).
 
 ## Decisions
 
@@ -194,6 +204,5 @@ core functions as the server.
 
 ## Open
 
-- The Korean wording for "Continue with ChatGPT", within OpenAI's branding rules.
-- The exact Manage usage URL.
+- The LimitHit dock (see the usage limit, API key, another model) once the session screen can change its model.
 - Signing in offline: the JWKS fetch and its cache.

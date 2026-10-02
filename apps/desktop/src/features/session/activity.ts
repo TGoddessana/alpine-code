@@ -18,11 +18,9 @@ export function activityWord(activity: Pick<Activity, 'kind' | 'toolName'> | nul
       return 'approval';
     case 'compacting':
       return 'compacting';
-    case 'running_tool': {
-      const name = activity.toolName ?? '';
-      if (/^(grep|glob)(_file)?$/.test(name)) return 'searching';
-      const kind = toolKind(name);
-      return kind === 'read' ? 'reading' : kind === 'edit' ? 'editing' : kind === 'run' ? 'running' : 'tool';
-    }
+    case 'running_tool':
+      return ({ read: 'reading', search: 'searching', edit: 'editing', run: 'running', other: 'tool' } as const)[
+        toolKind(activity.toolName ?? '')
+      ];
   }
 }

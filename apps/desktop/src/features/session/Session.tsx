@@ -24,8 +24,9 @@ import { messages } from './messages';
 const FOLLOW_PX = 80;
 
 /**
- * A session's centre column: the header (title · project, state), the chat, the progress line while a run is active, the approval dock
- * while one waits, and the input at the bottom (with the memory meter in its bar). While the run goes on the send button is a stop button.
+ * A session's centre column: the header (title · project, state), the chat ending in the progress line while a run is
+ * active, the approval dock while one waits, and the input at the bottom (with the memory meter in its bar). While
+ * the run goes on the send button is a stop button.
  */
 export function Session({ sessionId }: { sessionId: string }) {
   const t = useMessages(messages);
@@ -91,12 +92,12 @@ export function Session({ sessionId }: { sessionId: string }) {
         }}
         className="min-h-0 grow overflow-y-auto"
       >
-        <div ref={content} className="mx-auto w-full max-w-202 px-6 py-6">
+        <div ref={content} className="mx-auto flex w-full max-w-202 flex-col gap-4 px-6 py-6">
           <Chat items={state.items} activeIds={state.activeIds} />
+          {running && <ProgressLine info={info} />}
         </div>
       </div>
       <div className="mx-auto flex w-full max-w-202 flex-col gap-2 px-6 pt-3 pb-6">
-        {running && <ProgressLine info={info} />}
         {approval && <ApprovalDock key={approval.id} sessionId={sessionId} approval={approval} />}
         <div className="flex justify-end empty:hidden">
           <PlanLine model={info.model} />

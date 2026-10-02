@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { expect, screen, userEvent, waitFor } from 'storybook/test';
 
 import {
@@ -23,17 +24,30 @@ const earlier: Item[] = [
     name: 'read',
     args: { path: 'tests/login.test.ts' },
     status: 'done',
-    result: null,
+    result: Array.from({ length: 24 }, (_, i) => `${String(i + 1).padStart(3)}\t// line ${i + 1}`).join('\n'),
     images: 0,
   },
   {
     id: 'i4',
     kind: 'tool_call',
     name: 'grep',
-    args: { pattern: 'waitFor' },
+    args: { pattern: 'waitFor', path: 'tests' },
     status: 'done',
-    result: null,
+    result: 'tests/login.test.ts:12:  await waitFor(() => screen.getByText("Welcome"));',
     images: 0,
+  },
+  {
+    id: 'i5a',
+    kind: 'approval',
+    callId: 'i5',
+    title: 'Edit tests/login.test.ts',
+    preview:
+      '--- a/tests/login.test.ts\n+++ b/tests/login.test.ts\n@@ -12 +12 @@\n-  await waitFor(() => screen.getByText("Welcome"));\n+  await screen.findByText("Welcome", {}, { timeout: 3000 });\n',
+    previewKind: 'diff',
+    reason: null,
+    remember: 'edit',
+    decision: 'allow',
+    feedback: null,
   },
   {
     id: 'i5',
@@ -41,7 +55,7 @@ const earlier: Item[] = [
     name: 'edit',
     args: { path: 'tests/login.test.ts' },
     status: 'done',
-    result: null,
+    result: 'Edited tests/login.test.ts',
     images: 0,
   },
   {
@@ -62,7 +76,38 @@ const earlier: Item[] = [
     name: 'bash',
     args: { command: 'pnpm test login' },
     status: 'error',
-    result: '1 failed',
+    result: [
+      ' RUN  v3.2.4 /Users/me/app',
+      '',
+      ' ✓ tests/signup.test.ts (6 tests) 412ms',
+      ' ✓ tests/session.test.ts (5 tests) 380ms',
+      ' ❯ tests/login.test.ts (1 test | 1 failed) 3012ms',
+      '   × shows the welcome message',
+      '     TimeoutError: Welcome not found in 3000ms',
+      '',
+      ' Tests  1 failed | 11 passed (12)',
+    ].join('\n'),
+    images: 0,
+  },
+  {
+    id: 'i7a',
+    kind: 'approval',
+    callId: 'i7b',
+    title: 'Run command',
+    preview: 'pnpm lint',
+    previewKind: 'command',
+    reason: null,
+    remember: 'pnpm lint',
+    decision: 'deny',
+    feedback: '린트는 지금 안 돌려도 돼요',
+  },
+  {
+    id: 'i7b',
+    kind: 'tool_call',
+    name: 'bash',
+    args: { command: 'pnpm lint' },
+    status: 'denied',
+    result: 'The user declined this tool call. They said: 린트는 지금 안 돌려도 돼요',
     images: 0,
   },
   { id: 'i8', kind: 'notice', text: 'AGENTS.md를 읽었어요', source: 'agents_md' },
@@ -119,26 +164,42 @@ const say = async (text: string) => {
   await userEvent.type(await screen.findByLabelText(/^(메시지|Message)$/), `${text}{Enter}`);
 };
 
-/** Boards for the session screen, without the rail and the right panel. */
+/**
+ * Boards for the session screen, without the rail and the right panel. The profile chip in the input bar is a link,
+ * so each story makes a router.
+ */
 const meta = {
   title: 'Session/Session',
   component: Session,
   args: { sessionId: ID },
   parameters: { layout: 'fullscreen' },
-  decorators: [(Story) => <div className="flex h-screen">{Story()}</div>],
+  decorators: [
+    (Story) => {
+      const router = createRouter({
+        routeTree: createRootRoute({ component: () => <div className="flex h-screen">{Story()}</div> }),
+      });
+      return <RouterProvider router={router} />;
+    },
+  ],
 } satisfies Meta<typeof Session>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Bubbles, prose, activity lines, my earlier choice, a notice, a compaction divider and why the run stopped. */
+/**
+ * Bubbles, prose, a stretch of tool calls as one line that opens into Claude Code's layout (a read's count that
+ * opens, an edit's diff, a failed command's output cut to its first lines, a denied one with what I said), a notice,
+ * a compaction divider and why the run stopped.
+ */
 export const Conversation: Story = {
   parameters: { server: server(earlier) },
   play: async () => {
-    await userEvent.click(
-      await screen.findByRole('button', { name: /편집 1 · 실행 1 · 읽기 2|Edit 1 · Run 1 · Read 2/ }),
-    );
-    await waitFor(() => expect(screen.getAllByText(/완료|Done/).length).toBeGreaterThan(0));
+    await userEvent.click(await screen.findByRole('button', { name: /명령 2개 실행.*실패 1.*안 함 1|Ran 2 commands/ }));
+    await expect(await screen.findByText(/린트는 지금 안 돌려도 돼요/)).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: /24줄 읽음|Read 24 lines/ }));
+    await waitFor(() => expect(screen.getByText(/line 24/)).toBeVisible());
+    await userEvent.click(screen.getByRole('button', { name: /… 5줄 더 보기|… 5 more lines/ }));
+    await waitFor(() => expect(screen.getByText(/Tests {2}1 failed/)).toBeVisible());
   },
 };
 
@@ -179,7 +240,7 @@ export const StreamingMarkdown: Story = {
   },
 };
 
-/** While the run goes on, a line above the input says what it is doing, for how long and with how many tokens. */
+/** While the run goes on, the last line of the chat says what it is doing, for how long and with how many tokens. */
 export const ShowsProgress: Story = {
   parameters: { server: server([], { stepMs: 2000, wordMs: 300 }) },
   play: async () => {

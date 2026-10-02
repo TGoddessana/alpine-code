@@ -19,9 +19,10 @@ function useNow(): number {
 }
 
 /**
- * What the agent is doing right now, in one line above the input: a dot (grey while it works, orange while it
- * waits for me), the activity in words, how long the run has lasted and how many tokens it used so far. Shown only
- * while a run is active. The dot pulses gently so the line never looks frozen, unless motion is reduced.
+ * What the agent is doing right now, as the last line of the chat, where I am looking: a dot (grey while it works,
+ * orange while it waits for me), the activity in words, how long the run has lasted and how many tokens it used so
+ * far. Shown only while a run is active. The dot pulses gently so the line never looks frozen, unless motion is
+ * reduced.
  */
 export function ProgressLine({ info }: { info: Pick<SessionInfo, 'activity' | 'runStartedAt' | 'runUsage'> }) {
   const t = useMessages(messages);
@@ -35,7 +36,7 @@ export function ProgressLine({ info }: { info: Pick<SessionInfo, 'activity' | 'r
 
   return (
     // The clock ticks every second, so the region is not announced.
-    <p role="status" aria-live="off" className="flex items-center gap-2 px-1 text-meta text-fg-muted">
+    <p role="status" aria-live="off" className="flex items-center gap-2 text-meta text-fg-muted">
       <span
         aria-hidden="true"
         className={clsx('animate-pulse motion-reduce:animate-none', waiting && 'text-attention')}

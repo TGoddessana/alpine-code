@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { useConnectPrompt } from '@/shared/components/connect';
 import { useMessages } from '@/shared/i18n';
@@ -26,7 +26,8 @@ const icon = {
  * Enter sends: `onSend` resolves once the server took the message, and the box empties; if it rejects, the text
  * stays and a quiet line says why. While `running` the send button becomes a stop button (`onStop`) and Enter
  * sends nothing, unless the run waits for an `answer`: then what I write goes to `answer.onSend`, and the button
- * sends while there is text. With no model connected, sending asks to connect one instead.
+ * sends while there is text. Esc stops the run too, from anywhere on the screen, unless a dialog, menu or list is
+ * open (Esc closes that first). With no model connected, sending asks to connect one instead.
  */
 export function Composer({
   locked = false,
@@ -54,6 +55,25 @@ export function Composer({
   const ask = useConnectPrompt((state) => state.ask);
   const connected =
     !!connections.data && (connections.data.connections.length > 0 || connections.data.defaultModel !== null);
+
+  // The screen draws again on every frame of a streaming reply, with a new `onStop` each time; the key listener
+  // reads the latest one instead of being added again.
+  const stop = useRef(onStop);
+  useEffect(() => {
+    stop.current = onStop;
+  });
+  const stoppable = running && !!onStop;
+  useEffect(() => {
+    if (!stoppable) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')) return;
+      event.preventDefault();
+      stop.current?.();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [stoppable]);
 
   const send = async () => {
     if (!text.trim() || (running && !answer) || sending.current) return;
@@ -102,7 +122,8 @@ export function Composer({
               type="button"
               onClick={onStop}
               aria-label={t.stop}
-              title={t.stop}
+              aria-keyshortcuts="Escape"
+              title={t.stopTitle}
               className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted hover:bg-canvas-sunken hover:text-fg"
             >
               <svg {...icon} fill="currentColor" stroke="none">

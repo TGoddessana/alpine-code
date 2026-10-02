@@ -72,7 +72,7 @@ const ANSWER = 'I read the README, then ran the check you asked for. ';
  * Along the way `info` changes as on the real server: the activity (thinking, writing, a tool, waiting for approval),
  * `runStartedAt`, and the usage after every model call (`runUsage` for the run, `usage` and `contextUsed` for the session).
  *
- * A denial with feedback goes on to the final reply; one without it ends the run with `run_stopped: permission`.
+ * A denial skips the call and goes on to the final reply (which repeats the feedback, if any), as the core does.
  * `session/cancel` ends the run with `run_stopped: interrupted` wherever it is.
  */
 export function sessionScript(options: SessionScriptOptions = {}): Script {

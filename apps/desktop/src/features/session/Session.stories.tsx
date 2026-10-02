@@ -304,6 +304,17 @@ export const Skipped: Story = {
   },
 };
 
+/** Esc stops the run from anywhere on the screen, like the stop button; a quiet line says it stopped. */
+export const StoppedWithEsc: Story = {
+  parameters: { server: server([], { stepMs: 1500, wordMs: 300 }) },
+  play: async () => {
+    await say('테스트를 돌려 주세요');
+    await expect(await screen.findByRole('button', { name: /멈추기|Stop/ }, { timeout: 10_000 })).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.getByText(/^(멈췄어요|Stopped)$/)).toBeVisible(), { timeout: 10_000 });
+  },
+};
+
 /** Board LimitHit, as far as the app goes today: a ChatGPT session that stopped at the plan's limit. */
 export const ChatGPTLimitHit: Story = {
   parameters: {

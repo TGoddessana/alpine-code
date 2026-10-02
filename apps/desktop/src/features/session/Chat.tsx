@@ -6,6 +6,7 @@ import { useFormat, useMessages } from '@/shared/i18n';
 import { openInBrowser } from '@/shared/platform';
 import { CHATGPT_USAGE_URL, type Item } from '@/shared/server';
 
+import { ApprovalCard } from './ApprovalCard';
 import { toBlocks, type Block } from './blocks';
 import { messages } from './messages';
 import { useRevealed } from './reveal';
@@ -14,15 +15,26 @@ import { ToolCalls } from './ToolCalls';
 const quiet = 'text-meta text-fg-muted whitespace-pre-wrap';
 
 /**
- * The centre column as plain chat: my messages as bubbles, the agent's as prose, tool calls as rows (with what I
- * answered when they asked) and the rest (notices, why a run stopped) as quiet lines.
+ * The centre column as plain chat: my messages as bubbles, the agent's as prose, tool calls as one counted line
+ * (with what I answered when they asked), a call that waits for my answer as a card, and the rest (notices, why a
+ * run stopped) as quiet lines.
  */
-export function Chat({ items, activeIds }: { items: Item[]; activeIds: readonly string[] }) {
+export function Chat({
+  sessionId,
+  items,
+  activeIds,
+}: {
+  sessionId: string;
+  items: Item[];
+  activeIds: readonly string[];
+}) {
   return (
     <div className="flex flex-col gap-4">
-      {toBlocks(items).map((block) =>
+      {toBlocks(items, activeIds).map((block) =>
         block.type === 'tools' ? (
           <ToolCalls key={block.id} rows={block.rows} />
+        ) : block.type === 'approval' ? (
+          <ApprovalCard key={block.item.id} sessionId={sessionId} approval={block.item} />
         ) : (
           <ItemView key={block.item.id} item={block.item} active={activeIds.includes(block.item.id)} />
         ),

@@ -297,6 +297,14 @@
             }
           ],
           "default": null
+        },
+        "tool": {
+          "default": "",
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": true,
+          "type": "object"
         }
       },
       "required": [
@@ -309,7 +317,9 @@
         "reason",
         "remember",
         "decision",
-        "feedback"
+        "feedback",
+        "tool",
+        "args"
       ],
       "title": "ApprovalItem",
       "type": "object"

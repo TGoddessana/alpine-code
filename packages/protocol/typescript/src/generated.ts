@@ -35,6 +35,10 @@ export interface ApprovalItem {
   remember: string | null;
   decision: ('allow' | 'allow_always' | 'deny') | null;
   feedback: string | null;
+  tool: string;
+  args: {
+    [k: string]: unknown;
+  };
 }
 /**
  * The ChatGPT account behind a connection that signs in instead of using a key. Tokens never leave the server.

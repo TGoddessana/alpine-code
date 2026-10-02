@@ -27,20 +27,31 @@ const approval = (id: string, callId: string, over: Partial<ApprovalItem> = {}):
   remember: null,
   decision: null,
   feedback: null,
+  tool: 'bash',
+  args: {},
   ...over,
 });
 
 describe('toBlocks', () => {
   it('joins tool calls in a row and splits them at messages', () => {
-    const blocks = toBlocks([call('c1'), call('c2'), message('m1'), call('c3')]);
+    const blocks = toBlocks([call('c1'), call('c2'), message('m1'), call('c3')], []);
     expect(blocks.map((b) => b.type)).toEqual(['tools', 'item', 'tools']);
     expect(blocks[0]).toMatchObject({ rows: [{ call: { id: 'c1' } }, { call: { id: 'c2' } }] });
   });
 
-  it('puts an approval with its call instead of drawing it, waiting or finished', () => {
+  it('draws a waiting approval where its call will be', () => {
+    const waiting = approval('r1', 'c2');
+    expect(toBlocks([call('c1'), waiting], ['r1'])).toEqual([
+      { type: 'tools', id: 'c1', rows: [{ call: call('c1'), approval: null }] },
+      { type: 'approval', item: waiting },
+    ]);
+  });
+
+  it('puts a finished approval with its call instead of drawing it', () => {
     // The core asks about every call of a turn before any runs, so approvals come before their calls.
     const denied = approval('r2', 'c2', { decision: 'deny', feedback: 'not now' });
-    const blocks = toBlocks([call('c1'), approval('r1', 'c9'), denied, call('c2', { status: 'denied' })]);
+    const allowed = approval('r1', 'c9', { decision: 'allow' });
+    const blocks = toBlocks([call('c1'), allowed, denied, call('c2', { status: 'denied' })], []);
     expect(blocks).toEqual([
       {
         type: 'tools',

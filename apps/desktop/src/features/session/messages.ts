@@ -42,9 +42,9 @@ export const messages = defineMessages({
     allow: '허용',
     allowAlways: '항상 허용',
     allowAlwaysFor: (what: string) => `항상 허용: ${what}`,
-    deny: '거절',
-    feedback: '거절하는 이유 (선택)',
-    feedbackPlaceholder: '이유를 적으면 에이전트가 방향을 바꿔요',
+    skip: '건너뛰기',
+    answerHint: '다르게 하려면 아래 입력창에 적어 주세요',
+    answerPlaceholder: '어떻게 다르게 할지 적어 주세요',
     answerFailed: '답을 보내지 못했어요. 다시 눌러 주세요',
 
     // Quiet lines
@@ -114,9 +114,9 @@ export const messages = defineMessages({
     allow: 'Allow',
     allowAlways: 'Always allow',
     allowAlwaysFor: (what: string) => `Always allow: ${what}`,
-    deny: 'Deny',
-    feedback: 'Why not? (optional)',
-    feedbackPlaceholder: 'Say why and the agent will change course',
+    skip: 'Skip',
+    answerHint: 'To have it do something else, write it in the input below',
+    answerPlaceholder: 'Say what to do instead',
     answerFailed: "Couldn't send your answer. Please try again",
 
     stopped_interrupted: 'Stopped',

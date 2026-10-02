@@ -46,8 +46,8 @@ describe('sessionScript', () => {
       'user_message',
       'agent_message',
       'read_file:done',
-      'bash:done',
       'approval',
+      'bash:done',
       'agent_message',
     ]);
     expect(state().activeIds).toEqual([]);
@@ -76,7 +76,7 @@ describe('sessionScript', () => {
     expect(done.usage.cacheReadTokens).toBeGreaterThan(0);
   });
 
-  it('stops the run when a denial has no feedback', async () => {
+  it('skips the call and goes on when a denial has no feedback', async () => {
     const { connection, id, state } = await setup();
     await connection.request('session/send', { sessionId: id, text: 'edit the readme' });
     await vi.waitFor(() => expect(activeApproval(state())).not.toBeNull());
@@ -84,7 +84,7 @@ describe('sessionScript', () => {
     expect(approval.previewKind).toBe('diff');
     await connection.request('session/answer', { sessionId: id, requestId: approval.id, decision: 'deny' });
     await vi.waitFor(() => expect(state().info.status).toBe('idle'));
-    expect(kinds(state()).slice(-3)).toEqual(['edit_file:denied', 'approval', 'run_stopped']);
+    expect(kinds(state()).slice(-3)).toEqual(['approval', 'edit_file:denied', 'agent_message']);
   });
 
   it('cancels at the approval', async () => {
@@ -93,7 +93,7 @@ describe('sessionScript', () => {
     await vi.waitFor(() => expect(activeApproval(state())).not.toBeNull());
     await connection.request('session/cancel', { sessionId: id });
     await vi.waitFor(() => expect(state().info.status).toBe('idle'));
-    expect(kinds(state()).slice(-3)).toEqual(['bash:denied', 'approval', 'run_stopped']);
+    expect(kinds(state()).slice(-3)).toEqual(['approval', 'bash:denied', 'run_stopped']);
     expect(state().items.at(-1)).toMatchObject({ reason: 'interrupted' });
   });
 

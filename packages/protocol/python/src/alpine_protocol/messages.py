@@ -609,6 +609,9 @@ class ApprovalItem(ItemModel):
     decision: Literal["allow", "allow_always", "deny"] | None = None
     """``None`` while active."""
     feedback: str | None = None
+    tool: str = ""
+    """The call's tool and arguments, so the app can draw the call it asks about (empty in older sessions)."""
+    args: dict[str, Any] = Field(default_factory=dict)
 
 
 class NoticeItem(ItemModel):

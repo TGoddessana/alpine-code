@@ -230,7 +230,7 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
       modelCall(context, live, { input: 300, output: 90, cacheRead: 1500, cacheWrite: 350 });
 
       const editing = /\bedit\b/i.test(text);
-      call = {
+      const pending: ToolCallItem = {
         id: id(live, 'call'),
         kind: 'tool_call',
         name: editing ? 'edit_file' : 'bash',
@@ -239,25 +239,25 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         result: null,
         images: 0,
       };
-      emit(context, live, { type: 'item_started', item: call });
-      setActivity(context, live, 'running_tool', call.name);
-      await step();
+      // As in the core: the call is asked about before it starts, and becomes an item once it runs (or is skipped).
       approval = {
         id: id(live, 'req'),
         kind: 'approval',
-        callId: call.id,
-        title: editing ? 'Edit README.md' : 'Run a command',
+        callId: pending.id,
+        title: editing ? 'Edit README.md' : 'Run command',
         preview: editing ? '-A coding agent with a core and a UI.\n+A coding agent for your desktop.' : 'pnpm test',
         previewKind: editing ? 'diff' : 'command',
         reason: editing ? null : 'Runs a command in your project',
         remember: editing ? 'Edits to README.md' : 'pnpm test',
         decision: null,
         feedback: null,
+        tool: pending.name,
+        args: pending.args,
       };
       emit(context, live, { type: 'item_started', item: approval });
       setInfo(context, live, {
         status: 'waiting',
-        activity: { kind: 'waiting_approval', toolName: call.name, since: new Date().toISOString() },
+        activity: { kind: 'waiting_approval', toolName: pending.name, since: new Date().toISOString() },
       });
 
       const answer = await new Promise<{ decision: NonNullable<ApprovalItem['decision']>; feedback: string | null }>(
@@ -272,38 +272,38 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
       emit(context, live, { type: 'item_completed', item: approval });
       if (control.cancelled) {
         // Stopped at the approval: the call they stopped is denied.
-        emit(context, live, { type: 'item_completed', item: { ...call, status: 'denied' } });
-        call = null;
+        emit(context, live, { type: 'item_completed', item: { ...pending, status: 'denied' } });
         throw new Cancelled();
       }
-      setInfo(context, live, {
-        status: 'running',
-        activity: { kind: 'running_tool', toolName: call.name, since: new Date().toISOString() },
-      });
 
       if (answer.decision === 'deny') {
-        call = { ...call, status: 'denied' };
-        emit(context, live, { type: 'item_completed', item: call });
-        call = null;
-        if (!answer.feedback) {
-          emit(context, live, {
-            type: 'item_completed',
-            item: { id: id(live, 'stop'), kind: 'run_stopped', reason: 'permission', message: null },
-          });
-          finish(context, live, 'idle');
-          return;
-        }
+        // Skipped (with or without saying what to do instead): the call is not run and the run goes on.
+        emit(context, live, { type: 'item_completed', item: { ...pending, status: 'denied' } });
       } else {
+        call = pending;
+        emit(context, live, { type: 'item_started', item: call });
+        setInfo(context, live, {
+          status: 'running',
+          activity: { kind: 'running_tool', toolName: call.name, since: new Date().toISOString() },
+        });
         await step();
         call = { ...call, status: 'done', result: editing ? 'Edited README.md' : 'Tests passed (12)' };
         emit(context, live, { type: 'item_completed', item: call });
         call = null;
       }
+      setInfo(context, live, { status: 'running' });
       setActivity(context, live, 'thinking');
       await step();
       modelCall(context, live, { input: 200, output: 60, cacheRead: 1850, cacheWrite: 120 });
       setActivity(context, live, 'writing');
-      await say(ANSWER + (answer.feedback ? `You said: ${answer.feedback}` : 'Everything looks fine.'));
+      await say(
+        ANSWER +
+          (answer.feedback
+            ? `You said: ${answer.feedback}`
+            : answer.decision === 'deny'
+              ? 'I carried on without it.'
+              : 'Everything looks fine.'),
+      );
       modelCall(context, live, { input: 150, output: 80, cacheRead: 1970, cacheWrite: 0 });
       finish(context, live, 'idle');
     } catch (error) {

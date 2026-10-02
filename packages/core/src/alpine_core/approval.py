@@ -24,6 +24,10 @@ MAX_PREVIEW_LINES = 200
 REMEMBERED = "alpine_code.approvals"
 
 DECLINED = "The user declined this tool call."
+SKIPPED = (
+    "Do not run it, or anything that does the same, again. Carry on without it: answer with what you already know,"
+    " or find out another way."
+)
 
 PreviewKind = Literal["diff", "command", "text"]
 
@@ -56,11 +60,13 @@ class Decision:
     - ``allow``: run this call
     - ``allow_always``: run it, and do not ask again for what ``ApprovalRequest.remember`` describes
     - ``deny`` with ``feedback``: skip the call and tell the model what to do instead; the run continues
-    - ``deny`` without ``feedback``: skip the call and stop the run, waiting for the user's next message
+    - ``deny`` without ``feedback``: skip the call; the run continues without it
+    - ``deny`` with ``stop``: skip the call and stop the run, waiting for the user's next message (a terminal's Esc)
     """
 
     kind: Literal["allow", "allow_always", "deny"]
     feedback: str | None = None
+    stop: bool = False
 
 
 class BlockingApprover(Protocol):
@@ -144,9 +150,11 @@ class DecideByApprover(DecidePermission):
                 root.data[REMEMBERED] = grants.to_data()
         if decision.kind != "deny":
             return Allowed()
+        if decision.stop:
+            return Denied(f"{DECLINED} Wait for their next message.", stop=True)
         if decision.feedback:
             return Denied(f"{DECLINED} They said: {decision.feedback}")
-        return Denied(f"{DECLINED} Wait for their next message.", stop=True)
+        return Denied(f"{DECLINED} {SKIPPED}")
 
 
 def remembered(state: State) -> Remembered:

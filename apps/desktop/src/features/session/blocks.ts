@@ -8,22 +8,29 @@ export interface ToolRow {
   approval: ApprovalItem | null;
 }
 
-/** What the chat draws: an item as it is, or the tool calls that came in a row as one list. */
+/**
+ * What the chat draws: an item as it is, the tool calls that came in a row as one list, or a call that waits for my
+ * answer.
+ */
 export type Block =
-  { type: 'item'; item: Exclude<Item, ToolCallItem | ApprovalItem> } | { type: 'tools'; id: string; rows: ToolRow[] };
+  | { type: 'item'; item: Exclude<Item, ToolCallItem | ApprovalItem> }
+  | { type: 'tools'; id: string; rows: ToolRow[] }
+  | { type: 'approval'; item: ApprovalItem };
 
 /**
- * The items in the order they started, as blocks. Tool calls in a row become one block. Approvals are not drawn on
- * their own: a waiting one is in the dock above the input, and a finished one goes with its call (a denied call
+ * The items in the order they started, as blocks. Tool calls in a row become one block. A waiting approval is its
+ * own block where the call will be; a finished one is not drawn on its own but goes with its call (a denied call
  * shows what I said).
  */
-export function toBlocks(items: Item[]): Block[] {
+export function toBlocks(items: Item[], activeIds: readonly string[]): Block[] {
+  const active = new Set(activeIds);
   const approvals = new Map<string, ApprovalItem>();
   for (const item of items) if (item.kind === 'approval') approvals.set(item.callId, item);
   const blocks: Block[] = [];
   for (const item of items) {
-    if (item.kind === 'approval') continue;
-    if (item.kind === 'tool_call') {
+    if (item.kind === 'approval') {
+      if (active.has(item.id)) blocks.push({ type: 'approval', item });
+    } else if (item.kind === 'tool_call') {
       const row = { call: item, approval: approvals.get(item.id) ?? null };
       const last = blocks.at(-1);
       if (last?.type === 'tools') last.rows.push(row);
@@ -44,9 +51,12 @@ export function toolKind(name: string): ToolKind {
   return 'other';
 }
 
-/** The part of a call's arguments worth showing on its line: a path, a command or a pattern (and where it looks). */
-export function toolTarget(call: ToolCallItem): string {
-  const { path, file_path, command, pattern } = call.args;
+/**
+ * The part of a call's arguments worth showing on its line: a path, a command or a pattern (and where it looks).
+ * Takes a call or an approval, which carries its call's arguments.
+ */
+export function toolTarget({ args }: { args: Record<string, unknown> }): string {
+  const { path, file_path, command, pattern } = args;
   if (typeof pattern === 'string') return typeof path === 'string' && path ? `${pattern}  ${path}` : pattern;
   for (const value of [path, file_path, command]) if (typeof value === 'string') return value;
   return '';

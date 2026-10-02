@@ -170,7 +170,7 @@ def test_approval_allow_and_first_answer_wins(folder, monkeypatch):
     run(scenario())
 
 
-def test_approval_deny_with_and_without_feedback(folder, monkeypatch):
+def test_approval_deny_skips_the_call_and_the_run_goes_on(folder, monkeypatch):
     async def scenario(replies, feedback, last):
         fake_model(monkeypatch, *replies)
         async with Client([]) as client:
@@ -185,8 +185,8 @@ def test_approval_deny_with_and_without_feedback(folder, monkeypatch):
             return (await client.call("session/open", sessionId=sid))["result"]
 
     replies = [tool_call("bash", command="echo 1"), "OK"]
-    stopped = asyncio.run(scenario(replies, None, "run_stopped"))
-    assert stopped["items"][-1]["reason"] == "permission"
+    skipped = asyncio.run(scenario(replies, None, "agent_message"))
+    assert [i["kind"] for i in skipped["items"]][-2:] == ["tool_call", "agent_message"]
     continued = asyncio.run(scenario(replies, "use ls", "agent_message"))
     approval = next(i for i in continued["items"] if i["kind"] == "approval")
     assert approval["feedback"] == "use ls"

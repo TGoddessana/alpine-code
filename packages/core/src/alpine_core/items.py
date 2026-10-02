@@ -68,8 +68,9 @@ class ToolCallItem:
 
 @dataclass(frozen=True)
 class ApprovalItem:
-    """Active while the dock shows it (``decision`` is ``None``); finished with the user's decision. ``id`` is the
-    request id the app answers with."""
+    """Active while the app asks (``decision`` is ``None``); finished with the user's decision. ``id`` is the
+    request id the app answers with. ``tool`` and ``args`` are the call's, so the app can draw it like the call it
+    will become (empty in sessions saved before they were added)."""
 
     id: str
     call_id: str
@@ -80,6 +81,8 @@ class ApprovalItem:
     remember: str | None = None
     decision: ApprovalDecision | None = None
     feedback: str | None = None
+    tool: str = ""
+    args: dict[str, Any] = field(default_factory=dict)
     kind: ClassVar[str] = "approval"
 
 
@@ -186,7 +189,7 @@ def item_to_dict(item: Item) -> dict[str, Any]:
     """Plain JSON data with snake_case keys; ``kind`` comes first."""
     data = {"kind": item.kind}
     data.update({f.name: getattr(item, f.name) for f in dataclasses.fields(item)})
-    if isinstance(item, ToolCallItem):
+    if isinstance(item, ToolCallItem | ApprovalItem):
         data["args"] = dict(item.args)
     return data
 
@@ -290,7 +293,7 @@ class ItemRecorder:
         self._text: dict[str, list[str]] = {}  # streamed text of active agent messages
         self._pending = ""  # leading whitespace of a reply that has not shown any text yet
         self._message_id: str | None = None  # the active agent message
-        self._stop_asked = False  # the user declined a call without saying what to do instead
+        self._stop_asked = False  # the user declined a call and asked to stop the run
 
     # ------------------------------------------------------------------ state
 
@@ -343,23 +346,34 @@ class ItemRecorder:
         preview_kind: PreviewKind = "text",
         reason: str | None = None,
         remember: str | None = None,
+        *,
+        tool: str = "",
+        args: dict[str, Any] | None = None,
     ) -> ApprovalItem:
         """The core asks; the item's ``id`` is the request id."""
-        item = ApprovalItem(self._new_id(), call_id, title, preview, preview_kind, reason, remember)
+        item = ApprovalItem(
+            self._new_id(), call_id, title, preview, preview_kind, reason, remember, tool=tool, args=dict(args or {})
+        )
         self._start(item)
         return item
 
     def finish_approval(
-        self, item_id: str, decision: ApprovalDecision, feedback: str | None = None, *, cancelled: bool = False
+        self,
+        item_id: str,
+        decision: ApprovalDecision,
+        feedback: str | None = None,
+        *,
+        stop: bool = False,
+        cancelled: bool = False,
     ) -> ApprovalItem | None:
         """Completes an active approval with the user's decision. ``None`` if it is not active (already answered).
-        A ``deny`` without feedback stops the run, which then ends as ``permission`` unless ``cancelled`` (the user
+        A ``deny`` with ``stop`` stops the run, which then ends as ``permission`` unless ``cancelled`` (the user
         cancelled the run while it waited: that ends as ``interrupted``)."""
         item = self._active.get(item_id)
         if not isinstance(item, ApprovalItem):
             return None
         done = dataclasses.replace(item, decision=decision, feedback=feedback)
-        if decision == "deny" and not feedback and not cancelled:
+        if decision == "deny" and stop and not cancelled:
             self._stop_asked = True
         self._complete(done)
         return done

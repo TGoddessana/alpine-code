@@ -82,16 +82,11 @@ export function ToolCalls({ rows }: { rows: ToolRow[] }) {
 /** Drawn again only when its call or its approval changed, not on every frame of a streaming reply. */
 const Call = memo(
   function Call({ row }: { row: ToolRow }) {
-    const t = useMessages(messages);
     const { call } = row;
-    const target = toolTarget(call);
 
     return (
       <li className="flex flex-col gap-0.5">
-        <p className="line-clamp-3 min-w-0 text-body break-all" title={target}>
-          <span className="text-fg">{t[toolKind(call.name)]}</span>
-          {target && <span className="font-mono text-meta text-fg-muted">({target})</span>}
-        </p>
+        <CallTitle name={call.name} args={call.args} />
         <div className="flex min-w-0 flex-col items-start pl-4 text-meta text-fg-muted">
           <Summary row={row} summary={toolSummary(row)} />
         </div>
@@ -100,6 +95,18 @@ const Call = memo(
   },
   (before, after) => before.row.call === after.row.call && before.row.approval === after.row.approval,
 );
+
+/** A call as `Kind(target)`: the kind in words, then what it works on in mono. */
+export function CallTitle({ name, args }: { name: string; args: Record<string, unknown> }) {
+  const t = useMessages(messages);
+  const target = toolTarget({ args });
+  return (
+    <p className="line-clamp-3 min-w-0 text-body break-all" title={target}>
+      <span className="text-fg">{t[toolKind(name)]}</span>
+      {target && <span className="font-mono text-meta text-fg-muted">({target})</span>}
+    </p>
+  );
+}
 
 function Summary({ row, summary }: { row: ToolRow; summary: ToolSummary }) {
   const t = useMessages(messages);
@@ -184,7 +191,7 @@ function Output({ text, kind, failed }: { text: string; kind: 'diff' | 'text'; f
   );
 }
 
-function Lines({
+export function Lines({
   lines,
   kind,
   failed,

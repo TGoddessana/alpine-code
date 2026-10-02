@@ -48,6 +48,8 @@ const earlier: Item[] = [
     remember: 'edit',
     decision: 'allow',
     feedback: null,
+    tool: 'edit',
+    args: { path: 'tests/login.test.ts' },
   },
   {
     id: 'i5',
@@ -69,6 +71,8 @@ const earlier: Item[] = [
     remember: 'pnpm test',
     decision: 'allow',
     feedback: null,
+    tool: 'bash',
+    args: { command: 'pnpm test login' },
   },
   {
     id: 'i7',
@@ -100,6 +104,8 @@ const earlier: Item[] = [
     remember: 'pnpm lint',
     decision: 'deny',
     feedback: '린트는 지금 안 돌려도 돼요',
+    tool: 'bash',
+    args: { command: 'pnpm lint' },
   },
   {
     id: 'i7b',
@@ -253,12 +259,14 @@ export const ShowsProgress: Story = {
   },
 };
 
-/** The dock above the input: what it wants to run and why, and my three answers. */
+/** A call that waits for my answer, in the chat where it will run: what it would run and why, and my answers. */
 export const WaitingForApproval: Story = {
   parameters: { server: server() },
   play: async () => {
     await say('테스트를 돌려 주세요');
-    await waitFor(() => expect(screen.getByRole('region', { name: /승인 요청|Approval request/ })).toBeVisible());
+    const card = await screen.findByRole('region', { name: /승인 요청|Approval request/ }, { timeout: 10_000 });
+    await expect(card).toBeVisible();
+    await expect(screen.getByPlaceholderText(/어떻게 다르게 할지|Say what to do instead/)).toBeVisible();
   },
 };
 
@@ -266,28 +274,33 @@ export const WaitingForAnEdit: Story = {
   parameters: { server: server() },
   play: async () => {
     await say('README를 edit 해 주세요');
-    await waitFor(() => expect(screen.getByRole('region', { name: /승인 요청|Approval request/ })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('region', { name: /승인 요청|Approval request/ })).toBeVisible(), {
+      timeout: 10_000,
+    });
   },
 };
 
-/** Denying with a reason: the agent goes on with what I said. */
-export const DeniedWithFeedback: Story = {
+/** Writing in the input while a call waits skips it and tells the agent what to do instead; the run goes on. */
+export const AnsweredInTheInput: Story = {
   parameters: { server: server() },
   play: async () => {
     await say('테스트를 돌려 주세요');
-    await userEvent.type(await screen.findByLabelText(/거절하는 이유|Why not/), '테스트는 내가 돌릴게요');
-    await userEvent.click(screen.getByRole('button', { name: /^(거절|Deny)$/ }));
-    await waitFor(() => expect(screen.getByText(/테스트는 내가 돌릴게요|You said/)).toBeVisible());
+    await screen.findByRole('region', { name: /승인 요청|Approval request/ }, { timeout: 10_000 });
+    await say('테스트는 내가 돌릴게요');
+    await waitFor(() => expect(screen.getByText(/You said: 테스트는 내가 돌릴게요/)).toBeVisible(), {
+      timeout: 10_000,
+    });
   },
 };
 
-/** Denying without a reason ends the run, and a quiet line says so. */
-export const StoppedRun: Story = {
+/** Skipping a call does not stop the run: the agent carries on without it. */
+export const Skipped: Story = {
   parameters: { server: server() },
   play: async () => {
     await say('테스트를 돌려 주세요');
-    await userEvent.click(await screen.findByRole('button', { name: /^(거절|Deny)$/ }));
-    await waitFor(() => expect(screen.getByText(/허용되지 않아서 멈췄어요|not allowed/)).toBeVisible());
+    await userEvent.click(await screen.findByRole('button', { name: /^(건너뛰기|Skip)$/ }, { timeout: 10_000 }));
+    await waitFor(() => expect(screen.getByText(/I carried on without it/)).toBeVisible(), { timeout: 10_000 });
+    await expect(screen.getByRole('button', { name: /안 함 1|1 not run/ })).toBeVisible();
   },
 };
 

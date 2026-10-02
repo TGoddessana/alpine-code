@@ -592,13 +592,20 @@ class _ItemApprover:
     async def aapprove(self, request: ApprovalRequest) -> Decision:
         session = self._session
         item = session._recorder.start_approval(
-            request.call_id, request.title, request.preview, request.preview_kind, request.reason, request.remember
+            request.call_id,
+            request.title,
+            request.preview,
+            request.preview_kind,
+            request.reason,
+            request.remember,
+            tool=request.tool,
+            args=request.args,
         )
         session._activity = Activity("waiting_approval", None, _now())
         session._set_status("waiting")
         request = dataclasses.replace(request, request_id=item.id)
         decision = await self._ask(request)
-        session._recorder.finish_approval(item.id, decision.kind, decision.feedback)
+        session._recorder.finish_approval(item.id, decision.kind, decision.feedback, stop=decision.stop)
         session._activity = Activity("running_tool", request.tool, _now())
         session._set_status("running")
         return decision

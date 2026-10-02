@@ -111,6 +111,8 @@ describe('applyEvent', () => {
       remember: null,
       decision: null,
       feedback: null,
+      tool: 'bash',
+      args: {},
     } as const;
     const state = apply(start(), at(5, { type: 'item_started', item: approval }));
     expect(activeApproval(state)).toEqual(approval);

@@ -215,23 +215,27 @@ def test_interrupted_with_pending_approval_denies_it():
     assert rec.items[1].reason == "interrupted"
 
 
-def test_deny_without_feedback_then_interrupted_is_permission():
+def test_deny_with_stop_then_interrupted_is_permission():
     rec, _ = make()
     item = rec.start_approval("c1", "t")
-    rec.finish_approval(item.id, "deny")
+    rec.finish_approval(item.id, "deny", stop=True)
     rec.handle(ToolFinished("c1", "bash", {}, "declined", "denied", 0))
     rec.handle(Interrupted())
     assert rec.items[-1] == RunStopped("i2", "permission")
 
 
-def test_deny_with_feedback_or_cancelled_is_not_permission():
+def test_deny_without_stop_or_cancelled_is_not_permission():
     rec, _ = make()
     item = rec.start_approval("c1", "t")
     rec.finish_approval(item.id, "deny", "use ls")
     rec.handle(Interrupted())
     assert rec.items[-1].reason == "interrupted"
     item = rec.start_approval("c2", "t")
-    rec.finish_approval(item.id, "deny", cancelled=True)
+    rec.finish_approval(item.id, "deny")
+    rec.handle(Interrupted())
+    assert rec.items[-1].reason == "interrupted"
+    item = rec.start_approval("c3", "t")
+    rec.finish_approval(item.id, "deny", stop=True, cancelled=True)
     rec.handle(Interrupted())
     assert rec.items[-1].reason == "interrupted"
 
@@ -239,7 +243,7 @@ def test_deny_with_feedback_or_cancelled_is_not_permission():
 def test_new_user_message_clears_stop_flag():
     rec, _ = make()
     item = rec.start_approval("c1", "t")
-    rec.finish_approval(item.id, "deny")
+    rec.finish_approval(item.id, "deny", stop=True)
     rec.add_user_message("next")
     rec.handle(Interrupted())
     assert rec.items[-1].reason == "interrupted"

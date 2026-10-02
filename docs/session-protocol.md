@@ -23,7 +23,7 @@ finished items are stored; text deltas are sent live and never saved.
 | `user_message` | `text` | the user's bubble |
 | `agent_message` | `text` | the agent's prose |
 | `tool_call` | `name`, `args`, `status`, `result`, `images` | a tool line or card; `id` is the model's call id; `images` is how many images the tool sent to the model (a count, not the images) |
-| `approval` | `callId`, `title`, `preview`, `previewKind`, `reason`, `remember`, `decision`, `feedback` | while active: the dock; when finished: the "선택" bubble |
+| `approval` | `callId`, `title`, `preview`, `previewKind`, `reason`, `remember`, `decision`, `feedback` | while active: a card in the chat where the call will be; when finished: nothing of its own, a denied call shows the feedback |
 | `notice` | `text`, `source` | a message the **model reads** that the user did not write (e.g. a hand-back after a reply with no tool call) |
 | `status_line` | `text` | a line only the user reads (e.g. a model fallback) |
 | `compaction` | `beforeTokens`, `afterTokens` | a divider |
@@ -57,8 +57,10 @@ JSON-RPC 2.0 over stdio, camelCase on the wire.
 | `session/setMode` | `sessionId`, `mode` | `info` |
 | `session/delete` | `sessionId` | `{}`; a running session is cancelled first |
 
-`decision` is `allow`, `allow_always` or `deny`. `deny` with `feedback` skips the call and tells the model what to do
-instead; `deny` without it stops the turn. There is no "edit and run": alpineagents has no such verdict, and the
+`decision` is `allow`, `allow_always` or `deny`. `deny` skips the call and the run goes on: with `feedback` the model
+is told what to do instead, without it the model is told to carry on without that call. Stopping the run is
+`session/cancel`. (The core's `Decision` also has `stop`, a deny that ends the run, for the CLI's Esc; the protocol
+does not send it.) There is no "edit and run": alpineagents has no such verdict, and the
 model can be told what to run instead. Switching the model of an existing session is not in v1; the model is chosen
 at `session/new`.
 
@@ -122,8 +124,8 @@ The protocol is a thin wrapper: the core builds items and numbers them, so the C
   `aapprove`. Cancel is `task.cancel()` on alpineagents' `arun`. The server runs every session on one asyncio loop.
 - **Permissions through alpineagents.** `Agent(permissions=[...])` (alpineagents 0.4) checks every call before
   `use_tools` runs anything, so no loop can skip it. The core's list is `AllowByPolicy` (what the mode and
-  remembered answers allow), then `DecideByApprover` (describe the call and ask the approver; stops with
-  `Denied(stop=True)`). Files outside the working directory and secret files are not deny permissions: they still
+  remembered answers allow), then `DecideByApprover` (describe the call and ask the approver; a deny with
+  `stop` returns `Denied(stop=True)`). Files outside the working directory and secret files are not deny permissions: they still
   ask, because a deny permission can only refuse. The deny slot stays empty until users can write their own rules.
   `allow_always` answers live in `state.root.data["alpine_code.approvals"]`, so they last for the conversation and
   are saved and resumed with it. This is not a sandbox.

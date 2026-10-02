@@ -103,15 +103,25 @@ def test_a_tool_call_with_an_approval_item(tmp_path, monkeypatch):
     ]
 
 
-def test_deny_without_feedback_is_a_permission_stop(tmp_path, monkeypatch):
+def test_deny_with_stop_is_a_permission_stop(tmp_path, monkeypatch):
     replies = [tool_call("bash", command="echo 1"), "never"]
-    session, _ = make(tmp_path, monkeypatch, replies, SyncApprover(Decision("deny")))
+    session, _ = make(tmp_path, monkeypatch, replies, SyncApprover(Decision("deny", stop=True)))
     assert session.send("go") is None
     *_, stopped = session.snapshot().items
     assert isinstance(stopped, RunStopped) and stopped.reason == "permission"
     approval = next(i for i in session.snapshot().items if isinstance(i, ApprovalItem))
     call = next(i for i in session.snapshot().items if isinstance(i, ToolCallItem))
     assert approval.decision == "deny" and call.status == "denied" and session.info.status == "idle"
+
+
+def test_deny_without_stop_keeps_running(tmp_path, monkeypatch):
+    replies = [tool_call("bash", command="echo 1"), "OK"]
+    session, _ = make(tmp_path, monkeypatch, replies, SyncApprover(Decision("deny")))
+    assert session.send("go") == "OK"
+    call = next(i for i in session.snapshot().items if isinstance(i, ToolCallItem))
+    assert call.status == "denied" and kinds(session)[-1] == "agent_message"
+    approval = next(i for i in session.snapshot().items if isinstance(i, ApprovalItem))
+    assert approval.tool == "bash" and approval.args == {"command": "echo 1"}  # the app draws it as the call
 
 
 def test_deny_with_feedback_keeps_running(tmp_path, monkeypatch):

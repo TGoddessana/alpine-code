@@ -25,7 +25,8 @@ const icon = {
  *
  * Enter sends: `onSend` resolves once the server took the message, and the box empties; if it rejects, the text
  * stays and a quiet line says why. While `running` the send button becomes a stop button (`onStop`) and Enter
- * sends nothing. With no model connected, sending asks to connect one instead.
+ * sends nothing, unless the run waits for an `answer`: then what I write goes to `answer.onSend`, and the button
+ * sends while there is text. With no model connected, sending asks to connect one instead.
  */
 export function Composer({
   locked = false,
@@ -33,6 +34,7 @@ export function Composer({
   bar,
   onSend,
   onStop,
+  answer,
 }: {
   locked?: boolean;
   running?: boolean;
@@ -40,6 +42,8 @@ export function Composer({
   bar?: ReactNode;
   onSend?: (text: string) => Promise<unknown>;
   onStop?: () => void;
+  /** The run waits for my answer, and what I write is it (e.g. what to do instead of a call). */
+  answer?: { placeholder: string; onSend: (text: string) => Promise<unknown> };
 }) {
   const t = useMessages(messages);
   const [text, setText] = useState('');
@@ -52,13 +56,13 @@ export function Composer({
     !!connections.data && (connections.data.connections.length > 0 || connections.data.defaultModel !== null);
 
   const send = async () => {
-    if (!text.trim() || running || sending.current) return;
-    if (!connected) return ask();
+    if (!text.trim() || (running && !answer) || sending.current) return;
+    if (!connected && !answer) return ask();
     sending.current = true;
     setPending(true);
     setError(null);
     try {
-      await onSend?.(text);
+      await (answer ? answer.onSend(text.trim()) : onSend?.(text));
       setText('');
     } catch (reason) {
       setError(reason instanceof ServerError && reason.code === SESSION_RUNNING ? t.running : t.failed);
@@ -79,7 +83,7 @@ export function Composer({
           rows={2}
           disabled={locked}
           value={text}
-          placeholder={t.placeholder}
+          placeholder={answer?.placeholder ?? t.placeholder}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
             // Enter sends, Shift+Enter breaks the line, and Enter while composing Hangul only commits the syllable.
@@ -93,7 +97,7 @@ export function Composer({
         <div className="-ml-2 flex items-center gap-1">
           <span className="grow" />
           {bar ?? <ModelPicker disabled={locked} />}
-          {running ? (
+          {running && !(answer && text.trim()) ? (
             <button
               type="button"
               onClick={onStop}
@@ -122,7 +126,7 @@ export function Composer({
           )}
         </div>
       </div>
-      {(error || running) && (
+      {(error || (running && !answer)) && (
         <p role={error ? 'alert' : undefined} className="px-1 text-meta text-fg-muted">
           {error ?? t.working}
         </p>

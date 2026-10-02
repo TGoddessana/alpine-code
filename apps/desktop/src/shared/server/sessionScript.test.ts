@@ -53,6 +53,26 @@ describe('sessionScript', () => {
     expect(state().activeIds).toEqual([]);
   });
 
+  it('plans when asked to: the plan is in the info, the approved command passes its check', async () => {
+    const { connection, id, state } = await setup();
+    await connection.request('session/send', { sessionId: id, text: '계획을 세우고 테스트를 돌려 주세요' });
+    await vi.waitFor(() => expect(activeApproval(state())).not.toBeNull());
+    expect(state().info.plan?.steps.map((s) => s.status)).toEqual(['done', 'now', 'todo']);
+    expect(state().info.plan?.checks[0]).toMatchObject({ label: '테스트', result: 'not_run' });
+    const approval = activeApproval(state())!;
+    await connection.request('session/answer', { sessionId: id, requestId: approval.id, decision: 'allow' });
+    await vi.waitFor(() => expect(state().info.status).toBe('idle'));
+    const plan = state().info.plan!;
+    expect(plan.steps.every((s) => s.status === 'done')).toBe(true);
+    const bash = state().items.find((i) => i.kind === 'tool_call' && i.name === 'bash')!;
+    expect(plan.checks[0]).toMatchObject({ result: 'passed', evidence: [bash.id] });
+    const updates = state().items.filter((i) => i.kind === 'tool_call' && i.name === 'update_plan');
+    expect(updates.map((i) => i.kind === 'tool_call' && i.detail?.kind === 'plan' && i.detail.created)).toEqual([
+      true,
+      false,
+    ]);
+  });
+
   it('reports the activity, the run and the usage as the turn goes', async () => {
     const { connection, id, state } = await setup();
     expect(state().info.activity).toBeNull();

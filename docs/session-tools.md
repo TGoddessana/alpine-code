@@ -2,7 +2,13 @@
 
 The tools that let the model fill the session's right panel (plan, verification, changes, out of the ordinary) and
 talk to the user mid-run (questions, review), and what the harness observes on its own. Decided one question at a
-time on 2026-10-02; nothing here is implemented yet.
+time on 2026-10-02.
+
+Implemented (2026-10-02): the plan tool (`update_plan`) and the check tool (`check`) for harness and agent checks,
+in the core, the protocol (`SessionInfo.plan`, and `tool_call.detail` for what a plan call did), the server, the
+app (the plan and verification parts, dropped steps under out of the ordinary, the chat's `계획` and `확인(…)` rows)
+and the CLI (the plan as a checklist). Not yet: user checks in the review dock, "changed since it passed" (needs
+snapshots; the protocol already has the `changed` result), and everything from the ask tool on.
 
 The rules behind every decision:
 

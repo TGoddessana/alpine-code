@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from alpineagents.testing import FakeModel, tool_call
+from alpineagents.tool import collect_tools
 
 from alpine_core import (
     DEFAULT_PROFILE,
@@ -187,7 +188,8 @@ def test_a_session_gets_the_profiles_tools(home, tmp_path, monkeypatch):
         toolbox=box,
     )
     assert session.info.profile == DEFAULT_PROFILE
-    assert sorted(t.name for t in session._agent.tools) == ["read", "shout"]
+    # The plan tools come with every session, whatever the profile turns on.
+    assert sorted(collect_tools(session._agent.tools)) == ["check", "read", "shout", "update_plan"]
     assert session.send("shout hi") == "done"
     assert [(e.name, e.kind) for e in events if isinstance(e, ToolFinished)] == [("shout", "done")]
 

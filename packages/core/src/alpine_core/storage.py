@@ -28,6 +28,7 @@ from alpineagents import FileStore, Store
 
 from .events import UsageInfo
 from .home import home_dir
+from .plan import Plan
 
 __all__ = [
     "Activity",
@@ -95,6 +96,8 @@ class SessionInfo:
     """Usage since the current run started, ``None`` when idle."""
     profile: str | None = None
     """The id of the profile whose tools the session has; ``None`` when it was made without profiles."""
+    plan: Plan | None = None
+    """The model's plan with the harness's check results and dropped steps; ``None`` until the model makes one."""
     last_seq: int = 0
     """The highest event ``seq`` emitted when the info was saved, so ``seq`` keeps growing across restarts. Not on the
     wire."""
@@ -119,6 +122,7 @@ class SessionInfo:
             "run_started_at": self.run_started_at,
             "run_usage": None if self.run_usage is None else _usage_to_dict(self.run_usage),
             "profile": self.profile,
+            "plan": None if self.plan is None else self.plan.to_dict(),
             "last_seq": self.last_seq,
         }
 
@@ -127,6 +131,7 @@ class SessionInfo:
         """The inverse of ``to_dict``. Missing optional fields get their defaults."""
         activity = data.get("activity")
         run_usage = data.get("run_usage")
+        plan = data.get("plan")
         return cls(
             id=data["id"],
             title=data.get("title", ""),
@@ -145,6 +150,7 @@ class SessionInfo:
             run_started_at=data.get("run_started_at"),
             run_usage=None if run_usage is None else _usage_from_dict(run_usage),
             profile=data.get("profile"),
+            plan=None if plan is None else Plan.from_dict(plan),
             last_seq=data.get("last_seq", 0),
         )
 

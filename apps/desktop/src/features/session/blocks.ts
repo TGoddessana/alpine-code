@@ -1,4 +1,4 @@
-import type { ApprovalItem, ToolCallItem } from '@alpine/protocol';
+import type { ApprovalItem, CheckDetail, PlanUpdateDetail, ToolCallItem } from '@alpine/protocol';
 
 import type { Item } from '@/shared/server';
 
@@ -40,25 +40,31 @@ export function toBlocks(items: Item[], activeIds: readonly string[]): Block[] {
   return blocks;
 }
 
-export type ToolKind = 'edit' | 'run' | 'read' | 'search' | 'other';
+export type ToolKind = 'edit' | 'run' | 'read' | 'search' | 'check' | 'plan' | 'other';
 
-/** What a tool call does, from its name: the core's tools (`edit`, `bash`, `read`...) and the scripted `*_file` ones. */
+/**
+ * What a tool call does, from its name: the core's tools (`edit`, `bash`, `read`..., the plan's `update_plan` and
+ * `check`) and the scripted `*_file` ones.
+ */
 export function toolKind(name: string): ToolKind {
   if (/^(edit|write)(_file)?$/.test(name)) return 'edit';
   if (name === 'bash') return 'run';
   if (/^read(_file)?$/.test(name)) return 'read';
   if (/^(grep|glob)(_file)?$/.test(name)) return 'search';
+  if (name === 'check') return 'check';
+  if (name === 'update_plan') return 'plan';
   return 'other';
 }
 
 /**
- * The part of a call's arguments worth showing on its line: a path, a command or a pattern (and where it looks).
- * Takes a call or an approval, which carries its call's arguments.
+ * The part of a call's arguments worth showing on its line: a path, a command, a pattern (and where it looks) or a
+ * check's label. Takes a call or an approval, which carries its call's arguments. The plan has none: its row is
+ * `계획` alone.
  */
 export function toolTarget({ args }: { args: Record<string, unknown> }): string {
-  const { path, file_path, command, pattern } = args;
+  const { path, file_path, command, pattern, label } = args;
   if (typeof pattern === 'string') return typeof path === 'string' && path ? `${pattern}  ${path}` : pattern;
-  for (const value of [path, file_path, command]) if (typeof value === 'string') return value;
+  for (const value of [path, file_path, command, label]) if (typeof value === 'string') return value;
   return '';
 }
 
@@ -70,6 +76,12 @@ export type ToolSummary =
   | { type: 'count'; unit: 'lines' | 'entries' | 'files' | 'matches'; count: number; text: string }
   /** Ran a command, changed a file or failed: the output itself, its first lines shown. */
   | { type: 'output'; text: string; kind: 'diff' | 'text'; failed: boolean; added: number; removed: number }
+  /** Changed the plan: only what changed ("'원인 찾기' 끝냄 · '고치기' 시작"); the panel has the whole list. */
+  | { type: 'plan'; detail: PlanUpdateDetail }
+  /** A harness check that passed: "통과". (A failed one is its output.) */
+  | { type: 'passed' }
+  /** An agent's check: its judgement and how many calls it cited. */
+  | { type: 'judged'; detail: CheckDetail }
   /** Finished without anything to show. */
   | { type: 'done' };
 
@@ -85,11 +97,24 @@ function countListed(lines: string[]): number {
   return lines.reduce((sum, line) => sum + (MORE.test(line) ? Number(MORE.exec(line)![1]) : 1), 0);
 }
 
+/** A call that failed: it errored, or it was a check that did not pass. Counted and drawn in red. */
+export function isFailed(call: ToolCallItem): boolean {
+  if (['error', 'input_error', 'aborted'].includes(call.status)) return true;
+  return call.detail?.kind === 'check' && !call.detail.passed;
+}
+
+/** The core's note at the end of a check's output, which the line under the call says in words instead. */
+const CHECK_NOTE = /\n?\[(check passed|exit code \d+: check failed)\]$/;
+
 /** What the line under a call says, from its state, its kind and what it returned. */
 export function toolSummary({ call, approval }: ToolRow): ToolSummary {
   if (['running', 'denied', 'cancelled', 'interrupted'].includes(call.status)) return { type: 'state' };
-  const text = call.result?.replace(/\n+$/, '') ?? '';
-  const failed = call.status !== 'done';
+  const detail = call.status === 'done' ? call.detail : null;
+  if (detail?.kind === 'plan') return { type: 'plan', detail };
+  if (detail?.kind === 'check' && detail.judge !== 'harness') return { type: 'judged', detail };
+  if (detail?.kind === 'check' && detail.passed) return { type: 'passed' };
+  const text = call.result?.replace(/\n+$/, '').replace(CHECK_NOTE, '') ?? '';
+  const failed = call.status !== 'done' || detail?.kind === 'check';
   const kind = toolKind(call.name);
   if (!failed && kind === 'read' && text) {
     const lines = text.split('\n');

@@ -12,6 +12,16 @@ const dots = {
   failed: { mark: '●', color: 'text-danger' },
 } satisfies Record<SessionInfo['status'], { mark: string; color: string }>;
 
+/** The colour that says a session's state: grey while it works or rests, orange on my turn, red after a failure. */
+export function statusColor(status: SessionInfo['status']): string {
+  return dots[status].color;
+}
+
+/** A session's state in a word ("작업 중", "내 차례"), for a mark that is drawn elsewhere (the plan's ●). */
+export function useStatusWord(status: SessionInfo['status']): string {
+  return useMessages(messages)[status];
+}
+
 /** A session's state as a dot and always a word beside it: grey is running, orange is my turn, red is a failure. */
 export function StatusWord({ status, className }: { status: SessionInfo['status']; className?: string }) {
   const t = useMessages(messages);

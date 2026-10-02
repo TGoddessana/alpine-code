@@ -123,6 +123,19 @@ export interface ChatGPTSignOutResult {
   revoked: boolean;
 }
 /**
+ * The result a ``check`` call recorded.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CheckDetail".
+ */
+export interface CheckDetail {
+  kind: 'check';
+  label: string;
+  judge: 'harness' | 'agent' | 'user';
+  passed: boolean;
+  evidence: string[];
+}
+/**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "CompactionItem".
  */
@@ -299,6 +312,7 @@ export interface SessionInfo {
   runStartedAt: string | null;
   runUsage: Usage | null;
   profile: string | null;
+  plan: Plan | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -311,6 +325,38 @@ export interface Usage {
   cacheWriteTokens: number;
   requests: number;
   cost: number | null;
+}
+/**
+ * The model's plan, with what the harness observed worked in: check results and dropped steps.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "Plan".
+ */
+export interface Plan {
+  steps: PlanStep[];
+  dropped: string[];
+  checks: PlanCheck[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PlanStep".
+ */
+export interface PlanStep {
+  text: string;
+  status: 'todo' | 'now' | 'done';
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PlanCheck".
+ */
+export interface PlanCheck {
+  label: string;
+  judge: 'harness' | 'agent' | 'user';
+  command: string | null;
+  how: string | null;
+  result: 'not_run' | 'passed' | 'failed' | 'changed';
+  evidence: string[];
+  note: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -375,6 +421,34 @@ export interface ToolCallItem {
   status: 'running' | 'done' | 'error' | 'input_error' | 'aborted' | 'interrupted' | 'denied' | 'cancelled';
   result: string | null;
   images: number;
+  detail: (PlanUpdateDetail | CheckDetail) | null;
+}
+/**
+ * What an ``update_plan`` call changed, steps named by their text.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PlanUpdateDetail".
+ */
+export interface PlanUpdateDetail {
+  kind: 'plan';
+  created: boolean;
+  steps: number;
+  checks: number;
+  finished: string[];
+  started: string[];
+  reopened: string[];
+  added: string[];
+  renamed: StepRename[];
+  dropped: string[];
+  checksChanged: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "StepRename".
+ */
+export interface StepRename {
+  before: string;
+  after: string;
 }
 /**
  * A message the model reads that the user did not write.

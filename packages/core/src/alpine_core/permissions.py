@@ -17,6 +17,8 @@ Rules, in order (``yolo`` skips all of them):
    the outside directories it names, unless one of the commands could run anything (``python``, ``sudo``,
    ``bash -c``...) or a path is only known at run time (``$HOME/.ssh``). Bash gets edit-level access to a
    directory because a command can do anything with a path it is given.
+5. ``check`` on a harness check runs the check's command, so it is asked about exactly as ``bash`` with that command.
+   Recording an agent's judgement runs nothing and never asks.
 
 Symlinks are resolved before comparing paths, so a link inside the working directory that points outside counts
 as outside.
@@ -25,6 +27,7 @@ as outside.
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from functools import cache
@@ -129,6 +132,16 @@ class Remembered:
 class PermissionPolicy:
     workspace: Workspace
     mode: Mode = Mode.DEFAULT
+    check_command: Callable[[str], str | None] | None = None
+    """The command a ``check`` call with this label runs (a harness check), or ``None`` when it runs nothing."""
+
+    def command_of(self, name: str, args: dict[str, Any]) -> str | None:
+        """The shell command a call runs: ``bash``'s, or a harness check's. ``None`` for every other call."""
+        if name == "bash":
+            return str(args.get("command", ""))
+        if name == "check" and self.check_command is not None:
+            return self.check_command(str(args.get("label", "")))
+        return None
 
     def evaluate(
         self, name: str, args: dict[str, Any], tool: Tool | None, remembered: Remembered | None = None
@@ -137,7 +150,11 @@ class PermissionPolicy:
         for, or ``None`` for a name the model made up. ``remembered`` is what the user already allowed."""
         if self.mode is Mode.YOLO:
             return ALLOW
-        return _Evaluation(self.workspace, self.mode, remembered or Remembered()).evaluate(name, args, tool)
+        evaluation = _Evaluation(self.workspace, self.mode, remembered or Remembered())
+        if name == "check":
+            command = self.command_of(name, args)
+            return ALLOW if command is None else evaluation.bash(command)
+        return evaluation.evaluate(name, args, tool)
 
 
 @dataclass(frozen=True)
@@ -150,7 +167,7 @@ class _Evaluation:
 
     def evaluate(self, name: str, args: dict[str, Any], tool: Tool | None) -> Verdict:
         if name == "bash":
-            return self._bash(str(args.get("command", "")))
+            return self.bash(str(args.get("command", "")))
         kind = kind_of(tool, args)
         if kind == "exec":
             return self._by_tool(name)
@@ -202,7 +219,7 @@ class _Evaluation:
 
     # ------------------------------------------------------------ bash
 
-    def _bash(self, command: str) -> Verdict:
+    def bash(self, command: str) -> Verdict:
         analysis = shell.analyze(command)
         outside, secrets = self._bash_targets(analysis)
         unresolved = list(dict.fromkeys(analysis.unresolved_paths))

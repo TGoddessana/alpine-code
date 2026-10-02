@@ -73,6 +73,7 @@ describe('applyEvent', () => {
       status: 'running',
       result: null,
       images: 0,
+      detail: null,
     };
     const state = apply(
       start(),

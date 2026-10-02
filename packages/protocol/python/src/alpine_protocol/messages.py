@@ -539,6 +539,47 @@ class Activity(Message):
     since: datetime
 
 
+StepStatus = Literal["todo", "now", "done"]
+"""The model's: ○ ``todo``, ● ``now`` (at most one), ✓ ``done``. The word beside ● is the session's status."""
+
+CheckJudge = Literal["harness", "agent", "user"]
+"""Who decides whether a check passed: the harness (its command exited 0), the agent (its claim, with evidence) or
+the user (in the review)."""
+
+CheckResult = Literal["not_run", "passed", "failed", "changed"]
+"""``not_run`` until a result is recorded. ``changed``: it passed, then files changed (not sent yet: it needs
+snapshots of the folder)."""
+
+
+class PlanStep(Message):
+    text: str
+    status: StepStatus
+
+
+class PlanCheck(Message):
+    label: str
+    judge: CheckJudge
+    command: str | None
+    """A harness check's command."""
+    how: str | None
+    """How an agent or user check is checked, in the model's words."""
+    result: CheckResult
+    evidence: list[str]
+    """Tool call ids: for ``harness`` the call that ran the command (``check`` or ``bash``), for ``agent`` the calls
+    it cited."""
+    note: str | None
+    """What the agent saw, in its words."""
+
+
+class Plan(Message):
+    """The model's plan, with what the harness observed worked in: check results and dropped steps."""
+
+    steps: list[PlanStep]
+    dropped: list[str]
+    """Steps that left the plan without being continued by a new one (out of the ordinary), oldest first."""
+    checks: list[PlanCheck]
+
+
 class SessionInfo(Message):
     id: str
     title: str
@@ -562,6 +603,8 @@ class SessionInfo(Message):
     """Usage since the current run started; ``None`` when idle."""
     profile: str | None
     """The id of the profile whose tools the session has."""
+    plan: Plan | None
+    """``None`` until the model makes a plan."""
 
 
 class ItemModel(Message):
@@ -582,6 +625,42 @@ class AgentMessageItem(ItemModel):
     text: str
 
 
+class StepRename(ItemModel):
+    before: str
+    after: str
+
+
+class PlanUpdateDetail(ItemModel):
+    """What an ``update_plan`` call changed, steps named by their text."""
+
+    kind: Literal["plan"] = "plan"
+    created: bool
+    """The session's first plan: say how many steps and checks it set, nothing else."""
+    steps: int
+    checks: int
+    finished: list[str]
+    started: list[str]
+    reopened: list[str]
+    """Back to ``todo``."""
+    added: list[str]
+    renamed: list[StepRename]
+    dropped: list[str]
+    checks_changed: bool
+
+
+class CheckDetail(ItemModel):
+    """The result a ``check`` call recorded."""
+
+    kind: Literal["check"] = "check"
+    label: str
+    judge: CheckJudge
+    passed: bool
+    evidence: list[str]
+
+
+ToolDetail = Annotated[PlanUpdateDetail | CheckDetail, Field(discriminator="kind")]
+
+
 class ToolCallItem(ItemModel):
     id: str
     """The model's call id."""
@@ -592,6 +671,8 @@ class ToolCallItem(ItemModel):
     result: str | None = None
     images: int = 0
     """How many images the tool sent to the model; the images themselves are not kept."""
+    detail: ToolDetail | None = None
+    """What the harness saw a plan tool call do (``update_plan``, ``check``); ``None`` for other calls."""
 
 
 class ApprovalItem(ItemModel):

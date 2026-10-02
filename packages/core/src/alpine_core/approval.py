@@ -139,7 +139,8 @@ class DecideByApprover(DecidePermission):
         verdict = self.policy.evaluate(call.name, args, tool, remembered(state))
         if verdict.allowed:
             return verdict, None
-        return verdict, describe(call.name, args, self.policy.workspace, verdict, call.id)
+        command = self.policy.command_of(call.name, args) if call.name == "check" else None
+        return verdict, describe(call.name, args, self.policy.workspace, verdict, call.id, command=command)
 
     def _decide(self, state: State, verdict: Verdict, decision: Decision) -> Allowed | Denied:
         if decision.kind == "allow_always" and verdict.grant is not None:
@@ -163,10 +164,19 @@ def remembered(state: State) -> Remembered:
 
 
 def describe(
-    name: str, args: dict[str, Any], workspace: Workspace, verdict: Verdict, call_id: str = ""
+    name: str,
+    args: dict[str, Any],
+    workspace: Workspace,
+    verdict: Verdict,
+    call_id: str = "",
+    *,
+    command: str | None = None,
 ) -> ApprovalRequest:
-    """Builds the request shown to the user for one tool call."""
-    title, preview, kind = _preview(name, args, workspace)
+    """Builds the request shown to the user for one tool call. ``command`` is what a ``check`` call runs."""
+    if name == "check" and command is not None:
+        title, preview, kind = f"Run check {args.get('label', '')}", command, "command"
+    else:
+        title, preview, kind = _preview(name, args, workspace)
     return ApprovalRequest(
         name, args, title, preview, kind, reason=verdict.reason, remember=verdict.remember, call_id=call_id
     )

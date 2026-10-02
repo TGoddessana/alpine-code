@@ -48,10 +48,14 @@ from .config import Settings
 from .home import home_dir
 from .models import make_model
 from .permissions import kind_of
+from .plan import PLAN_TOOLS
 from .tools import Workspace, default_tools
 
-#: Names of the built-in tools, which a user tool may not take.
+#: Names of the built-in tools a profile can turn on.
 BUILTIN = ("read", "glob", "grep", "write", "edit", "bash")
+
+#: Names a user tool may not take: the built-in tools and the plan tools every session has.
+RESERVED = (*BUILTIN, *PLAN_TOOLS)
 
 #: Packages Alpine has reviewed: installed without asking. Normalized names (PEP 503).
 REVIEWED = frozenset(
@@ -406,7 +410,7 @@ class Toolbox:
         finally:
             if module_name.endswith("_check") or module_name.endswith("_test"):
                 sys.modules.pop(module_name, None)
-        clash = sorted(set(tools) & set(BUILTIN))
+        clash = sorted(set(tools) & set(RESERVED))
         if clash:
             loaded.error = "These names are taken by built-in tools: " + ", ".join(clash)
             return loaded
@@ -414,7 +418,7 @@ class Toolbox:
         return loaded
 
     def _taken_names(self, *, exclude: str) -> set[str]:
-        taken = set(BUILTIN)
+        taken = set(RESERVED)
         for path in self._files():
             if path.stem == exclude:
                 continue

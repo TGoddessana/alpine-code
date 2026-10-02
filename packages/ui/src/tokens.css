@@ -40,6 +40,8 @@
   --color-attention: #c8691c; /* my turn */
   --color-danger: #a3372a; /* risky approval, failure */
   --color-danger-hover: #8a2d22;
+  --color-diff-added: #e3efe0; /* behind an added line of a diff */
+  --color-diff-removed: #f6e4e0; /* behind a removed line of a diff */
 
   /* Behind a modal */
   --color-scrim: rgb(28 34 38 / 0.32);

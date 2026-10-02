@@ -170,7 +170,7 @@ def test_approval_allow_and_first_answer_wins(folder, monkeypatch):
     run(scenario())
 
 
-def test_approval_deny_with_and_without_feedback(folder, monkeypatch):
+def test_approval_deny_skips_the_call_and_the_run_goes_on(folder, monkeypatch):
     async def scenario(replies, feedback, last):
         fake_model(monkeypatch, *replies)
         async with Client([]) as client:
@@ -185,8 +185,8 @@ def test_approval_deny_with_and_without_feedback(folder, monkeypatch):
             return (await client.call("session/open", sessionId=sid))["result"]
 
     replies = [tool_call("bash", command="echo 1"), "OK"]
-    stopped = asyncio.run(scenario(replies, None, "run_stopped"))
-    assert stopped["items"][-1]["reason"] == "permission"
+    skipped = asyncio.run(scenario(replies, None, "agent_message"))
+    assert [i["kind"] for i in skipped["items"]][-2:] == ["tool_call", "agent_message"]
     continued = asyncio.run(scenario(replies, "use ls", "agent_message"))
     approval = next(i for i in continued["items"] if i["kind"] == "approval")
     assert approval["feedback"] == "use ls"
@@ -374,3 +374,60 @@ def test_info_carries_activity_usage_and_context_on_the_wire(folder, monkeypatch
             assert during[-1]["runUsage"]["requests"] == 2 and during[-1]["runUsage"]["cost"] is None
 
     run(scenario())
+
+
+def test_the_plan_goes_out_with_info_changed_and_comes_back_on_open(folder, monkeypatch):
+    plan = tool_call(
+        "update_plan",
+        steps=[{"text": "find the cause", "status": "now"}, {"text": "fix it", "status": "todo"}],
+        checks=[{"label": "tests", "judge": "harness", "command": "exit 0"}],
+    )
+    run_check = tool_call("check", label="tests")
+    fake_model(monkeypatch, plan, run_check, "done")
+
+    async def first():
+        async with Client([]) as client:
+            sid = await client.new(folder, mode="yolo")
+            await client.call("session/send", sessionId=sid, text="go")
+            await client.status(sid, "idle")
+            plans = [e["event"]["info"]["plan"] for e in client.events(sid, "info_changed")]
+            assert plans[0] is None
+            shown = next(p for p in plans if p is not None)
+            assert [s["text"] for s in shown["steps"]] == ["find the cause", "fix it"]
+            assert shown["checks"][0]["result"] == "not_run"
+            assert plans[-1]["checks"][0] == {
+                "label": "tests",
+                "judge": "harness",
+                "command": "exit 0",
+                "how": None,
+                "result": "passed",
+                "evidence": [run_check.id],
+                "note": None,
+            }
+            calls = {
+                e["event"]["item"]["id"]: e["event"]["item"]
+                for e in client.events(sid, "item_completed")
+                if e["event"]["item"]["kind"] == "tool_call"
+            }
+            assert calls[plan.id]["detail"]["kind"] == "plan" and calls[plan.id]["detail"]["created"] is True
+            assert calls[run_check.id]["detail"] == {
+                "kind": "check",
+                "label": "tests",
+                "judge": "harness",
+                "passed": True,
+                "evidence": [run_check.id],
+            }
+            return sid, plans[-1]
+
+    sid, last = asyncio.run(first())
+
+    async def second():
+        async with Client([]) as client:
+            opened = (await client.call("session/open", sessionId=sid))["result"]
+            assert opened["info"]["plan"] == last
+            [listed] = (await client.call("session/list"))["result"]["sessions"]
+            assert listed["plan"] == last
+            details = [i["detail"] for i in opened["items"] if i["kind"] == "tool_call"]
+            assert [d["kind"] for d in details] == ["plan", "check"]
+
+    run(second())

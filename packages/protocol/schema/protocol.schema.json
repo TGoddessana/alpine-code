@@ -297,6 +297,14 @@
             }
           ],
           "default": null
+        },
+        "tool": {
+          "default": "",
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": true,
+          "type": "object"
         }
       },
       "required": [
@@ -309,7 +317,9 @@
         "reason",
         "remember",
         "decision",
-        "feedback"
+        "feedback",
+        "tool",
+        "args"
       ],
       "title": "ApprovalItem",
       "type": "object"
@@ -466,6 +476,45 @@
         "revoked"
       ],
       "title": "ChatGPTSignOutResult",
+      "type": "object"
+    },
+    "CheckDetail": {
+      "description": "The result a ``check`` call recorded.",
+      "properties": {
+        "kind": {
+          "const": "check",
+          "default": "check",
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "judge": {
+          "enum": [
+            "harness",
+            "agent",
+            "user"
+          ],
+          "type": "string"
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "label",
+        "judge",
+        "passed",
+        "evidence"
+      ],
+      "title": "CheckDetail",
       "type": "object"
     },
     "CompactionItem": {
@@ -1120,6 +1169,201 @@
         "similar"
       ],
       "title": "PackageInfo",
+      "type": "object"
+    },
+    "Plan": {
+      "description": "The model's plan, with what the harness observed worked in: check results and dropped steps.",
+      "properties": {
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/PlanStep"
+          },
+          "type": "array"
+        },
+        "dropped": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/PlanCheck"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "steps",
+        "dropped",
+        "checks"
+      ],
+      "title": "Plan",
+      "type": "object"
+    },
+    "PlanCheck": {
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "judge": {
+          "enum": [
+            "harness",
+            "agent",
+            "user"
+          ],
+          "type": "string"
+        },
+        "command": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "how": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result": {
+          "enum": [
+            "not_run",
+            "passed",
+            "failed",
+            "changed"
+          ],
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "judge",
+        "command",
+        "how",
+        "result",
+        "evidence",
+        "note"
+      ],
+      "title": "PlanCheck",
+      "type": "object"
+    },
+    "PlanStep": {
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "todo",
+            "now",
+            "done"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "status"
+      ],
+      "title": "PlanStep",
+      "type": "object"
+    },
+    "PlanUpdateDetail": {
+      "description": "What an ``update_plan`` call changed, steps named by their text.",
+      "properties": {
+        "kind": {
+          "const": "plan",
+          "default": "plan",
+          "type": "string"
+        },
+        "created": {
+          "type": "boolean"
+        },
+        "steps": {
+          "type": "integer"
+        },
+        "checks": {
+          "type": "integer"
+        },
+        "finished": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "started": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reopened": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "added": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "renamed": {
+          "items": {
+            "$ref": "#/$defs/StepRename"
+          },
+          "type": "array"
+        },
+        "dropped": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "checksChanged": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "created",
+        "steps",
+        "checks",
+        "finished",
+        "started",
+        "reopened",
+        "added",
+        "renamed",
+        "dropped",
+        "checksChanged"
+      ],
+      "title": "PlanUpdateDetail",
       "type": "object"
     },
     "ProfileInfo": {
@@ -1875,6 +2119,16 @@
               "type": "null"
             }
           ]
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Plan"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1892,7 +2146,8 @@
         "activity",
         "runStartedAt",
         "runUsage",
-        "profile"
+        "profile",
+        "plan"
       ],
       "title": "SessionInfo",
       "type": "object"
@@ -2175,6 +2430,22 @@
       "title": "StatusLineItem",
       "type": "object"
     },
+    "StepRename": {
+      "properties": {
+        "before": {
+          "type": "string"
+        },
+        "after": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "before",
+        "after"
+      ],
+      "title": "StepRename",
+      "type": "object"
+    },
     "ToolCallItem": {
       "properties": {
         "id": {
@@ -2219,6 +2490,31 @@
         "images": {
           "default": 0,
           "type": "integer"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "check": "#/$defs/CheckDetail",
+                  "plan": "#/$defs/PlanUpdateDetail"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/PlanUpdateDetail"
+                },
+                {
+                  "$ref": "#/$defs/CheckDetail"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -2228,7 +2524,8 @@
         "args",
         "status",
         "result",
-        "images"
+        "images",
+        "detail"
       ],
       "title": "ToolCallItem",
       "type": "object"

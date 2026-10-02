@@ -10,8 +10,10 @@ v1 covers what the core already does, plus keeping sessions across restarts:
 - chat, tool calls, approvals, cancel
 - saving every session and resuming it later, from the app or the CLI
 
-Concepts that exist only on the design canvas (plan, verification, questions with a reason, rewind points,
-assumptions, learning suggestions, subscription login) come later, each together with its core feature.
+Concepts that exist only on the design canvas (questions with a reason, rewind points, assumptions, learning
+suggestions) come later, each together with its core feature. The plan and its checks came with the plan tools
+(`SessionInfo.plan`, `tool_call.detail`; [session-tools.md](session-tools.md)), the ChatGPT sign-in with
+[chatgpt-sign-in.md](chatgpt-sign-in.md).
 
 ## Conversation shape: items
 
@@ -22,8 +24,8 @@ finished items are stored; text deltas are sent live and never saved.
 |---|---|---|
 | `user_message` | `text` | the user's bubble |
 | `agent_message` | `text` | the agent's prose |
-| `tool_call` | `name`, `args`, `status`, `result`, `images` | a tool line or card; `id` is the model's call id; `images` is how many images the tool sent to the model (a count, not the images) |
-| `approval` | `callId`, `title`, `preview`, `previewKind`, `reason`, `remember`, `decision`, `feedback` | while active: the dock; when finished: the "선택" bubble |
+| `tool_call` | `name`, `args`, `status`, `result`, `images`, `detail` | a tool line or card; `id` is the model's call id; `images` is how many images the tool sent to the model (a count, not the images); `detail` is what the harness saw a plan tool call do (`update_plan`: what changed, by step text; `check`: the result, who judged it, the calls it rests on), `null` for other calls |
+| `approval` | `callId`, `title`, `preview`, `previewKind`, `reason`, `remember`, `decision`, `feedback` | while active: a card in the chat where the call will be; when finished: nothing of its own, a denied call shows the feedback |
 | `notice` | `text`, `source` | a message the **model reads** that the user did not write (e.g. a hand-back after a reply with no tool call) |
 | `status_line` | `text` | a line only the user reads (e.g. a model fallback) |
 | `compaction` | `beforeTokens`, `afterTokens` | a divider |
@@ -57,8 +59,10 @@ JSON-RPC 2.0 over stdio, camelCase on the wire.
 | `session/setMode` | `sessionId`, `mode` | `info` |
 | `session/delete` | `sessionId` | `{}`; a running session is cancelled first |
 
-`decision` is `allow`, `allow_always` or `deny`. `deny` with `feedback` skips the call and tells the model what to do
-instead; `deny` without it stops the turn. There is no "edit and run": alpineagents has no such verdict, and the
+`decision` is `allow`, `allow_always` or `deny`. `deny` skips the call and the run goes on: with `feedback` the model
+is told what to do instead, without it the model is told to carry on without that call. Stopping the run is
+`session/cancel`. (The core's `Decision` also has `stop`, a deny that ends the run, for the CLI's Esc; the protocol
+does not send it.) There is no "edit and run": alpineagents has no such verdict, and the
 model can be told what to run instead. Switching the model of an existing session is not in v1; the model is chosen
 at `session/new`.
 
@@ -85,7 +89,12 @@ tell windows apart. A subscription filter can be added for remote transports wit
 
 `id`, `title`, `cwd`, `model`, `mode`, `status`, `createdAt`, `updatedAt`, `usage` (`inputTokens`, `outputTokens`,
 `cacheReadTokens`, `cacheWriteTokens`, `requests`, `cost`), `contextUsed`, `contextWindow`, `activity`, `runStartedAt`,
-`runUsage`.
+`runUsage`, `profile`, `plan`.
+
+`plan` is `null` until the model makes one, else `steps` (`text`, `status`: `todo`, `now` or `done`), `dropped` (the
+text of steps that left the plan) and `checks` (`label`, `judge`, `command`, `how`, `result`: `not_run`, `passed`,
+`failed` or `changed`, `evidence`: tool call ids, `note`). It is saved with the info, so a reopened session shows it
+as it was; a change to it is an `info_changed`. See [session-tools.md](session-tools.md).
 
 `cost` is dollars, or `null` when the model has no known price. `contextUsed` is tokens as of the last model call and
 `contextWindow` the model's window in tokens (`null` if unknown). While a run goes, `runStartedAt` is its start and
@@ -122,8 +131,8 @@ The protocol is a thin wrapper: the core builds items and numbers them, so the C
   `aapprove`. Cancel is `task.cancel()` on alpineagents' `arun`. The server runs every session on one asyncio loop.
 - **Permissions through alpineagents.** `Agent(permissions=[...])` (alpineagents 0.4) checks every call before
   `use_tools` runs anything, so no loop can skip it. The core's list is `AllowByPolicy` (what the mode and
-  remembered answers allow), then `DecideByApprover` (describe the call and ask the approver; stops with
-  `Denied(stop=True)`). Files outside the working directory and secret files are not deny permissions: they still
+  remembered answers allow), then `DecideByApprover` (describe the call and ask the approver; a deny with
+  `stop` returns `Denied(stop=True)`). Files outside the working directory and secret files are not deny permissions: they still
   ask, because a deny permission can only refuse. The deny slot stays empty until users can write their own rules.
   `allow_always` answers live in `state.root.data["alpine_code.approvals"]`, so they last for the conversation and
   are saved and resumed with it. This is not a sandbox.

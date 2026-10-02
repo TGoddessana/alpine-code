@@ -1,11 +1,18 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { expect, screen, userEvent, waitFor } from 'storybook/test';
 
 import {
+  JUDGED_ITEMS,
+  JUDGED_PLAN,
   mergeScripts,
+  MONOREPO_ITEMS,
+  MONOREPO_PLAN,
   sessionInfo,
   sessionScript,
   setUpScript,
+  WORK_ITEMS,
+  WORK_PLAN,
   type Item,
   type SessionScriptOptions,
 } from '@/shared/server';
@@ -23,17 +30,34 @@ const earlier: Item[] = [
     name: 'read',
     args: { path: 'tests/login.test.ts' },
     status: 'done',
-    result: null,
+    result: Array.from({ length: 24 }, (_, i) => `${String(i + 1).padStart(3)}\t// line ${i + 1}`).join('\n'),
     images: 0,
+    detail: null,
   },
   {
     id: 'i4',
     kind: 'tool_call',
     name: 'grep',
-    args: { pattern: 'waitFor' },
+    args: { pattern: 'waitFor', path: 'tests' },
     status: 'done',
-    result: null,
+    result: 'tests/login.test.ts:12:  await waitFor(() => screen.getByText("Welcome"));',
     images: 0,
+    detail: null,
+  },
+  {
+    id: 'i5a',
+    kind: 'approval',
+    callId: 'i5',
+    title: 'Edit tests/login.test.ts',
+    preview:
+      '--- a/tests/login.test.ts\n+++ b/tests/login.test.ts\n@@ -12 +12 @@\n-  await waitFor(() => screen.getByText("Welcome"));\n+  await screen.findByText("Welcome", {}, { timeout: 3000 });\n',
+    previewKind: 'diff',
+    reason: null,
+    remember: 'edit',
+    decision: 'allow',
+    feedback: null,
+    tool: 'edit',
+    args: { path: 'tests/login.test.ts' },
   },
   {
     id: 'i5',
@@ -41,8 +65,9 @@ const earlier: Item[] = [
     name: 'edit',
     args: { path: 'tests/login.test.ts' },
     status: 'done',
-    result: null,
+    result: 'Edited tests/login.test.ts',
     images: 0,
+    detail: null,
   },
   {
     id: 'i6',
@@ -55,6 +80,8 @@ const earlier: Item[] = [
     remember: 'pnpm test',
     decision: 'allow',
     feedback: null,
+    tool: 'bash',
+    args: { command: 'pnpm test login' },
   },
   {
     id: 'i7',
@@ -62,8 +89,43 @@ const earlier: Item[] = [
     name: 'bash',
     args: { command: 'pnpm test login' },
     status: 'error',
-    result: '1 failed',
+    result: [
+      ' RUN  v3.2.4 /Users/me/app',
+      '',
+      ' ✓ tests/signup.test.ts (6 tests) 412ms',
+      ' ✓ tests/session.test.ts (5 tests) 380ms',
+      ' ❯ tests/login.test.ts (1 test | 1 failed) 3012ms',
+      '   × shows the welcome message',
+      '     TimeoutError: Welcome not found in 3000ms',
+      '',
+      ' Tests  1 failed | 11 passed (12)',
+    ].join('\n'),
     images: 0,
+    detail: null,
+  },
+  {
+    id: 'i7a',
+    kind: 'approval',
+    callId: 'i7b',
+    title: 'Run command',
+    preview: 'pnpm lint',
+    previewKind: 'command',
+    reason: null,
+    remember: 'pnpm lint',
+    decision: 'deny',
+    feedback: '린트는 지금 안 돌려도 돼요',
+    tool: 'bash',
+    args: { command: 'pnpm lint' },
+  },
+  {
+    id: 'i7b',
+    kind: 'tool_call',
+    name: 'bash',
+    args: { command: 'pnpm lint' },
+    status: 'denied',
+    result: 'The user declined this tool call. They said: 린트는 지금 안 돌려도 돼요',
+    images: 0,
+    detail: null,
   },
   { id: 'i8', kind: 'notice', text: 'AGENTS.md를 읽었어요', source: 'agents_md' },
   { id: 'i9', kind: 'compaction', beforeTokens: 96_000, afterTokens: 12_000 },
@@ -119,26 +181,42 @@ const say = async (text: string) => {
   await userEvent.type(await screen.findByLabelText(/^(메시지|Message)$/), `${text}{Enter}`);
 };
 
-/** Boards for the session screen, without the rail and the right panel. */
+/**
+ * Boards for the session screen, without the rail and the right panel. The profile chip in the input bar is a link,
+ * so each story makes a router.
+ */
 const meta = {
   title: 'Session/Session',
   component: Session,
   args: { sessionId: ID },
   parameters: { layout: 'fullscreen' },
-  decorators: [(Story) => <div className="flex h-screen">{Story()}</div>],
+  decorators: [
+    (Story) => {
+      const router = createRouter({
+        routeTree: createRootRoute({ component: () => <div className="flex h-screen">{Story()}</div> }),
+      });
+      return <RouterProvider router={router} />;
+    },
+  ],
 } satisfies Meta<typeof Session>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Bubbles, prose, activity lines, my earlier choice, a notice, a compaction divider and why the run stopped. */
+/**
+ * Bubbles, prose, a stretch of tool calls as one line that opens into Claude Code's layout (a read's count that
+ * opens, an edit's diff, a failed command's output cut to its first lines, a denied one with what I said), a notice,
+ * a compaction divider and why the run stopped.
+ */
 export const Conversation: Story = {
   parameters: { server: server(earlier) },
   play: async () => {
-    await userEvent.click(
-      await screen.findByRole('button', { name: /편집 1 · 실행 1 · 읽기 2|Edit 1 · Run 1 · Read 2/ }),
-    );
-    await waitFor(() => expect(screen.getAllByText(/완료|Done/).length).toBeGreaterThan(0));
+    await userEvent.click(await screen.findByRole('button', { name: /명령 2개 실행.*실패 1.*안 함 1|Ran 2 commands/ }));
+    await expect(await screen.findByText(/린트는 지금 안 돌려도 돼요/)).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: /24줄 읽음|Read 24 lines/ }));
+    await waitFor(() => expect(screen.getByText(/line 24/)).toBeVisible());
+    await userEvent.click(screen.getByRole('button', { name: /… 5줄 더 보기|… 5 more lines/ }));
+    await waitFor(() => expect(screen.getByText(/Tests {2}1 failed/)).toBeVisible());
   },
 };
 
@@ -179,7 +257,7 @@ export const StreamingMarkdown: Story = {
   },
 };
 
-/** While the run goes on, a line above the input says what it is doing, for how long and with how many tokens. */
+/** While the run goes on, the last line of the chat says what it is doing, for how long and with how many tokens. */
 export const ShowsProgress: Story = {
   parameters: { server: server([], { stepMs: 2000, wordMs: 300 }) },
   play: async () => {
@@ -192,12 +270,14 @@ export const ShowsProgress: Story = {
   },
 };
 
-/** The dock above the input: what it wants to run and why, and my three answers. */
+/** A call that waits for my answer, in the chat where it will run: what it would run and why, and my answers. */
 export const WaitingForApproval: Story = {
   parameters: { server: server() },
   play: async () => {
     await say('테스트를 돌려 주세요');
-    await waitFor(() => expect(screen.getByRole('region', { name: /승인 요청|Approval request/ })).toBeVisible());
+    const card = await screen.findByRole('region', { name: /승인 요청|Approval request/ }, { timeout: 10_000 });
+    await expect(card).toBeVisible();
+    await expect(screen.getByPlaceholderText(/어떻게 다르게 할지|Say what to do instead/)).toBeVisible();
   },
 };
 
@@ -205,28 +285,44 @@ export const WaitingForAnEdit: Story = {
   parameters: { server: server() },
   play: async () => {
     await say('README를 edit 해 주세요');
-    await waitFor(() => expect(screen.getByRole('region', { name: /승인 요청|Approval request/ })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('region', { name: /승인 요청|Approval request/ })).toBeVisible(), {
+      timeout: 10_000,
+    });
   },
 };
 
-/** Denying with a reason: the agent goes on with what I said. */
-export const DeniedWithFeedback: Story = {
+/** Writing in the input while a call waits skips it and tells the agent what to do instead; the run goes on. */
+export const AnsweredInTheInput: Story = {
   parameters: { server: server() },
   play: async () => {
     await say('테스트를 돌려 주세요');
-    await userEvent.type(await screen.findByLabelText(/거절하는 이유|Why not/), '테스트는 내가 돌릴게요');
-    await userEvent.click(screen.getByRole('button', { name: /^(거절|Deny)$/ }));
-    await waitFor(() => expect(screen.getByText(/테스트는 내가 돌릴게요|You said/)).toBeVisible());
+    await screen.findByRole('region', { name: /승인 요청|Approval request/ }, { timeout: 10_000 });
+    await say('테스트는 내가 돌릴게요');
+    await waitFor(() => expect(screen.getByText(/You said: 테스트는 내가 돌릴게요/)).toBeVisible(), {
+      timeout: 10_000,
+    });
   },
 };
 
-/** Denying without a reason ends the run, and a quiet line says so. */
-export const StoppedRun: Story = {
+/** Skipping a call does not stop the run: the agent carries on without it. */
+export const Skipped: Story = {
   parameters: { server: server() },
   play: async () => {
     await say('테스트를 돌려 주세요');
-    await userEvent.click(await screen.findByRole('button', { name: /^(거절|Deny)$/ }));
-    await waitFor(() => expect(screen.getByText(/허용되지 않아서 멈췄어요|not allowed/)).toBeVisible());
+    await userEvent.click(await screen.findByRole('button', { name: /^(건너뛰기|Skip)$/ }, { timeout: 10_000 }));
+    await waitFor(() => expect(screen.getByText(/I carried on without it/)).toBeVisible(), { timeout: 10_000 });
+    await expect(screen.getByRole('button', { name: /안 함 1|1 not run/ })).toBeVisible();
+  },
+};
+
+/** Esc stops the run from anywhere on the screen, like the stop button; a quiet line says it stopped. */
+export const StoppedWithEsc: Story = {
+  parameters: { server: server([], { stepMs: 1500, wordMs: 300 }) },
+  play: async () => {
+    await say('테스트를 돌려 주세요');
+    await expect(await screen.findByRole('button', { name: /멈추기|Stop/ }, { timeout: 10_000 })).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.getByText(/^(멈췄어요|Stopped)$/)).toBeVisible(), { timeout: 10_000 });
   },
 };
 
@@ -251,6 +347,85 @@ export const ChatGPTLimitHit: Story = {
   },
   play: async () => {
     await waitFor(() => expect(screen.getByText(/ChatGPT 사용량 한도|ChatGPT usage limit/)).toBeVisible());
+  },
+};
+
+/**
+ * Board Task2Work's chat: the plan calls are tool calls like any other, counted in the line ("계획 1번 고침") and,
+ * opened, a `계획` row whose result says only what changed.
+ */
+export const PlanCalls: Story = {
+  parameters: {
+    server: mergeScripts(
+      setUpScript(),
+      sessionScript({
+        sessions: [
+          { info: sessionInfo({ id: ID, title: '세션 목록이 사라지는 문제', plan: WORK_PLAN }), items: WORK_ITEMS },
+        ],
+      }),
+    ),
+  },
+  play: async () => {
+    await expect(
+      await screen.findByRole('button', { name: /파일 2개 읽음 · 계획 1번 고침|Read 2 files/ }),
+    ).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: /명령 1개 실행.*계획 1번 고침.*실패 1|Ran 1 command/ }));
+    await expect(
+      await screen.findByRole('button', { name: /'원인 경로 찾기' 끝냄 · '재현 테스트 먼저' 시작|Finished/ }),
+    ).toBeVisible();
+  },
+};
+
+/**
+ * Board StressMonorepo's chat: `확인(label)` rows, a passed check in a word, next to a command that failed.
+ */
+export const CheckCalls: Story = {
+  parameters: {
+    server: mergeScripts(
+      setUpScript(),
+      sessionScript({
+        sessions: [
+          { info: sessionInfo({ id: ID, title: '주문 API 페이지네이션', plan: MONOREPO_PLAN }), items: MONOREPO_ITEMS },
+        ],
+      }),
+    ),
+  },
+  play: async () => {
+    await userEvent.click(
+      await screen.findByRole('button', { name: /명령 1개 실행 · 2번 확인 · 실패 1|Ran 1 command/ }),
+    );
+    await expect(await screen.findByText('(테스트 · web)')).toBeVisible();
+    await expect(screen.getAllByText(/^(통과|Passed)$/)).toHaveLength(2);
+  },
+};
+
+/** Board StressFrontend's checks in the chat: a pass in a word, a failure as its output, an agent's claim as a claim. */
+export const JudgedChecks: Story = {
+  parameters: {
+    server: mergeScripts(
+      setUpScript(),
+      sessionScript({
+        sessions: [
+          { info: sessionInfo({ id: ID, title: '상품 카드에 할인 배지', plan: JUDGED_PLAN }), items: JUDGED_ITEMS },
+        ],
+      }),
+    ),
+  },
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /3번 확인 · 실패 1|Checked 3 times/ }));
+    await expect(await screen.findByText(/에이전트 판단 · 통과 · 근거 3|Agent's judgement · Passed · 3/)).toBeVisible();
+    await expect(screen.getByText(/'discount' is possibly undefined/)).toBeVisible();
+  },
+};
+
+/** A run that plans: the plan call shows as it happens, and the approved command counts as the plan's check. */
+export const PlanningRun: Story = {
+  parameters: { server: server([], { stepMs: 300, wordMs: 60 }) },
+  play: async () => {
+    await say('계획을 세우고 테스트를 돌려 주세요');
+    await screen.findByRole('region', { name: /승인 요청|Approval request/ }, { timeout: 10_000 });
+    await userEvent.click(screen.getByRole('button', { name: /계획 1번 고침|updated the plan/ }));
+    await expect(await screen.findByRole('button', { name: /3단계 세움 · 확인 1개|Planned 3 steps/ })).toBeVisible();
   },
 };
 

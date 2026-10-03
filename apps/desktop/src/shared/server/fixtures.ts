@@ -2,7 +2,6 @@ import type { ConnectionInfo, ConnectionsListResult, ProjectInfo, ProviderInfo }
 
 import { ServerError } from './connection';
 import { mergeScripts, type Script } from './scripted';
-import { PLAN_SESSIONS } from './planFixtures';
 import { sessionInfo, sessionScript, type SessionScriptOptions } from './sessionScript';
 import { toolsScript } from './toolsScript';
 
@@ -255,11 +254,7 @@ export const SESSIONS = [
 
 /**
  * Everything set up, and a server that runs sessions: `session/send` plays a turn (see `sessionScript`), so a story
- * can send a message, answer the approval and watch the reply. Besides two plain earlier sessions there are two with
- * a plan and checks (boards Task2Work and StressMonorepo).
+ * can send a message, answer the approval and watch the reply.
  */
 export const chatScript = (options: SessionScriptOptions = {}) =>
-  mergeScripts(
-    setUpScript(),
-    sessionScript({ sessions: [...SESSIONS.map((info) => ({ info })), ...PLAN_SESSIONS], ...options }),
-  );
+  mergeScripts(setUpScript(), sessionScript({ sessions: SESSIONS.map((info) => ({ info })), ...options }));

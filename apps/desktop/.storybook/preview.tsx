@@ -2,7 +2,6 @@ import type { Preview } from '@storybook/react-vite';
 
 import { Providers } from '../src/app/providers';
 import type { Locale } from '../src/shared/i18n';
-import { usePanelTab } from '../src/shared/panel';
 import { scriptedConnection, type Script } from '../src/shared/server';
 import '../src/app/styles.css';
 
@@ -26,10 +25,6 @@ const preview: Preview = {
     },
   },
   initialGlobals: { locale: 'ko' },
-  // The right panel's tab is shared screen state; every story starts on 'all'.
-  beforeEach: () => {
-    usePanelTab.setState({ tab: 'all' });
-  },
   decorators: [
     (Story, { globals, parameters }) => (
       <Providers connection={scriptedConnection(parameters.server as Script)} locale={globals.locale as Locale}>

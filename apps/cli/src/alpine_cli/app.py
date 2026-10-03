@@ -58,9 +58,9 @@ def main(argv: list[str] | None = None) -> None:
                 console.print('[error]-p needs a prompt: alpine -p "..." (or pipe one in)[/]')
                 sys.exit(2)
             sys.exit(run_headless(settings, prompt, usage_path=args.usage_file))
-        renderer = Renderer(console)
-        session = Session(settings, on_event=renderer, approver=CliApprover(console), projects=ProjectList.default())
-        renderer.plan = lambda: session.plan
+        session = Session(
+            settings, on_event=Renderer(console), approver=CliApprover(console), projects=ProjectList.default()
+        )
     except ConfigError as e:
         console.print(f"[error]{e}[/]")
         sys.exit(1)

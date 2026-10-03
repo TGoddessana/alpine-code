@@ -3,16 +3,10 @@ import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-r
 import { expect, screen, userEvent, waitFor } from 'storybook/test';
 
 import {
-  JUDGED_ITEMS,
-  JUDGED_PLAN,
   mergeScripts,
-  MONOREPO_ITEMS,
-  MONOREPO_PLAN,
   sessionInfo,
   sessionScript,
   setUpScript,
-  WORK_ITEMS,
-  WORK_PLAN,
   type Item,
   type SessionScriptOptions,
 } from '@/shared/server';
@@ -32,7 +26,6 @@ const earlier: Item[] = [
     status: 'done',
     result: Array.from({ length: 24 }, (_, i) => `${String(i + 1).padStart(3)}\t// line ${i + 1}`).join('\n'),
     images: 0,
-    detail: null,
   },
   {
     id: 'i4',
@@ -42,7 +35,6 @@ const earlier: Item[] = [
     status: 'done',
     result: 'tests/login.test.ts:12:  await waitFor(() => screen.getByText("Welcome"));',
     images: 0,
-    detail: null,
   },
   {
     id: 'i5a',
@@ -67,7 +59,6 @@ const earlier: Item[] = [
     status: 'done',
     result: 'Edited tests/login.test.ts',
     images: 0,
-    detail: null,
   },
   {
     id: 'i6',
@@ -101,7 +92,6 @@ const earlier: Item[] = [
       ' Tests  1 failed | 11 passed (12)',
     ].join('\n'),
     images: 0,
-    detail: null,
   },
   {
     id: 'i7a',
@@ -125,7 +115,6 @@ const earlier: Item[] = [
     status: 'denied',
     result: 'The user declined this tool call. They said: 린트는 지금 안 돌려도 돼요',
     images: 0,
-    detail: null,
   },
   { id: 'i8', kind: 'notice', text: 'AGENTS.md를 읽었어요', source: 'agents_md' },
   { id: 'i9', kind: 'compaction', beforeTokens: 96_000, afterTokens: 12_000 },
@@ -347,85 +336,6 @@ export const ChatGPTLimitHit: Story = {
   },
   play: async () => {
     await waitFor(() => expect(screen.getByText(/ChatGPT 사용량 한도|ChatGPT usage limit/)).toBeVisible());
-  },
-};
-
-/**
- * Board Task2Work's chat: the plan calls are tool calls like any other, counted in the line ("계획 1번 고침") and,
- * opened, a `계획` row whose result says only what changed.
- */
-export const PlanCalls: Story = {
-  parameters: {
-    server: mergeScripts(
-      setUpScript(),
-      sessionScript({
-        sessions: [
-          { info: sessionInfo({ id: ID, title: '세션 목록이 사라지는 문제', plan: WORK_PLAN }), items: WORK_ITEMS },
-        ],
-      }),
-    ),
-  },
-  play: async () => {
-    await expect(
-      await screen.findByRole('button', { name: /파일 2개 읽음 · 계획 1번 고침|Read 2 files/ }),
-    ).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: /명령 1개 실행.*계획 1번 고침.*실패 1|Ran 1 command/ }));
-    await expect(
-      await screen.findByRole('button', { name: /'원인 경로 찾기' 끝냄 · '재현 테스트 먼저' 시작|Finished/ }),
-    ).toBeVisible();
-  },
-};
-
-/**
- * Board StressMonorepo's chat: `확인(label)` rows, a passed check in a word, next to a command that failed.
- */
-export const CheckCalls: Story = {
-  parameters: {
-    server: mergeScripts(
-      setUpScript(),
-      sessionScript({
-        sessions: [
-          { info: sessionInfo({ id: ID, title: '주문 API 페이지네이션', plan: MONOREPO_PLAN }), items: MONOREPO_ITEMS },
-        ],
-      }),
-    ),
-  },
-  play: async () => {
-    await userEvent.click(
-      await screen.findByRole('button', { name: /명령 1개 실행 · 2번 확인 · 실패 1|Ran 1 command/ }),
-    );
-    await expect(await screen.findByText('(테스트 · web)')).toBeVisible();
-    await expect(screen.getAllByText(/^(통과|Passed)$/)).toHaveLength(2);
-  },
-};
-
-/** Board StressFrontend's checks in the chat: a pass in a word, a failure as its output, an agent's claim as a claim. */
-export const JudgedChecks: Story = {
-  parameters: {
-    server: mergeScripts(
-      setUpScript(),
-      sessionScript({
-        sessions: [
-          { info: sessionInfo({ id: ID, title: '상품 카드에 할인 배지', plan: JUDGED_PLAN }), items: JUDGED_ITEMS },
-        ],
-      }),
-    ),
-  },
-  play: async () => {
-    await userEvent.click(await screen.findByRole('button', { name: /3번 확인 · 실패 1|Checked 3 times/ }));
-    await expect(await screen.findByText(/에이전트 판단 · 통과 · 근거 3|Agent's judgement · Passed · 3/)).toBeVisible();
-    await expect(screen.getByText(/'discount' is possibly undefined/)).toBeVisible();
-  },
-};
-
-/** A run that plans: the plan call shows as it happens, and the approved command counts as the plan's check. */
-export const PlanningRun: Story = {
-  parameters: { server: server([], { stepMs: 300, wordMs: 60 }) },
-  play: async () => {
-    await say('계획을 세우고 테스트를 돌려 주세요');
-    await screen.findByRole('region', { name: /승인 요청|Approval request/ }, { timeout: 10_000 });
-    await userEvent.click(screen.getByRole('button', { name: /계획 1번 고침|updated the plan/ }));
-    await expect(await screen.findByRole('button', { name: /3단계 세움 · 확인 1개|Planned 3 steps/ })).toBeVisible();
   },
 };
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Item } from '@/shared/server';
 
-import { isFailed, toBlocks, toolKind, toolSummary, toolTarget } from './blocks';
+import { toBlocks, toolKind, toolSummary, toolTarget } from './blocks';
 
 const call = (id: string, over: Partial<ToolCallItem> = {}): ToolCallItem => ({
   id,
@@ -13,7 +13,6 @@ const call = (id: string, over: Partial<ToolCallItem> = {}): ToolCallItem => ({
   status: 'done',
   result: null,
   images: 0,
-  detail: null,
   ...over,
 });
 const message = (id: string): Item => ({ id, kind: 'agent_message', text: 'hi' });
@@ -79,7 +78,6 @@ describe('toolKind', () => {
       'search',
       'other',
     ]);
-    expect(['check', 'update_plan'].map(toolKind)).toEqual(['check', 'plan']);
   });
 });
 
@@ -88,11 +86,6 @@ describe('toolTarget', () => {
     expect(toolTarget(call('c', { name: 'grep', args: { pattern: 'TODO', path: 'src' } }))).toBe('TODO  src');
     expect(toolTarget(call('c', { name: 'glob', args: { pattern: '*.py', path: null } }))).toBe('*.py');
     expect(toolTarget(call('c', { args: { command: 'git status' } }))).toBe('git status');
-  });
-
-  it("shows a check's label, and nothing for the plan", () => {
-    expect(toolTarget(call('c', { name: 'check', args: { label: 'type check' } }))).toBe('type check');
-    expect(toolTarget(call('c', { name: 'update_plan', args: { steps: [] } }))).toBe('');
   });
 });
 
@@ -151,60 +144,5 @@ describe('toolSummary', () => {
   it('says only the state for a call that did not finish: the model-facing text would only repeat it', () => {
     for (const status of ['running', 'denied', 'cancelled', 'interrupted'] as const)
       expect(toolSummary(row({ status, result: 'The user declined this tool call.' }))).toEqual({ type: 'state' });
-  });
-
-  it('says what a plan call changed, from what the harness saw', () => {
-    const detail = {
-      kind: 'plan' as const,
-      created: true,
-      steps: 5,
-      checks: 3,
-      finished: [],
-      started: [],
-      reopened: [],
-      added: [],
-      renamed: [],
-      dropped: [],
-      checksChanged: false,
-    };
-    expect(toolSummary(row({ name: 'update_plan', result: 'Plan updated', detail }))).toEqual({ type: 'plan', detail });
-    // An update the model got wrong has no detail: its error shows like any other.
-    expect(toolSummary(row({ name: 'update_plan', status: 'input_error', result: '(input error: two now)' }))).toEqual(
-      expect.objectContaining({ type: 'output', failed: true }),
-    );
-  });
-
-  it('says a harness check passed in a word, shows a failed one as its output, and an agent check as a claim', () => {
-    const harness = (passed: boolean) => ({
-      kind: 'check' as const,
-      label: 'tests',
-      judge: 'harness' as const,
-      passed,
-      evidence: ['c'],
-    });
-    expect(toolSummary(row({ name: 'check', result: 'ok\n[check passed]', detail: harness(true) }))).toEqual({
-      type: 'passed',
-    });
-    const failing = row({ name: 'check', result: 'E boom\n[exit code 1: check failed]', detail: harness(false) });
-    expect(toolSummary(failing)).toMatchObject({ type: 'output', text: 'E boom', failed: true });
-    expect(isFailed(failing.call)).toBe(true);
-    const claim = { ...harness(true), judge: 'agent' as const, evidence: ['a', 'b', 'c'] };
-    expect(toolSummary(row({ name: 'check', result: 'Recorded', detail: claim }))).toEqual({
-      type: 'judged',
-      detail: claim,
-    });
-  });
-});
-
-describe('isFailed', () => {
-  it('counts errors and checks that did not pass, not calls that did not run', () => {
-    expect(
-      ['error', 'input_error', 'aborted'].every((status) => isFailed(call('c', { status: status as 'error' }))),
-    ).toBe(true);
-    expect(
-      ['done', 'denied', 'cancelled', 'interrupted'].some((status) =>
-        isFailed(call('c', { status: status as 'done' })),
-      ),
-    ).toBe(false);
   });
 });

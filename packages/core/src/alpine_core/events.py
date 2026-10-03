@@ -73,8 +73,6 @@ class ToolFinished:
     kind: ToolResultKind
     images: int = 0
     """How many images the result sent to the model."""
-    detail: dict[str, Any] | None = None
-    """What a plan tool call did, as the harness saw it (``Plan``'s ``detail`` shapes); ``None`` for other calls."""
 
     @property
     def is_error(self) -> bool:

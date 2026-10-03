@@ -51,9 +51,6 @@ from .items import (
 )
 from .models import ModelListError, chatgpt_tokens, list_models
 from .permissions import Mode
-from .plan import PLAN_TOOLS, CheckResult, Judge, Plan, StepStatus
-from .plan import Check as PlanCheck
-from .plan import Step as PlanStep
 from .profiles import DEFAULT_ID as DEFAULT_PROFILE
 from .profiles import Profile, ProfileConflict, ProfileList
 from .projects import Project, ProjectList
@@ -98,13 +95,6 @@ __all__ = [
     "Activity",
     "ActivityKind",
     "SessionInfo",
-    "PLAN_TOOLS",
-    "CheckResult",
-    "Judge",
-    "Plan",
-    "PlanCheck",
-    "PlanStep",
-    "StepStatus",
     "SessionStatus",
     "file_storage",
     "Settings",

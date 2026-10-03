@@ -42,17 +42,16 @@ from .events import (
     TurnStarted,
     UsageInfo,
 )
-from .items import Item, ItemCompleted, ItemEvent, ItemRecorder, ToolCallItem, item_from_dict, item_to_dict
+from .items import Item, ItemCompleted, ItemEvent, ItemRecorder, item_from_dict, item_to_dict
 from .loop import coding
 from .models import make_model
 from .permissions import Mode, PermissionPolicy
-from .plan import PLAN_TOOLS, Plan, PlanTracker
 from .profiles import Profile, ProfileList
 from .projects import ProjectList
 from .prompt import build_system_prompt
 from .storage import Activity, ActivityKind, Record, SessionInfo, SessionStatus, Storage
 from .toolbox import Toolbox
-from .tools import PlanTools, Workspace, default_tools
+from .tools import Workspace, default_tools
 
 #: Longest session title, in characters.
 TITLE_LENGTH = 60
@@ -119,8 +118,7 @@ class Session:
         if mode is not None:
             settings = dataclasses.replace(settings, mode=mode)
         self.workspace = Workspace((cwd or Path.cwd()).resolve())
-        self._plan = PlanTracker(on_change=self._touch, known_calls=self._finished_calls)
-        self.policy = PermissionPolicy(self.workspace, settings.mode, check_command=self._plan.harness_command)
+        self.policy = PermissionPolicy(self.workspace, settings.mode)
         self._on_event = on_event
         self._on_item_event = on_item_event
         self._storage = storage
@@ -221,17 +219,15 @@ class Session:
         return saved or self._profiles.resolve(self.workspace.root, settings.model)
 
     def _tools(self) -> list[Any]:
-        """The built-in tools, and the user's tools, that the profile turns on (without profiles, the built-ins),
-        and always the plan tools."""
-        plan = PlanTools(self.workspace, self._plan)
-        builtin = default_tools(self.workspace, on_command=self._plan.observe_command)
+        """The built-in tools, and the user's tools, that the profile turns on. Without profiles, the built-ins."""
+        builtin = default_tools(self.workspace)
         if self._profile is None:
-            return [*builtin, plan]
+            return builtin
         on = set(self._profile.tools)
         tools: list[Any] = [tool for name, tool in collect_tools(builtin).items() if name in on]
         if self._toolbox is not None:
             tools += self._toolbox.load(on)
-        return [*tools, plan]
+        return tools
 
     # ------------------------------------------------------------ actions
 
@@ -372,13 +368,7 @@ class Session:
             run_started_at=self._run_started_at,
             run_usage=self._run_usage(),
             profile=self._profile.id if self._profile is not None else None,
-            plan=self._plan.plan,
         )
-
-    @property
-    def plan(self) -> Plan | None:
-        """The model's plan, with the check results and dropped steps; ``None`` until it makes one."""
-        return self._plan.plan
 
     @property
     def seq(self) -> int:
@@ -444,12 +434,7 @@ class Session:
     # ------------------------------------------------------------ items and storage
 
     def _dispatch(self, event: Event) -> None:
-        """A core event: the item recorder first (so ``snapshot()`` is current), then the frontend's callback. A plan
-        tool's call carries what it did."""
-        if isinstance(event, ToolStarted):
-            self._plan.call_started(event.id)
-        elif isinstance(event, ToolFinished) and event.name in PLAN_TOOLS:
-            event = dataclasses.replace(event, detail=self._plan.take_detail(event.id))
+        """A core event: the item recorder first (so ``snapshot()`` is current), then the frontend's callback."""
         self._recorder.handle(event)
         self._track(event)
         if self._on_event is not None:
@@ -503,9 +488,6 @@ class Session:
         self._running_tools.clear()
         self._set_status(status)
 
-    def _finished_calls(self) -> set[str]:
-        return {item.id for item in self._recorder.items if isinstance(item, ToolCallItem)}
-
     def _on_recorded(self, seq: int, event: ItemEvent) -> None:
         if isinstance(event, ItemCompleted) and self._storage is not None and not self._closed:
             self._storage.log.append(self._id, [(seq, item_to_dict(event.item))])
@@ -533,7 +515,6 @@ class Session:
         self._activity = self._run_started_at = None
         self._created = self._updated = _now()
         self._recorder = ItemRecorder(self._on_recorded)
-        self._plan.reset()
         if self._storage is not None:
             self._storage.log.create(self.info)
 
@@ -542,7 +523,6 @@ class Session:
         self._id, self._title = info.id, info.title
         self._created, self._updated = info.created_at, info.updated_at
         self._state = saved.state
-        self._plan.restore(info.plan)
         items = [item_from_dict(data) for _, data in saved.records]
         seq = max(info.last_seq, saved.records[-1][0] if saved.records else 0)
         self._recorder = ItemRecorder(self._on_recorded, seq=seq, items=items)

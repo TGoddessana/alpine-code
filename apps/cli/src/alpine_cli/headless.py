@@ -84,7 +84,6 @@ def run_headless(settings: Settings, prompt: str, *, usage_path: Path | None = N
         renderer(event)
 
     session = Session(settings, on_event=on_event, approver=HeadlessApprover())
-    renderer.plan = lambda: session.plan
     try:
         answer = session.send(prompt)
     finally:

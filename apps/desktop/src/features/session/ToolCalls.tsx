@@ -4,10 +4,8 @@ import clsx from 'clsx';
 import { memo, useState, type ReactNode } from 'react';
 
 import { useFormat, useMessages } from '@/shared/i18n';
-import { usePanelTab } from '@/shared/panel';
 
 import {
-  isFailed,
   PREVIEW_LINES,
   toolKind,
   toolSummary,
@@ -17,7 +15,6 @@ import {
   type ToolSummary,
 } from './blocks';
 import { messages } from './messages';
-import { planChangeText } from './planText';
 
 type Messages = (typeof messages)['en'];
 
@@ -33,8 +30,7 @@ const wordOf = {
   cancelled: 'toolCancelled',
 } as const satisfies Record<ToolCallItem['status'], keyof Messages>;
 
-/** The order of the collapsed line (docs/session-tools.md, "In the chat"). */
-const KINDS: ToolKind[] = ['run', 'read', 'search', 'edit', 'check', 'plan', 'other'];
+const KINDS: ToolKind[] = ['run', 'read', 'search', 'edit', 'other'];
 
 /**
  * The tool calls of one stretch of work as one line, as Claude Code's app does: what they did, counted ("명령 3개
@@ -53,7 +49,7 @@ export function ToolCalls({ rows }: { rows: ToolRow[] }) {
     .map(([kind, n]) => t[`did_${kind}`](format.number(n)));
   // English starts with whichever kind comes first; Korean has no case, so this changes nothing there.
   const summary = done.join(' · ').replace(/^./, (c) => c.toUpperCase());
-  const failed = count((row) => isFailed(row.call));
+  const failed = count((row) => wordOf[row.call.status] === 'toolFailed');
   const skipped = count((row) => ['denied', 'cancelled', 'interrupted'].includes(row.call.status));
   const running = rows.filter((row) => row.call.status === 'running');
 
@@ -100,7 +96,7 @@ const Call = memo(
   (before, after) => before.row.call === after.row.call && before.row.approval === after.row.approval,
 );
 
-/** A call as `Kind(target)`: the kind in words, then what it works on in mono. The plan has no target: `계획`. */
+/** A call as `Kind(target)`: the kind in words, then what it works on in mono. */
 export function CallTitle({ name, args }: { name: string; args: Record<string, unknown> }) {
   const t = useMessages(messages);
   const target = toolTarget({ args });
@@ -130,18 +126,6 @@ function Summary({ row, summary }: { row: ToolRow; summary: ToolSummary }) {
     }
     case 'done':
       return <span>{t.toolDone}</span>;
-    case 'plan':
-      return <PlanChange text={planChangeText(t, summary.detail, format.number)} />;
-    case 'passed':
-      return <span>{t.checkPassed}</span>;
-    case 'judged': {
-      const { detail } = summary;
-      return (
-        <span className={clsx(!detail.passed && 'text-danger')}>
-          {t.agentJudged(detail.passed ? t.checkPassed : t.checkFailed, format.number(detail.evidence.length))}
-        </span>
-      );
-    }
     case 'count': {
       const count = format.number(summary.count);
       const label =
@@ -162,23 +146,6 @@ function Summary({ row, summary }: { row: ToolRow; summary: ToolSummary }) {
         </>
       );
   }
-}
-
-/** What a plan call changed; clicking it shows the plan tab, at the panel's own width. */
-function PlanChange({ text }: { text: string }) {
-  const t = useMessages(messages);
-  const show = usePanelTab((state) => state.show);
-  return (
-    <button
-      type="button"
-      title={t.planOpen}
-      onClick={() => show('plan')}
-      className="inline-flex cursor-pointer items-center gap-1 rounded-sm text-left hover:text-fg hover:underline"
-    >
-      {text}
-      <span aria-hidden="true">›</span>
-    </button>
-  );
 }
 
 /** A count ("Read 120 lines") that shows what it counts when clicked. */

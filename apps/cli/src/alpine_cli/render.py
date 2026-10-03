@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Any
 
 from rich.console import Console
@@ -19,7 +18,6 @@ from alpine_core import (
     Failed,
     Interrupted,
     Notice,
-    Plan,
     RunFinished,
     TextDelta,
     ToolFinished,
@@ -38,15 +36,11 @@ COUNTED = {"glob": "files", "grep": "matches"}
 
 
 class Renderer:
-    """Consumes core events. Final output goes to the scrollback; spinners and streaming text are transient.
-    ``plan`` gives the session's plan, printed as a checklist after each ``update_plan`` call."""
+    """Consumes core events. Final output goes to the scrollback; spinners and streaming text are transient."""
 
-    def __init__(
-        self, console: Console, *, show_text: bool = True, plan: Callable[[], Plan | None] | None = None
-    ) -> None:
+    def __init__(self, console: Console, *, show_text: bool = True) -> None:
         self.console = console
         self.show_text = show_text
-        self.plan = plan
         self._live: Live | None = None
         self._buffer = ""
         self._running: dict[str, str] = {}
@@ -108,26 +102,18 @@ class Renderer:
             self._live = None
 
     def _print_tool(self, event: ToolFinished) -> None:
-        failed = event.is_error or (event.detail is not None and event.detail.get("passed") is False)
-        color = "warn" if event.kind in ("denied", "cancelled") else "error" if failed else "ok"
-        if event.name == "update_plan":
-            head = Text.assemble((f"{BULLET} ", color), ("Plan", "tool"))
-        else:
-            arg = call_label(event.name, event.args, full=False)
-            head = Text.assemble((f"{BULLET} ", color), (event.name, "tool"), f"({arg})")
+        color = "warn" if event.kind in ("denied", "cancelled") else "error" if event.is_error else "ok"
+        arg = call_label(event.name, event.args, full=False)
+        head = Text.assemble((f"{BULLET} ", color), (event.name, "tool"), f"({arg})")
         self.console.print(head)
-        lines = summarize(event)
-        if event.name == "update_plan" and event.kind == "done" and self.plan is not None:
-            plan = self.plan()
-            lines = checklist(plan, event.detail) if plan is not None else lines
-        for i, line in enumerate(lines):
+        for i, line in enumerate(summarize(event)):
             prefix = f"  {RESULT}  " if i == 0 else "     "
             self.console.print(Text(prefix, style="muted") + line)
 
 
 def call_label(name: str, args: dict[str, Any], *, full: bool = True) -> str:
-    """The main argument of a call: the path for file tools, the command for bash, the label for a check."""
-    value = args.get("pattern") or args.get("path") or args.get("command") or args.get("label")
+    """The main argument of a call: the path for file tools, the command for bash."""
+    value = args.get("pattern") or args.get("path") or args.get("command")
     if value is None:
         value = ", ".join(f"{k}={v!r}" for k, v in args.items()) or "."
     text = " ".join(str(value).split()) if name == "bash" else str(value)
@@ -148,18 +134,6 @@ def summarize(event: ToolFinished) -> list[Text]:
     result = event.result.rstrip()
     if event.is_error:
         return [_line(result.splitlines()[0] if result else event.kind, "error")]
-    detail = event.detail
-    if detail is not None and detail.get("kind") == "check":
-        if detail["judge"] == "agent":
-            verdict = "passed" if detail["passed"] else "did not pass"
-            return [_line(f"Agent's judgement · {verdict} · {len(detail['evidence'])} calls as evidence")]
-        if detail["passed"]:
-            return [_line("Passed", "ok")]
-        lines = result.splitlines()
-        shown = [_line(line, "error") for line in lines[:PREVIEW_LINES]]
-        if len(lines) > PREVIEW_LINES:
-            shown.append(_line(f"… +{len(lines) - PREVIEW_LINES} lines"))
-        return shown
     if event.name == "read":
         return [_line(_summarize_read(result, event.images))]
     if event.name in COUNTED:
@@ -172,24 +146,6 @@ def summarize(event: ToolFinished) -> list[Text]:
     if len(lines) > PREVIEW_LINES:
         shown.append(_line(f"… +{len(lines) - PREVIEW_LINES} lines"))
     return shown
-
-
-def checklist(plan: Plan, detail: dict[str, Any] | None) -> list[Text]:
-    """The plan as Claude Code prints its todos: ☒ done (struck through), ☐ to do, the step now in bold. Then what this
-    update dropped, and the checks when they were set or changed."""
-    lines = []
-    for step in plan.steps:
-        if step.status == "done":
-            lines.append(Text.assemble(("☒ ", "muted"), (step.text, "muted strike")))
-        else:
-            lines.append(Text.assemble(("☐ ", "muted"), (step.text, "bold" if step.status == "now" else "default")))
-    if detail is not None:
-        for text in detail.get("dropped", ()):
-            lines.append(_line(f"Dropped from the plan: {text}", "warn"))
-        if plan.checks and (detail.get("created") or detail.get("checks_changed")):
-            judges = {"harness": "", "agent": " (agent)", "user": " (you)"}
-            lines.append(_line("Checks: " + ", ".join(c.label + judges[c.judge] for c in plan.checks)))
-    return lines or [_line("(empty plan)")]
 
 
 def _summarize_read(result: str, images: int) -> str:

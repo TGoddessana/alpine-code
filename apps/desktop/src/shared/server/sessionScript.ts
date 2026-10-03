@@ -1,15 +1,6 @@
-import type {
-  Activity,
-  ApprovalItem,
-  Plan,
-  PlanUpdateDetail,
-  SessionInfo,
-  ToolCallItem,
-  Usage,
-} from '@alpine/protocol';
+import type { Activity, ApprovalItem, SessionInfo, ToolCallItem, Usage } from '@alpine/protocol';
 
 import { ServerError } from './connection';
-import { check, planChange, step as planStep } from './planShapes';
 import type { Script, ScriptContext } from './scripted';
 import { applyEvent, toSnapshot, type Item, type SessionEvent, type SessionState } from './sessionState';
 
@@ -49,7 +40,6 @@ export function sessionInfo(overrides: Partial<SessionInfo> = {}): SessionInfo {
     runStartedAt: null,
     runUsage: null,
     profile: 'default',
-    plan: null,
     ...overrides,
   };
 }
@@ -81,10 +71,6 @@ const ANSWER = 'I read the README, then ran the check you asked for. ';
  *
  * Along the way `info` changes as on the real server: the activity (thinking, writing, a tool, waiting for approval),
  * `runStartedAt`, and the usage after every model call (`runUsage` for the run, `usage` and `contextUsed` for the session).
- *
- * A message that mentions a plan ("계획", "plan") also plans: an `update_plan` call after the read sets a plan of
- * three steps with one harness check (`pnpm test`), the approved `bash` call with that command passes it (as the
- * core counts an identical command), and a last `update_plan` finishes the steps. The plan is in `info.plan`.
  *
  * A denial skips the call and goes on to the final reply (which repeats the feedback, if any), as the core does.
  * `session/cancel` ends the run with `run_stopped: interrupted` wherever it is.
@@ -164,35 +150,6 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
 
   const id = (live: Live, prefix: string) => `${live.state.info.id}/${prefix}_${++live.counter}`;
 
-  /** An `update_plan` call that sets `plan`, its result line saying `change`. */
-  async function updatePlan(
-    context: ScriptContext,
-    live: Live,
-    plan: Plan,
-    change: Partial<PlanUpdateDetail>,
-    wait: () => Promise<void>,
-  ) {
-    const call: ToolCallItem = {
-      id: id(live, 'call'),
-      kind: 'tool_call',
-      name: 'update_plan',
-      args: { steps: plan.steps },
-      status: 'running',
-      result: null,
-      images: 0,
-      detail: null,
-    };
-    setActivity(context, live, 'running_tool', 'update_plan');
-    emit(context, live, { type: 'item_started', item: call });
-    await wait();
-    setInfo(context, live, { plan });
-    const detail = planChange({ steps: plan.steps.length, checks: plan.checks.length, ...change });
-    emit(context, live, {
-      type: 'item_completed',
-      item: { ...call, status: 'done', result: `Plan updated: ${plan.steps.length} steps.`, detail },
-    });
-  }
-
   async function run(context: ScriptContext, live: Live, text: string) {
     const control = { cancelled: false, wake: null as (() => void) | null };
     live.run = control;
@@ -262,7 +219,6 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         status: 'running',
         result: null,
         images: 0,
-        detail: null,
       };
       emit(context, live, { type: 'item_started', item: read });
       await step();
@@ -274,20 +230,6 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
       modelCall(context, live, { input: 300, output: 90, cacheRead: 1500, cacheWrite: 350 });
 
       const editing = /\bedit\b/i.test(text);
-      const planning = !editing && /계획|\bplan\b/i.test(text);
-      const tests = check('테스트', 'harness', { command: 'pnpm test' });
-      const steps = [planStep('README 읽기', 'done'), planStep('테스트 돌리기', 'now'), planStep('결과 알리기')];
-      if (planning) {
-        await updatePlan(
-          context,
-          live,
-          { steps, dropped: [], checks: [tests] },
-          { created: true, started: ['테스트 돌리기'] },
-          step,
-        );
-        setActivity(context, live, 'thinking');
-        await step();
-      }
       const pending: ToolCallItem = {
         id: id(live, 'call'),
         kind: 'tool_call',
@@ -296,7 +238,6 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         status: 'running',
         result: null,
         images: 0,
-        detail: null,
       };
       // As in the core: the call is asked about before it starts, and becomes an item once it runs (or is skipped).
       approval = {
@@ -348,25 +289,7 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         await step();
         call = { ...call, status: 'done', result: editing ? 'Edited README.md' : 'Tests passed (12)' };
         emit(context, live, { type: 'item_completed', item: call });
-        if (planning) {
-          // The same command as the check's: it counts as running the check.
-          const plan = live.state.info.plan;
-          if (plan)
-            setInfo(context, live, {
-              plan: { ...plan, checks: [{ ...tests, result: 'passed', evidence: [call.id] }] },
-            });
-        }
         call = null;
-      }
-      if (planning) {
-        const plan = live.state.info.plan;
-        await updatePlan(
-          context,
-          live,
-          { steps: steps.map((s) => ({ ...s, status: 'done' })), dropped: [], checks: plan?.checks ?? [tests] },
-          { finished: ['테스트 돌리기', '결과 알리기'] },
-          step,
-        );
       }
       setInfo(context, live, { status: 'running' });
       setActivity(context, live, 'thinking');

@@ -4,11 +4,10 @@ The tools that let the model fill the session's right panel (plan, verification,
 talk to the user mid-run (questions, review), and what the harness observes on its own. Decided one question at a
 time on 2026-10-02.
 
-Implemented (2026-10-02): the plan tool (`update_plan`) and the check tool (`check`) for harness and agent checks,
-in the core, the protocol (`SessionInfo.plan`, and `tool_call.detail` for what a plan call did), the server, the
-app (the plan and verification parts, dropped steps under out of the ordinary, the chat's `계획` and `확인(…)` rows)
-and the CLI (the plan as a checklist). Not yet: user checks in the review dock, "changed since it passed" (needs
-snapshots; the protocol already has the `changed` result), and everything from the ask tool on.
+Removed (2026-10-03): the plan tool (`update_plan`) and the check tool (`check`) were implemented end to end on
+2026-10-02 and removed the next day, with the plan and verification parts of the right panel (see Decisions). Their
+sections below stay as the record of what was built. Panel content written by model tools is to be designed again
+as something users can build for their own tools. Nothing else here is implemented yet.
 
 The rules behind every decision:
 
@@ -334,3 +333,4 @@ stickyAgentTools added, stickyQRule, stickyQVs, stickyDS and stickyLoop rewritte
 | 2026-10-02 | A built-in browser tool for the web; emulators and desktop later through MCP or user tools | screenshots only; MCP only; computer use | this app's users build web screens; clicking through flows matters |
 | 2026-10-02 | Self-review findings are `flag`s on the lines; no review tool | a `review` tool; a review the harness always runs | no new tool; fresh eyes later through a general subagent tool |
 | 2026-10-02 | Rule suggestions through `propose_memory` by the working agent; permission suggestions by the harness | a reviewer after sessions; no approval | made where the context is; only approved learning applies |
+| 2026-10-03 | Remove `update_plan` and `check`, and the plan and verification parts | keep both; keep `update_plan` only | they are procedures for the model, which smarter models will not need; a check the model could not record (likely because it cannot see call ids) showed verified work as unverified; panel content from model tools is to be something users build |

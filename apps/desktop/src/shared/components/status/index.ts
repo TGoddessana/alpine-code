@@ -1,1 +1,1 @@
-export { statusColor, StatusWord, useStatusWord } from './StatusWord';
+export { StatusWord } from './StatusWord';

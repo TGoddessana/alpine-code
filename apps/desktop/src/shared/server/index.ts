@@ -62,16 +62,6 @@ export {
   statefulScript,
   withRouterScript,
 } from './fixtures';
-export {
-  JUDGED_ITEMS,
-  JUDGED_PLAN,
-  MONOREPO_ITEMS,
-  MONOREPO_PLAN,
-  PLAN_SESSIONS,
-  WORK_ITEMS,
-  WORK_PLAN,
-} from './planFixtures';
-export { check, planChange, step } from './planShapes';
 export { mergeScripts, scriptedConnection, type Script, type ScriptContext } from './scripted';
 export {
   SESSION_NOT_FOUND,

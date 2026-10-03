@@ -3,12 +3,12 @@ from rich.console import Console
 from alpine_cli import commands
 from alpine_cli.render import Renderer
 from alpine_cli.theme import THEME
-from alpine_core import AssistantDone, Interrupted, Plan, PlanCheck, PlanStep, ToolFinished, ToolStarted, TurnStarted
+from alpine_core import AssistantDone, Interrupted, ToolFinished, ToolStarted, TurnStarted
 
 
-def render(*events, plan=None) -> str:
+def render(*events) -> str:
     console = Console(record=True, width=100, theme=THEME, force_terminal=False)
-    renderer = Renderer(console, plan=lambda: plan)
+    renderer = Renderer(console)
     for event in events:
         renderer(event)
     return console.export_text()
@@ -29,29 +29,6 @@ def test_tool_lines():
     assert "◆ edit(x.py)" in out and "Declined" in out
     assert "◆ read(y.py)" in out and "└  y.py does not exist" in out
     assert "◆ read(dot.png)" in out and "Viewed image (image/png, 34.2KB)" in out
-
-
-def test_the_plan_prints_as_a_checklist_and_checks_say_how_they_ended():
-    plan = Plan(
-        (PlanStep("find the cause", "done"), PlanStep("fix it", "now"), PlanStep("run the tests", "todo")),
-        ("write a test first",),
-        (PlanCheck("tests", "harness", "pytest"), PlanCheck("screen", "agent", how="screenshots")),
-    )
-    detail = {"kind": "plan", "created": False, "dropped": ["write a test first"], "checks_changed": True}
-    out = render(
-        ToolFinished("1", "update_plan", {"steps": []}, "Plan updated", "done", detail=detail),
-        ToolFinished("2", "check", {"label": "tests"}, "ok\n[check passed]", "done", detail={
-            "kind": "check", "label": "tests", "judge": "harness", "passed": True, "evidence": ["2"]}),
-        ToolFinished("3", "check", {"label": "tests"}, "E boom\n[exit code 1: check failed]", "done", detail={
-            "kind": "check", "label": "tests", "judge": "harness", "passed": False, "evidence": ["3"]}),
-        ToolFinished("4", "check", {"label": "screen"}, "Recorded", "done", detail={
-            "kind": "check", "label": "screen", "judge": "agent", "passed": True, "evidence": ["a", "b"]}),
-        plan=plan,
-    )  # fmt: skip
-    assert "◆ Plan\n  └  ☒ find the cause\n     ☐ fix it\n     ☐ run the tests" in out
-    assert "Dropped from the plan: write a test first" in out and "Checks: tests, screen (agent)" in out
-    assert "◆ check(tests)\n  └  Passed" in out and "└  E boom" in out
-    assert "Agent's judgement · passed · 2 calls as evidence" in out
 
 
 def test_interrupted():

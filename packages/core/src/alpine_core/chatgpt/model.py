@@ -51,6 +51,9 @@ _IMAGES_MOVED = "({} in the next user message, inside <tool_result> tags)"
 #: Errors that say "try again shortly", and how long to wait before each retry.
 _TEMPORARY = {"subscription_sharing_usage_unavailable", "subscription_sharing_user_unavailable"}
 _RETRY_DELAYS = (1.0, 4.0)
+#: Sent as ``client_version`` when listing models. Without it ChatGPT answers with an old catalog that lacks newer
+#: models; a version above any real Codex release gets the current one.
+_CATALOG_CLIENT_VERSION = "1.0.0"
 
 
 @dataclass(frozen=True)
@@ -69,7 +72,9 @@ def fetch_models(token: str, timeout: float = 15) -> list[ModelInfo]:
         SignInNeeded: The token was rejected.
         ChatGPTError: Anything else went wrong.
     """
-    request = urllib.request.Request(f"{RESOURCE}/models", headers={"Authorization": f"Bearer {token}"})
+    request = urllib.request.Request(
+        f"{RESOURCE}/models?client_version={_CATALOG_CLIENT_VERSION}", headers={"Authorization": f"Bearer {token}"}
+    )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             body = json.loads(response.read())

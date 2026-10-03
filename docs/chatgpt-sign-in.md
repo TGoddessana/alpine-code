@@ -106,7 +106,9 @@ What the plan usage route requires
 - `usage` reports `input_tokens_details.cached_tokens` and `cache_write_tokens`. No response header tells how much of
   the plan is left.
 
-**Models.** `GET /v1/models` with the access token returns `models[]`. Keep `visibility == "list"`, show
+**Models.** `GET /v1/models?client_version=1.0.0` with the access token returns `models[]`. Without
+`client_version`, or with an older Codex version, the catalog is an old one that lacks newer models (on 2026-10-02 it
+had no `gpt-6-sol`, `gpt-6-luna` or `gpt-6.1-sol`), so we send a version above any real Codex release. Keep `visibility == "list"`, show
 `display_name`, and send `slug`. Each entry also carries `context_window` (for example 272000), `max_context_window`,
 `supported_reasoning_levels`, `default_reasoning_level`, `input_modalities` and `supports_parallel_tool_calls`. The
 context window comes from here, so ChatGPT models need no model profile for it. `list_models` gets a branch for

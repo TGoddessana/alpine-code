@@ -3,6 +3,7 @@ import type {
   SessionInfo,
   SessionNewParams,
   SessionSendParams,
+  SessionSetModelParams,
   SessionSetModeParams,
 } from '@alpine/protocol';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -74,6 +75,16 @@ export function useSetSessionMode() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (params: SessionSetModeParams) => (await server.request('session/setMode', params)).info,
+    onSuccess: (info) => upsertSession(client, info),
+  });
+}
+
+/** Switches a session's model from its next message on; the conversation goes on. Not while it runs. */
+export function useSetSessionModel() {
+  const server = useServer();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: SessionSetModelParams) => (await server.request('session/setModel', params)).info,
     onSuccess: (info) => upsertSession(client, info),
   });
 }

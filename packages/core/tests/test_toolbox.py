@@ -192,6 +192,17 @@ def test_a_session_gets_the_profiles_tools(home, tmp_path, monkeypatch):
     assert [(e.name, e.kind) for e in events if isinstance(e, ToolFinished)] == [("shout", "done")]
 
 
+
+def test_switching_the_model_keeps_the_profile(home, tmp_path, monkeypatch):
+    profiles = ProfileList(home)
+    profiles.save(Profile(DEFAULT_PROFILE, "", tools=("read", "bash")))
+    light = profiles.save(Profile("", "light", model="local/motif", tools=("read",)))
+    monkeypatch.setattr(session_module, "make_model", lambda settings: FakeModel([]))
+    session = Session(Settings(model="x/big"), approver=_NoApprover(), cwd=tmp_path, profiles=profiles)
+    session.set_model(light.model)
+    assert session.info.profile == DEFAULT_PROFILE  # the tools a conversation has do not change under it
+    assert sorted(t.name for t in session._agent.tools) == ["bash", "read"]
+
 class _NoApprover:
     def approve(self, request):
         raise AssertionError(f"asked for {request}")

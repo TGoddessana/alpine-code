@@ -10,6 +10,7 @@ export {
   useSession,
   useSessions,
   useSetSessionMode,
+  useSetSessionModel,
 } from './sessions';
 export {
   activeApproval,

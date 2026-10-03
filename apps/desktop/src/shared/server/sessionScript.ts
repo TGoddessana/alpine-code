@@ -382,6 +382,12 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         setInfo(context, live, { mode });
         return { info: live.state.info };
       },
+      'session/setModel': ({ sessionId, model }, context) => {
+        const live = find(sessionId);
+        if (live.run) throw new ServerError(SESSION_RUNNING, 'The session is running');
+        setInfo(context, live, { model });
+        return { info: live.state.info };
+      },
       'session/delete': ({ sessionId }, context) => {
         const live = find(sessionId);
         if (live.run) {

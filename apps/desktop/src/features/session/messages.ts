@@ -6,7 +6,6 @@ export const messages = defineMessages({
     conversation: '대화',
     notFound: '이 세션을 찾을 수 없어요. 지워졌을 수 있어요',
     loadFailed: '세션을 불러오지 못했어요',
-    model: (model: string) => `모델: ${model}`,
 
     // Tool calls
     edit: '편집',
@@ -80,7 +79,6 @@ export const messages = defineMessages({
     conversation: 'Conversation',
     notFound: "We can't find this session. It may have been deleted",
     loadFailed: "Couldn't load this session",
-    model: (model: string) => `Model: ${model}`,
 
     edit: 'Edit',
     run: 'Run',

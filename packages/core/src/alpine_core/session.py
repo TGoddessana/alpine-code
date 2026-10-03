@@ -314,17 +314,16 @@ class Session:
         return bool(_run(self.acompact()))
 
     def set_model(self, model: str) -> None:
-        """Switches the model. The conversation restarts, because a conversation belongs to one model.
+        """Switches the model from the next message on, and announces the new info. The conversation goes on with
+        the new model, and the profile (so the tools) stays the one the session started with. Not during a run.
 
         Raises:
             ConfigError: The model cannot be used. The current model stays.
         """
         settings = self._settings.with_model(model)
-        self._profile = self._pick_profile(settings, None)
         self._agent = self._build_agent(settings)
         self._settings = settings
-        self._state = None
-        self._begin_conversation()
+        self._touch()
 
     def delete(self) -> None:
         """Removes the session from storage and announces ``Deleted``. Cancel a running ``asend`` first. The
@@ -509,7 +508,7 @@ class Session:
         self._touch()
 
     def _begin_conversation(self) -> None:
-        """A new session id and an empty screen record (a new session, or ``clear``/``set_model``)."""
+        """A new session id and an empty screen record (a new session, or ``clear``)."""
         self._id = uuid.uuid4().hex
         self._title = NEW_TITLE
         self._status = "idle"

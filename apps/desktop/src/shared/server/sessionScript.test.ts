@@ -35,6 +35,9 @@ describe('sessionScript', () => {
     await expect(connection.request('session/send', { sessionId: id, text: 'again' })).rejects.toEqual(
       new ServerError(-32002, 'The session is running'),
     );
+    await expect(connection.request('session/setModel', { sessionId: id, model: 'x/other' })).rejects.toEqual(
+      new ServerError(-32002, 'The session is running'),
+    );
     await expect(
       connection.request('session/answer', { sessionId: id, requestId: approval.id, decision: 'allow' }),
     ).resolves.toEqual({ accepted: true });
@@ -111,6 +114,23 @@ describe('sessionScript', () => {
     await vi.waitFor(() => expect(state().info.status).toBe('idle'));
     expect(state().activeIds).toEqual([]);
     expect(kinds(state())).toEqual(['user_message', 'agent_message', 'run_stopped']);
+  });
+
+  it('switches the model and keeps the conversation', async () => {
+    const { connection, id, state } = await setup();
+    await connection.request('session/send', { sessionId: id, text: 'edit the readme' });
+    await vi.waitFor(() => expect(activeApproval(state())).not.toBeNull());
+    await connection.request('session/answer', {
+      sessionId: id,
+      requestId: activeApproval(state())!.id,
+      decision: 'deny',
+    });
+    await vi.waitFor(() => expect(state().info.status).toBe('idle'));
+    const before = state().items.length;
+    const { info } = await connection.request('session/setModel', { sessionId: id, model: 'x/other' });
+    expect(info.model).toBe('x/other');
+    await vi.waitFor(() => expect(state().info.model).toBe('x/other'));
+    expect(state().items).toHaveLength(before);
   });
 
   it('deletes a session', async () => {

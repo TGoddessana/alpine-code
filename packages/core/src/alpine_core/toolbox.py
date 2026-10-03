@@ -310,7 +310,7 @@ class Toolbox:
 
         def target() -> None:
             try:
-                value = tool.run(args, State("test"))
+                value = tool.run(args, State())
                 if tool.is_async:
                     import asyncio
 

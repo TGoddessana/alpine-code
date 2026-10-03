@@ -2,7 +2,7 @@ import json
 import os
 
 import pytest
-from alpineagents import FileStore
+from alpineagents import FileStore, Message, State
 
 from alpine_core import FileSessionLog, SessionInfo, SessionLog, Storage, UsageInfo, file_storage, home_dir
 
@@ -244,9 +244,7 @@ def test_state_and_log_share_an_id_without_colliding(tmp_path):
     storage = file_storage(tmp_path)
     storage.log.create(make_info("shared"))
     # A State folder may be created before or after the log folder, in either order.
-    storage.states.write(
-        "shared", [{"seq": 0, "at": "2026-09-30T09:00:00+00:00", "role": "user", "content": "task"}], None, create=True
-    )
+    storage.states.save(State(messages=[Message.user("task")], id="shared"))
     assert storage.log.read("shared")[0].id == "shared"
     assert [saved.id for saved in storage.states.list()] == ["shared"]
     assert [info.id for info in storage.log.list()] == ["shared"]

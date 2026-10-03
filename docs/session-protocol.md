@@ -128,7 +128,7 @@ The protocol is a thin wrapper: the core builds items and numbers them, so the C
   remembered answers allow), then `DecideByApprover` (describe the call and ask the approver; a deny with
   `stop` returns `Denied(stop=True)`). Files outside the working directory and secret files are not deny permissions: they still
   ask, because a deny permission can only refuse. The deny slot stays empty until users can write their own rules.
-  `allow_always` answers live in `state.root.data["alpine_code.approvals"]`, so they last for the conversation and
+  `allow_always` answers live in `state.root.extra_data["alpine_code.approvals"]`, so they last for the conversation and
   are saved and resumed with it. This is not a sandbox.
 - **Items.** The core turns alpineagents' `Reporter` calls into item events and assigns `seq`. A `notice` item comes
   from the core's own `state.add_notice` calls; notices alpineagents adds by itself are not reported yet (the
@@ -172,7 +172,7 @@ stop_if_repeating = 3                                # default: off
   reply), not after `AuthError` or `ContextTooLongError`, and report `ModelEvent("retry", ...)` first so the core
   emits `item_discarded`. Until alpineagents confirms its Anthropic adapter wraps mid-stream drops, also catch
   `httpx.TransportError`.
-- Hand-back is a loop block calling `state.add_notice`, counting in `state.data`; repetition is an extra `until`
+- Hand-back is a loop block calling `state.add_message(Message.notice(...))`, counting in `state.extra_data`; repetition is an extra `until`
   function (`state.stopped == StoppedByUntil("repeating")`).
 - The loop is a short list of such blocks, so a behaviour is added or configured without rewriting the loop, and a
   user-supplied loop (later) can reuse them without bypassing permissions.

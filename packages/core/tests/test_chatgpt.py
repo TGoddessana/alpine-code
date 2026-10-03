@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from alpineagents.types import (
     INVALID_ARGS_KEY,
+    Image,
     Message,
     RawBlock,
     Request,
@@ -297,6 +298,21 @@ def test_request_body_follows_the_plan_route():
         {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Reading."}]},
         {"type": "function_call", "call_id": "call_1", "name": "read", "arguments": '{"path": "a"}'},
         {"type": "function_call_output", "call_id": "call_1", "output": "Error: no such file"},
+    ]
+
+
+def test_images_the_user_attached_are_sent_with_the_text():
+    model = ChatGPTModel("gpt-5.5", tokens=None)
+    image = Image(b"png", "image/png")
+    body = model._request_body(Request(system=None, messages=(Message.user("what is wrong?", image),)))
+    assert body["input"] == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "input_image", "image_url": f"data:image/png;base64,{image.base64}"},
+                {"type": "input_text", "text": "what is wrong?"},
+            ],
+        }
     ]
 
 

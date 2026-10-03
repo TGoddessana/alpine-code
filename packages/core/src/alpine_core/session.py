@@ -15,6 +15,7 @@ from typing import Any, TypeVar
 from alpineagents import (
     Agent,
     AlpineAgentsError,
+    Message,
     State,
     StoppedByFinish,
     StoppedByLimit,
@@ -238,13 +239,13 @@ class Session:
         Cancelling the task stops the run and keeps the conversation: ``Interrupted`` is emitted, the unfinished
         items are closed and ``CancelledError`` propagates."""
         if self._state is None:
-            self._state = State(text, id=self._id)
+            self._state = State(messages=[Message.user(text)], id=self._id)
             if self._projects is not None:
                 self._projects.open(self.workspace.root)
             if self._title == NEW_TITLE:
                 self._title = _title(text)
         else:
-            self._state.add_user_message(text)
+            self._state.add_message(Message.user(text))
         self._recorder.add_user_message(text)
         self._begin_run("thinking")
         try:
@@ -288,7 +289,7 @@ class Session:
     async def acompact(self) -> bool:
         """Summarizes the conversation to free context. ``False`` if there is nothing to compact or it failed.
         Cancelling works as in ``asend``."""
-        if self._state is None or not self._state.context:
+        if self._state is None or not self._state.messages:
             return False
         self._begin_run("compacting")
         try:
@@ -362,7 +363,7 @@ class Session:
             created_at=self._created,
             updated_at=self._updated,
             usage=self.usage,
-            context_used=self._state.context_tokens if self._state is not None else 0,
+            context_used=self._agent.context_tokens(self._state) if self._state is not None else 0,
             context_window=self._context_window(),
             activity=self._activity,
             run_started_at=self._run_started_at,
@@ -425,7 +426,7 @@ class Session:
     @property
     def context_used(self) -> float:
         """Fraction of the model's context window in use, 0.0 to 1.0."""
-        return self._state.context_used if self._state is not None else 0.0
+        return self._agent.context_used(self._state) if self._state is not None else 0.0
 
     @property
     def has_conversation(self) -> bool:

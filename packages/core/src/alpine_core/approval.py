@@ -20,7 +20,7 @@ from .tools import Workspace, preview_edit
 #: Most diff lines put in a preview.
 MAX_PREVIEW_LINES = 200
 
-#: The ``state.root.data`` key holding the conversation's "don't ask again" answers (``Remembered.to_data``).
+#: The ``state.root.extra_data`` key holding the conversation's "don't ask again" answers (``Remembered.to_data``).
 REMEMBERED = "alpine_code.approvals"
 
 DECLINED = "The user declined this tool call."
@@ -109,8 +109,8 @@ class AllowByPolicy(AllowPermission):
 
 class DecideByApprover(DecidePermission):
     """Asks the approver about a call, saying why it needs approval and what "don't ask again" would allow; an
-    ``allow_always`` answer is added to ``state.root.data[REMEMBERED]``, so it is saved with the State. A call the
-    policy allows (``AllowByPolicy`` usually let it through already) runs without asking."""
+    ``allow_always`` answer is added to ``state.root.extra_data[REMEMBERED]``, so it is saved with the State. A call
+    the policy allows (``AllowByPolicy`` usually let it through already) runs without asking."""
 
     def __init__(self, policy: PermissionPolicy, approver: Approver) -> None:
         if not callable(getattr(approver, "aapprove", None)) and not callable(getattr(approver, "approve", None)):
@@ -143,11 +143,10 @@ class DecideByApprover(DecidePermission):
 
     def _decide(self, state: State, verdict: Verdict, decision: Decision) -> Allowed | Denied:
         if decision.kind == "allow_always" and verdict.grant is not None:
-            root = state.root
-            with root.lock:
-                grants = remembered(root)
+            with state.root.edit_extra_data() as data:
+                grants = Remembered.from_data(data.get(REMEMBERED))
                 grants.add(verdict.grant)
-                root.data[REMEMBERED] = grants.to_data()
+                data[REMEMBERED] = grants.to_data()
         if decision.kind != "deny":
             return Allowed()
         if decision.stop:
@@ -159,7 +158,7 @@ class DecideByApprover(DecidePermission):
 
 def remembered(state: State) -> Remembered:
     """What the user allowed with "don't ask again" in ``state``'s conversation."""
-    return Remembered.from_data(state.root.data.get(REMEMBERED))
+    return Remembered.from_data(state.root.extra_data.get(REMEMBERED))
 
 
 def describe(

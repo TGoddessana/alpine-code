@@ -314,6 +314,8 @@ class ChatGPTModel(Model):
                 images.extend(_result_images(block))
             elif isinstance(block, TextBlock):
                 text.append(block.text)
+            elif isinstance(block, Image):  # one the user attached
+                images.append(_input_image(block))
         joined = "".join(text)
         if images:
             parts = images + ([{"type": "input_text", "text": joined}] if joined else [])
@@ -455,9 +457,13 @@ def _result_images(block: ToolResultBlock) -> list[dict[str, Any]]:
     opening = f'<tool_result tool_name="{block.name}" tool_call_id="{block.call_id}">'
     return [
         {"type": "input_text", "text": opening},
-        *({"type": "input_image", "image_url": f"data:{i.media_type};base64,{i.base64}"} for i in images),
+        *(_input_image(i) for i in images),
         {"type": "input_text", "text": "</tool_result>"},
     ]
+
+
+def _input_image(image: Image) -> dict[str, Any]:
+    return {"type": "input_image", "image_url": f"data:{image.media_type};base64,{image.base64}"}
 
 
 def _code(body: Any) -> str | None:

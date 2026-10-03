@@ -36,7 +36,7 @@ def test_the_list_allows_by_policy_then_asks(tmp_path):
 
 def test_allow_by_policy_passes_on_what_needs_asking(tmp_path):
     policy, tools = setup(tmp_path)
-    allow, state = AllowByPolicy(policy), State("task")
+    allow, state = AllowByPolicy(policy), State()
     assert check(allow, state, tools, "read", path="a.txt") == Allowed()
     assert check(allow, state, tools, "read", path=".env") is None
     assert check(allow, state, tools, "read", path=str(tmp_path.parent / "x.txt")) is None
@@ -48,9 +48,9 @@ def test_allow_by_policy_passes_on_what_needs_asking(tmp_path):
 def test_allow_always_is_seen_by_allow_by_policy(tmp_path):
     policy, tools = setup(tmp_path)
     approver = Approver(Decision("allow_always"), Decision("deny"))
-    allow, decide, state = AllowByPolicy(policy), DecideByApprover(policy, approver), State("task")
+    allow, decide, state = AllowByPolicy(policy), DecideByApprover(policy, approver), State()
     assert check(decide, state, tools, "bash", command="echo 1") == Allowed()
     assert check(allow, state, tools, "bash", command="echo 2") == Allowed()
-    assert check(allow, State("other"), tools, "bash", command="echo 2") is None  # another conversation
+    assert check(allow, State(), tools, "bash", command="echo 2") is None  # another conversation
     assert isinstance(check(decide, state, tools, "bash", command="git push"), Denied)
     assert approver.asked == 2

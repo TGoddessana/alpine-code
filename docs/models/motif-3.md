@@ -28,7 +28,7 @@ Against Motifcode, 30 instances Motifcode passed and alpine failed (6 the other 
 |---|---|---|
 | timeout | 21 | Motifcode also had 22 timeouts. alpine's are mostly 3–8 tool calls and then one step that never finished. alpine sends no `max_tokens`, so a step has no output cap (Motifcode: 16,384). Not yet measured: per-step duration and token counts are not logged. |
 | repetition abort | 5 | no retry on the provider error |
-| empty final reply | 3 | a no-tool reply ends the loop (`State.is_answered`), in `-p` as in the REPL |
+| empty final reply | 3 | a no-tool reply ends the loop (`is_answered` in `loop.py`), in `-p` as in the REPL |
 | transport | (2) | re-run and passed; the same gap as above |
 
 ## Three loops compared

@@ -152,6 +152,8 @@ def test_approval_allow_and_first_answer_wins(folder, monkeypatch):
             await client.status(sid, "waiting")
             busy = await client.call("session/send", sessionId=sid, text="again")
             assert busy["error"]["code"] == -32002
+            busy = await client.call("session/setModel", sessionId=sid, model="x/other")
+            assert busy["error"]["code"] == -32002
             first = await client.call("session/answer", sessionId=sid, requestId=request, decision="allow")
             second = await client.call("session/answer", sessionId=sid, requestId=request, decision="deny")
             assert first["result"] == {"accepted": True} and second["result"] == {"accepted": False}
@@ -283,7 +285,7 @@ def _has_agent(client: Client, sid: str) -> bool:
     return any(e["event"]["item"]["kind"] == "agent_message" for e in client.events(sid, "item_completed"))
 
 
-def test_set_mode_and_delete(folder, monkeypatch):
+def test_set_mode_set_model_and_delete(folder, monkeypatch):
     fake_model(monkeypatch, "hi")
 
     async def scenario():
@@ -291,6 +293,8 @@ def test_set_mode_and_delete(folder, monkeypatch):
             sid = await client.new(folder, mode="accept_edits")
             info = (await client.call("session/setMode", sessionId=sid, mode="yolo"))["result"]["info"]
             assert info["mode"] == "yolo"
+            info = (await client.call("session/setModel", sessionId=sid, model="x/other"))["result"]["info"]
+            assert info["model"] == "x/other" and info["id"] == sid
             await client.call("session/send", sessionId=sid, text="hi")
             await client.status(sid, "idle")
             deleted = await client.call("session/delete", sessionId=sid)
@@ -311,6 +315,7 @@ def test_unknown_sessions_are_32001(folder):
                 ("session/cancel", {}),
                 ("session/answer", {"requestId": "r", "decision": "allow"}),
                 ("session/setMode", {"mode": "yolo"}),
+                ("session/setModel", {"model": "x/y"}),
                 ("session/delete", {}),
             ]:
                 reply = await client.call(method, sessionId="missing", **params)

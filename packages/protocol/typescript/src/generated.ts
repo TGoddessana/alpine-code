@@ -793,6 +793,23 @@ export interface SessionSetModeResult {
   info: SessionInfo;
 }
 /**
+ * Switches the model from the next message on; the conversation goes on. Not while the session runs.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionSetModelParams".
+ */
+export interface SessionSetModelParams {
+  sessionId: string;
+  model: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionSetModelResult".
+ */
+export interface SessionSetModelResult {
+  info: SessionInfo;
+}
+/**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ToolFileInfo".
  */
@@ -1011,6 +1028,7 @@ export interface Methods {
   'session/cancel': { params: SessionCancelParams; result: SessionCancelResult };
   'session/answer': { params: SessionAnswerParams; result: SessionAnswerResult };
   'session/setMode': { params: SessionSetModeParams; result: SessionSetModeResult };
+  'session/setModel': { params: SessionSetModelParams; result: SessionSetModelResult };
   'session/delete': { params: SessionDeleteParams; result: SessionDeleteResult };
 }
 

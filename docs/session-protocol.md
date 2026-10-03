@@ -56,14 +56,20 @@ JSON-RPC 2.0 over stdio, camelCase on the wire.
 | `session/cancel` | `sessionId` | `{}`; does nothing if idle |
 | `session/answer` | `sessionId`, `requestId`, `decision`, `feedback?` | `accepted`: `false` if the approval was already answered |
 | `session/setMode` | `sessionId`, `mode` | `info` |
+| `session/setModel` | `sessionId`, `model` | `info`. Error if the session is running |
 | `session/delete` | `sessionId` | `{}`; a running session is cancelled first |
 
 `decision` is `allow`, `allow_always` or `deny`. `deny` skips the call and the run goes on: with `feedback` the model
 is told what to do instead, without it the model is told to carry on without that call. Stopping the run is
 `session/cancel`. (The core's `Decision` also has `stop`, a deny that ends the run, for the CLI's Esc; the protocol
 does not send it.) There is no "edit and run": alpineagents has no such verdict, and the
-model can be told what to run instead. Switching the model of an existing session is not in v1; the model is chosen
-at `session/new`.
+model can be told what to run instead.
+
+`session/setModel` switches the model from the next message on, and the conversation goes on: alpineagents 0.5 lets
+any model continue a State, and each adapter drops what another provider left (such as hidden reasoning). The session
+keeps its id, its items and the profile it started with, so its tools do not change under the conversation; the
+default model does not change either. The chat shows no line for the switch; the composer's model chip shows the
+model now. A smaller context window is handled by the usual compaction before the next turn.
 
 Errors: `-32001` session not found, `-32002` session is running.
 

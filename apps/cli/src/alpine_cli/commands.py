@@ -104,7 +104,7 @@ def _compact(ctx: Context, arg: str) -> bool:
     return True
 
 
-@command("model", "Show or switch the model (/model <name>). Switching starts a new conversation")
+@command("model", "Show or switch the model (/model <name>). The conversation goes on")
 def _model(ctx: Context, arg: str) -> bool:
     if not arg:
         ctx.console.print(f"Model: [accent]{ctx.session.model_name}[/]")
@@ -114,7 +114,7 @@ def _model(ctx: Context, arg: str) -> bool:
     except ConfigError as e:
         ctx.console.print(f"[error]{e}[/]")
         return True
-    ctx.console.print(f"Switched to [accent]{arg}[/]. Started a new conversation.")
+    ctx.console.print(f"Switched to [accent]{arg}[/] from the next message.")
     return True
 
 

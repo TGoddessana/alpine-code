@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { connectionLabel, connectMessages, useConnectPrompt } from '@/shared/components/connect';
 import { useMessages } from '@/shared/i18n';
-import { useConnections, useModelsOf, useSetDefaultModel } from '@/shared/server';
+import { useConnections, useModelsOf, useSetDefaultModel, useSetSessionModel } from '@/shared/server';
 
 import { messages } from './messages';
 import { modelGroups, readRecent, RECENT_GROUP, rememberRecent, type ModelGroup } from './modelGroups';
@@ -12,15 +12,24 @@ const chip =
   'inline-flex min-h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-meta whitespace-nowrap text-fg-muted hover:bg-canvas-sunken hover:text-fg data-popup-open:bg-canvas-sunken';
 
 /**
- * The model a new session starts with, which is the default model (Settings › Model connection shows the same).
- * A search box on top; a connection with many models (a router) stays folded until opened or searched, and the
- * models chosen lately come first. With nothing connected it offers to connect one.
+ * The model the next message goes to. Without `session` that is the model a new session starts with, which is the
+ * default model (Settings › Model connection shows the same); with it, that session's model, and choosing switches
+ * only that session, whose conversation goes on. A search box on top; a connection with many models (a router) stays
+ * folded until opened or searched, and the models chosen lately come first. With nothing connected it offers to
+ * connect one.
  */
-export function ModelPicker({ disabled = false }: { disabled?: boolean }) {
+export function ModelPicker({
+  disabled = false,
+  session,
+}: {
+  disabled?: boolean;
+  session?: { id: string; model: string };
+}) {
   const t = useMessages(messages);
   const c = useMessages(connectMessages);
   const data = useConnections().data;
   const setDefault = useSetDefaultModel();
+  const setSessionModel = useSetSessionModel();
   const ask = useConnectPrompt((state) => state.ask);
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -32,7 +41,7 @@ export function ModelPicker({ disabled = false }: { disabled?: boolean }) {
     label: connectionLabel(connection, data?.providers ?? [], c),
     models: lists[i]?.data?.models ?? [],
   }));
-  const current = data?.defaultModel ?? null;
+  const current = session ? session.model : (data?.defaultModel ?? null);
   const groups = modelGroups({ sources, current, recent, query, expanded, recentLabel: t.recent });
   const all = groups.flatMap((g) => g.items);
 
@@ -46,7 +55,8 @@ export function ModelPicker({ disabled = false }: { disabled?: boolean }) {
 
   const choose = (model: string | null) => {
     if (!model || model === current) return;
-    setDefault.mutate(model);
+    if (session) setSessionModel.mutate({ sessionId: session.id, model });
+    else setDefault.mutate(model);
     setRecent(rememberRecent(model));
   };
 
@@ -64,7 +74,10 @@ export function ModelPicker({ disabled = false }: { disabled?: boolean }) {
       itemToStringLabel={(model: string) => model.slice(model.indexOf('/') + 1)}
       disabled={disabled}
     >
-      <Combobox.Trigger className={chip} aria-label={t.modelLabel(current ?? t.chooseModel)}>
+      <Combobox.Trigger
+        className={chip}
+        aria-label={(session ? t.sessionModelLabel : t.modelLabel)(current ?? t.chooseModel)}
+      >
         <span className="text-fg">{current ? current.slice(current.indexOf('/') + 1) : t.chooseModel}</span>
         <Chevron />
       </Combobox.Trigger>

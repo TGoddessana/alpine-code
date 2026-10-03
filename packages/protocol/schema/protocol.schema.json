@@ -139,6 +139,10 @@
       "params": "SessionSetModeParams",
       "result": "SessionSetModeResult"
     },
+    "session/setModel": {
+      "params": "SessionSetModelParams",
+      "result": "SessionSetModelResult"
+    },
     "session/delete": {
       "params": "SessionDeleteParams",
       "result": "SessionDeleteResult"
@@ -2160,6 +2164,35 @@
         "info"
       ],
       "title": "SessionSetModeResult",
+      "type": "object"
+    },
+    "SessionSetModelParams": {
+      "description": "Switches the model from the next message on; the conversation goes on. Not while the session runs.",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "model"
+      ],
+      "title": "SessionSetModelParams",
+      "type": "object"
+    },
+    "SessionSetModelResult": {
+      "properties": {
+        "info": {
+          "$ref": "#/$defs/SessionInfo"
+        }
+      },
+      "required": [
+        "info"
+      ],
+      "title": "SessionSetModelResult",
       "type": "object"
     },
     "StatusLineItem": {

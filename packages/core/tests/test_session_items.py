@@ -243,6 +243,31 @@ def test_set_mode_updates_info_and_delete_removes_everything(tmp_path, monkeypat
     delete_session(storage, session.id)  # again: nothing happens
 
 
+
+def test_switching_the_model_keeps_the_conversation(tmp_path, monkeypatch):
+    storage = file_storage()
+    models = {"a/one": FakeModel(["first"], name="one"), "b/two": FakeModel(["second"], name="two")}
+    monkeypatch.setattr(session_module, "make_model", lambda settings: models[settings.model])
+    log: list[tuple[str, int, ItemEvent]] = []
+    session = Session(
+        Settings(model="a/one"),
+        on_item_event=lambda sid, seq, event: log.append((sid, seq, event)),
+        approver=SyncApprover(),
+        cwd=tmp_path,
+        storage=storage,
+    )
+    session.send("hello")
+    session_id = session.id
+    session.set_model("b/two")
+    assert session.id == session_id and session.info.model == "b/two"
+    assert isinstance(log[-1][2], InfoChanged) and log[-1][2].info.model == "b/two"
+    assert session.send("again") == "second"
+    sent = [m.text for m in models["b/two"].requests[0].messages]
+    assert sent == ["hello", "first", "again"]  # the new model reads the whole conversation
+    assert kinds(session) == ["user_message", "agent_message", "user_message", "agent_message"]
+    resumed = Session.resume(storage, session_id, Settings(model="a/one"), approver=SyncApprover())
+    assert resumed.info.model == "b/two"
+
 def _activities(log):
     """The distinct consecutive (kind, tool) pairs the info_changed events showed."""
     seen: list[tuple[str, str | None]] = []

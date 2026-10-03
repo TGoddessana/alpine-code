@@ -738,6 +738,18 @@ class SessionSetModeResult(Message):
     info: SessionInfo
 
 
+class SessionSetModelParams(Message):
+    """Switches the model from the next message on; the conversation goes on. Not while the session runs."""
+
+    session_id: str
+    model: str
+    """``<connection>/<model>``."""
+
+
+class SessionSetModelResult(Message):
+    info: SessionInfo
+
+
 class SessionDeleteParams(Message):
     session_id: str
 
@@ -831,6 +843,7 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "session/cancel": (SessionCancelParams, SessionCancelResult),
     "session/answer": (SessionAnswerParams, SessionAnswerResult),
     "session/setMode": (SessionSetModeParams, SessionSetModeResult),
+    "session/setModel": (SessionSetModelParams, SessionSetModelResult),
     "session/delete": (SessionDeleteParams, SessionDeleteResult),
 }
 

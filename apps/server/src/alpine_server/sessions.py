@@ -47,6 +47,8 @@ from alpine_protocol import (
     SessionOpenResult,
     SessionSendParams,
     SessionSendResult,
+    SessionSetModelParams,
+    SessionSetModelResult,
     SessionSetModeParams,
     SessionSetModeResult,
 )
@@ -118,6 +120,7 @@ class SessionManager:
             "session/cancel": self.cancel,
             "session/answer": self.answer,
             "session/setMode": self.set_mode,
+            "session/setModel": self.set_model,
             "session/delete": self.delete,
         }
 
@@ -195,6 +198,16 @@ class SessionManager:
         live = self._get(params.session_id)
         live.session.mode = Mode(params.mode)
         return SessionSetModeResult(info=to_info(live.session.info))
+
+    async def set_model(self, params: SessionSetModelParams) -> SessionSetModelResult:
+        live = self._get(params.session_id)
+        if live.running:
+            raise MethodError(SESSION_RUNNING, "The session is running")
+        try:
+            live.session.set_model(params.model)
+        except ConfigError as e:
+            raise MethodError(APP_ERROR, str(e), "invalid_config") from e
+        return SessionSetModelResult(info=to_info(live.session.info))
 
     async def delete(self, params: SessionDeleteParams) -> SessionDeleteResult:
         live = self._get(params.session_id)

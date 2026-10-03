@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { Composer, SessionProfile } from '@/shared/components/composer';
+import { Composer, ModelPicker, SessionProfile } from '@/shared/components/composer';
 import { PlanLine } from '@/shared/components/connect';
 import { StatusWord } from '@/shared/components/status';
 import { useMessages } from '@/shared/i18n';
@@ -118,9 +118,7 @@ export function Session({ sessionId }: { sessionId: string }) {
             <>
               <ContextMeter info={info} />
               <SessionProfile profileId={info.profile} />
-              <span aria-label={t.model(info.model)} title={info.model} className="px-2 text-meta text-fg-muted">
-                {info.model.slice(info.model.indexOf('/') + 1)}
-              </span>
+              <ModelPicker session={{ id: sessionId, model: info.model }} disabled={running} />
             </>
           }
           onSend={(text) => {

@@ -247,12 +247,13 @@ to an agent with a clean context), which also serves research and parallel work.
 Two kinds, as on the canvas's Learning board. Permission suggestions ("don't ask for `gh pr view*` · asked 23 times in
 two weeks, always allowed") are counted from approvals by the harness. Rule suggestions need understanding, so the
 working agent makes them with `propose_memory(text, scope, evidence)` the moment it notices (typically the user
-correcting it); `scope` is team (`AGENTS.md`), this project · me (`.alpine/local.md`) or me · every project, and the
-evidence is messages of this session. The agent cannot see other sessions, so the harness joins a suggestion to a
-similar pending one, adding its evidence ("you corrected this twice · 9/25, 9/27"), and never raises a suggestion
-again on the evidence it was rejected for. The call is a tool row in the chat and does not interrupt the run; the
-suggestion waits in 기억과 학습. Approved, it is written to its scope's file (`AGENTS.md` is changed, not committed)
-and running sessions get it from their next message.
+correcting it); `scope` is team, this project · me or me · every project, and the evidence is messages of this
+session. The agent cannot see other sessions, so the harness joins a suggestion to a similar pending one, adding its
+evidence ("you corrected this twice · 9/25, 9/27"), and never raises a suggestion again on the evidence it was
+rejected for. The call is a tool row in the chat and does not interrupt the run; the suggestion waits in 기억과 학습.
+Approved, it is written to its scope's folder (a team memory is changed in the repository, not committed) and
+running sessions get it as a notice. AGENTS.md is never edited. The memory design continues in
+[memory.md](memory.md): kinds beyond rules, folders, recall and swappable parts.
 
 A reviewer model reading finished sessions was rejected (another model call per session, and a judge other than the
 agent that did the work); remembering without approval (Claude Code's auto memory, ChatGPT's memory) contradicts the

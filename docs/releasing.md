@@ -13,6 +13,10 @@ A tag `vX.Y.Z` runs [.github/workflows/release.yml](../.github/workflows/release
 A pull request that changes the build runs only the macOS job, so signing and notarization are proven before a
 tag is pushed: a tag cannot be retried with the same version on PyPI.
 
+If the app needs building again for a tag that is already out (PyPI never takes the same version twice), run the
+workflow by hand with that tag: `gh workflow run release.yml -f tag=vX.Y.Z`. It builds the app at the tag and
+uploads it to the tag's draft release.
+
 Publishing the draft ships the app. Installed apps read
 `releases/latest/download/latest.json` at launch, download a newer version quietly and install it when they quit
 (`apps/desktop/src-tauri/src/update.rs`).

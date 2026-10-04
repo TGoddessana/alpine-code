@@ -6,7 +6,7 @@ A tag `vX.Y.Z` runs [.github/workflows/release.yml](../.github/workflows/release
    the `alpine-code-core==` pin in `apps/cli`). Bump them together.
 2. **pypi-core**, then **pypi** — publish `alpine-code-core` and `alpine-code` (the CLI) with trusted publishing.
 3. **draft** — creates a draft GitHub release for the tag.
-4. **macos** — for Apple silicon and Intel: builds the Python runtime (`apps/desktop/scripts/bundle_runtime.py`),
+4. **macos** — for Apple silicon: builds the Python runtime (`apps/desktop/scripts/bundle_runtime.py`),
    signs every binary in it, builds the app with `tauri.release.conf.json`, notarizes it, and uploads the `.dmg`, the
    updater archive and `latest.json` to the draft.
 
@@ -60,5 +60,7 @@ pending publisher per repository, workflow and environment, hence two environmen
 
 ## Not yet
 
+- Intel Macs: cryptography (ChatGPT sign-in verifies its ID token) ships no Intel macOS wheels since 49.0, and
+  cross-building it from Apple silicon fails.
 - Windows: the core does not run there yet (`fcntl` in `secrets.py`, the POSIX `bash` tool).
 - An in-app notice that an update is ready.

@@ -4,7 +4,7 @@ A bundled app runs the server as `runtime/python/bin/python3.14 -I -B -m alpine_
 on the user's machine. The runtime is a standalone CPython (python-build-standalone, through uv) with the server and
 its locked dependencies installed, plus a uv binary that the toolbox uses to install packages for user tools.
 
-    uv run python apps/desktop/scripts/bundle_runtime.py [--target aarch64-apple-darwin|x86_64-apple-darwin]
+    uv run python apps/desktop/scripts/bundle_runtime.py [--target aarch64-apple-darwin]
 
 Set APPLE_SIGNING_IDENTITY to sign every binary for notarization (hardened runtime, timestamp). The app bundle itself
 is signed afterwards by `tauri build`, which seals these signatures in.
@@ -32,9 +32,9 @@ OUT = ROOT / "apps/desktop/src-tauri/runtime"
 ENTITLEMENTS = ROOT / "apps/desktop/src-tauri/runtime.entitlements"
 PYTHON = "3.14"
 
+# Apple silicon only: cryptography ships no Intel macOS wheels since 49.0.
 TARGETS = {
     "aarch64-apple-darwin": "macos-aarch64",
-    "x86_64-apple-darwin": "macos-x86_64",
 }
 
 # Never imported by the server or a user tool, and tkinter brings Tcl/Tk.
@@ -92,7 +92,7 @@ def main() -> None:
 
 
 def host_target() -> str:
-    return {"arm64": "aarch64-apple-darwin", "x86_64": "x86_64-apple-darwin"}.get(platform.machine(), "")
+    return {"arm64": "aarch64-apple-darwin"}.get(platform.machine(), "")
 
 
 def install_python(target: str, tmp: Path) -> Path:

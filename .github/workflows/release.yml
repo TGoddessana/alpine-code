@@ -84,14 +84,13 @@ jobs:
   macos:
     needs: draft
     if: ${{ !failure() && !cancelled() }} # draft is skipped on a pull request
-    runs-on: macos-latest # Apple silicon; the Intel build cross-compiles
+    runs-on: macos-latest
     permissions:
       contents: write # upload to the draft
     strategy:
-      fail-fast: false
-      max-parallel: 1 # each build adds its platform to the same latest.json
       matrix:
-        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+        # No Intel build: cryptography (for ChatGPT sign-in) ships no Intel macOS wheels since 49.0.
+        target: [aarch64-apple-darwin]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0

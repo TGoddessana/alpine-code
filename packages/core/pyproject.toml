@@ -6,6 +6,8 @@ authors = [
     { name = "tgoddessana", email = "twicegoddessana1229@gmail.com" }
 ]
 requires-python = ">=3.14"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "alpineagents>=0.5.0,<0.6",
     "anthropic>=1.8.0",
@@ -15,6 +17,9 @@ dependencies = [
     "tree-sitter>=0.26",
     "tree-sitter-bash>=0.25.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/TGoddessana/alpine-code"
 
 [build-system]
 requires = ["uv_build>=0.12.10,<0.13.0"]

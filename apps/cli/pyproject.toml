@@ -7,11 +7,16 @@ authors = [
     { name = "tgoddessana", email = "twicegoddessana1229@gmail.com" }
 ]
 requires-python = ">=3.14"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
-    "alpine-code-core",
+    "alpine-code-core==0.1.0",  # released together; same version as this package
     "prompt-toolkit>=3.0.52",
     "rich>=14.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/TGoddessana/alpine-code"
 
 [project.scripts]
 alpine = "alpine_cli:main"

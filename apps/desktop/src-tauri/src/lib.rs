@@ -2,6 +2,7 @@
 //! Screens and the protocol live in the frontend (`../src`); this crate does not read protocol messages.
 
 mod server;
+mod update;
 
 use tauri::{Manager, RunEvent};
 
@@ -20,6 +21,10 @@ pub fn run() {
             }
             let server = server::Server::start(app.handle())?;
             app.manage(server);
+            if cfg!(not(debug_assertions)) {
+                app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+                update::download_in_background(app.handle());
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![server::server_send])
@@ -28,6 +33,7 @@ pub fn run() {
         .run(|app, event| {
             if let RunEvent::Exit = event {
                 app.state::<server::Server>().stop();
+                update::install_if_ready(app);
             }
         });
 }

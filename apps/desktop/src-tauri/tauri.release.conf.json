@@ -1,0 +1,19 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "bundle": {
+    "targets": ["app", "dmg"],
+    "createUpdaterArtifacts": true,
+    "resources": {
+      "runtime/": "runtime/"
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI2MkNCRTkwMTUyRDk4RTgKUldUb21DMFZrTDRzSmd5ZFdkdzZEa3FzSy9LUExJcEF0ZThFL21TYXBZdEYzelFYL2V2aWR1bm4K",
+      "endpoints": ["https://github.com/TGoddessana/alpine-code/releases/latest/download/latest.json"]
+    }
+  }
+}

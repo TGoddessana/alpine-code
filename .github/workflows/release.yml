@@ -49,7 +49,7 @@ jobs:
       id-token: write # trusted publishing
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.2.0
       - run: uv build --package alpine-code-core --out-dir dist
       - run: uv publish --trusted-publishing always dist/*
 
@@ -61,7 +61,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.2.0
       - run: uv build --package alpine-code --out-dir dist
       - run: uv publish --trusted-publishing always dist/*
 
@@ -94,7 +94,7 @@ jobs:
         target: [aarch64-apple-darwin, x86_64-apple-darwin]
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.2.0
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:

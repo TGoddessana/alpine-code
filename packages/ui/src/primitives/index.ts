@@ -14,4 +14,5 @@ export {
   type PanelWidth,
   type PanelWidthOptions,
 } from './PanelResizer';
+export { Popover } from './Popover';
 export { Tabs } from './Tabs';

@@ -69,10 +69,24 @@ export const messages = defineMessages({
     activity_compacting: '대화를 정리하는 중',
     runTokens: (tokens: string) => `이번 작업 ${tokens} 토큰`,
 
-    // Context meter
-    memory: (percent: string) => `기억 ${percent}%`,
+    // Context meter and the usage it opens
+    usage: '사용량 보기',
+    memoryAria: (percent: string) => `대화 기억 ${percent}%, 사용량 보기`,
     memoryHint: (percent: string) =>
       `모델이 한 번에 기억하는 대화 중 ${percent}%를 쓰고 있어요. 가득 차면 앞부분을 요약해 공간을 만들어요.`,
+    memoryTitle: '대화 기억',
+    memoryExplain: '지금 대화를 얼마나 기억하고 있는지예요. 가득 차면 앞부분을 짧게 줄여서 이어 가요.',
+    usedTitle: '이 대화에서 쓴 양',
+    wholeSession: '이 대화 전체',
+    thisRun: '이번 작업',
+    sent: '보낸 양',
+    received: '받은 양',
+    requests: '요청 횟수',
+    cost: '비용',
+    noPrice: '가격 정보 없음',
+    tokens: (n: string) => `${n} 토큰`,
+    times: (n: string) => `${n}번`,
+    tokenTip: '토큰은 AI가 글을 세는 단위예요. 한글은 한 글자에 1~2토큰쯤 돼요.',
   },
   en: {
     untitled: 'Untitled session',
@@ -138,8 +152,23 @@ export const messages = defineMessages({
     activity_compacting: 'Tidying up the conversation',
     runTokens: (tokens: string) => `${tokens} tokens this run`,
 
-    memory: (percent: string) => `Memory ${percent}%`,
+    usage: 'Show usage',
+    memoryAria: (percent: string) => `Memory ${percent}%, show usage`,
     memoryHint: (percent: string) =>
       `Using ${percent}% of what the model can keep in mind at once. When it fills up, the earlier part is summarised to make room.`,
+    memoryTitle: 'Memory',
+    memoryExplain:
+      'How much of this conversation the model is keeping in mind. When it fills up, the start is shortened so the chat can go on.',
+    usedTitle: 'Used in this chat',
+    wholeSession: 'Whole chat',
+    thisRun: 'This run',
+    sent: 'Sent',
+    received: 'Received',
+    requests: 'Requests',
+    cost: 'Cost',
+    noPrice: 'No price info',
+    tokens: (n: string) => `${n} tokens`,
+    times: (n: string) => `${n}`,
+    tokenTip: 'Tokens are how AI counts text. An English word is about one token.',
   },
 });

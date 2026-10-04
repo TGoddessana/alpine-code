@@ -2,15 +2,15 @@ import { defineMessages } from '@/shared/i18n';
 
 export const messages = defineMessages({
   ko: {
-    idle: '대기 중',
+    idle: '기다리는 중',
     running: '작업 중',
-    waiting: '내 차례',
-    failed: '실패',
+    waiting: '확인이 필요해요',
+    failed: '멈췄어요',
   },
   en: {
     idle: 'Idle',
     running: 'Working',
-    waiting: 'Your turn',
-    failed: 'Failed',
+    waiting: 'Needs your OK',
+    failed: 'Stopped',
   },
 });

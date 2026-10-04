@@ -2,12 +2,14 @@ import type { ProjectInfo, SessionInfo } from '@alpine/protocol';
 import { ContextMenu, Menu, PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import clsx from 'clsx';
+import { ChevronDown, ChevronRight, Ellipsis, FolderOpen, Settings, SquarePen } from 'lucide-react';
 import { useState } from 'react';
 
 import { useFormat, useMessages } from '@/shared/i18n';
 import { revealInFinder, useOpenFolder } from '@/shared/platform';
 import { useArchiveProject, useProjects, useSessions } from '@/shared/server';
 
+import { AVATAR_CLASS, avatarLetters, avatarSlot } from './avatar';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
 import { DeleteSessionDialog } from './DeleteSessionDialog';
 import { messages } from './messages';
@@ -15,7 +17,7 @@ import { SessionRow } from './SessionRow';
 
 const item =
   'flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-body text-fg hover:bg-hover';
-const active = { className: 'bg-canvas-raised' };
+const active = { className: 'bg-hover font-medium' };
 
 /** Sessions shown under a project before "show more". */
 const SESSIONS_SHOWN = 5;
@@ -37,15 +39,17 @@ export function Rail() {
     <nav
       aria-label={t.label}
       style={{ width: width.width }}
-      className="relative flex min-w-50 shrink flex-col gap-3 border-r border-line bg-canvas-sunken px-3 py-4"
+      className="relative flex min-w-50 shrink flex-col gap-3 bg-canvas-sunken px-3 pb-4"
     >
       <PanelResizer panel={width} edge="right" label={t.resize} />
       {!none && (
-        <Link to="/" className={item} activeProps={active} activeOptions={{ exact: true, includeSearch: false }}>
-          <span className="inline-flex size-4.5 items-center justify-center text-fg-muted">
-            <PlusIcon />
-          </span>
-          {t.newSession}
+        <Link
+          to="/"
+          className="mt-1 flex min-h-9 w-full cursor-pointer items-center gap-2 rounded-lg border border-line bg-canvas-raised px-3 text-left text-body font-medium text-fg hover:bg-hover"
+        >
+          <SquarePen size={16} strokeWidth={1.5} className="text-interactive" aria-hidden="true" />
+          <span className="grow">{t.newSession}</span>
+          <span className="text-meta font-normal text-fg-faint">⌘N</span>
         </Link>
       )}
       <section aria-label={t.projects} className="flex flex-col gap-0.5">
@@ -58,38 +62,68 @@ export function Rail() {
             title={`${t.openFolder} · ⌘O`}
             className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-fg-muted hover:bg-hover"
           >
-            <FolderIcon size={16} />
+            <FolderOpen size={16} strokeWidth={1.5} aria-hidden="true" />
           </button>
         </div>
         {none ? (
           <button type="button" className={item} onClick={openFolder}>
-            <span className="inline-flex size-4.5 items-center justify-center text-fg-muted">
-              <FolderIcon size={14} />
-            </span>
+            <FolderOpen size={16} strokeWidth={1.5} className="text-fg-muted" aria-hidden="true" />
             <span className="grow">{t.openFolder}</span>
             <span className="text-meta text-fg-muted">⌘O</span>
           </button>
         ) : (
           shown.map((project) => (
-            <div key={project.path} className="flex flex-col gap-0.5">
-              <ProjectRow project={project} onDelete={setDeleting} />
-              <ProjectSessions
-                sessions={sessions.filter((session) => session.cwd === project.path)}
-                onDelete={setDeletingSession}
-              />
-            </div>
+            <ProjectGroup
+              key={project.path}
+              project={project}
+              sessions={sessions.filter((session) => session.cwd === project.path)}
+              onDelete={setDeleting}
+              onDeleteSession={setDeletingSession}
+            />
           ))
         )}
       </section>
       <div className="grow" />
       <div className="flex flex-col gap-0.5 border-t border-line pt-3">
         <Link to="/settings" className={item} activeProps={active}>
+          <Settings size={16} strokeWidth={1.5} className="text-fg-muted" aria-hidden="true" />
           {t.settings}
         </Link>
       </div>
       <DeleteProjectDialog project={deleting} onClose={() => setDeleting(null)} />
       <DeleteSessionDialog session={deletingSession} onClose={() => setDeletingSession(null)} />
     </nav>
+  );
+}
+
+/** A project and, when open, its sessions under a guide line. A closed project shows how many sessions it has. */
+function ProjectGroup({
+  project,
+  sessions,
+  onDelete,
+  onDeleteSession,
+}: {
+  project: ProjectInfo;
+  sessions: SessionInfo[];
+  onDelete: (project: ProjectInfo) => void;
+  onDeleteSession: (session: SessionInfo) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="flex flex-col gap-0.5">
+      <ProjectRow
+        project={project}
+        count={open ? null : sessions.length}
+        open={open}
+        onToggle={() => setOpen(!open)}
+        onDelete={onDelete}
+      />
+      {open && sessions.length > 0 && (
+        <div className="ml-4.5 flex flex-col gap-0.5 border-l border-line pl-2">
+          <ProjectSessions sessions={sessions} onDelete={onDeleteSession} />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -114,7 +148,7 @@ function ProjectSessions({
         <button
           type="button"
           onClick={() => setAll(!all)}
-          className="flex min-h-7 w-full cursor-pointer items-center rounded-md pl-8 text-left text-meta text-fg-muted hover:bg-hover"
+          className="flex min-h-7 w-full cursor-pointer items-center rounded-md pl-2 text-left text-meta text-fg-muted hover:bg-hover"
         >
           {all ? t.showLess : t.showMore(hidden)}
         </button>
@@ -127,7 +161,19 @@ function ProjectSessions({
  * A project: opens a new session in it. Hovering or focusing the row swaps its time for ⋮, which opens the
  * project's menu; right-clicking opens the same menu.
  */
-function ProjectRow({ project, onDelete }: { project: ProjectInfo; onDelete: (project: ProjectInfo) => void }) {
+function ProjectRow({
+  project,
+  count,
+  open,
+  onToggle,
+  onDelete,
+}: {
+  project: ProjectInfo;
+  count: number | null;
+  open: boolean;
+  onToggle: () => void;
+  onDelete: (project: ProjectInfo) => void;
+}) {
   const t = useMessages(messages);
   const format = useFormat();
   const navigate = useNavigate();
@@ -157,23 +203,42 @@ function ProjectRow({ project, onDelete }: { project: ProjectInfo; onDelete: (pr
         (chosen === project.path || menuOpen) && 'bg-hover',
       )}
     >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-label={project.name}
+        className="absolute left-1 z-10 inline-flex size-6 cursor-pointer items-center justify-center rounded-sm text-fg-muted hover:text-fg"
+      >
+        {open ? (
+          <ChevronDown size={16} strokeWidth={1.5} aria-hidden="true" />
+        ) : (
+          <ChevronRight size={16} strokeWidth={1.5} aria-hidden="true" />
+        )}
+      </button>
       <ContextMenu.Root>
         <ContextMenu.Trigger
           render={<Link to="/" search={{ project: project.path }} />}
-          className={clsx(item, 'hover:bg-transparent')}
+          className={clsx(item, 'pl-7 hover:bg-transparent')}
           title={project.path}
         >
-          <span className="inline-flex size-4.5 shrink-0 items-center justify-center rounded-sm bg-line-subtle text-meta text-fg-muted">
-            {project.name.charAt(0).toUpperCase()}
-          </span>
-          <span className="min-w-0 grow truncate">{project.name}</span>
           <span
             className={clsx(
-              'text-meta whitespace-nowrap text-fg-muted group-focus-within:invisible group-hover:invisible',
+              'inline-flex size-5 shrink-0 items-center justify-center rounded-md text-meta font-medium',
+              AVATAR_CLASS[avatarSlot(project.path)],
+            )}
+            aria-hidden="true"
+          >
+            {avatarLetters(project.name)}
+          </span>
+          <span className="min-w-0 grow truncate font-medium">{project.name}</span>
+          <span
+            className={clsx(
+              'text-meta whitespace-nowrap text-fg-faint group-focus-within:invisible group-hover:invisible',
               menuOpen && 'invisible',
             )}
           >
-            {format.since(new Date(project.lastUsedAt))}
+            {count === null ? format.since(new Date(project.lastUsedAt)) : count}
           </span>
         </ContextMenu.Trigger>
         <ContextMenu.Popup aria-label={t.projectMenu(project.name)}>{items}</ContextMenu.Popup>
@@ -186,54 +251,10 @@ function ProjectRow({ project, onDelete }: { project: ProjectInfo; onDelete: (pr
             menuOpen ? 'inline-flex' : 'hidden',
           )}
         >
-          <DotsIcon />
+          <Ellipsis size={16} strokeWidth={1.5} aria-hidden="true" />
         </Menu.Trigger>
         <Menu.Popup aria-label={t.projectMenu(project.name)}>{items}</Menu.Popup>
       </Menu.Root>
     </div>
-  );
-}
-
-function DotsIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
-      <circle cx="7" cy="3" r="1.2" />
-      <circle cx="7" cy="7" r="1.2" />
-      <circle cx="7" cy="11" r="1.2" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <path d="M7 2v10M2 7h10" />
-    </svg>
-  );
-}
-
-function FolderIcon({ size }: { size: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 6.5a1.5 1.5 0 0 1 1.5-1.5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
-    </svg>
   );
 }

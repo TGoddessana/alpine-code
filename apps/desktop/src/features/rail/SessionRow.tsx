@@ -2,6 +2,7 @@ import type { SessionInfo } from '@alpine/protocol';
 import { ContextMenu, Menu } from '@alpine/ui/primitives';
 import { Link } from '@tanstack/react-router';
 import clsx from 'clsx';
+import { Ellipsis } from 'lucide-react';
 import { useState } from 'react';
 
 import { StatusWord } from '@/shared/components/status';
@@ -26,17 +27,11 @@ export function SessionRow({ session, onDelete }: { session: SessionInfo; onDele
   );
 
   return (
-    <div className={clsx('group relative flex items-center rounded-md hover:bg-hover', menuOpen && 'bg-hover')}>
+    <div className={clsx('group relative flex items-center rounded-lg hover:bg-hover', menuOpen && 'bg-hover')}>
       <ContextMenu.Root>
         <ContextMenu.Trigger
-          render={
-            <Link
-              to="/session/$sessionId"
-              params={{ sessionId: session.id }}
-              activeProps={{ className: 'bg-canvas-raised' }}
-            />
-          }
-          className="flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-md py-1 pr-2 pl-8 text-left text-body text-fg hover:bg-transparent"
+          render={<Link to="/session/$sessionId" params={{ sessionId: session.id }} />}
+          className="flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-lg py-1 pr-2 pl-2 text-left text-body text-fg-muted hover:bg-transparent data-[status=active]:bg-hover data-[status=active]:font-medium data-[status=active]:text-fg"
           title={title}
         >
           <span className="min-w-0 grow truncate">{title}</span>
@@ -62,11 +57,7 @@ export function SessionRow({ session, onDelete }: { session: SessionInfo; onDele
             menuOpen ? 'inline-flex' : 'hidden',
           )}
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
-            <circle cx="7" cy="3" r="1.2" />
-            <circle cx="7" cy="7" r="1.2" />
-            <circle cx="7" cy="11" r="1.2" />
-          </svg>
+          <Ellipsis size={16} strokeWidth={1.5} aria-hidden="true" />
         </Menu.Trigger>
         <Menu.Popup aria-label={t.sessionMenu(title)}>{items}</Menu.Popup>
       </Menu.Root>

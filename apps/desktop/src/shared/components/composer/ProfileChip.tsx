@@ -1,5 +1,6 @@
 import type { ProfileInfo } from '@alpine/protocol';
 import { Menu } from '@alpine/ui/primitives';
+import { ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from '@tanstack/react-router';
 
 import { useMessages } from '@/shared/i18n';
@@ -45,7 +46,7 @@ export function ProfileChip({
         aria-label={t.profileLabel(nameOf(current, t))}
       >
         {t.tools} · <span className="text-fg">{nameOf(current, t)}</span>
-        <Chevron />
+        <ChevronDown size={16} strokeWidth={1.5} aria-hidden="true" />
       </Menu.Trigger>
       <Menu.Popup side="top" align="end" className="w-64">
         <Menu.RadioGroup value={chosen ?? ''} onValueChange={(id: string) => onChoose(id || null)}>
@@ -79,23 +80,5 @@ export function SessionProfile({ profileId }: { profileId: string | null }) {
     <Link to="/settings" search={{ tab: 'tools', profile: profile.id }} title={t.lockedTitle} className={chip}>
       {t.tools} · <span className="text-fg">{nameOf(profile, t)}</span>
     </Link>
-  );
-}
-
-function Chevron() {
-  return (
-    <svg
-      width="10"
-      height="10"
-      viewBox="0 0 10 10"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M2.5 4l2.5 2.5L7.5 4" />
-    </svg>
   );
 }

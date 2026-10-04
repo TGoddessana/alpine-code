@@ -64,14 +64,14 @@ const Table = styled('table', 'w-full border-collapse');
 /** Every element in our look (tokens only), so none of Streamdown's own styling shows. */
 const components: Components = {
   p: styled('p', 'my-2'),
-  strong: styled('strong', 'font-emphasis'),
+  strong: styled('strong', 'font-semibold'),
   // The session title is the page's h1, so the reply's headings start below it.
-  h1: styled('h3', 'mt-5 mb-2 text-title'),
-  h2: styled('h3', 'mt-5 mb-2 text-title'),
-  h3: styled('h4', 'mt-4 mb-2 text-lead'),
-  h4: styled('h5', 'mt-3 mb-1 text-body'),
-  h5: styled('h6', 'mt-3 mb-1 text-body'),
-  h6: styled('h6', 'mt-3 mb-1 text-body text-fg-muted'),
+  h1: styled('h3', 'mt-5 mb-2 text-title font-semibold'),
+  h2: styled('h3', 'mt-5 mb-2 text-title font-semibold'),
+  h3: styled('h4', 'mt-4 mb-2 text-lead font-semibold'),
+  h4: styled('h5', 'mt-3 mb-1 text-body font-semibold'),
+  h5: styled('h6', 'mt-3 mb-1 text-body font-semibold'),
+  h6: styled('h6', 'mt-3 mb-1 text-body font-semibold text-fg-muted'),
   ul: styled('ul', 'my-2 list-disc pl-5 marker:text-fg-faint'),
   ol: styled('ol', 'my-2 list-decimal pl-5 marker:text-fg-muted'),
   li: styled('li', 'my-1 pl-1'),
@@ -82,7 +82,7 @@ const components: Components = {
       <Table {...props} />
     </div>
   ),
-  th: styled('th', 'border-b border-line px-2 py-1 text-left align-bottom text-fg-muted'),
+  th: styled('th', 'border-b border-line px-2 py-1 text-left align-bottom font-semibold text-fg-muted'),
   td: styled('td', 'border-b border-line-subtle px-2 py-1 align-top'),
   a: ({ href, children }) => <Link href={href}>{children}</Link>,
   img: ({ src, alt }) => <Image src={src} alt={alt} />,
@@ -98,7 +98,7 @@ const components: Components = {
 export const Markdown = memo(function Markdown({ text, streaming }: { text: string; streaming: boolean }) {
   return (
     <Streamdown
-      className="text-body [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+      className="text-reading [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
       components={components}
       rehypePlugins={rehypePlugins}
       controls={false}

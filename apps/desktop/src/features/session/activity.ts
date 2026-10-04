@@ -1,6 +1,6 @@
 import type { Activity } from '@alpine/protocol';
 
-import { toolKind } from './blocks';
+import { toolKind } from '@/shared/tool-calls';
 
 /** The words the progress line can say, one per message key `activity_<word>`. */
 export type ActivityWord =

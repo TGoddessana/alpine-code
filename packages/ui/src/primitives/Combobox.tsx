@@ -5,7 +5,7 @@ import type { ComponentProps, ElementType, ReactNode } from 'react';
 type WithClass<T extends ElementType> = Omit<ComponentProps<T>, 'className'> & { className?: string };
 
 const row =
-  'flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-body outline-none select-none data-highlighted:bg-hover data-selected:bg-selected';
+  'flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-body font-medium outline-none select-none data-highlighted:bg-hover data-selected:bg-selected';
 
 interface PopupProps {
   side?: 'top' | 'bottom';
@@ -55,7 +55,10 @@ function Item({ className, ...props }: WithClass<typeof BaseCombobox.Item>) {
 function GroupLabel({ className, ...props }: WithClass<typeof BaseCombobox.GroupLabel>) {
   return (
     <BaseCombobox.GroupLabel
-      className={clsx('flex min-h-7 items-center gap-2 px-2 text-meta text-fg-muted select-none', className)}
+      className={clsx(
+        'flex min-h-7 items-center gap-2 px-2 text-meta font-semibold text-fg-muted select-none',
+        className,
+      )}
       {...props}
     />
   );

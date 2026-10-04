@@ -1,6 +1,7 @@
 import type { ApprovalItem, ToolCallItem } from '@alpine/protocol';
 
 import type { Item } from '@/shared/server';
+import { editDiff, toolKind } from '@/shared/tool-calls';
 
 /** A tool call with the answer I gave when it asked, if it asked. */
 export interface ToolRow {
@@ -38,28 +39,6 @@ export function toBlocks(items: Item[], activeIds: readonly string[]): Block[] {
     } else blocks.push({ type: 'item', item });
   }
   return blocks;
-}
-
-export type ToolKind = 'edit' | 'run' | 'read' | 'search' | 'other';
-
-/** What a tool call does, from its name: the core's tools (`edit`, `bash`, `read`...) and the scripted `*_file` ones. */
-export function toolKind(name: string): ToolKind {
-  if (/^(edit|write)(_file)?$/.test(name)) return 'edit';
-  if (name === 'bash') return 'run';
-  if (/^read(_file)?$/.test(name)) return 'read';
-  if (/^(grep|glob)(_file)?$/.test(name)) return 'search';
-  return 'other';
-}
-
-/**
- * The part of a call's arguments worth showing on its line: a path, a command or a pattern (and where it looks).
- * Takes a call or an approval, which carries its call's arguments.
- */
-export function toolTarget({ args }: { args: Record<string, unknown> }): string {
-  const { path, file_path, command, pattern } = args;
-  if (typeof pattern === 'string') return typeof path === 'string' && path ? `${pattern}  ${path}` : pattern;
-  for (const value of [path, file_path, command]) if (typeof value === 'string') return value;
-  return '';
 }
 
 /** What the indented line under a call says. */
@@ -103,16 +82,15 @@ export function toolSummary({ call, approval }: ToolRow): ToolSummary {
     const unit = /^glob/.test(call.name) ? 'files' : 'matches';
     return { type: 'count', unit, count: none ? 0 : countListed(text.split('\n')), text };
   }
-  if (!failed && kind === 'edit' && approval?.previewKind === 'diff' && approval.preview) {
-    // The file names at the top repeat the call's own line.
-    const diff = approval.preview.split('\n').filter((line) => !/^(---|\+\+\+) /.test(line));
+  const diff = !failed && kind === 'edit' ? editDiff(approval) : null;
+  if (diff) {
     return {
       type: 'output',
-      text: diff.join('\n').replace(/\n+$/, ''),
+      text: diff.lines.join('\n'),
       kind: 'diff',
       failed,
-      added: diff.filter((line) => line.startsWith('+')).length,
-      removed: diff.filter((line) => line.startsWith('-')).length,
+      added: diff.added,
+      removed: diff.removed,
     };
   }
   if (!text) return failed ? { type: 'state' } : { type: 'done' };

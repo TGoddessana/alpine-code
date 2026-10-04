@@ -209,6 +209,40 @@ export const Conversation: Story = {
   },
 };
 
+/** The memory pie in the input bar opens what the conversation used: the memory, then what was sent and received. */
+export const Usage: Story = {
+  parameters: {
+    server: mergeScripts(
+      setUpScript(),
+      sessionScript({
+        sessions: [
+          {
+            info: sessionInfo({
+              id: ID,
+              title: '로그인 테스트 고치기',
+              usage: {
+                inputTokens: 18_400,
+                outputTokens: 2_150,
+                cacheReadTokens: 96_000,
+                cacheWriteTokens: 5_300,
+                requests: 9,
+                cost: 0.12,
+              },
+              contextUsed: 45_000,
+              contextWindow: 131_072,
+            }),
+            items: earlier,
+          },
+        ],
+      }),
+    ),
+  },
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /대화 기억 \d+%|Memory \d+%/ }));
+    await expect(await screen.findByText(/18,400 토큰|18,400 tokens/)).toBeVisible();
+  },
+};
+
 export const Empty: Story = { parameters: { server: server() } };
 
 /** The reply arrives word by word, and the button is a stop button until it ends. */

@@ -1,7 +1,8 @@
 import { Combobox } from '@alpine/ui/primitives';
+import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 
-import { connectionLabel, connectMessages, useConnectPrompt } from '@/shared/components/connect';
+import { connectionLabel, connectMessages, PlanLine, useConnectPrompt } from '@/shared/components/connect';
 import { useMessages } from '@/shared/i18n';
 import { useConnections, useModelsOf, useSetDefaultModel, useSetSessionModel } from '@/shared/server';
 
@@ -9,7 +10,7 @@ import { messages } from './messages';
 import { modelGroups, readRecent, RECENT_GROUP, rememberRecent, type ModelGroup } from './modelGroups';
 
 const chip =
-  'inline-flex min-h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-meta whitespace-nowrap text-fg-muted hover:bg-canvas-sunken hover:text-fg data-popup-open:bg-canvas-sunken';
+  'inline-flex min-h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-meta font-medium whitespace-nowrap text-fg-muted hover:bg-canvas-sunken hover:text-fg data-popup-open:bg-canvas-sunken';
 
 /**
  * The model the next message goes to. Without `session` that is the model a new session starts with, which is the
@@ -79,7 +80,7 @@ export function ModelPicker({
         aria-label={(session ? t.sessionModelLabel : t.modelLabel)(current ?? t.chooseModel)}
       >
         <span className="text-fg">{current ? current.slice(current.indexOf('/') + 1) : t.chooseModel}</span>
-        <Chevron />
+        <ChevronDown size={16} strokeWidth={1.5} aria-hidden="true" />
       </Combobox.Trigger>
       <Combobox.Popup side="top" align="end" className="max-h-[min(28rem,var(--available-height))] w-80">
         <Combobox.Input placeholder={t.findModel} aria-label={t.findModel} />
@@ -110,25 +111,10 @@ export function ModelPicker({
             </Combobox.Group>
           )}
         </Combobox.List>
+        <div className="mt-1 border-t border-line-subtle px-2 pt-1 empty:hidden">
+          <PlanLine model={current} />
+        </div>
       </Combobox.Popup>
     </Combobox.Root>
-  );
-}
-
-function Chevron() {
-  return (
-    <svg
-      width="10"
-      height="10"
-      viewBox="0 0 10 10"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M2.5 4l2.5 2.5L7.5 4" />
-    </svg>
   );
 }

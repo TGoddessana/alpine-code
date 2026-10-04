@@ -4,13 +4,13 @@
  * Names say what a value is for, not what it looks like: change the look here and every screen follows.
  * Tailwind's default palette and scales are switched off, so only these become classes
  * (`text-fg-muted`, `bg-canvas-raised`, `border-line`, `text-body`, `rounded-lg`...).
- * Values come from the design canvas's rules (stickyDS, 2026-09-29; type one step smaller 2026-09-30).
+ * Values come from the design canvas's rules (stickyDS, 2026-09-29; sizes 12/13/15/22 and weights 400/500/600 from the 10/4 redesign).
+ * Colours follow the redesign's alpine ground (canvas page '리디자인 10/4', 2026-10-04): a glacier-blue frame,
+ * a near-white centre, and a yellow without orange for attention.
  */
-@import '@fontsource/ibm-plex-sans-kr/400.css';
-@import '@fontsource/ibm-plex-sans-kr/500.css';
-@import '@fontsource/ibm-plex-mono/400.css';
-@import '@fontsource/ibm-plex-mono/500.css';
-@import '@fontsource/gowun-batang/400.css';
+@import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
 
 @theme {
   --color-*: initial;
@@ -18,67 +18,84 @@
   --color-current: currentColor;
 
   /* Text */
-  --color-fg: #1c2226;
-  --color-fg-muted: #5f676d; /* meta, hints, secondary lines */
-  --color-fg-faint: #8a9096; /* "not yet" marks, idle icons */
+  --color-fg: #1a222a;
+  --color-fg-muted: #53616f; /* meta, hints, secondary lines */
+  --color-fg-faint: #73808d; /* "not yet" marks, idle icons */
   --color-on-fill: #ffffff; /* text on a filled button */
 
   /* Surfaces */
-  --color-canvas: #faf9f6; /* centre column */
-  --color-canvas-sunken: #f3f2ee; /* rail, right panel */
+  --color-canvas: #fdfeff; /* centre column */
+  --color-canvas-sunken: #eaf1f7; /* rail, right panel */
   --color-canvas-raised: #ffffff; /* dock, input, active rail row */
-  --color-hover: #ecebe6; /* row hover, my message bubble */
-  --color-selected: #eef4f7; /* chosen option */
+  --color-hover: #dce6ef; /* row hover, my message bubble */
+  --color-selected: #d9e7f4; /* chosen option */
 
   /* Lines */
-  --color-line: #dcd9d1; /* outer borders, controls */
-  --color-line-subtle: #e7e5df; /* dividers inside a box */
+  --color-line: #d7e2eb; /* outer borders, controls */
+  --color-line-subtle: #e4ebf1; /* dividers inside a box */
 
   /* Meaning. Each colour has one job. */
   --color-interactive: #2c5a7a; /* can be pressed, selected, focused */
   --color-interactive-hover: #234c68;
-  --color-attention: #c8691c; /* my turn */
+  --color-attention: #7d630b; /* my turn; dark enough to be text on every surface */
   --color-danger: #a3372a; /* risky approval, failure */
   --color-danger-hover: #8a2d22;
   --color-diff-added: #e3efe0; /* behind an added line of a diff */
   --color-diff-removed: #f6e4e0; /* behind a removed line of a diff */
 
+  /* Avatars: soft fill with a dark ink of the same hue */
+  --color-avatar-1: #dcebe1;
+  --color-avatar-1-ink: #2b5a42;
+  --color-avatar-2: #dce5f0;
+  --color-avatar-2-ink: #2c4c6e;
+  --color-avatar-3: #e9e0f0;
+  --color-avatar-3-ink: #57406b;
+  --color-avatar-4: #f1e6d2;
+  --color-avatar-4-ink: #6e5320;
+  --color-avatar-5: #f2dfe0;
+  --color-avatar-5-ink: #7a3b42;
+
   /* Behind a modal */
-  --color-scrim: rgb(28 34 38 / 0.32);
+  --color-scrim: rgb(26 34 42 / 0.32);
 
   --font-*: initial;
-  --font-sans: 'IBM Plex Sans KR', sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace; /* code only: paths, diffs, commands */
-  --font-display: 'Gowun Batang', serif; /* first run and the map only */
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace; /* code only: paths, diffs, commands */
+  --font-display: var(--font-sans);
 
   --text-*: initial;
   --text-meta: 12px; /* meta, activity line, hints */
   --text-meta--line-height: 20px;
   --text-body: 13px; /* answers, bubbles, options, rows */
   --text-body--line-height: 20px;
-  --text-lead: 14px; /* dock question, right panel title, section titles */
+  --text-lead: 13px; /* dock question, right panel title, section titles */
   --text-lead--line-height: 20px;
-  --text-title: 16px;
+  --text-reading: 15px; /* chat prose, my bubble, the input */
+  --text-reading--line-height: 1.7;
+  --text-title: 15px;
   --text-title--line-height: 24px;
-  --text-display: 24px;
-  --text-display--line-height: 32px;
+  --text-display: 22px;
+  --text-display--line-height: 30px;
 
   /*
-   * One weight for the UI. Hierarchy comes from size and colour; selection shows as a background or underline.
-   * Emphasis is only for what someone wrote (`**` in a reply), one step heavier.
+   * Three weights. Hierarchy still comes mostly from size and colour: medium for buttons and menu rows,
+   * semibold for section labels and what someone wrote in bold (`**` in a reply).
    */
   --font-weight-*: initial;
   --font-weight-normal: 400;
-  --font-weight-emphasis: 500;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-emphasis: 600;
 
   --radius-*: initial;
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-xl: 12px;
+  --radius-2xl: 16px; /* composer, my bubble */
 
   --shadow-*: initial;
-  --shadow-overlay: 0 8px 24px rgb(28 34 38 / 0.1); /* modals, menus */
+  --shadow-overlay: 0 8px 24px rgb(27 45 64 / 0.12); /* modals, menus */
   /* Spacing keeps Tailwind's 4px step, which is the canvas's grid. */
 }
 
@@ -87,16 +104,16 @@
  * code sits in the conversation, so it follows the same greys and muted hues instead of an editor theme.
  */
 :root {
-  --code-foreground: #1c2226;
+  --code-foreground: #1a222a;
   --code-background: transparent;
   --code-token-keyword: #6a4c8c;
   --code-token-string: #3d6b45;
   --code-token-string-expression: #3d6b45;
   --code-token-constant: #8a5a1c;
   --code-token-function: #2c5a7a;
-  --code-token-parameter: #1c2226;
-  --code-token-punctuation: #5f676d;
-  --code-token-comment: #8a9096;
+  --code-token-parameter: #1a222a;
+  --code-token-punctuation: #53616f;
+  --code-token-comment: #73808d;
   --code-token-link: #2c5a7a;
 }
 

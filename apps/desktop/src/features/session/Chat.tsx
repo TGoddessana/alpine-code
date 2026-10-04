@@ -63,7 +63,7 @@ const ItemView = memo(function ItemView({
     case 'user_message':
       return (
         <div className="flex justify-end">
-          <p className="max-w-140 rounded-xl bg-hover px-4 py-2 text-body whitespace-pre-wrap">{item.text}</p>
+          <p className="max-w-140 rounded-2xl bg-hover px-4 py-2 text-reading whitespace-pre-wrap">{item.text}</p>
         </div>
       );
     case 'agent_message':

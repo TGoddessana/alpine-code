@@ -3,17 +3,17 @@ import { Button, Menu } from '@alpine/ui/primitives';
 import { useRef, useState } from 'react';
 
 import { Composer, ModelPicker, ProfileChip } from '@/shared/components/composer';
-import { PlanLine } from '@/shared/components/connect';
 import { GitBar } from '@/shared/components/git';
 import { useMessages } from '@/shared/i18n';
 import { useOpenFolder } from '@/shared/platform';
 import { useConnections, useNewSession, useSendMessage } from '@/shared/server';
 
 import { CloneDialog } from './CloneDialog';
+import { ExampleCards } from './ExampleCards';
 import { messages } from './messages';
 
 /**
- * Board NewSession: pick the project over the input, then type. No header and no status panel yet: they belong to
+ * Board NewSession: pick the project over the input, then type. No header and no work result panel yet: they belong to
  * a session and appear with the first message, while the input stays where it is.
  *
  * Sending starts the session in the project's folder with the default model, sends the message, and calls
@@ -40,6 +40,7 @@ export function NewSession({
   const [cloning, setCloning] = useState(false);
   // A profile picked in the chip, for this project only; otherwise the one the project and model match.
   const [profile, setProfile] = useState<{ path: string; id: string } | null>(null);
+  const [prefill, setPrefill] = useState({ text: '', key: 0 });
   const chosen = profile?.path === project.path ? profile.id : null;
 
   const start = async (text: string) => {
@@ -60,6 +61,13 @@ export function NewSession({
   return (
     <main aria-label={t.newSession} className="flex min-w-120 grow flex-col bg-canvas">
       <div className="min-h-0 grow" />
+      <div className="mx-auto flex w-full max-w-160 flex-col items-center gap-6 px-6 pb-8">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <h1 className="text-display font-semibold">{t.heading}</h1>
+          <p className="text-body text-fg-muted">{t.lead(project.name)}</p>
+        </div>
+        <ExampleCards onPick={(text) => setPrefill((last) => ({ text, key: last.key + 1 }))} />
+      </div>
       <div className="mx-auto flex w-full max-w-202 flex-col gap-2 px-6 pt-3 pb-6">
         <div className="flex min-w-0 items-center gap-3">
           <Menu.Root>
@@ -84,11 +92,10 @@ export function NewSession({
             </Menu.Popup>
           </Menu.Root>
           <GitBar path={project.path} />
-          <span className="grow" />
-          <PlanLine model={defaultModel} />
         </div>
         <Composer
           onSend={start}
+          prefill={prefill}
           bar={
             <>
               <ProfileChip

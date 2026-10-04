@@ -1,8 +1,6 @@
 import { useEffect, useRef } from 'react';
 
 import { Composer, ModelPicker, SessionProfile } from '@/shared/components/composer';
-import { PlanLine } from '@/shared/components/connect';
-import { StatusWord } from '@/shared/components/status';
 import { useMessages } from '@/shared/i18n';
 import {
   activeApproval,
@@ -10,7 +8,6 @@ import {
   ServerError,
   useAnswerApproval,
   useCancelSession,
-  useProjects,
   useSendMessage,
   useSession,
 } from '@/shared/server';
@@ -24,15 +21,14 @@ import { messages } from './messages';
 const FOLLOW_PX = 80;
 
 /**
- * A session's centre column: the header (title · project, state), the chat ending in the progress line while a run is
+ * A session's centre column: the chat ending in the progress line while a run is
  * active (a call that waits for my answer is a card in it), and the input at the bottom (with the memory meter in its
  * bar). While the run goes on the send button is a stop button. While a call waits, what I write in the input skips
- * it and tells the agent what to do instead.
+ * it and tells the agent what to do instead. Project, branch and state are in the top bar.
  */
 export function Session({ sessionId }: { sessionId: string }) {
   const t = useMessages(messages);
   const session = useSession(sessionId);
-  const projects = useProjects();
   const send = useSendMessage();
   const cancel = useCancelSession();
   const answer = useAnswerApproval();
@@ -69,23 +65,12 @@ export function Session({ sessionId }: { sessionId: string }) {
   }
 
   const { info } = state;
-  const project = projects.data?.projects.find((p) => p.path === info.cwd)?.name ?? info.cwd.split('/').pop();
   const running = info.status === 'running' || info.status === 'waiting';
   const approval = activeApproval(state);
   const title = info.title || t.untitled;
 
   return (
     <main aria-label={title} className="flex min-w-120 grow flex-col bg-canvas">
-      <header className="flex min-h-14 shrink-0 items-center gap-3 border-b border-line px-6">
-        <h1 className="min-w-0 truncate text-title" title={title}>
-          {title}
-        </h1>
-        <span className="shrink-0 text-meta text-fg-muted" title={info.cwd}>
-          · {project}
-        </span>
-        <span className="grow" />
-        <StatusWord status={info.status} />
-      </header>
       <div
         ref={scroller}
         onScroll={(event) => {
@@ -94,15 +79,12 @@ export function Session({ sessionId }: { sessionId: string }) {
         }}
         className="min-h-0 grow overflow-y-auto"
       >
-        <div ref={content} className="mx-auto flex w-full max-w-202 flex-col gap-4 px-6 py-6">
+        <div ref={content} className="mx-auto flex w-full max-w-175 flex-col gap-4 px-6 py-6">
           <Chat sessionId={sessionId} items={state.items} activeIds={state.activeIds} />
           {running && <ProgressLine info={info} />}
         </div>
       </div>
-      <div className="mx-auto flex w-full max-w-202 flex-col gap-2 px-6 pt-3 pb-6">
-        <div className="flex justify-end empty:hidden">
-          <PlanLine model={info.model} />
-        </div>
+      <div className="mx-auto flex w-full max-w-175 flex-col gap-2 px-6 pt-3 pb-6">
         <Composer
           running={running}
           answer={

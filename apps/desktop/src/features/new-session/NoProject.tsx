@@ -1,4 +1,5 @@
 import { Button } from '@alpine/ui/primitives';
+import { Folder } from 'lucide-react';
 import { useState } from 'react';
 
 import { Composer } from '@/shared/components/composer';
@@ -17,19 +18,7 @@ export function NoProject({ onProjectChange }: { onProjectChange?: (path: string
     <main aria-label={t.start} className="flex min-w-120 grow flex-col bg-canvas">
       <section aria-labelledby="np-title" className="flex min-h-0 grow flex-col items-center justify-center px-6 pt-4">
         <div className="flex w-full max-w-100 flex-col gap-4">
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-            aria-hidden="true"
-            className="text-fg-muted"
-          >
-            <path d="M3 6.5a1.5 1.5 0 0 1 1.5-1.5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
-          </svg>
+          <Folder size={18} strokeWidth={1.5} aria-hidden="true" className="text-fg-muted" />
           <div className="flex flex-col gap-2">
             <h2 id="np-title" className="text-lead">
               {t.whichFolder}

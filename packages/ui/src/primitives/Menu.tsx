@@ -8,7 +8,7 @@ type WithClass<T extends ElementType> = Omit<ComponentProps<T>, 'className'> & {
 const popup =
   'flex min-w-50 flex-col rounded-lg border border-line bg-canvas-raised p-1 text-fg shadow-overlay outline-none';
 const row =
-  'flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-body outline-none select-none data-highlighted:bg-hover data-disabled:cursor-default data-disabled:text-fg-muted';
+  'flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-body font-medium outline-none select-none data-highlighted:bg-hover data-disabled:cursor-default data-disabled:text-fg-muted';
 
 interface PopupProps {
   side?: 'top' | 'bottom' | 'left' | 'right';

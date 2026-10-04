@@ -1,10 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { useMemo } from 'react';
 
 import { Session } from '@/features/session/Session';
-import { StatusPanel } from '@/features/status-panel/StatusPanel';
+import { useWorkResultOpen } from '@/features/work-result/PanelToggle';
+import { workResult } from '@/features/work-result/results';
+import { WorkResult } from '@/features/work-result/WorkResult';
 import { useSession } from '@/shared/server';
 
-/** A session exists, so its header and the right panel show; the input stays at the bottom. */
+/**
+ * A session exists: the chat with the input at the bottom. The work result panel is closed until I open it from
+ * the top bar, where its button counts the changed files meanwhile.
+ */
 export const Route = createFileRoute('/session/$sessionId')({
   component: SessionRoute,
 });
@@ -12,10 +18,13 @@ export const Route = createFileRoute('/session/$sessionId')({
 function SessionRoute() {
   const { sessionId } = Route.useParams();
   const session = useSession(sessionId);
+  const [open, setOpen] = useWorkResultOpen();
+  const items = session.data?.items;
+  const result = useMemo(() => workResult(items ?? []), [items]);
   return (
     <>
       <Session key={sessionId} sessionId={sessionId} />
-      <StatusPanel info={session.data?.info ?? null} />
+      {open && <WorkResult result={result} onClose={() => setOpen(false)} />}
     </>
   );
 }

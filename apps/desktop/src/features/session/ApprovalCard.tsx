@@ -1,11 +1,12 @@
 import type { ApprovalItem } from '@alpine/protocol';
 import { Button, LinkButton } from '@alpine/ui/primitives';
 
+import { Lines } from '@/shared/components/output';
 import { useMessages } from '@/shared/i18n';
 import { useAnswerApproval } from '@/shared/server';
 
 import { messages } from './messages';
-import { CallTitle, Lines } from './ToolCalls';
+import { CallTitle } from './ToolCalls';
 
 /**
  * A call that waits for my answer, in the chat where the call will be: the call as the chat draws calls, the command

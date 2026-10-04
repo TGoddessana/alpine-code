@@ -1,3 +1,4 @@
+import { ArrowUp, Square } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { useConnectPrompt } from '@/shared/components/connect';
@@ -7,18 +8,6 @@ import { SESSION_RUNNING, ServerError, useConnections } from '@/shared/server';
 import { messages } from './messages';
 import { ModelPicker } from './ModelPicker';
 
-const icon = {
-  width: 16,
-  height: 16,
-  viewBox: '0 0 16 16',
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 1.6,
-  strokeLinecap: 'round',
-  strokeLinejoin: 'round',
-  'aria-hidden': true,
-} as const;
-
 /**
  * The input, the same on every screen: a box of a few lines with its bar underneath (the model, or whatever `bar`
  * puts there; attaching, the safety rules and thinking effort join it when the core has them).
@@ -27,7 +16,7 @@ const icon = {
  * stays and a quiet line says why. While `running` the send button becomes a stop button (`onStop`) and Enter
  * sends nothing, unless the run waits for an `answer`: then what I write goes to `answer.onSend`, and the button
  * sends while there is text. Esc stops the run too, from anywhere on the screen, unless a dialog, menu or list is
- * open (Esc closes that first). With no model connected, sending asks to connect one instead.
+ * open (Esc closes that first). `prefill` puts text in the box and focuses it (not sent) each time its `key` changes. With no model connected, sending asks to connect one instead.
  */
 export function Composer({
   locked = false,
@@ -36,6 +25,7 @@ export function Composer({
   onSend,
   onStop,
   answer,
+  prefill,
 }: {
   locked?: boolean;
   running?: boolean;
@@ -45,12 +35,25 @@ export function Composer({
   onStop?: () => void;
   /** The run waits for my answer, and what I write is it (e.g. what to do instead of a call). */
   answer?: { placeholder: string; onSend: (text: string) => Promise<unknown> };
+  /** Fills the box and focuses it whenever `key` changes, e.g. a suggestion I picked. */
+  prefill?: { text: string; key: number };
 }) {
   const t = useMessages(messages);
   const [text, setText] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sending = useRef(false);
+  const input = useRef<HTMLTextAreaElement>(null);
+  // A new `prefill.key` refills the box (set while drawing, so there is no frame with the old text), then focuses.
+  const [seenKey, setSeenKey] = useState(prefill?.key);
+  const filled = prefill && prefill.key !== seenKey;
+  if (filled) {
+    setSeenKey(prefill.key);
+    setText(prefill.text);
+  }
+  useEffect(() => {
+    if (seenKey !== undefined) input.current?.focus();
+  }, [seenKey]);
   const connections = useConnections();
   const ask = useConnectPrompt((state) => state.ask);
   const connected =
@@ -94,12 +97,13 @@ export function Composer({
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex flex-col gap-1 rounded-xl border border-line bg-canvas-raised pt-3 pr-3 pb-2 pl-4">
+      <div className="flex flex-col gap-1 rounded-2xl border border-line bg-canvas-raised pt-3 pr-3 pb-2 pl-4">
         <label htmlFor="composer" className="sr-only">
           {t.message}
         </label>
         <textarea
           id="composer"
+          ref={input}
           rows={2}
           disabled={locked}
           value={text}
@@ -112,7 +116,7 @@ export function Composer({
               void send();
             }
           }}
-          className="max-h-60 min-h-11 w-full resize-none bg-transparent text-body text-fg outline-none placeholder:text-fg-muted disabled:text-fg-muted"
+          className="max-h-60 min-h-11 w-full resize-none bg-transparent text-reading text-fg outline-none placeholder:text-fg-muted disabled:text-fg-muted"
         />
         <div className="-ml-2 flex items-center gap-1">
           <span className="grow" />
@@ -124,11 +128,9 @@ export function Composer({
               aria-label={t.stop}
               aria-keyshortcuts="Escape"
               title={t.stopTitle}
-              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted hover:bg-canvas-sunken hover:text-fg"
+              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full bg-interactive text-on-fill hover:bg-interactive-hover"
             >
-              <svg {...icon} fill="currentColor" stroke="none">
-                <rect x="4" y="4" width="8" height="8" rx="1.5" />
-              </svg>
+              <Square size={14} strokeWidth={1.5} fill="currentColor" aria-hidden="true" />
             </button>
           ) : (
             <button
@@ -137,12 +139,9 @@ export function Composer({
               onClick={() => void send()}
               aria-label={t.send}
               title={t.send}
-              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted enabled:hover:bg-canvas-sunken enabled:hover:text-fg disabled:cursor-default disabled:text-fg-faint"
+              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full bg-interactive text-on-fill enabled:hover:bg-interactive-hover disabled:cursor-default disabled:opacity-40"
             >
-              <svg {...icon}>
-                <path d="M13 3v5a2 2 0 0 1-2 2H3" />
-                <path d="M6 7L3 10l3 3" />
-              </svg>
+              <ArrowUp size={18} strokeWidth={1.5} aria-hidden="true" />
             </button>
           )}
         </div>

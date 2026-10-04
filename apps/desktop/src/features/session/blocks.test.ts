@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Item } from '@/shared/server';
 
-import { toBlocks, toolKind, toolSummary, toolTarget } from './blocks';
+import { toBlocks, toolSummary } from './blocks';
 
 const call = (id: string, over: Partial<ToolCallItem> = {}): ToolCallItem => ({
   id,
@@ -62,30 +62,6 @@ describe('toBlocks', () => {
         ],
       },
     ]);
-  });
-});
-
-describe('toolKind', () => {
-  it('knows the core tools and the scripted ones', () => {
-    expect(['edit', 'edit_file', 'write', 'bash', 'read', 'read_file', 'grep', 'glob', 'x'].map(toolKind)).toEqual([
-      'edit',
-      'edit',
-      'edit',
-      'run',
-      'read',
-      'read',
-      'search',
-      'search',
-      'other',
-    ]);
-  });
-});
-
-describe('toolTarget', () => {
-  it('shows a pattern with where it looks, or the path or command', () => {
-    expect(toolTarget(call('c', { name: 'grep', args: { pattern: 'TODO', path: 'src' } }))).toBe('TODO  src');
-    expect(toolTarget(call('c', { name: 'glob', args: { pattern: '*.py', path: null } }))).toBe('*.py');
-    expect(toolTarget(call('c', { args: { command: 'git status' } }))).toBe('git status');
   });
 });
 

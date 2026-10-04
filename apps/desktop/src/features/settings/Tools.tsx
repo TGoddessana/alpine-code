@@ -2,6 +2,7 @@ import type { ProfileInfo, ToolFileInfo, ToolSummary, ToolsListResult } from '@a
 import { Button, Dialog, Input, LinkButton, Menu, NativeSelect } from '@alpine/ui/primitives';
 import { useNavigate } from '@tanstack/react-router';
 import clsx from 'clsx';
+import { MoreVertical } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { useFormat, useMessages } from '@/shared/i18n';
@@ -571,11 +572,5 @@ function firstLine(text: string) {
 }
 
 function Dots() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
-      <circle cx="7" cy="3" r="1.2" />
-      <circle cx="7" cy="7" r="1.2" />
-      <circle cx="7" cy="11" r="1.2" />
-    </svg>
-  );
+  return <MoreVertical size={16} strokeWidth={1.5} aria-hidden="true" />;
 }

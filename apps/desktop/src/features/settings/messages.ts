@@ -64,7 +64,7 @@ export const messages = defineMessages({
     chooseModels: 'Choose models',
     modelsTitle: (label: string) => `Models to use from ${label}`,
     modelsLead:
-      "Only the models switched on show in the model picker. At first each model family's newest is on; on a server Alpine has no model details for, only the model chosen when connecting.",
+      "Only the models switched on show in the model picker. At first each model family's newest is on; on a server Alpine Code has no model details for, only the model chosen when connecting.",
     findModel: 'Find a model',
     onlyShown: 'Only on',
     shownCount: (shown: number, total: number) => `${shown} of ${total} on`,

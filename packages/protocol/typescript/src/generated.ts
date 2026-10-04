@@ -196,6 +196,23 @@ export interface ConnectionsModelsParams {
  */
 export interface ConnectionsModelsResult {
   models: string[];
+  hidden?: string[];
+}
+/**
+ * Forgets a connection and its saved key. A default model on it is cleared, so new sessions need a choice.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ConnectionsRemoveParams".
+ */
+export interface ConnectionsRemoveParams {
+  connection: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ConnectionsRemoveResult".
+ */
+export interface ConnectionsRemoveResult {
+  defaultModel: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -211,6 +228,22 @@ export interface ConnectionsSetDefaultParams {
 export interface ConnectionsSetDefaultResult {
   defaultModel: string;
 }
+/**
+ * Shows a model of a saved connection in the picker, or leaves it out.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ConnectionsShowModelParams".
+ */
+export interface ConnectionsShowModelParams {
+  connection: string;
+  model: string;
+  shown: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ConnectionsShowModelResult".
+ */
+export interface ConnectionsShowModelResult {}
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "DeletedEvent".
@@ -998,6 +1031,8 @@ export interface Methods {
   'connections/list': { params: ConnectionsListParams; result: ConnectionsListResult };
   'connections/models': { params: ConnectionsModelsParams; result: ConnectionsModelsResult };
   'connections/add': { params: ConnectionsAddParams; result: ConnectionsAddResult };
+  'connections/remove': { params: ConnectionsRemoveParams; result: ConnectionsRemoveResult };
+  'connections/showModel': { params: ConnectionsShowModelParams; result: ConnectionsShowModelResult };
   'connections/setDefault': { params: ConnectionsSetDefaultParams; result: ConnectionsSetDefaultResult };
   'chatgpt/signIn': { params: ChatGPTSignInParams; result: ChatGPTSignInResult };
   'chatgpt/cancelSignIn': { params: ChatGPTCancelSignInParams; result: ChatGPTCancelSignInResult };

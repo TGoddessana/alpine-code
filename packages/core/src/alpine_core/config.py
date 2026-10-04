@@ -11,6 +11,8 @@ Config file: ``~/.alpine-code/config.toml`` (see ``home_dir``)::
 
     [connections.local]
     base_url = "http://localhost:11434/v1"         # any OpenAI-compatible server
+    # show = ["qwen3"]                             # models the picker shows or hides besides its defaults
+    # hide = ["qwen3-4b"]                          # (catalog.py)
 
 Keys are not in this file: a connection's key comes from its provider's environment variable
 (``ANTHROPIC_API_KEY``...) or from ``auth.json`` (``secrets.py``).
@@ -21,9 +23,11 @@ Environment: ``ALPINE_MODEL`` overrides ``default_model``. ``ALPINE_BASE_URL``, 
 
 from __future__ import annotations
 
+import functools
 import os
 import re
-from collections.abc import Mapping
+import threading
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 from typing import Any
@@ -49,6 +53,18 @@ _FILE_KEYS = {"default_model": "model", "mode": "mode", "context_window": "conte
 
 _CONNECTION_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 
+#: The server runs requests on threads; each change reads config.toml and writes it back whole.
+_writing = threading.Lock()
+
+
+def _locked[**P, R](change: Callable[P, R]) -> Callable[P, R]:
+    @functools.wraps(change)
+    def locked(*args: P.args, **kwargs: P.kwargs) -> R:
+        with _writing:
+            return change(*args, **kwargs)
+
+    return locked
+
 
 class ConfigError(Exception):
     """The settings are missing or invalid. The message says how to fix it."""
@@ -66,6 +82,10 @@ class Connection:
     provider: Provider | None = None
     base_url: str | None = None
     """Overrides the provider's address; the whole address for a local or compatible server."""
+    show: tuple[str, ...] = ()
+    """Models the picker shows although they are not shown by default (``catalog.py``)."""
+    hide: tuple[str, ...] = ()
+    """Models the picker leaves out although they are shown by default."""
 
     @property
     def url(self) -> str | None:
@@ -120,22 +140,74 @@ class Settings:
         return self.secrets.get(connection.name) if self.secrets else None
 
 
-def save_connection(name: str, *, provider: str | None = None, base_url: str | None = None) -> Connection:
-    """Adds the connection to config.toml, or replaces the one with that name. Comments in the file are kept."""
+@_locked
+def save_connection(
+    name: str, *, provider: str | None = None, base_url: str | None = None, model: str | None = None
+) -> Connection:
+    """Adds the connection to config.toml, or replaces the one with that name and keeps which models it shows.
+    ``model``, the one chosen while connecting, is shown in the picker. Comments in the file are kept."""
     if not _CONNECTION_NAME.fullmatch(name):
         raise ConfigError(f"Connection names use letters, digits, '.', '_' and '-' (got {name!r})")
+    doc = _edit()
+    connections = doc.setdefault("connections", tomlkit.table(is_super_table=True))
+    old = connections.get(name, {})
     table = tomlkit.table()
     if provider is not None:
         table["provider"] = provider
     if base_url is not None:
         table["base_url"] = base_url
+    show, hide = list(old.get("show", [])), list(old.get("hide", []))
+    if model is not None:
+        show, hide = _with(show, model), [m for m in hide if m != model]
+    if show:
+        table["show"] = show
+    if hide:
+        table["hide"] = hide
     connection = _connection(name, table, config_file())
-    doc = _edit()
-    doc.setdefault("connections", tomlkit.table(is_super_table=True))[name] = table
+    connections[name] = table
     _save(doc)
     return connection
 
 
+@_locked
+def show_model(name: str, model: str, shown: bool) -> Connection:
+    """Shows the connection's model in the picker, or leaves it out."""
+    doc = _edit()
+    table = doc.get("connections", {}).get(name)
+    if table is None:
+        raise ConfigError(f"No connection named {name!r}")
+    add, drop = ("show", "hide") if shown else ("hide", "show")
+    table[add] = _with(list(table.get(add, [])), model)
+    rest = [m for m in table.get(drop, []) if m != model]
+    if rest:
+        table[drop] = rest
+    elif drop in table:
+        del table[drop]
+    connection = _connection(name, table, config_file())
+    _save(doc)
+    return connection
+
+
+def _with(models: list[str], model: str) -> list[str]:
+    return models if model in models else [*models, model]
+
+
+@_locked
+def remove_connection(name: str) -> bool:
+    """Takes the connection out of config.toml, and the default model with it when it was one of the connection's.
+    Its saved key stays: the caller forgets it. ``False`` when there was no such connection."""
+    doc = _edit()
+    connections = doc.get("connections")
+    if connections is None or name not in connections:
+        return False
+    del connections[name]
+    if str(doc.get("default_model", "")).startswith(f"{name}/"):
+        del doc["default_model"]
+    _save(doc)
+    return True
+
+
+@_locked
 def set_default_model(model: str) -> None:
     doc = _edit()
     doc["default_model"] = model
@@ -183,7 +255,7 @@ def _connections(tables: Any, file: Path) -> dict[str, Connection]:
 
 def _connection(name: str, table: Mapping[str, Any], file: Path) -> Connection:
     where = f"[connections.{name}] in {file}"
-    unknown = sorted(set(table) - {"provider", "base_url"})
+    unknown = sorted(set(table) - {"provider", "base_url", "show", "hide"})
     if unknown:
         raise ConfigError(f"Unknown settings in {where}: {', '.join(unknown)}")
     provider_id, base_url = table.get("provider"), table.get("base_url")
@@ -194,7 +266,11 @@ def _connection(name: str, table: Mapping[str, Any], file: Path) -> Connection:
         provider = PROVIDERS.get(provider_id)
         if provider is None:
             raise ConfigError(f"Unknown provider {provider_id!r} in {where}. Known: {', '.join(PROVIDERS)}")
-    return Connection(name, provider, base_url)
+    lists = {key: table.get(key, []) for key in ("show", "hide")}
+    for key, models in lists.items():
+        if not isinstance(models, list) or not all(isinstance(m, str) for m in models):
+            raise ConfigError(f"{key} in {where} must be a list of model names")
+    return Connection(name, provider, base_url, tuple(lists["show"]), tuple(lists["hide"]))
 
 
 def _edit() -> tomlkit.TOMLDocument:

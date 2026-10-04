@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { setUpScript } from '@/shared/server';
+import { setUpScript, withRouterScript } from '@/shared/server';
 
 import { Settings } from './Settings';
 
@@ -29,6 +29,12 @@ export const ServerUnavailable: Story = {
 /** Board Connection: open the 'Model connection' tab. */
 export const Connections: Story = {
   parameters: { server: setUpScript() },
+};
+
+/** A router with hundreds of models: '모델 고르기' switches which ones the picker shows. */
+export const ConnectionsWithRouter: Story = {
+  args: { tab: 'connection' },
+  parameters: { server: withRouterScript() },
 };
 
 /** Board Tools: profiles, the tools they turn on, a file changed outside the app and a broken one. */

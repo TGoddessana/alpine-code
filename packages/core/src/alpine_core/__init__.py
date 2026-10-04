@@ -6,7 +6,17 @@ or core submodules directly.
 """
 
 from .approval import ApprovalRequest, Approver, AsyncApprover, BlockingApprover, Decision
-from .config import ConfigError, Connection, Settings, config_file, save_connection, set_default_model
+from .catalog import hidden_models, load_catalog
+from .config import (
+    ConfigError,
+    Connection,
+    Settings,
+    config_file,
+    remove_connection,
+    save_connection,
+    set_default_model,
+    show_model,
+)
 from .events import (
     AssistantDone,
     ContextCompacted,
@@ -102,8 +112,12 @@ __all__ = [
     "home_dir",
     "config_file",
     "Connection",
+    "remove_connection",
     "save_connection",
     "set_default_model",
+    "show_model",
+    "hidden_models",
+    "load_catalog",
     "Provider",
     "PROVIDERS",
     "Api",

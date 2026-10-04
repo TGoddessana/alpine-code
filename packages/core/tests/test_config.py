@@ -9,8 +9,10 @@ from alpine_core import (
     Mode,
     Settings,
     config_file,
+    remove_connection,
     save_connection,
     set_default_model,
+    show_model,
 )
 from alpine_core.models import make_model
 
@@ -57,6 +59,34 @@ def test_saving_connections_keeps_comments(home):
 
     with pytest.raises(ConfigError):
         save_connection("a/b", provider="anthropic")
+
+
+def test_removing_a_connection_takes_its_default_model_along(home):
+    home.mkdir()
+    config_file().write_text("# my settings\n")
+    save_connection("anthropic", provider="anthropic")
+    save_connection("local", base_url="http://localhost:11434/v1")
+    set_default_model("local/qwen3")
+
+    assert remove_connection("anthropic")
+    settings = Settings.load()
+    assert list(settings.connections) == ["local"] and settings.model == "local/qwen3"
+
+    assert remove_connection("local")
+    settings = Settings.load()
+    assert not settings.connections and settings.model is None
+    assert config_file().read_text().startswith("# my settings")
+    assert not remove_connection("local")
+
+
+def test_shown_and_hidden_models_survive_reconnecting(home):
+    save_connection("local", base_url="https://llm.example.com/v1", model="a")
+    show_model("local", "b", True)
+    show_model("local", "a", False)
+    assert Settings.load().connections["local"].show == ("b",)
+    assert Settings.load().connections["local"].hide == ("a",)
+    connection = save_connection("local", base_url="https://llm.example.com/v1", model="a")
+    assert connection.show == ("b", "a") and connection.hide == ()
 
 
 def test_models_come_from_connections_with_their_keys(home, monkeypatch):

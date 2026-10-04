@@ -1,4 +1,10 @@
-import { PROTOCOL_VERSION, type ConnectionsAddParams, type ConnectionsModelsParams } from '@alpine/protocol';
+import {
+  PROTOCOL_VERSION,
+  type ConnectionsAddParams,
+  type ConnectionsModelsParams,
+  type ConnectionsModelsResult,
+  type ConnectionsShowModelParams,
+} from '@alpine/protocol';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useServer } from './context';
@@ -53,6 +59,36 @@ export function useAddConnection() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (params: ConnectionsAddParams) => server.request('connections/add', params),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['connections'] }),
+  });
+}
+
+/**
+ * The models the picker offers: all but the hidden ones (by default each family's newest; see `connections/showModel`),
+ * plus `keep` (the model in use) so the current choice never disappears.
+ */
+export function shownModels(result: ConnectionsModelsResult | undefined, keep: (string | null | undefined)[] = []) {
+  if (!result) return [];
+  const hidden = new Set(result.hidden);
+  return result.models.filter((model) => !hidden.has(model) || keep.includes(model));
+}
+
+/** Shows a model of a saved connection in the picker, or leaves it out. */
+export function useShowModel() {
+  const server = useServer();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (params: ConnectionsShowModelParams) => server.request('connections/showModel', params),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['connections', 'models'] }),
+  });
+}
+
+/** Forgets a connection and its saved key; a default model on it is cleared. */
+export function useRemoveConnection() {
+  const server = useServer();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (connection: string) => server.request('connections/remove', { connection }),
     onSuccess: () => client.invalidateQueries({ queryKey: ['connections'] }),
   });
 }

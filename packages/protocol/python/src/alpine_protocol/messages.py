@@ -151,6 +151,10 @@ class ConnectionsModelsParams(Message):
 
 class ConnectionsModelsResult(Message):
     models: list[str]
+    """The models that can work as the agent, as far as the server says."""
+    hidden: list[str] = []
+    """Models of a saved connection the picker leaves out: all but each family's newest by default, all but the
+    chosen ones on a server the models.dev catalog does not know (``connections/showModel`` changes it)."""
 
 
 class ConnectionsAddParams(Message):
@@ -167,6 +171,28 @@ class ConnectionsAddParams(Message):
 class ConnectionsAddResult(Message):
     connection: ConnectionInfo
     default_model: str | None
+
+
+class ConnectionsRemoveParams(Message):
+    """Forgets a connection and its saved key. A default model on it is cleared, so new sessions need a choice."""
+
+    connection: str
+
+
+class ConnectionsRemoveResult(Message):
+    default_model: str | None
+
+
+class ConnectionsShowModelParams(Message):
+    """Shows a model of a saved connection in the picker, or leaves it out."""
+
+    connection: str
+    model: str
+    shown: bool
+
+
+class ConnectionsShowModelResult(Message):
+    pass
 
 
 class ConnectionsSetDefaultParams(Message):
@@ -813,6 +839,8 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "connections/list": (ConnectionsListParams, ConnectionsListResult),
     "connections/models": (ConnectionsModelsParams, ConnectionsModelsResult),
     "connections/add": (ConnectionsAddParams, ConnectionsAddResult),
+    "connections/remove": (ConnectionsRemoveParams, ConnectionsRemoveResult),
+    "connections/showModel": (ConnectionsShowModelParams, ConnectionsShowModelResult),
     "connections/setDefault": (ConnectionsSetDefaultParams, ConnectionsSetDefaultResult),
     "chatgpt/signIn": (ChatGPTSignInParams, ChatGPTSignInResult),
     "chatgpt/cancelSignIn": (ChatGPTCancelSignInParams, ChatGPTCancelSignInResult),

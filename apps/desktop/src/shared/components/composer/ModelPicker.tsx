@@ -1,10 +1,11 @@
-import { Combobox } from '@alpine/ui/primitives';
+import { Combobox, LinkButton } from '@alpine/ui/primitives';
+import { useNavigate } from '@tanstack/react-router';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 
 import { connectionLabel, connectMessages, PlanLine, useConnectPrompt } from '@/shared/components/connect';
 import { useMessages } from '@/shared/i18n';
-import { useConnections, useModelsOf, useSetDefaultModel, useSetSessionModel } from '@/shared/server';
+import { shownModels, useConnections, useModelsOf, useSetDefaultModel, useSetSessionModel } from '@/shared/server';
 
 import { messages } from './messages';
 import { modelGroups, readRecent, RECENT_GROUP, rememberRecent, type ModelGroup } from './modelGroups';
@@ -35,14 +36,17 @@ export function ModelPicker({
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [recent, setRecent] = useState(readRecent);
+  const navigate = useNavigate();
   const lists = useModelsOf((data?.connections ?? []).map((connection) => ({ connection: connection.name })));
 
+  const current = session ? session.model : (data?.defaultModel ?? null);
   const sources = (data?.connections ?? []).map((connection, i) => ({
     name: connection.name,
     label: connectionLabel(connection, data?.providers ?? [], c),
-    models: lists[i]?.data?.models ?? [],
+    models: shownModels(lists[i]?.data, [
+      current?.startsWith(`${connection.name}/`) ? current.slice(connection.name.length + 1) : null,
+    ]),
   }));
-  const current = session ? session.model : (data?.defaultModel ?? null);
   const groups = modelGroups({ sources, current, recent, query, expanded, recentLabel: t.recent });
   const all = groups.flatMap((g) => g.items);
 
@@ -111,8 +115,16 @@ export function ModelPicker({
             </Combobox.Group>
           )}
         </Combobox.List>
-        <div className="mt-1 border-t border-line-subtle px-2 pt-1 empty:hidden">
-          <PlanLine model={current} />
+        <div className="mt-1 flex items-center gap-2 border-t border-line-subtle px-2 pt-1">
+          <span className="min-w-0 grow">
+            <PlanLine model={current} />
+          </span>
+          <LinkButton
+            className="shrink-0"
+            onClick={() => void navigate({ to: '/settings', search: { tab: 'connection' } })}
+          >
+            {t.manageModels} ›
+          </LinkButton>
         </div>
       </Combobox.Popup>
     </Combobox.Root>

@@ -1,6 +1,6 @@
 import type { ConnectionInfo, ConnectionsListResult } from '@alpine/protocol';
-import { Dialog, LinkButton, NativeSelect } from '@alpine/ui/primitives';
-import { useState, type ReactNode } from 'react';
+import { Button, Dialog, LinkButton, NativeSelect } from '@alpine/ui/primitives';
+import { useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import {
   ApiKeyForm,
@@ -11,9 +11,18 @@ import {
 } from '@/shared/components/connect';
 import { openInBrowser } from '@/shared/platform';
 import { useMessages } from '@/shared/i18n';
-import { CHATGPT_USAGE_URL, useChatGPTSignOut, useConnections, useModelsOf, useSetDefaultModel } from '@/shared/server';
+import {
+  CHATGPT_USAGE_URL,
+  useChatGPTSignOut,
+  useConnections,
+  useModelsOf,
+  useRemoveConnection,
+  useSetDefaultModel,
+  shownModels,
+} from '@/shared/server';
 
 import { messages } from './messages';
+import { ModelsDialog } from './ModelsDialog';
 
 type Sheet =
   | { kind: 'api-key'; provider?: string }
@@ -30,6 +39,8 @@ export function ConnectionTab() {
   const c = useMessages(connectMessages);
   const connections = useConnections();
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [removing, setRemoving] = useState<ConnectionInfo | null>(null);
+  const [choosing, setChoosing] = useState<ConnectionInfo | null>(null);
   const data = connections.data;
   if (!data) return null;
 
@@ -49,17 +60,21 @@ export function ConnectionTab() {
                   onSignIn={(consent) => setSheet({ kind: 'chatgpt', connection: connection.name, consent })}
                 />
               ) : (
-                <LinkButton
-                  onClick={() =>
-                    setSheet(
-                      connection.provider
-                        ? { kind: 'api-key', provider: connection.provider }
-                        : { kind: 'local', address: connection.baseUrl ?? undefined },
-                    )
-                  }
-                >
-                  {t.change}
-                </LinkButton>
+                <span className="inline-flex items-center gap-1">
+                  <LinkButton onClick={() => setChoosing(connection)}>{t.chooseModels}</LinkButton>
+                  <LinkButton
+                    onClick={() =>
+                      setSheet(
+                        connection.provider
+                          ? { kind: 'api-key', provider: connection.provider }
+                          : { kind: 'local', address: connection.baseUrl ?? undefined },
+                      )
+                    }
+                  >
+                    {t.change}
+                  </LinkButton>
+                  <LinkButton onClick={() => setRemoving(connection)}>{t.remove}</LinkButton>
+                </span>
               )}
             </div>
           ))
@@ -117,7 +132,72 @@ export function ConnectionTab() {
           )}
         </Dialog.Popup>
       </Dialog.Root>
+
+      <RemoveDialog connection={removing} data={data} onClose={() => setRemoving(null)} />
+      <ModelsDialog connection={choosing} data={data} onClose={() => setChoosing(null)} />
     </div>
+  );
+}
+
+/**
+ * What deleting a connection removes, before it is gone. Like deleting a project, Enter never confirms: focus starts
+ * on Cancel, and only a click or ⌘Enter deletes.
+ */
+function RemoveDialog({
+  connection,
+  data,
+  onClose,
+}: {
+  connection: ConnectionInfo | null;
+  data: ConnectionsListResult;
+  onClose: () => void;
+}) {
+  const t = useMessages(messages);
+  const c = useMessages(connectMessages);
+  const remove = useRemoveConnection();
+  const close = () => {
+    remove.reset();
+    onClose();
+  };
+  const confirm = () => {
+    if (connection) remove.mutate(connection.name, { onSuccess: close });
+  };
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Enter' && event.metaKey) {
+      event.preventDefault();
+      confirm();
+    }
+  };
+  const defaultOnIt = connection && data.defaultModel?.startsWith(`${connection.name}/`) ? data.defaultModel : null;
+
+  return (
+    <Dialog.Root open={connection !== null} onOpenChange={(open) => !open && close()}>
+      <Dialog.Popup size="sm" role="alertdialog" onKeyDown={onKeyDown}>
+        {connection && (
+          <>
+            <div className="flex flex-col gap-2">
+              <Dialog.Title>{t.removeTitle(connectionLabel(connection, data.providers, c))}</Dialog.Title>
+              <Dialog.Description>{t.removeLead}</Dialog.Description>
+              {defaultOnIt && (
+                <p className="text-body">{t.removeDefault(defaultOnIt.slice(defaultOnIt.indexOf('/') + 1))}</p>
+              )}
+            </div>
+            {remove.error && (
+              <p role="alert" className="text-meta text-danger">
+                {remove.error.message}
+              </p>
+            )}
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Dialog.Close render={<Button />}>{t.cancel}</Dialog.Close>
+              <Button variant="danger" disabled={remove.isPending} onClick={confirm}>
+                {t.confirmRemove}
+                <kbd className="rounded-sm border border-on-fill/50 px-1 font-sans text-meta">⌘↩</kbd>
+              </Button>
+            </div>
+          </>
+        )}
+      </Dialog.Popup>
+    </Dialog.Root>
   );
 }
 
@@ -173,16 +253,17 @@ function DefaultModel({ id, data }: { id: string; data: ConnectionsListResult })
   const c = useMessages(connectMessages);
   const setDefault = useSetDefaultModel();
   const lists = useModelsOf(data.connections.map((connection) => ({ connection: connection.name })));
-  const listed = new Set(
-    data.connections.flatMap((connection, i) => (lists[i]?.data?.models ?? []).map((m) => `${connection.name}/${m}`)),
-  );
+  const keep = (connection: string) =>
+    data.defaultModel?.startsWith(`${connection}/`) ? data.defaultModel.slice(connection.length + 1) : null;
+  const shown = data.connections.map((connection, i) => shownModels(lists[i]?.data, [keep(connection.name)]));
+  const listed = new Set(data.connections.flatMap((connection, i) => shown[i]!.map((m) => `${connection.name}/${m}`)));
   return (
     <NativeSelect id={id} value={data.defaultModel ?? ''} onChange={(event) => setDefault.mutate(event.target.value)}>
       {data.defaultModel === null && <option value="">{t.chooseModel}</option>}
       {data.defaultModel !== null && !listed.has(data.defaultModel) && <option>{data.defaultModel}</option>}
       {data.connections.map((connection, i) => (
         <optgroup key={connection.name} label={connectionLabel(connection, data.providers, c)}>
-          {(lists[i]?.data?.models ?? []).map((model) => (
+          {shown[i]!.map((model) => (
             <option key={model} value={`${connection.name}/${model}`}>
               {model}
             </option>

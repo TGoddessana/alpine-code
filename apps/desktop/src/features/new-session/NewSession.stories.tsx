@@ -30,16 +30,18 @@ type Story = StoryObj<typeof meta>;
 
 export const Ready: Story = {};
 
-/** The model picker with a router of 320 models: folded until opened, found by searching. */
+/**
+ * The model picker with a router of 320 models: only each vendor's newest shows (the rest are switched off in
+ * Settings › Model connection), and searching finds only the ones shown.
+ */
 export const ManyModels: Story = {
   parameters: { server: withRouterScript() },
   play: async () => {
     await userEvent.click(await screen.findByRole('combobox', { name: /새 세션 모델|New session model/ }));
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /모델 320개 모두 보기|Show all 320/ })).toBeVisible(),
-    );
+    await waitFor(() => expect(screen.getByRole('option', { name: 'qwen/model-40' })).toBeVisible());
+    expect(screen.queryByRole('option', { name: 'qwen/model-3' })).toBeNull();
     await userEvent.type(screen.getByRole('combobox', { name: /모델 찾기|Find a model/ }), 'qwen/model-3');
-    await waitFor(() => expect(screen.getByRole('option', { name: 'qwen/model-3' })).toBeVisible());
+    await waitFor(() => expect(screen.getByText(/모델 목록 관리에서|Manage models/)).toBeVisible());
   },
 };
 

@@ -1,3 +1,5 @@
+import { josa } from 'es-hangul';
+
 import { defineMessages } from '@/shared/i18n';
 
 export const messages = defineMessages({
@@ -17,6 +19,21 @@ export const messages = defineMessages({
     addConnection: '연결 추가',
     connectLink: '연결 ›',
     change: '바꾸기',
+    remove: '삭제…',
+    removeTitle: (label: string) => `${josa(label, '을/를')} 삭제할까요?`,
+    removeLead: '이 컴퓨터에 저장한 연결 정보와 키를 지워요. 다시 쓰려면 새로 연결하면 돼요.',
+    removeDefault: (model: string) => `새 세션의 기본 모델(${model})도 비워져요. 다른 모델을 골라 주세요.`,
+    cancel: '취소',
+    confirmRemove: '삭제',
+    chooseModels: '모델 고르기',
+    modelsTitle: (label: string) => `${label}에서 쓸 모델`,
+    modelsLead:
+      '켠 모델만 모델 선택기에 보여요. 처음에는 모델 계열마다 최신 하나씩 켜 두고, 모델 정보를 알 수 없는 서버는 연결할 때 고른 모델만 켜 둬요.',
+    findModel: '모델 찾기',
+    onlyShown: '켠 모델만',
+    shownCount: (shown: number, total: number) => `${total}개 중 ${shown}개 켜짐`,
+    models: '모델',
+    noModel: '찾는 모델이 없어요',
     defaultModel: '기본 모델',
     newSession: '새 세션',
     chooseModel: '모델을 골라 주세요',
@@ -37,6 +54,22 @@ export const messages = defineMessages({
     addConnection: 'Add a connection',
     connectLink: 'Connect ›',
     change: 'Change',
+    remove: 'Delete…',
+    removeTitle: (label: string) => `Delete ${label}?`,
+    removeLead: 'The connection and key saved on this computer are removed. Connect again to use it later.',
+    removeDefault: (model: string) =>
+      `The default model for new sessions (${model}) is cleared too. Choose another one.`,
+    cancel: 'Cancel',
+    confirmRemove: 'Delete',
+    chooseModels: 'Choose models',
+    modelsTitle: (label: string) => `Models to use from ${label}`,
+    modelsLead:
+      "Only the models switched on show in the model picker. At first each model family's newest is on; on a server Alpine has no model details for, only the model chosen when connecting.",
+    findModel: 'Find a model',
+    onlyShown: 'Only on',
+    shownCount: (shown: number, total: number) => `${shown} of ${total} on`,
+    models: 'Models',
+    noModel: 'No model found',
     defaultModel: 'Default model',
     newSession: 'New sessions',
     chooseModel: 'Choose a model',

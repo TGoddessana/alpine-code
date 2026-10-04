@@ -23,10 +23,14 @@ from alpine_core import (
     clone,
     current_branch,
     git_status,
+    hidden_models,
     list_models,
+    load_catalog,
     pull_request,
+    remove_connection,
     save_connection,
     set_default_model,
+    show_model,
 )
 from alpine_core.chatgpt import account_of, is_chatgpt
 from alpine_protocol import (
@@ -39,8 +43,12 @@ from alpine_protocol import (
     ConnectionsListResult,
     ConnectionsModelsParams,
     ConnectionsModelsResult,
+    ConnectionsRemoveParams,
+    ConnectionsRemoveResult,
     ConnectionsSetDefaultParams,
     ConnectionsSetDefaultResult,
+    ConnectionsShowModelParams,
+    ConnectionsShowModelResult,
     ErrorData,
     GitInfo,
     InitializeParams,
@@ -109,9 +117,12 @@ def connection_models(params: ConnectionsModelsParams) -> ConnectionsModelsResul
     tokens = chatgpt_tokens(settings, connection) if is_chatgpt(connection) else None
     key = None if tokens else params.api_key or settings.api_key_for(connection)
     try:
-        return ConnectionsModelsResult(models=list_models(connection, key, tokens=tokens))
+        models = list_models(connection, key, tokens=tokens)
     except ModelListError as e:
         raise MethodError(APP_ERROR, str(e), e.kind.value) from e
+    saved = params.connection is not None and not is_chatgpt(connection)  # ChatGPT lists a handful, all shown
+    hidden = hidden_models(connection, models, load_catalog()) if saved else []
+    return ConnectionsModelsResult(models=models, hidden=hidden)
 
 
 def add_connection(params: ConnectionsAddParams) -> ConnectionsAddResult:
@@ -119,7 +130,10 @@ def add_connection(params: ConnectionsAddParams) -> ConnectionsAddResult:
     connection = _connection(params.provider, params.base_url, settings)
     try:
         connection = save_connection(
-            connection.name, provider=params.provider, base_url=params.base_url if not params.provider else None
+            connection.name,
+            provider=params.provider,
+            base_url=params.base_url if not params.provider else None,
+            model=params.model,
         )
         if params.api_key and settings.secrets is not None:
             settings.secrets.set(connection.name, params.api_key)
@@ -131,6 +145,28 @@ def add_connection(params: ConnectionsAddParams) -> ConnectionsAddResult:
     return ConnectionsAddResult(
         connection=_connection_info(settings.connections[connection.name], settings), default_model=settings.model
     )
+
+
+def remove(params: ConnectionsRemoveParams) -> ConnectionsRemoveResult:
+    settings = _settings()
+    try:
+        if not remove_connection(params.connection):
+            raise MethodError(INVALID_PARAMS, f"No connection named {params.connection!r}")
+    except ConfigError as e:
+        raise MethodError(APP_ERROR, str(e), "invalid_config") from e
+    if settings.secrets is not None:
+        settings.secrets.delete(params.connection)
+    return ConnectionsRemoveResult(default_model=_settings().model)
+
+
+def show(params: ConnectionsShowModelParams) -> ConnectionsShowModelResult:
+    if params.connection not in _settings().connections:
+        raise MethodError(INVALID_PARAMS, f"No connection named {params.connection!r}")
+    try:
+        show_model(params.connection, params.model, params.shown)
+    except ConfigError as e:
+        raise MethodError(APP_ERROR, str(e), "invalid_config") from e
+    return ConnectionsShowModelResult()
 
 
 def set_default(params: ConnectionsSetDefaultParams) -> ConnectionsSetDefaultResult:
@@ -280,6 +316,8 @@ HANDLERS: dict[str, Callable[[Any], Any]] = {
     "connections/list": list_connections,
     "connections/models": connection_models,
     "connections/add": add_connection,
+    "connections/remove": remove,
+    "connections/showModel": show,
     "connections/setDefault": set_default,
     "projects/list": list_projects,
     "projects/open": open_project,

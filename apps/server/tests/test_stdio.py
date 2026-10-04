@@ -80,6 +80,11 @@ def test_connections_and_projects(tmp_path, monkeypatch):
     assert request("projects/list")["result"]["projects"][0]["archived"] is True
     assert request("connections/setDefault", {"model": "local/qwen3"})["result"] == {"defaultModel": "local/qwen3"}
     assert request("connections/list")["result"]["defaultModel"] == "local/qwen3"
+    assert request("connections/remove", {"connection": "local"})["result"] == {"defaultModel": None}
+    assert [c["name"] for c in request("connections/list")["result"]["connections"]] == ["anthropic"]
+    assert request("connections/remove", {"connection": "anthropic"})["result"] == {"defaultModel": None}
+    assert "anthropic" not in (tmp_path / "home" / "auth.json").read_text()
+    assert request("connections/remove", {"connection": "anthropic"})["error"]["code"] == -32602
 
     failed = request("projects/clone", {"address": str(tmp_path / "nope"), "parent": str(tmp_path)})
     assert failed["error"]["data"] == {"reason": "clone_failed"}

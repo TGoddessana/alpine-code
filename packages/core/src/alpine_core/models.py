@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Any
 
 import anthropic
 import openai
@@ -75,6 +76,24 @@ class ModelListError(Exception):
         self.kind = kind
 
 
+def _can_run_an_agent(info: dict[str, Any]) -> bool:
+    """Whether a model can work as the agent, by what the server says about it: it reads and writes text, calls
+    tools, and is still offered. Routers (OpenRouter, OneRouter) say this in their own fields; a server that says
+    nothing (Ollama, vLLM, LM Studio) keeps every model."""
+    architecture = info.get("architecture") if isinstance(info.get("architecture"), dict) else {}
+    for key in ("input_modalities", "output_modalities"):
+        kinds = architecture.get(key, info.get(key))
+        if isinstance(kinds, list) and kinds and "text" not in {str(k).lower() for k in kinds}:
+            return False
+    parameters = info.get("supported_parameters")
+    if isinstance(parameters, list) and "tools" not in parameters:
+        return False
+    if info.get("supports_function_calling") is False or info.get("deprecated") is True:
+        return False
+    category = info.get("category_type")
+    return not isinstance(category, str) or category.upper() == "LLM"
+
+
 def list_models(
     connection: Connection, api_key: str | None, *, tokens: ChatGPTTokens | None = None, timeout: float = 15
 ) -> list[str]:
@@ -100,7 +119,7 @@ def list_models(
             return [m.id for m in client.models.list(limit=1000)]
         # Local servers need no key, but the SDK refuses to start without one.
         client = openai.OpenAI(api_key=api_key or "not-needed", base_url=connection.url, timeout=timeout, max_retries=0)
-        return sorted(m.id for m in client.models.list())
+        return sorted(m.id for m in client.models.list() if _can_run_an_agent(m.model_extra or {}))
     except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as e:
         raise ModelListError(kind.AUTH, str(e)) from e
     except (openai.AuthenticationError, openai.PermissionDeniedError) as e:

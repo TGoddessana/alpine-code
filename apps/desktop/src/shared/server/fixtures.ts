@@ -91,6 +91,14 @@ interface ScriptState {
 export function statefulScript(start: ScriptState): Script {
   let { connections, projects } = start;
   const signIns = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Models shown or hidden by hand, by connection: `connections/showModel`. */
+  const chosen = new Map<string, Map<string, boolean>>();
+  /** A router shows each vendor's newest by default, as the server does with the models.dev catalog. */
+  const hiddenOf = (name: string, models: string[]) =>
+    models.filter((model) => {
+      const byHand = chosen.get(name)?.get(model);
+      return byHand === undefined ? !model.endsWith('/model-40') : !byHand;
+    });
   const project = (path: string): ProjectInfo => ({
     path,
     name: path.split('/').pop() ?? path,
@@ -106,7 +114,9 @@ export function statefulScript(start: ScriptState): Script {
         const saved = name ? connections.connections.find((c) => c.name === name) : undefined;
         if (saved?.account) return { models: MODELS.chatgpt! };
         if (saved && !saved.provider)
-          return { models: saved.baseUrl?.includes('router') ? ROUTER_MODELS : MODELS.local! };
+          return saved.baseUrl?.includes('router')
+            ? { models: ROUTER_MODELS, hidden: hiddenOf(saved.name, ROUTER_MODELS) }
+            : { models: MODELS.local! };
         const provider = saved?.provider ?? askedProvider;
         if (baseUrl && !baseUrl.includes('localhost'))
           throw new ServerError(-32000, 'Connection error.', { reason: 'unreachable' });
@@ -169,6 +179,19 @@ export function statefulScript(start: ScriptState): Script {
           ),
         };
         return { revoked: true };
+      },
+      'connections/remove': ({ connection: name }) => {
+        const defaultModel = connections.defaultModel?.startsWith(`${name}/`) ? null : connections.defaultModel;
+        connections = {
+          ...connections,
+          connections: connections.connections.filter((c) => c.name !== name),
+          defaultModel,
+        };
+        return { defaultModel };
+      },
+      'connections/showModel': ({ connection: name, model, shown }) => {
+        chosen.set(name, new Map(chosen.get(name)).set(model, shown));
+        return {};
       },
       'connections/setDefault': ({ model }) => {
         connections = { ...connections, defaultModel: model };

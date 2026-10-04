@@ -32,8 +32,11 @@ export {
   useOpenProject,
   useProjectGit,
   useProjects,
+  useRemoveConnection,
   useServerInfo,
   useSetDefaultModel,
+  useShowModel,
+  shownModels,
 } from './queries';
 export {
   useCheckTool,

@@ -58,7 +58,7 @@ export const editorMessages = defineMessages({
     riskyApproval: '위험 승인',
     installPackage: '패키지 설치',
     installTitle: (name: string) => `${name} 패키지를 설치할까요?`,
-    installBody: 'Alpine이 확인한 목록에 없는 패키지예요. 설치하면 이 패키지의 코드가 앱 안에서 도구와 함께 실행돼요.',
+    installBody: 'Alpine Code가 확인한 목록에 없는 패키지예요. 설치하면 이 패키지의 코드가 앱 안에서 도구와 함께 실행돼요.',
     firstRelease: '처음 올라온 날',
     downloads: '지난달 다운로드',
     similar: '비슷한 이름',
@@ -126,7 +126,7 @@ export const editorMessages = defineMessages({
     installPackage: 'Installing a package',
     installTitle: (name: string) => `Install ${name}?`,
     installBody:
-      "Alpine hasn't reviewed this package. Once installed, its code runs inside the app along with the tool.",
+      "Alpine Code hasn't reviewed this package. Once installed, its code runs inside the app along with the tool.",
     firstRelease: 'First released',
     downloads: 'Downloads last month',
     similar: 'Look-alike names',

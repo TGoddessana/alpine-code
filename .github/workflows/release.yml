@@ -1,0 +1,146 @@
+# Pushing a tag vX.Y.Z publishes the CLI to PyPI and builds the signed, notarized macOS app into a draft GitHub
+# release. Publishing that draft is what ships the app: the updater reads releases/latest/download/latest.json.
+# A pull request that touches the build only builds, signs and notarizes the app, uploaded as workflow artifacts.
+# Steps and secrets: docs/releasing.md.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - apps/desktop/scripts/**
+      - apps/desktop/src-tauri/**
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Every package carries the tag's version
+        run: |
+          python3 - "${GITHUB_REF_NAME#v}" <<'EOF'
+          import json, sys, tomllib
+          want = sys.argv[1]
+          found = {p: tomllib.load(open(p, "rb"))["project"]["version"] for p in [
+              "apps/cli/pyproject.toml", "apps/server/pyproject.toml",
+              "packages/core/pyproject.toml", "packages/protocol/python/pyproject.toml"]}
+          found["apps/desktop/src-tauri/tauri.conf.json"] = json.load(open("apps/desktop/src-tauri/tauri.conf.json"))["version"]
+          found["apps/desktop/src-tauri/Cargo.toml"] = tomllib.load(open("apps/desktop/src-tauri/Cargo.toml", "rb"))["package"]["version"]
+          cli = tomllib.load(open("apps/cli/pyproject.toml", "rb"))["project"]["dependencies"]
+          found["alpine-code-core pin in apps/cli"] = next(d for d in cli if d.startswith("alpine-code-core")).split("==")[-1]
+          wrong = {p: v for p, v in found.items() if v != want}
+          for p, v in wrong.items():
+              print(f"::error::{p} is {v}, the tag says {want}")
+          sys.exit(1 if wrong else 0)
+          EOF
+
+  # One environment per package: PyPI takes one pending publisher per (repository, workflow, environment).
+  pypi-core:
+    needs: version
+    runs-on: ubuntu-latest
+    environment: pypi-core
+    permissions:
+      id-token: write # trusted publishing
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv build --package alpine-code-core --out-dir dist
+      - run: uv publish --trusted-publishing always dist/*
+
+  pypi:
+    needs: pypi-core # the CLI pins this exact core
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv build --package alpine-code --out-dir dist
+      - run: uv publish --trusted-publishing always dist/*
+
+  draft:
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      id: ${{ steps.create.outputs.id }}
+    steps:
+      - id: create
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+            --title "Alpine $GITHUB_REF_NAME" --notes "Download Alpine for your Mac from the assets below."
+          echo "id=$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .id")" >> "$GITHUB_OUTPUT"
+
+  macos:
+    needs: draft
+    if: ${{ !failure() && !cancelled() }} # draft is skipped on a pull request
+    runs-on: macos-latest
+    permissions:
+      contents: write # upload to the draft
+    strategy:
+      matrix:
+        # No Intel build: cryptography (for ChatGPT sign-in) ships no Intel macOS wheels since 49.0.
+        target: [aarch64-apple-darwin]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+          key: ${{ matrix.target }}
+
+      - name: Import the Developer ID certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password="$(openssl rand -base64 24)"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain" > /dev/null
+          # shellcheck disable=SC2046 # one argument per existing keychain
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          identity="$(security find-identity -v -p codesigning "$keychain" | grep -o '"Developer ID Application[^"]*"' | tr -d '"')"
+          test -n "$identity"
+          echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+
+      - name: Build the signed Python runtime
+        run: uv run python apps/desktop/scripts/bundle_runtime.py --target ${{ matrix.target }}
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          args: --target ${{ matrix.target }} --config src-tauri/tauri.release.conf.json
+          releaseId: ${{ needs.draft.outputs.id }}
+          uploadWorkflowArtifacts: ${{ github.ref_type != 'tag' }}

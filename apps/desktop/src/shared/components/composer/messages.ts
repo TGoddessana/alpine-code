@@ -30,7 +30,7 @@ export const messages = defineMessages({
   },
   en: {
     message: 'Message',
-    placeholder: 'What should Alpine do?',
+    placeholder: 'What should Alpine Code do?',
     send: 'Send',
     stop: 'Stop',
     stopTitle: 'Stop · Esc',

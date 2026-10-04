@@ -38,7 +38,7 @@ export const messages = defineMessages({
   },
   en: {
     start: 'Get started',
-    whichFolder: 'Which folder should Alpine work in?',
+    whichFolder: 'Which folder should Alpine Code work in?',
     dropHint: 'You can also drop a folder on this window.',
     openFolder: 'Open folder · ⌘O',
     clone: 'Clone a repository',

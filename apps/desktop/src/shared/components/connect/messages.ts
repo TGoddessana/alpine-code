@@ -45,7 +45,7 @@ export const messages = defineMessages({
     compatibleConnection: (address: string) => `호환 서버 · ${address}`,
     noKey: (env: string) => `키가 없어요 · ${env}를 설정하거나 바꾸기로 넣어 주세요`,
     continueWithChatGPT: 'ChatGPT로 계속하기',
-    chatgptLead: '브라우저에서 로그인하고, Alpine이 ChatGPT 요금제를 쓰도록 허용해 주세요. 끝나면 여기로 돌아와요.',
+    chatgptLead: '브라우저에서 로그인하고, Alpine Code가 ChatGPT 요금제를 쓰도록 허용해 주세요. 끝나면 여기로 돌아와요.',
     chatgptWaiting: '기다리는 중 · 브라우저에서 로그인',
     chatgptNoBrowser: '브라우저가 열리지 않았나요?',
     openAgain: '다시 열기',
@@ -63,7 +63,7 @@ export const messages = defineMessages({
     manageUsage: '사용량 관리 ↗',
     chatgptDeclinedTitle: 'ChatGPT 요금제 사용이 꺼져 있어요',
     chatgptDeclinedLead:
-      '로그인은 됐지만, Alpine이 요금제를 쓰도록 허용하지 않았어요. 허용하면 바로 쓸 수 있어요. API 키로 연결해도 돼요.',
+      '로그인은 됐지만, Alpine Code가 요금제를 쓰도록 허용하지 않았어요. 허용하면 바로 쓸 수 있어요. API 키로 연결해도 돼요.',
     allowAgain: '다시 허용하기',
     connectWithApiKey: 'API 키로 연결',
     chatgptConnection: (email: string | null) => (email ? `ChatGPT · ${email}` : 'ChatGPT'),
@@ -91,7 +91,7 @@ export const messages = defineMessages({
     cancel: 'Cancel',
     connect: 'Connect',
     apiKeyTitle: 'Connect with an API key',
-    apiKeyLead: 'The key stays on this computer. Paste it and Alpine checks it and loads the models you can use.',
+    apiKeyLead: 'The key stays on this computer. Paste it and Alpine Code checks it and loads the models you can use.',
     provider: 'Provider',
     usage: 'Billed for what you use',
     subscription: 'Uses your plan limits',
@@ -119,7 +119,7 @@ export const messages = defineMessages({
     noKey: (env: string) => `No key · set ${env} or add one with Change`,
     continueWithChatGPT: 'Continue with ChatGPT',
     chatgptLead:
-      'Sign in in your browser and allow Alpine to use your ChatGPT plan. You come back here when it is done.',
+      'Sign in in your browser and allow Alpine Code to use your ChatGPT plan. You come back here when it is done.',
     chatgptWaiting: 'Waiting · signing in in the browser',
     chatgptNoBrowser: "Browser didn't open?",
     openAgain: 'Open again',
@@ -137,7 +137,7 @@ export const messages = defineMessages({
     manageUsage: 'Manage usage ↗',
     chatgptDeclinedTitle: 'Using your ChatGPT plan is off',
     chatgptDeclinedLead:
-      "You're signed in, but Alpine wasn't allowed to use your plan. Allow it to start right away, or connect with an API key.",
+      "You're signed in, but Alpine Code wasn't allowed to use your plan. Allow it to start right away, or connect with an API key.",
     allowAgain: 'Allow again',
     connectWithApiKey: 'Connect with an API key',
     chatgptConnection: (email: string | null) => (email ? `ChatGPT · ${email}` : 'ChatGPT'),
@@ -147,6 +147,6 @@ export const messages = defineMessages({
     chatgptPlanOff: 'Using the plan is off',
     signInAgain: 'Sign in again',
     signOut: 'Sign out',
-    signOutUnconfirmed: "OpenAI didn't confirm the sign-out · you can disconnect Alpine in ChatGPT settings",
+    signOutUnconfirmed: "OpenAI didn't confirm the sign-out · you can disconnect Alpine Code in ChatGPT settings",
   },
 });

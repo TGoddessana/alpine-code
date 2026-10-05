@@ -1,12 +1,18 @@
 # Pushing a tag vX.Y.Z publishes the CLI to PyPI and builds the signed, notarized macOS app into a draft GitHub
 # release. Publishing that draft is what ships the app: the updater reads releases/latest/download/latest.json.
 # A pull request that touches the build only builds, signs and notarizes the app, uploaded as workflow artifacts.
+# Running it by hand with a tag builds the app at that tag again and uploads it to the tag's draft release.
 # Steps and secrets: docs/releasing.md.
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: An existing tag to build the app for and upload to its draft release
+        required: true
   pull_request:
     paths:
       - .github/workflows/release.yml
@@ -67,6 +73,8 @@ jobs:
 
   draft:
     needs: version
+    # version runs for a tag push only; a run by hand uploads to an existing tag's release
+    if: ${{ !failure() && !cancelled() && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -76,10 +84,17 @@ jobs:
       - id: create
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
-            --title "Alpine $GITHUB_REF_NAME" --notes "Download Alpine for your Mac from the assets below."
-          echo "id=$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .id")" >> "$GITHUB_OUTPUT"
+          # The release this tag already has, or a new draft. Its id comes from the API's answer: a release just
+          # created does not show up in the release list right away.
+          id="$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq "first(.[] | select(.tag_name == \"$TAG\")) | .id")"
+          if [ -z "$id" ]; then
+            id="$(gh api -X POST "repos/$GITHUB_REPOSITORY/releases" -f tag_name="$TAG" -f name="Alpine Code $TAG" \
+              -f body="Download Alpine Code for your Mac from the assets below." -F draft=true --jq .id)"
+          fi
+          test -n "$id"
+          echo "id=$id" >> "$GITHUB_OUTPUT"
 
   macos:
     needs: draft
@@ -93,6 +108,8 @@ jobs:
         target: [aarch64-apple-darwin]
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - uses: astral-sh/setup-uv@v10.2.0
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
@@ -143,4 +160,4 @@ jobs:
           projectPath: apps/desktop
           args: --target ${{ matrix.target }} --config src-tauri/tauri.release.conf.json
           releaseId: ${{ needs.draft.outputs.id }}
-          uploadWorkflowArtifacts: ${{ github.ref_type != 'tag' }}
+          uploadWorkflowArtifacts: ${{ github.event_name == 'pull_request' }}

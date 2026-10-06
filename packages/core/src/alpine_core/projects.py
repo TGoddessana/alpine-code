@@ -7,11 +7,13 @@ up too, but not every folder the CLI was merely started in).
 from __future__ import annotations
 
 import json
+import shutil
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
 from .home import home_dir
+from .memory.model import project_key
 
 
 @dataclass(frozen=True)
@@ -69,12 +71,15 @@ class ProjectList:
     def delete(self, folder: Path) -> None:
         """Forgets the folder. Never touches the folder itself; opening it again starts it afresh.
 
-        What Alpine keeps about the project (its sessions, then its memory) goes with it once the core stores them.
+        The user's own memory of the project and its suggestions (``<home>/projects/<project>/``) go with it. Team
+        memory is in the folder (``.alpine/memory``), so it stays, and so do the sessions, until the core can tell
+        a project's sessions apart from the rest.
         """
         folder = folder.expanduser().resolve()
         projects = self._read()
         if projects.pop(folder, None):
             self._write(projects)
+        shutil.rmtree(self.file.parent / "projects" / project_key(folder), ignore_errors=True)
 
     def clone_parent(self) -> Path:
         """Where a clone goes unless the user picks: next to the most recent project, else the home folder."""

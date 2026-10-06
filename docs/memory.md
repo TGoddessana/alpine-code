@@ -156,10 +156,16 @@ Written is not followed by itself, so three layers, each for a different strengt
 Executable procedures become tools, rules that must hold become permissions, and the rest stays text that is
 observed.
 
-## Open
+## Building it
 
-Nothing in the design; the next step is building it. Each port should get a second implementation in its tests
-(for example Recall that loads everything) to prove it can be swapped.
+1. **Done:** `alpine_core/memory/`: kinds, `MarkdownStore`, `IndexRecall`, `AgentProposes` (`propose_memory`) and
+   the inbox, with a second implementation of each port in `tests/test_memory.py`. Not yet connected to sessions.
+2. Connect it: the index into `build_system_prompt`, `propose_memory` into the session's tools, approvals through
+   the protocol, 기억과 학습 in the app, and a notice to running sessions on approval. Reading bodies under
+   `~/.alpine-code` must not ask: today `read` outside the working directory does, so the memory folders need to be
+   allowed for reading.
+3. Pruning proposers: facts naming a missing path, memories said again.
+4. Checks and guards in the permission step.
 
 ## Decisions
 

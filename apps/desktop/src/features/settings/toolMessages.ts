@@ -36,6 +36,7 @@ export const toolMessages = defineMessages({
     colSource: '출처',
     colAsk: '실행할 때',
     builtin: '기본',
+    fromMemory: '기억 · 항상 켜짐',
     mine: '직접 만듦',
     askNever: '묻지 않음',
     askEdit: '편집처럼',
@@ -66,6 +67,8 @@ export const toolMessages = defineMessages({
     editDoes: '파일 일부를 고쳐요',
     bash: '명령 실행',
     bashDoes: '터미널 명령을 실행해요',
+    proposeMemory: '기억 제안',
+    proposeMemoryDoes: '다음 대화에도 알아 둘 것을 제안해요',
   },
   en: {
     tools: 'Tools',
@@ -100,6 +103,7 @@ export const toolMessages = defineMessages({
     colSource: 'From',
     colAsk: 'When it runs',
     builtin: 'Built in',
+    fromMemory: 'Memory · always on',
     mine: 'Mine',
     askNever: "Doesn't ask",
     askEdit: 'Like editing',
@@ -129,5 +133,7 @@ export const toolMessages = defineMessages({
     editDoes: 'Changes part of a file',
     bash: 'Run commands',
     bashDoes: 'Runs a terminal command',
+    proposeMemory: 'Suggest memories',
+    proposeMemoryDoes: 'Suggests what to know in later conversations',
   },
 });

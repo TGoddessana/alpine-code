@@ -78,8 +78,8 @@ from .storage import (
     Storage,
     file_storage,
 )
+from .tool_sources import Builtins, Offered, Origin, ToolSource, ToolSources, builtins_only, gather, pick
 from .toolbox import (
-    BUILTIN,
     REVIEWED,
     Check,
     DraftError,
@@ -90,10 +90,11 @@ from .toolbox import (
     ToolboxError,
     ToolFile,
     ToolSummary,
-    builtin_summaries,
     draft,
     package_info,
+    summarize,
 )
+from .tools import BUILTIN, Workspace
 
 __all__ = [
     "Session",
@@ -153,9 +154,18 @@ __all__ = [
     "TestResult",
     "BUILTIN",
     "REVIEWED",
-    "builtin_summaries",
+    "Builtins",
+    "Workspace",
+    "Offered",
+    "Origin",
+    "ToolSource",
+    "ToolSources",
+    "builtins_only",
+    "gather",
+    "pick",
     "draft",
     "package_info",
+    "summarize",
     "clone",
     "CloneError",
     "current_branch",

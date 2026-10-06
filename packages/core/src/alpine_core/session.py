@@ -23,7 +23,6 @@ from alpineagents import (
     StoppedByUntil,
     ToolCall,
 )
-from alpineagents.tool import collect_tools
 from alpineagents.types import Stopped
 
 from . import shell
@@ -65,8 +64,8 @@ from .profiles import Profile, ProfileList
 from .projects import ProjectList
 from .prompt import build_system_prompt
 from .storage import Activity, ActivityKind, Record, SessionInfo, SessionStatus, Storage
-from .toolbox import Toolbox
-from .tools import Workspace, default_tools
+from .tool_sources import ToolSources, builtins_only, gather, pick
+from .tools import Workspace
 
 #: Longest session title, in characters.
 TITLE_LENGTH = 60
@@ -101,10 +100,11 @@ class Session:
     ``asend`` runs until the agent answers, reporting progress through ``on_event`` (core events, on the event
     loop's thread) and asking ``approver`` before tool calls the permission mode does not allow. Cancelling it stops
     the run and keeps the conversation. ``send`` is the same for a frontend without an event loop, stopped with
-    Ctrl+C. With ``projects``, the first message of a conversation records its folder there. With ``profiles``, the
-    agent gets the tools of ``profile`` (an id) or of the profile its folder and model match, including the user's
-    tools from ``toolbox``; the choice is saved with the session. With ``memories``, the prompt carries the
-    project's memory, the agent can suggest memories, and memories approved through ``memories`` reach it as notices.
+    Ctrl+C. With ``projects``, the first message of a conversation records its folder there. ``tools`` gives the
+    sources of the folder's tools (the built-ins unless told otherwise). With ``profiles``, the agent gets those that
+    ``profile`` (an id), or the profile its folder and model match, turns on; the choice is saved with the session.
+    With ``memories``, the prompt carries the project's memory, its checks and guards apply, and memories approved
+    through ``memories`` reach it as notices; the memory's tools come from ``tools``, as ``memories.of(folder)``.
 
     The conversation is also kept as items (``docs/session-protocol.md``): ``on_item_event(session_id, seq,
     event)`` gets every item event, and ``snapshot()`` returns the items so far. With ``storage``, the session is
@@ -127,7 +127,7 @@ class Session:
         storage: Storage | None = None,
         mode: Mode | None = None,
         profiles: ProfileList | None = None,
-        toolbox: Toolbox | None = None,
+        tools: ToolSources = builtins_only,
         profile: str | None = None,
         memories: Memories | None = None,
         _saved: _Saved | None = None,
@@ -152,7 +152,7 @@ class Session:
         self._state: State | None = None
         self._settings = settings
         self._profiles = profiles
-        self._toolbox = toolbox
+        self._tool_sources = tools
         self._profile = self._pick_profile(settings, _saved.info.profile if _saved else profile)
         self._agent = self._build_agent(settings)
         self._closed = False
@@ -186,7 +186,7 @@ class Session:
         cwd: Path | None = None,
         projects: ProjectList | None = None,
         profiles: ProfileList | None = None,
-        toolbox: Toolbox | None = None,
+        tools: ToolSources = builtins_only,
         memories: Memories | None = None,
     ) -> Session:
         """Opens a saved session and continues it: the items and ``seq`` from the log, the conversation from the
@@ -220,7 +220,7 @@ class Session:
             projects=projects,
             storage=storage,
             profiles=profiles,
-            toolbox=toolbox,
+            tools=tools,
             memories=memories,
             _saved=_Saved(info, records, state),
         )
@@ -250,17 +250,9 @@ class Session:
         return saved or self._profiles.resolve(self.workspace.root, settings.model)
 
     def _tools(self) -> list[Any]:
-        """The built-in tools, and the user's tools, that the profile turns on (without profiles, the built-ins),
-        then the memory's tools, which every profile has."""
-        builtin = default_tools(self.workspace)
-        memory = self._memory.tools() if self._memory is not None else []
-        if self._profile is None:
-            return builtin + memory
-        on = set(self._profile.tools)
-        tools: list[Any] = [tool for name, tool in collect_tools(builtin).items() if name in on]
-        if self._toolbox is not None:
-            tools += self._toolbox.load(on)
-        return tools + memory
+        """The tools the folder's sources offer that the profile turns on (without a profile, all of them)."""
+        offered = gather(self._tool_sources(self.workspace.root))
+        return pick(offered, self._profile.tools if self._profile is not None else None)
 
     # ------------------------------------------------------------ actions
 

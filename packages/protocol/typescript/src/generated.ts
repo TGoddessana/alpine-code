@@ -633,6 +633,50 @@ export interface MemoryRejectParams {
  */
 export interface MemoryRejectResult {}
 /**
+ * A tool a session can get, and where it comes from.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "OfferedTool".
+ */
+export interface OfferedTool {
+  tool: ToolSummary;
+  origin: 'builtin' | 'memory' | 'user';
+  optional: boolean;
+}
+/**
+ * A tool as the model sees it.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolSummary".
+ */
+export interface ToolSummary {
+  name: string;
+  description: string;
+  params: ToolParam[];
+  readOnly: boolean;
+  openWorld: boolean;
+  ask: 'never' | 'edit' | 'ask';
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolParam".
+ */
+export interface ToolParam {
+  name: string;
+  type: string;
+  description: string;
+  required: boolean;
+  default:
+    | string
+    | number
+    | boolean
+    | unknown[]
+    | {
+        [k: string]: unknown;
+      }
+    | null;
+}
+/**
  * What the approval of a package Alpine has not reviewed shows. Facts PyPI did not give are ``None``.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -1006,39 +1050,6 @@ export interface ToolFileInfo {
   packages: string[];
 }
 /**
- * A tool as the model sees it.
- *
- * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "ToolSummary".
- */
-export interface ToolSummary {
-  name: string;
-  description: string;
-  params: ToolParam[];
-  readOnly: boolean;
-  openWorld: boolean;
-  ask: 'never' | 'edit' | 'ask';
-}
-/**
- * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "ToolParam".
- */
-export interface ToolParam {
-  name: string;
-  type: string;
-  description: string;
-  required: boolean;
-  default:
-    | string
-    | number
-    | boolean
-    | unknown[]
-    | {
-        [k: string]: unknown;
-      }
-    | null;
-}
-/**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ToolsCheckParams".
  */
@@ -1115,13 +1126,15 @@ export interface ToolsInstallResult {}
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ToolsListParams".
  */
-export interface ToolsListParams {}
+export interface ToolsListParams {
+  cwd?: string | null;
+}
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ToolsListResult".
  */
 export interface ToolsListResult {
-  builtin: ToolSummary[];
+  tools: OfferedTool[];
   files: ToolFileInfo[];
   folder: string;
 }

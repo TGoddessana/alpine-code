@@ -8,7 +8,7 @@ import { CHATGPT_USAGE_URL, type Item } from '@/shared/server';
 
 import { ApprovalCard } from './ApprovalCard';
 import { toBlocks, type Block } from './blocks';
-import { MemoryCard } from './MemoryCard';
+import { MemoryCard, MemoryReviewLine } from './MemoryCard';
 import { messages } from './messages';
 import { useRevealed } from './reveal';
 import { ToolCalls } from './ToolCalls';
@@ -41,6 +41,8 @@ export function Chat({
           <ApprovalCard key={block.item.id} sessionId={sessionId} approval={block.item} />
         ) : block.type === 'memory' ? (
           <MemoryCard key={`memory-${block.call.id}`} sessionId={sessionId} cwd={cwd} call={block.call} />
+        ) : block.item.kind === 'memory_review' ? (
+          <MemoryReviewLine key={block.item.id} cwd={cwd} item={block.item} />
         ) : (
           <ItemView key={block.item.id} item={block.item} active={activeIds.includes(block.item.id)} />
         ),
@@ -77,6 +79,8 @@ const ItemView = memo(function ItemView({
     case 'notice':
     case 'status_line':
       return <p className={quiet}>{item.text}</p>;
+    case 'memory_review': // drawn by the chat with the project it links to
+      return null;
     case 'run_stopped':
       // The plan's own words are the app's: the core's English message would only repeat them.
       if (item.reason === 'plan_limit')

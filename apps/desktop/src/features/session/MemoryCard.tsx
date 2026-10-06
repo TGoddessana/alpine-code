@@ -1,9 +1,9 @@
-import type { ToolCallItem } from '@alpine/protocol';
+import type { MemoryReviewItem, ToolCallItem } from '@alpine/protocol';
 import { LinkButton } from '@alpine/ui/primitives';
 import { useNavigate } from '@tanstack/react-router';
 
 import { SuggestionCard, useMemoryWords } from '@/shared/components/memory';
-import { useMessages } from '@/shared/i18n';
+import { useFormat, useMessages } from '@/shared/i18n';
 import { useMemory } from '@/shared/server';
 
 import { messages } from './messages';
@@ -33,6 +33,25 @@ export function MemoryCard({ sessionId, cwd, call }: { sessionId: string; cwd: s
       {t.memoryKept(words.scope(kept.scope))} ·{' '}
       <LinkButton className="min-h-5 px-0.5" onClick={() => void navigate({ to: '/memory', search: { project: cwd } })}>
         {t.memoryOpen}
+      </LinkButton>
+    </p>
+  );
+}
+
+/**
+ * What the harness noticed about the memory at the end of a run, as one quiet line that opens the memory page,
+ * where its suggestions wait. The model never sees it.
+ */
+export function MemoryReviewLine({ cwd, item }: { cwd: string; item: MemoryReviewItem }) {
+  const t = useMessages(messages);
+  const format = useFormat();
+  const navigate = useNavigate();
+  const count = format.number(item.count);
+  return (
+    <p className="text-meta text-fg-muted">
+      {item.source === 'missing_paths' ? t.review_missing_paths(count) : t.review_other(count)} ·{' '}
+      <LinkButton className="min-h-5 px-0.5" onClick={() => void navigate({ to: '/memory', search: { project: cwd } })}>
+        {t.reviewOpen} ›
       </LinkButton>
     </p>
   );

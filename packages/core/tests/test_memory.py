@@ -245,7 +245,7 @@ class LoadEverything:
     def system_block(self, memories: Sequence[Memory]) -> str:
         return "\n".join(f"{m.headline}: {m.body}" for m in memories)
 
-    def notice(self, memory: Memory) -> str:
+    def notice(self, memory: Memory, removed: bool = False) -> str:
         return memory.headline
 
     def tools(self) -> list:
@@ -258,7 +258,7 @@ class Silent(Proposer):
 
 def test_every_part_can_be_replaced(project, home):
     store = DictStore()
-    memory = memory_system(project, home=home, store=store, recall=LoadEverything(), proposer=Silent())
+    memory = memory_system(project, home=home, store=store, recall=LoadEverything(), proposers=[Silent()])
     kept = memory.inbox.approve(propose(memory, "화면 문구는 해요체로 쓴다").id)
 
     assert store.items == {("team", "ui-tone"): kept}
@@ -365,3 +365,91 @@ def test_the_users_memory_reaches_sessions_of_other_projects(project, home, monk
     team = propose(memories.of(project), "화면 문구는 해요체로 쓴다")
     memories.approve(project, team.id)
     assert len([i for i in session.snapshot().items if i.kind == "notice"]) == 1
+
+
+# Pruning: memories naming paths that are gone
+
+
+def test_missing_paths_only_counts_paths_in_a_folder_that_is_still_there(project):
+    from alpine_core.memory import MissingPaths
+
+    (project / "src" / "pay").mkdir(parents=True)
+    (project / "src" / "pay" / "card.ts").write_text("")
+    check = MissingPaths(project)
+    memory = Memory(
+        "pay",
+        "fact",
+        "team",
+        "결제 코드는 `src/pay/toss.ts`에 있다",
+        "`src/pay/card.ts`도 봐. `origin/main`, `@alpine/ui`, `docs/x.md`, `/etc/hosts`, `pnpm -F a/b lint`, "
+        "`https://a.b/c` 그리고 다시 `src/pay/toss.ts`",
+    )
+    assert check.missing(memory) == ["src/pay/toss.ts"]
+
+
+def test_a_memory_naming_a_gone_path_is_suggested_for_removal_once(project, home):
+    from alpine_core.memory import MissingPaths
+
+    (project / "src").mkdir()
+    memory = memory_system(project, home=home)
+    memory.store.put(Memory("pay", "fact", "team", "결제 코드는 `src/pay/toss.ts`에 있다", ""))
+    memory.store.put(Memory("plain", "rule", "me", "`src/nowhere.ts`는 무시", ""))
+    state = State(id="s1")
+
+    assert memory.on_run_end(state) == {"missing_paths": 1}
+    [removal] = memory.inbox.pending()
+    assert (removal.remove, removal.replaces, removal.source) == (True, ("pay",), "missing_paths")
+    assert removal.evidence[0].quote == "src/pay/toss.ts"
+    assert memory.on_run_end(state) == {}  # already waiting
+    assert MissingPaths(project).on_run_end(state, memory.inbox) == 0
+
+    memory.inbox.reject(removal.id)
+    assert memory.on_run_end(state) == {}  # declined while the same path is missing
+
+
+def test_approving_a_removal_removes_the_memory(project, home):
+    memory = memory_system(project, home=home)
+    memory.store.put(Memory("pay", "fact", "team", "결제 코드는 `src/pay/toss.ts`에 있다", ""))
+    removal = memory.inbox.propose_removal(scope="team", memory_id="pay", evidence=said("src/pay/toss.ts"), source="x")
+
+    gone = memory.inbox.approve(removal.id)
+    assert gone.id == "pay"
+    assert memory.store.list("team") == []
+    assert memory.inbox.pending() == []
+
+
+def test_a_new_suggestion_does_not_join_a_pending_removal(memory):
+    memory.store.put(Memory("ui-tone", "rule", "team", "화면 문구는 해요체로 쓴다", ""))
+    removal = memory.inbox.propose_removal(scope="team", memory_id="ui-tone", evidence=said("gone"), source="x")
+    change = propose(memory, "화면 문구는 해요체로 쓴다 (버튼 포함)")
+    assert change.id != removal.id and not change.remove
+    assert len(memory.inbox.pending()) == 2
+
+
+def test_a_session_tells_the_user_what_the_harness_suggested_after_a_run(project, home, monkeypatch):
+    from alpine_core import Memories
+
+    (project / "src").mkdir()
+    memories = Memories(home)
+    memories.of(project).store.put(Memory("pay", "fact", "team", "결제 코드는 `src/pay/toss.ts`에 있다", ""))
+    session = memory_session(project, monkeypatch, memories, "다 했어요")
+    session.send("toss.ts 지워줘")
+
+    [review] = [i for i in session.snapshot().items if i.kind == "memory_review"]
+    assert (review.source, review.count) == ("missing_paths", 1)
+    assert not any(m.is_notice for m in session._state.messages)  # the model never hears of it
+
+
+def test_removed_memories_reach_open_sessions(project, home, monkeypatch):
+    from alpine_core import Memories
+
+    memories = Memories(home)
+    memories.of(project).store.put(Memory("ui-tone", "rule", "team", "화면 문구는 해요체로 쓴다", ""))
+    session = memory_session(project, monkeypatch, memories, "ok")
+    session.send("hi")
+    memories.forget(project, "team", "ui-tone")
+
+    [notice] = [i for i in session.snapshot().items if i.kind == "notice"]
+    assert (
+        notice.text == "The user removed a memory (team); do not follow it any more:\n- rule: 화면 문구는 해요체로 쓴다"
+    )

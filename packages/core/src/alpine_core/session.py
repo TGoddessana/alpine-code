@@ -286,6 +286,9 @@ class Session:
             self._end_run("idle")
             return None
         self._dispatch(RunFinished(_stop_reason(stopped), self.usage))
+        if self._memory is not None:
+            for source, count in self._memory.on_run_end(self._state).items():
+                self._recorder.add_memory_review(source, count)
         self._end_run("idle")
         return answer if isinstance(answer, str) else None
 
@@ -450,16 +453,16 @@ class Session:
 
     # ------------------------------------------------------------ items and storage
 
-    def _on_memory_approved(self, memory: Memory) -> None:
-        """A memory was approved while this session is open. The prompt is kept as it was when the conversation
-        started, so the prompt cache holds; the model hears of the memory as a notice instead. Runs on the thread
-        that approved, which must be the event loop's (the server approves there)."""
+    def _on_memory_approved(self, memory: Memory, removed: bool) -> None:
+        """A memory was approved (or removed) while this session is open. The prompt is kept as it was when the
+        conversation started, so the prompt cache holds; the model hears of the memory as a notice instead. Runs on
+        the thread that approved, which must be the event loop's (the server approves there)."""
         if self._closed or self._memory is None:
             return
         if self._state is None:  # nothing was sent yet, so the prompt can still change
             self._agent = self._build_agent(self._settings)
             return
-        text = self._memory.recall.notice(memory)
+        text = self._memory.recall.notice(memory, removed)
         self._state.add_message(Message.notice(text))
         self._recorder.add_notice(text, "memory")
 

@@ -49,6 +49,10 @@ export const messages = defineMessages({
     answerFailed: '답을 보내지 못했어요. 다시 눌러 주세요',
     memoryKept: (scope: string) => `기억했어요 · ${scope}`,
     memoryOpen: '기억 열기',
+    review_missing_paths: (n: string) =>
+      n === '1' ? '기억 하나가 가리키는 파일이 없어졌어요' : `기억 ${n}개가 가리키는 파일이 없어졌어요`,
+    review_other: (n: string) => `기억에 대해 확인할 게 ${n}개 있어요`,
+    reviewOpen: '확인하기',
 
     // Quiet lines
     stopped_interrupted: '멈췄어요',
@@ -140,6 +144,10 @@ export const messages = defineMessages({
     answerFailed: "Couldn't send your answer. Please try again",
     memoryKept: (scope: string) => `Remembered · ${scope}`,
     memoryOpen: 'Open memory',
+    review_missing_paths: (n: string) =>
+      n === '1' ? 'A memory names a file that is gone' : `${n} memories name files that are gone`,
+    review_other: (n: string) => `${n} things to check in memory`,
+    reviewOpen: 'Check',
 
     stopped_interrupted: 'Stopped',
     stopped_failed: 'The run failed',

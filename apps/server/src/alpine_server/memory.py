@@ -76,7 +76,7 @@ class MemoryMethods:
         return MemoryRejectResult()
 
     async def forget(self, params: MemoryForgetParams) -> MemoryForgetResult:
-        self.memories.of(_folder(params.cwd)).inbox.forget(params.scope, params.memory_id)
+        self.memories.forget(_folder(params.cwd), params.scope, params.memory_id)
         return MemoryForgetResult()
 
     def _changed(self, project: Path) -> None:
@@ -129,4 +129,5 @@ def _suggestion(suggestion: Suggestion) -> MemorySuggestionInfo:
         replaces=list(suggestion.replaces),
         evidence=[_evidence(e) for e in suggestion.evidence],
         source=suggestion.source,
+        remove=suggestion.remove,
     )

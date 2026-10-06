@@ -67,7 +67,7 @@ export {
   statefulScript,
   withRouterScript,
 } from './fixtures';
-export { MEMORY, MEMORY_SUGGESTION, memoryScript } from './memoryScript';
+export { MEMORY, MEMORY_REMOVAL, MEMORY_SUGGESTION, memoryScript } from './memoryScript';
 export { mergeScripts, scriptedConnection, type Script, type ScriptContext } from './scripted';
 export {
   SESSION_NOT_FOUND,

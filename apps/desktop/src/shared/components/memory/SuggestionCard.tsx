@@ -12,7 +12,8 @@ import { useMemoryWords } from './words';
 
 /**
  * A memory waiting for my answer: what it would remember, where it came from, and keep or decline. The details
- * (the reason and examples the agent wrote) open on a click.
+ * (the reason and examples the agent wrote) open on a click. A suggestion to remove a memory shows that memory and
+ * why (for the harness's, the paths that are gone), and removes it or keeps it.
  */
 export function SuggestionCard({ cwd, suggestion }: { cwd: string; suggestion: MemorySuggestionInfo }) {
   const t = useMessages(messages);
@@ -36,7 +37,7 @@ export function SuggestionCard({ cwd, suggestion }: { cwd: string; suggestion: M
       <div className="flex items-start gap-3">
         <div className="flex min-w-0 grow flex-col gap-1">
           <p className="text-meta text-fg-muted">
-            {t.ask} · {words.kind(suggestion.kind)}
+            {suggestion.remove ? t.askRemove : t.ask} · {words.kind(suggestion.kind)}
           </p>
           <p className="text-body">
             <Headline text={suggestion.headline} />
@@ -44,10 +45,19 @@ export function SuggestionCard({ cwd, suggestion }: { cwd: string; suggestion: M
         </div>
         <span className="shrink-0 text-meta text-fg-muted">{words.scope(suggestion.scope)}</span>
       </div>
-      {(quote || suggestion.replaces.length > 0) && (
+      {(quote || (!suggestion.remove && suggestion.replaces.length > 0)) && (
         <div className="flex flex-col gap-0.5 text-meta text-fg-muted">
-          {quote && <p className="line-clamp-2">{t.from(quote)}</p>}
-          {suggestion.replaces.length > 0 && <p>{t.changes(format.number(suggestion.replaces.length))}</p>}
+          {quote &&
+            (suggestion.source === 'missing_paths' ? (
+              <p className="break-all">
+                {t.missing} <span className="font-mono">{quote}</span>
+              </p>
+            ) : (
+              <p className="line-clamp-2">{t.from(quote)}</p>
+            ))}
+          {!suggestion.remove && suggestion.replaces.length > 0 && (
+            <p>{t.changes(format.number(suggestion.replaces.length))}</p>
+          )}
         </div>
       )}
       {open && (
@@ -62,10 +72,10 @@ export function SuggestionCard({ cwd, suggestion }: { cwd: string; suggestion: M
       )}
       <div className="flex items-center gap-2">
         <Button variant="primary" disabled={busy} onClick={() => approve.mutate(answer)}>
-          {t.keep}
+          {suggestion.remove ? t.remove : t.keep}
         </Button>
         <Button disabled={busy} onClick={() => reject.mutate(answer)}>
-          {t.decline}
+          {suggestion.remove ? t.keepIt : t.decline}
         </Button>
         <span className="grow" />
         {suggestion.body && (

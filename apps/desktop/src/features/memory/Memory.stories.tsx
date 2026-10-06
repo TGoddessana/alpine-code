@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
-import { expect, screen, userEvent } from 'storybook/test';
+import { expect, screen, userEvent, waitFor, within } from 'storybook/test';
 
 import { setUpScript } from '@/shared/server';
 
@@ -50,10 +50,22 @@ export const KeepASuggestion: Story = {
 export const Remove: Story = {
   parameters: { server: setUpScript() },
   play: async () => {
-    await userEvent.click(await screen.findByRole('button', { name: /배포는 Vercel/ }));
-    await userEvent.click(screen.getByRole('button', { name: /^(지우기|Remove)$/ }));
-    await userEvent.click(await screen.findByRole('button', { name: /^(지우기|Remove)$/ }));
+    const row = (await screen.findByRole('button', { name: /배포는 Vercel/ })).closest('li')!;
+    await userEvent.click(within(row).getByRole('button', { name: /배포는 Vercel/ }));
+    await userEvent.click(within(row).getByRole('button', { name: /^(지우기|Remove)$/ }));
+    await userEvent.click(await within(row).findByRole('button', { name: /^(지우기|Remove)$/ }));
     await expect(screen.queryByRole('button', { name: /배포는 Vercel/ })).toBeNull();
+  },
+};
+
+/** The harness noticed a memory names a file that is gone: removing it takes the memory away. */
+export const RemoveAGoneFile: Story = {
+  parameters: { server: setUpScript() },
+  play: async () => {
+    const regions = await screen.findAllByRole('region', { name: /기억 제안|Memory suggestion/ });
+    const card = regions.find((region) => within(region).queryByText(/없어진 파일|No longer there/))!;
+    await userEvent.click(within(card).getByRole('button', { name: /^(지우기|Remove)$/ }));
+    await waitFor(() => expect(screen.queryByText(/결제 코드는/)).toBeNull());
   },
 };
 

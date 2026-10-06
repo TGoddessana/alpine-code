@@ -21,6 +21,7 @@ from alpine_core import (
     Decision,
     InfoChanged,
     ItemEvent,
+    Memories,
     Mode,
     ProjectList,
     Session,
@@ -101,12 +102,19 @@ class SessionManager:
         notify: Called with every ``session/event``, on the event loop's thread.
         storage: Where sessions are saved; defaults to ``file_storage()`` in the home folder, made on first use.
         settings: Loads the settings a new or opened session starts from; defaults to ``Settings.load``.
+        memories: The memory of every project, shared by the sessions and the ``memory/*`` methods.
     """
 
     def __init__(
-        self, notify: Notify, *, storage: Storage | None = None, settings: Callable[[], Settings] | None = None
+        self,
+        notify: Notify,
+        *,
+        storage: Storage | None = None,
+        settings: Callable[[], Settings] | None = None,
+        memories: Memories | None = None,
     ) -> None:
         self._notify = notify
+        self.memories = memories or Memories()
         self._storage = storage
         self._settings = settings or (lambda: Settings.load())
         self._live: dict[str, _Live] = {}
@@ -150,6 +158,7 @@ class SessionManager:
                 profiles=profiles(),
                 toolbox=toolbox(),
                 profile=params.profile,
+                memories=self.memories,
             )
         except ConfigError as e:
             raise MethodError(APP_ERROR, str(e), "invalid_config") from e
@@ -254,6 +263,7 @@ class SessionManager:
                 projects=ProjectList.default(),
                 profiles=profiles(),
                 toolbox=toolbox(),
+                memories=self.memories,
             )
         except LookupError as e:
             raise MethodError(SESSION_NOT_FOUND, f"No such session: {session_id}") from e

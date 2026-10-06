@@ -5,17 +5,9 @@ import { editDiff, toolKind, toolTarget } from './toolCalls';
 
 describe('toolKind', () => {
   it('knows the core tools and the scripted ones', () => {
-    expect(['edit', 'edit_file', 'write', 'bash', 'read', 'read_file', 'grep', 'glob', 'x'].map(toolKind)).toEqual([
-      'edit',
-      'edit',
-      'edit',
-      'run',
-      'read',
-      'read',
-      'search',
-      'search',
-      'other',
-    ]);
+    expect(
+      ['edit', 'edit_file', 'write', 'bash', 'read', 'read_file', 'grep', 'glob', 'propose_memory', 'x'].map(toolKind),
+    ).toEqual(['edit', 'edit', 'edit', 'run', 'read', 'read', 'search', 'search', 'memory', 'other']);
   });
 });
 
@@ -24,6 +16,7 @@ describe('toolTarget', () => {
     expect(toolTarget({ args: { pattern: 'TODO', path: 'src' } })).toBe('TODO  src');
     expect(toolTarget({ args: { pattern: '*.py', path: null } })).toBe('*.py');
     expect(toolTarget({ args: { command: 'git status' } })).toBe('git status');
+    expect(toolTarget({ args: { headline: '해요체로 쓴다', body: '…' } })).toBe('해요체로 쓴다');
   });
 });
 

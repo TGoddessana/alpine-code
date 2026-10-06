@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SessionSessionIdRouteImport } from './routes/session.$sessionId'
 import { Route as SettingsToolsNameRouteImport } from './routes/settings_.tools.$name'
@@ -17,6 +18,11 @@ import { Route as SettingsToolsNameRouteImport } from './routes/settings_.tools.
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MemoryRoute = MemoryRouteImport.update({
+  id: '/memory',
+  path: '/memory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -37,12 +43,14 @@ const SettingsToolsNameRoute = SettingsToolsNameRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/memory': typeof MemoryRoute
   '/settings': typeof SettingsRoute
   '/session/$sessionId': typeof SessionSessionIdRoute
   '/settings/tools/$name': typeof SettingsToolsNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/memory': typeof MemoryRoute
   '/settings': typeof SettingsRoute
   '/session/$sessionId': typeof SessionSessionIdRoute
   '/settings/tools/$name': typeof SettingsToolsNameRoute
@@ -50,18 +58,30 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/memory': typeof MemoryRoute
   '/settings': typeof SettingsRoute
   '/session/$sessionId': typeof SessionSessionIdRoute
   '/settings_/tools/$name': typeof SettingsToolsNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings' | '/session/$sessionId' | '/settings/tools/$name'
+  fullPaths:
+    | '/'
+    | '/memory'
+    | '/settings'
+    | '/session/$sessionId'
+    | '/settings/tools/$name'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings' | '/session/$sessionId' | '/settings/tools/$name'
+  to:
+    | '/'
+    | '/memory'
+    | '/settings'
+    | '/session/$sessionId'
+    | '/settings/tools/$name'
   id:
     | '__root__'
     | '/'
+    | '/memory'
     | '/settings'
     | '/session/$sessionId'
     | '/settings_/tools/$name'
@@ -69,6 +89,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  MemoryRoute: typeof MemoryRoute
   SettingsRoute: typeof SettingsRoute
   SessionSessionIdRoute: typeof SessionSessionIdRoute
   SettingsToolsNameRoute: typeof SettingsToolsNameRoute
@@ -81,6 +102,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/memory': {
+      id: '/memory'
+      path: '/memory'
+      fullPath: '/memory'
+      preLoaderRoute: typeof MemoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -109,6 +137,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  MemoryRoute: MemoryRoute,
   SettingsRoute: SettingsRoute,
   SessionSessionIdRoute: SessionSessionIdRoute,
   SettingsToolsNameRoute: SettingsToolsNameRoute,

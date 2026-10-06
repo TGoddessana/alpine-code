@@ -44,3 +44,21 @@ def test_delete_forgets_the_project_but_keeps_the_folder(tmp_path):
     assert projects.list() == []
     assert (folder / "main.py").exists()
     projects.delete(folder)  # already gone: nothing to do
+
+
+def test_delete_removes_the_users_own_memory_of_the_project_only(tmp_path):
+    from alpine_core.memory import MarkdownStore, Memory
+
+    home = tmp_path / "home"
+    folder = tmp_path / "a"
+    folder.mkdir()
+    projects = ProjectList(home / "projects.json")
+    projects.open(folder)
+    store = MarkdownStore(folder, home)
+    mine = store.put(Memory("tests", "rule", "project_me", "결제 테스트는 테스트 키로", ""))
+    team = store.put(Memory("tone", "rule", "team", "해요체", ""))
+    everywhere = store.put(Memory("plain", "user", "me", "쉬운 말로", ""))
+
+    projects.delete(folder)
+    assert not mine.path.exists()
+    assert team.path.exists() and everywhere.path.exists()

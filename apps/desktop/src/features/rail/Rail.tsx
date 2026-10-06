@@ -187,6 +187,9 @@ function ProjectRow({
         {t.newSession}
       </Menu.Item>
       <Menu.Item onClick={() => void revealInFinder(project.path)}>{t.revealInFinder}</Menu.Item>
+      <Menu.Item onClick={() => void navigate({ to: '/memory', search: { project: project.path } })}>
+        {t.openMemory}
+      </Menu.Item>
       <Menu.Separator />
       <Menu.Item onClick={() => archive.mutate(project.path)}>{t.archive}</Menu.Item>
       <Menu.Separator />

@@ -10,22 +10,22 @@ import { messages } from './messages';
 type Info = Pick<SessionInfo, 'contextUsed' | 'contextWindow' | 'usage' | 'runUsage'>;
 
 /**
- * How much of the model's memory this conversation uses, as a small pie in the input's bar, explained on hover. A
- * click opens what the conversation has used: the memory, then what was sent and received, the requests and the cost
- * (this run's beside the whole conversation's while a run is active). The pie turns to the attention colour from 80%.
+ * How much of what the model can read at once this conversation fills (its length), as a small pie in the input's
+ * bar, explained on hover. A click opens what the conversation has used: its length, then what was sent and
+ * received, the requests and the cost (this run's beside the whole conversation's while a run is active). The pie turns to the attention colour from 80%.
  */
 export function ContextMeter({ info }: { info: Info }) {
   const t = useMessages(messages);
   const format = useFormat();
   const percent = contextPercent(info);
   const warn = percent !== null && percent >= CONTEXT_WARN_PERCENT;
-  const label = percent === null ? t.usage : t.memoryAria(format.number(percent));
+  const label = percent === null ? t.usage : t.lengthAria(format.number(percent));
 
   return (
     <Popover.Root>
       <Popover.Trigger
         aria-label={label}
-        title={percent === null ? undefined : t.memoryHint(format.number(percent))}
+        title={percent === null ? undefined : t.lengthHint(format.number(percent))}
         className={clsx(
           'inline-flex size-7 cursor-pointer items-center justify-center rounded-md hover:bg-canvas-sunken data-popup-open:bg-canvas-sunken',
           warn ? 'text-attention' : 'text-fg-muted',
@@ -74,7 +74,7 @@ function UsageDetails({ info, percent }: { info: Info; percent: number | null })
       {percent !== null && (
         <section className="flex flex-col gap-2">
           <Popover.Title className="flex items-baseline justify-between text-lead font-semibold">
-            {t.memoryTitle}
+            {t.lengthTitle}
             <span className={clsx('text-body', percent >= CONTEXT_WARN_PERCENT && 'text-attention')}>
               {format.number(percent)}%
             </span>
@@ -85,7 +85,7 @@ function UsageDetails({ info, percent }: { info: Info; percent: number | null })
               style={{ width: `${Math.min(percent, 100)}%` }}
             />
           </div>
-          <p className="text-meta text-fg-muted">{t.memoryExplain}</p>
+          <p className="text-meta text-fg-muted">{t.lengthExplain}</p>
         </section>
       )}
       <section className={clsx('flex flex-col gap-2', percent !== null && 'border-t border-line-subtle pt-3')}>

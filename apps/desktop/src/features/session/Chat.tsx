@@ -8,6 +8,7 @@ import { CHATGPT_USAGE_URL, type Item } from '@/shared/server';
 
 import { ApprovalCard } from './ApprovalCard';
 import { toBlocks, type Block } from './blocks';
+import { MemoryCard } from './MemoryCard';
 import { messages } from './messages';
 import { useRevealed } from './reveal';
 import { ToolCalls } from './ToolCalls';
@@ -16,15 +17,18 @@ const quiet = 'text-meta text-fg-muted whitespace-pre-wrap';
 
 /**
  * The centre column as plain chat: my messages as bubbles, the agent's as prose, tool calls as one counted line
- * (with what I answered when they asked), a call that waits for my answer as a card, and the rest (notices, why a
- * run stopped) as quiet lines.
+ * (with what I answered when they asked), a call that waits for my answer as a card, a memory the agent suggested as
+ * a card under its call, and the rest (notices, why a run stopped) as quiet lines.
  */
 export function Chat({
   sessionId,
+  cwd,
   items,
   activeIds,
 }: {
   sessionId: string;
+  /** The project the session works in, whose memory the suggestions go to. */
+  cwd: string;
   items: Item[];
   activeIds: readonly string[];
 }) {
@@ -35,6 +39,8 @@ export function Chat({
           <ToolCalls key={block.id} rows={block.rows} />
         ) : block.type === 'approval' ? (
           <ApprovalCard key={block.item.id} sessionId={sessionId} approval={block.item} />
+        ) : block.type === 'memory' ? (
+          <MemoryCard key={`memory-${block.call.id}`} sessionId={sessionId} cwd={cwd} call={block.call} />
         ) : (
           <ItemView key={block.item.id} item={block.item} active={activeIds.includes(block.item.id)} />
         ),

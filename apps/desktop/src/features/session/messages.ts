@@ -12,6 +12,7 @@ export const messages = defineMessages({
     run: '실행',
     read: '읽기',
     search: '찾기',
+    memory: '기억 제안',
     other: '도구',
     toolDone: '완료',
     toolRunning: '실행 중',
@@ -30,6 +31,7 @@ export const messages = defineMessages({
     did_read: (n: string) => `파일 ${n}개 읽음`,
     did_search: (n: string) => `${n}번 검색`,
     did_edit: (n: string) => `파일 ${n}개 편집`,
+    did_memory: (n: string) => `기억 ${n}개 제안`,
     did_other: (n: string) => `도구 ${n}개 사용`,
     didFail: (n: string) => `실패 ${n}`,
     didSkip: (n: string) => `안 함 ${n}`,
@@ -45,6 +47,8 @@ export const messages = defineMessages({
     answerHint: '다르게 하려면 아래 입력창에 적어 주세요',
     answerPlaceholder: '어떻게 다르게 할지 적어 주세요',
     answerFailed: '답을 보내지 못했어요. 다시 눌러 주세요',
+    memoryKept: (scope: string) => `기억했어요 · ${scope}`,
+    memoryOpen: '기억 열기',
 
     // Quiet lines
     stopped_interrupted: '멈췄어요',
@@ -64,6 +68,7 @@ export const messages = defineMessages({
     activity_searching: '찾아보는 중',
     activity_editing: '파일 고치는 중',
     activity_running: '명령 실행 중',
+    activity_remembering: '기억해 둘 것을 적는 중',
     activity_tool: '도구 쓰는 중',
     activity_approval: '확인을 기다리는 중',
     activity_compacting: '대화를 정리하는 중',
@@ -71,11 +76,12 @@ export const messages = defineMessages({
 
     // Context meter and the usage it opens
     usage: '사용량 보기',
-    memoryAria: (percent: string) => `대화 기억 ${percent}%, 사용량 보기`,
-    memoryHint: (percent: string) =>
-      `모델이 한 번에 기억하는 대화 중 ${percent}%를 쓰고 있어요. 가득 차면 앞부분을 요약해 공간을 만들어요.`,
-    memoryTitle: '대화 기억',
-    memoryExplain: '지금 대화를 얼마나 기억하고 있는지예요. 가득 차면 앞부분을 짧게 줄여서 이어 가요.',
+    lengthAria: (percent: string) => `대화 길이 ${percent}%, 사용량 보기`,
+    lengthHint: (percent: string) =>
+      `모델이 한 번에 읽을 수 있는 대화 중 ${percent}%를 쓰고 있어요. 가득 차면 앞부분을 요약해 공간을 만들어요.`,
+    lengthTitle: '대화 길이',
+    lengthExplain:
+      '지금 대화가 모델이 한 번에 읽을 수 있는 양을 얼마나 채웠는지예요. 가득 차면 앞부분을 짧게 줄여서 이어 가요.',
     usedTitle: '이 대화에서 쓴 양',
     wholeSession: '이 대화 전체',
     thisRun: '이번 작업',
@@ -98,6 +104,7 @@ export const messages = defineMessages({
     run: 'Run',
     read: 'Read',
     search: 'Search',
+    memory: 'Remember',
     other: 'Tool',
     toolDone: 'Done',
     toolRunning: 'Running',
@@ -116,6 +123,7 @@ export const messages = defineMessages({
     did_read: (n: string) => `read ${n} ${n === '1' ? 'file' : 'files'}`,
     did_search: (n: string) => `searched ${n} ${n === '1' ? 'time' : 'times'}`,
     did_edit: (n: string) => `edited ${n} ${n === '1' ? 'file' : 'files'}`,
+    did_memory: (n: string) => `suggested ${n} ${n === '1' ? 'memory' : 'memories'}`,
     did_other: (n: string) => `used ${n} ${n === '1' ? 'tool' : 'tools'}`,
     didFail: (n: string) => `${n} failed`,
     didSkip: (n: string) => `${n} not run`,
@@ -130,6 +138,8 @@ export const messages = defineMessages({
     answerHint: 'To have it do something else, write it in the input below',
     answerPlaceholder: 'Say what to do instead',
     answerFailed: "Couldn't send your answer. Please try again",
+    memoryKept: (scope: string) => `Remembered · ${scope}`,
+    memoryOpen: 'Open memory',
 
     stopped_interrupted: 'Stopped',
     stopped_failed: 'The run failed',
@@ -147,18 +157,19 @@ export const messages = defineMessages({
     activity_searching: 'Searching',
     activity_editing: 'Changing a file',
     activity_running: 'Running a command',
+    activity_remembering: 'Noting something to remember',
     activity_tool: 'Using a tool',
     activity_approval: 'Waiting for your OK',
     activity_compacting: 'Tidying up the conversation',
     runTokens: (tokens: string) => `${tokens} tokens this run`,
 
     usage: 'Show usage',
-    memoryAria: (percent: string) => `Memory ${percent}%, show usage`,
-    memoryHint: (percent: string) =>
-      `Using ${percent}% of what the model can keep in mind at once. When it fills up, the earlier part is summarised to make room.`,
-    memoryTitle: 'Memory',
-    memoryExplain:
-      'How much of this conversation the model is keeping in mind. When it fills up, the start is shortened so the chat can go on.',
+    lengthAria: (percent: string) => `Conversation length ${percent}%, show usage`,
+    lengthHint: (percent: string) =>
+      `Using ${percent}% of what the model can read at once. When it fills up, the earlier part is summarised to make room.`,
+    lengthTitle: 'Conversation length',
+    lengthExplain:
+      'How much of what the model can read at once this conversation fills. When it fills up, the start is shortened so the chat can go on.',
     usedTitle: 'Used in this chat',
     wholeSession: 'Whole chat',
     thisRun: 'This run',

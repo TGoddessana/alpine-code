@@ -1,4 +1,4 @@
-"""Builds the system prompt: the base instructions, the environment, and project instructions (AGENTS.md)."""
+"""Builds the system prompt: the base instructions, the environment, project instructions (AGENTS.md) and memory."""
 
 from __future__ import annotations
 
@@ -53,10 +53,13 @@ def environment(cwd: Path) -> str:
     )
 
 
-def build_system_prompt(cwd: Path) -> str:
+def build_system_prompt(cwd: Path, memory: str = "") -> str:
+    """``memory`` is the memory's block for the prompt (``MemorySystem.system_block``), last because it changes most."""
     parts = [base_instructions().strip(), f"# Environment\n{environment(cwd)}"]
     for file in instruction_files(cwd):
         text = file.read_text(encoding="utf-8", errors="replace").strip()
         if text:
             parts.append(f"# Instructions from {file}\n{text}")
+    if memory.strip():
+        parts.append(memory.strip())
     return "\n\n".join(parts) + "\n"

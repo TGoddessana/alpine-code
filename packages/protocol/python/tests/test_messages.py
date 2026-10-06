@@ -53,5 +53,6 @@ def test_schema_has_session_types_and_notifications():
     assert schema["x-notifications"] == {
         "session/event": "SessionEventParams",
         "chatgpt/signInFinished": "ChatGPTSignInFinishedParams",
+        "memory/changed": "MemoryChangedParams",
     }
     assert (SESSION_NOT_FOUND, SESSION_RUNNING) == (-32001, -32002)

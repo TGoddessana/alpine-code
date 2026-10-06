@@ -272,7 +272,9 @@ export interface ErrorData {
     | 'install_failed'
     | 'name_taken'
     | 'profile_conflict'
-    | 'model_failed';
+    | 'model_failed'
+    | 'not_found'
+    | 'memory_full';
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -484,6 +486,111 @@ export interface ItemStartedEvent {
     | CompactionItem
     | RunStoppedItem;
 }
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryApproveParams".
+ */
+export interface MemoryApproveParams {
+  cwd: string;
+  suggestionId: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryApproveResult".
+ */
+export interface MemoryApproveResult {
+  memory: MemoryInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryInfo".
+ */
+export interface MemoryInfo {
+  id: string;
+  kind: string;
+  scope: 'team' | 'project_me' | 'me';
+  headline: string;
+  body: string;
+  path: string | null;
+  evidence: MemoryEvidence[];
+  saidAgain: MemoryEvidence[];
+}
+/**
+ * Where a suggestion came from, as the harness saw it.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryEvidence".
+ */
+export interface MemoryEvidence {
+  sessionId: string;
+  at: string;
+  quote: string;
+}
+/**
+ * A project's memories or suggestions changed; ``memory/list`` has the new ones.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryChangedParams".
+ */
+export interface MemoryChangedParams {
+  cwd: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryForgetParams".
+ */
+export interface MemoryForgetParams {
+  cwd: string;
+  scope: 'team' | 'project_me' | 'me';
+  memoryId: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryForgetResult".
+ */
+export interface MemoryForgetResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryListParams".
+ */
+export interface MemoryListParams {
+  cwd: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryListResult".
+ */
+export interface MemoryListResult {
+  memories: MemoryInfo[];
+  pending: MemorySuggestionInfo[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemorySuggestionInfo".
+ */
+export interface MemorySuggestionInfo {
+  id: string;
+  kind: string;
+  scope: 'team' | 'project_me' | 'me';
+  headline: string;
+  body: string;
+  replaces: string[];
+  evidence: MemoryEvidence[];
+  source: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryRejectParams".
+ */
+export interface MemoryRejectParams {
+  cwd: string;
+  suggestionId: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryRejectResult".
+ */
+export interface MemoryRejectResult {}
 /**
  * What the approval of a package Alpine has not reviewed shows. Facts PyPI did not give are ``None``.
  *
@@ -1056,6 +1163,10 @@ export interface Methods {
   'profiles/save': { params: ProfilesSaveParams; result: ProfilesSaveResult };
   'profiles/delete': { params: ProfilesDeleteParams; result: ProfilesDeleteResult };
   'profiles/resolve': { params: ProfilesResolveParams; result: ProfilesResolveResult };
+  'memory/list': { params: MemoryListParams; result: MemoryListResult };
+  'memory/approve': { params: MemoryApproveParams; result: MemoryApproveResult };
+  'memory/reject': { params: MemoryRejectParams; result: MemoryRejectResult };
+  'memory/forget': { params: MemoryForgetParams; result: MemoryForgetResult };
   'session/new': { params: SessionNewParams; result: SessionNewResult };
   'session/list': { params: SessionListParams; result: SessionListResult };
   'session/open': { params: SessionOpenParams; result: SessionOpenResult };
@@ -1070,4 +1181,5 @@ export interface Methods {
 export interface Notifications {
   'session/event': SessionEventParams;
   'chatgpt/signInFinished': ChatGPTSignInFinishedParams;
+  'memory/changed': MemoryChangedParams;
 }

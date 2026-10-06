@@ -24,7 +24,7 @@ const wordOf = {
   cancelled: 'toolCancelled',
 } as const satisfies Record<ToolCallItem['status'], keyof Messages>;
 
-const KINDS: ToolKind[] = ['run', 'read', 'search', 'edit', 'other'];
+const KINDS: ToolKind[] = ['run', 'read', 'search', 'edit', 'memory', 'other'];
 
 /**
  * The tool calls of one stretch of work as one line, as Claude Code's app does: what they did, counted ("명령 3개

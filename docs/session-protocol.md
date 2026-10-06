@@ -25,7 +25,7 @@ finished items are stored; text deltas are sent live and never saved.
 | `agent_message` | `text` | the agent's prose |
 | `tool_call` | `name`, `args`, `status`, `result`, `images` | a tool line or card; `id` is the model's call id; `images` is how many images the tool sent to the model (a count, not the images) |
 | `approval` | `callId`, `title`, `preview`, `previewKind`, `reason`, `remember`, `decision`, `feedback` | while active: a card in the chat where the call will be; when finished: nothing of its own, a denied call shows the feedback |
-| `notice` | `text`, `source` | a message the **model reads** that the user did not write (e.g. a hand-back after a reply with no tool call) |
+| `notice` | `text`, `source` | a message the **model reads** that the user did not write (e.g. a hand-back after a reply with no tool call, or `source: memory`: a memory the user approved while the session was open) |
 | `status_line` | `text` | a line only the user reads (e.g. a model fallback) |
 | `compaction` | `beforeTokens`, `afterTokens` | a divider |
 | `run_stopped` | `reason`, `message` | why a run ended other than by answering: `interrupted`, `failed`, `limit`, `repeating`, `permission` |
@@ -72,6 +72,21 @@ default model does not change either. The chat shows no line for the switch; the
 model now. A smaller context window is handled by the usual compaction before the next turn.
 
 Errors: `-32001` session not found, `-32002` session is running.
+
+### Memory
+
+A project's memories and the suggestions waiting for the user ([memory.md](memory.md)). `cwd` names the project.
+
+| Method | Params | Result |
+|---|---|---|
+| `memory/list` | `cwd` | `memories` (each with its `evidence` and `saidAgain`), `pending` suggestions |
+| `memory/approve` | `cwd`, `suggestionId` | `memory` as kept; open sessions of the project (every project, for the user's own memories) get a `notice` item |
+| `memory/reject` | `cwd`, `suggestionId` | `{}`; never suggested again on the same evidence |
+| `memory/forget` | `cwd`, `scope`, `memoryId` | `{}` |
+
+`memory/changed` (`cwd`) is sent whenever a project's memories or suggestions change, including when the agent
+suggests one; the app calls `memory/list` again. Error reasons: `not_found` (already approved or declined),
+`memory_full` (the scope filled up since the suggestion was made).
 
 ## Events (server → app)
 

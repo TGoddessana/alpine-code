@@ -80,6 +80,8 @@ class ErrorData(Message):
         "name_taken",
         "profile_conflict",
         "model_failed",
+        "not_found",
+        "memory_full",
     ]
     """``auth``: the key is missing or rejected. ``unreachable``: no answer from the address. ``unsupported``: the
     server does not list its models, so the model name has to be typed. ``not_a_folder``: the path is not a folder.
@@ -87,7 +89,9 @@ class ErrorData(Message):
     there. ``clone_failed``: git could not clone; the message is git's. ``invalid_name``: a tool file name is not
 lowercase letters, digits and ``_``. ``package_not_approved``: a tool needs a package nobody approved.
 ``install_failed``: a package did not install. ``name_taken``: a tool name is already used. ``profile_conflict``:
-another profile applies to the same project and model. ``model_failed``: the model call behind a draft failed."""
+another profile applies to the same project and model. ``model_failed``: the model call behind a draft failed.
+``not_found``: the memory suggestion was already approved or declined. ``memory_full``: the scope filled up since the
+suggestion was made; the message says how full."""
 
 
 # Model connections: where models come from. Keys are write-only; the app never reads one back.
@@ -833,6 +837,92 @@ class SessionEventParams(Message):
     event: SessionEvent
 
 
+# Memory (docs/memory.md)
+
+MemoryScope = Literal["team", "project_me", "me"]
+
+
+class MemoryEvidence(Message):
+    """Where a suggestion came from, as the harness saw it."""
+
+    session_id: str
+    at: datetime
+    quote: str
+    """The user's last message when it was made."""
+
+
+class MemoryInfo(Message):
+    id: str
+    kind: str
+    """``rule``, ``fact``, ``lesson`` or ``user`` by default; the kinds can be replaced."""
+    scope: MemoryScope
+    headline: str
+    """What the model sees in its prompt: what must be known without opening it."""
+    body: str
+    """The reason and examples, read when needed."""
+    path: str | None
+    evidence: list[MemoryEvidence]
+    said_again: list[MemoryEvidence]
+    """Suggestions close to it after it was approved: it was not followed, or needs saying better."""
+
+
+class MemorySuggestionInfo(Message):
+    id: str
+    kind: str
+    scope: MemoryScope
+    headline: str
+    body: str
+    replaces: list[str]
+    """Memories of the same scope it changes, merges or removes, by id."""
+    evidence: list[MemoryEvidence]
+    source: str
+    """Who suggested it: ``agent`` for the working agent."""
+
+
+class MemoryListParams(Message):
+    cwd: str
+    """The project folder."""
+
+
+class MemoryListResult(Message):
+    memories: list[MemoryInfo]
+    pending: list[MemorySuggestionInfo]
+
+
+class MemoryApproveParams(Message):
+    cwd: str
+    suggestion_id: str
+
+
+class MemoryApproveResult(Message):
+    memory: MemoryInfo
+
+
+class MemoryRejectParams(Message):
+    cwd: str
+    suggestion_id: str
+
+
+class MemoryRejectResult(Message):
+    pass
+
+
+class MemoryForgetParams(Message):
+    cwd: str
+    scope: MemoryScope
+    memory_id: str
+
+
+class MemoryForgetResult(Message):
+    pass
+
+
+class MemoryChangedParams(Message):
+    """A project's memories or suggestions changed; ``memory/list`` has the new ones."""
+
+    cwd: str
+
+
 #: Every method an app can call: name -> (params, result).
 METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "initialize": (InitializeParams, InitializeResult),
@@ -864,6 +954,10 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "profiles/save": (ProfilesSaveParams, ProfilesSaveResult),
     "profiles/delete": (ProfilesDeleteParams, ProfilesDeleteResult),
     "profiles/resolve": (ProfilesResolveParams, ProfilesResolveResult),
+    "memory/list": (MemoryListParams, MemoryListResult),
+    "memory/approve": (MemoryApproveParams, MemoryApproveResult),
+    "memory/reject": (MemoryRejectParams, MemoryRejectResult),
+    "memory/forget": (MemoryForgetParams, MemoryForgetResult),
     "session/new": (SessionNewParams, SessionNewResult),
     "session/list": (SessionListParams, SessionListResult),
     "session/open": (SessionOpenParams, SessionOpenResult),
@@ -879,4 +973,5 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
 NOTIFICATIONS: dict[str, type[Message]] = {
     "session/event": SessionEventParams,
     "chatgpt/signInFinished": ChatGPTSignInFinishedParams,
+    "memory/changed": MemoryChangedParams,
 }

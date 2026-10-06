@@ -15,6 +15,7 @@ from .model import KINDS, SCOPES, Kind, Memory, project_key
 from .proposer import AgentProposes, Proposer
 from .pruning import MissingPaths
 from .recall import IndexRecall, Recall
+from .rules import CheckRunner, FormChecks, GuardMatcher, PatternGuards
 from .store import MarkdownStore, MemoryStore
 
 
@@ -25,6 +26,10 @@ class MemorySystem:
     recall: Recall
     proposers: tuple[Proposer, ...]
     inbox: Inbox
+    checks_from: Callable[[Sequence[Memory]], CheckRunner] = FormChecks
+    """Builds the checks from the memories that carry them."""
+    guards_from: Callable[[Sequence[Memory]], GuardMatcher] = PatternGuards
+    """Builds the guards from the memories that carry them."""
 
     def memories(self) -> list[Memory]:
         return [m for scope in SCOPES for m in self.store.list(scope)]
@@ -36,6 +41,14 @@ class MemorySystem:
     def tools(self) -> list[Any]:
         """For the working agent: the proposers' tools and the recall's."""
         return [*(t for p in self.proposers for t in p.tools(self.inbox)), *self.recall.tools()]
+
+    def checks(self) -> CheckRunner:
+        """The checks of the memories kept now. Built again when the memories change."""
+        return self.checks_from(self.memories())
+
+    def guards(self) -> GuardMatcher:
+        """The guards of the memories kept now. Built again when the memories change."""
+        return self.guards_from(self.memories())
 
     def on_run_end(self, state: State) -> dict[str, int]:
         """Lets every proposer look after a run. Returns how many new suggestions each made, by source, leaving out
@@ -59,6 +72,8 @@ def memory_system(
     cap: int = CAP,
     similar: Similar = similar_text,
     on_change: Callable[[], None] | None = None,
+    checks_from: Callable[[Sequence[Memory]], CheckRunner] = FormChecks,
+    guards_from: Callable[[Sequence[Memory]], GuardMatcher] = PatternGuards,
 ) -> MemorySystem:
     """The memory of one project, with the defaults for every part left out. What the inbox knows is kept under
     ``<home>/projects/<project>/inbox.json``."""
@@ -80,4 +95,6 @@ def memory_system(
         recall=recall or IndexRecall(project, kinds),
         proposers=tuple(proposers) if proposers is not None else (AgentProposes(kinds), MissingPaths(project)),
         inbox=inbox,
+        checks_from=checks_from,
+        guards_from=guards_from,
     )

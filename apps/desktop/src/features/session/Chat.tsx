@@ -77,6 +77,12 @@ const ItemView = memo(function ItemView({
     case 'agent_message':
       return <AgentMessage text={item.text} streaming={active} />;
     case 'notice':
+      // The model reads the core's words; memory notices are worded here, in the app's language.
+      if (item.source === 'memory_added' || item.source === 'memory_removed')
+        return <p className={quiet}>{t[`notice_${item.source}`]}</p>;
+      if (item.source === 'memory_check')
+        return <p className={quiet}>{t.notice_memory_check(item.text.slice(item.text.indexOf(': ') + 2))}</p>;
+      return <p className={quiet}>{item.text}</p>;
     case 'status_line':
       return <p className={quiet}>{item.text}</p>;
     case 'memory_review': // drawn by the chat with the project it links to

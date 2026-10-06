@@ -13,5 +13,8 @@ export function useMemoryWords() {
     kind: (kind: string) =>
       (KINDS as readonly string[]).includes(kind) ? t[`kind_${kind as (typeof KINDS)[number]}`] : kind,
     scope: (scope: MemoryInfo['scope']) => t[`scope_${scope}`],
+    checkBadge: t.checkBadge,
+    guardBadge: t.guardBadge,
+    guardAsks: t.guardAsks,
   };
 }

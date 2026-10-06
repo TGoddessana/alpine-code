@@ -54,6 +54,38 @@ KINDS: tuple[Kind, ...] = (
 
 
 @dataclass(frozen=True)
+class Check:
+    """What the harness checks while the agent works, in a fixed form people can read (``rules.py`` has the forms)::
+
+    when: before command "git commit"
+    expect: command "pnpm lint" ran after the last change
+    say: 커밋 전에 `pnpm lint`를 먼저 돌려 주세요.
+    """
+
+    when: str
+    """``before command "<command>"``, ``after a change to "<path glob>"``, ``when the run ends`` or ``when the run
+    ends after a change to "<path glob>"``."""
+    expect: str
+    """``command "<command>" ran after the last change``, ``command "<command>" ran`` or ``the file is new``."""
+    say: str
+    """What the agent is told when it fails."""
+
+
+@dataclass(frozen=True)
+class Guard:
+    """A call the user is always asked about, whatever the mode::
+
+    before: command "supabase db execute --linked"
+    say: 운영 DB에 직접 SQL을 실행하려고 해요.
+    """
+
+    before: str
+    """``command "<command>"`` or ``editing "<path glob>"``."""
+    say: str
+    """Why it asks, shown on the approval card."""
+
+
+@dataclass(frozen=True)
 class Memory:
     id: str
     """Unique within its scope; the file name without ``.md`` in the default store."""
@@ -65,6 +97,8 @@ class Memory:
     """The reason, examples and, for a lesson, what happened."""
     path: Path | None = None
     """Where the store keeps it, when it is a file."""
+    check: Check | None = None
+    guard: Guard | None = None
 
 
 @dataclass(frozen=True)
@@ -93,6 +127,8 @@ class Suggestion:
     """Which proposer made it ("agent", "missing_paths", ...), so the app can say who and why."""
     remove: bool = False
     """It removes the one memory in ``replaces``; ``headline`` and ``body`` are that memory's."""
+    check: Check | None = None
+    guard: Guard | None = None
 
 
 _NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")

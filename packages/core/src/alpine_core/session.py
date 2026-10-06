@@ -21,10 +21,12 @@ from alpineagents import (
     StoppedByLimit,
     StoppedByPermission,
     StoppedByUntil,
+    ToolCall,
 )
 from alpineagents.tool import collect_tools
 from alpineagents.types import Stopped
 
+from . import shell
 from .approval import ApprovalRequest, Approver, Decision, build_permissions
 from .bridge import EventReporter
 from .chatgpt import PlanUsageOff, SignInNeeded, UsageLimitError
@@ -43,9 +45,20 @@ from .events import (
     TurnStarted,
     UsageInfo,
 )
-from .items import Item, ItemCompleted, ItemEvent, ItemRecorder, item_from_dict, item_to_dict
+from .items import (
+    Item,
+    ItemCompleted,
+    ItemEvent,
+    ItemRecorder,
+    ToolCallItem,
+    UserMessage,
+    item_from_dict,
+    item_to_dict,
+)
 from .loop import coding
 from .memory import Memories, Memory
+from .memory.rules import CheckRunner, Facts, relative
+from .memory.rules import Event as RuleEvent
 from .models import make_model
 from .permissions import Mode, PermissionPolicy
 from .profiles import Profile, ProfileList
@@ -125,10 +138,15 @@ class Session:
         self._memory = memories.of(self.workspace.root) if memories is not None else None
         readable = tuple(self._memory.readable()) if self._memory is not None else ()
         self.policy = PermissionPolicy(self.workspace, settings.mode, readable)
+        self._checks: CheckRunner | None = None
+        self._new_files: dict[str, bool] = {}
+        self._watch_rules()
         self._on_event = on_event
         self._on_item_event = on_item_event
         self._storage = storage
-        self._permissions = build_permissions(self.policy, _ItemApprover(self, approver))
+        self._permissions = build_permissions(
+            self.policy, _ItemApprover(self, approver), self._refusal if self._memory is not None else None
+        )
         self._projects = projects
         self._reporter = EventReporter(self._dispatch)
         self._state: State | None = None
@@ -264,6 +282,15 @@ class Session:
         self._begin_run("thinking")
         try:
             answer = await self._agent.arun(self._state)
+            reminded: set[str] = set()
+            # A check of what the run did reminds the agent once and lets it go on; it never ends the run itself.
+            while isinstance(self._state.stopped, StoppedByUntil):  # it answered (not stopped, not out of turns)
+                failed = [say for say in self._run_end_checks() if say not in reminded]
+                if not failed:
+                    break
+                reminded.update(failed)
+                self._remind(failed)
+                answer = await self._agent.arun(self._state)
         except asyncio.CancelledError:
             self._dispatch(Interrupted())
             self._end_run("idle")
@@ -454,24 +481,83 @@ class Session:
     # ------------------------------------------------------------ items and storage
 
     def _on_memory_approved(self, memory: Memory, removed: bool) -> None:
-        """A memory was approved (or removed) while this session is open. The prompt is kept as it was when the
-        conversation started, so the prompt cache holds; the model hears of the memory as a notice instead. Runs on
-        the thread that approved, which must be the event loop's (the server approves there)."""
+        """A memory was approved (or removed) while this session is open. Its check and guard apply from the next
+        call. The prompt is kept as it was when the conversation started, so the prompt cache holds; the model hears
+        of the memory as a notice instead. Runs on the thread that approved, which must be the event loop's (the
+        server approves there)."""
         if self._closed or self._memory is None:
             return
+        self._watch_rules()
         if self._state is None:  # nothing was sent yet, so the prompt can still change
             self._agent = self._build_agent(self._settings)
             return
         text = self._memory.recall.notice(memory, removed)
         self._state.add_message(Message.notice(text))
-        self._recorder.add_notice(text, "memory")
+        self._recorder.add_notice(text, "memory_removed" if removed else "memory_added")
 
     def _dispatch(self, event: Event) -> None:
         """A core event: the item recorder first (so ``snapshot()`` is current), then the frontend's callback."""
         self._recorder.handle(event)
         self._track(event)
+        self._check_change(event)
         if self._on_event is not None:
             self._on_event(event)
+
+    # ------------------------------------------------------------ memory checks and guards
+
+    def _watch_rules(self) -> None:
+        """Takes the checks and guards of the memories kept now."""
+        if self._memory is not None:
+            self._checks = self._memory.checks()
+            self.policy.guards = self._memory.guards()
+
+    def _facts(self) -> Facts:
+        """What the harness saw in this conversation: the commands that ran and the files that changed, in order."""
+        events: list[RuleEvent] = []
+        run_start = 0
+        for item in self._recorder.items:
+            if isinstance(item, UserMessage):
+                run_start = len(events)
+            elif isinstance(item, ToolCallItem) and item.status not in ("running", "denied", "cancelled"):
+                if item.name == "bash":
+                    command = str(item.args.get("command", ""))
+                    events += [RuleEvent("command", words) for words in shell.analyze(command).commands]
+                elif item.name in ("edit", "write") and item.status == "done":
+                    events.append(self._change(item.id, item.args))
+        return Facts(tuple(events), run_start)
+
+    def _change(self, call_id: str, args: dict[str, Any]) -> RuleEvent:
+        path = relative(args.get("path"), self.workspace.root)
+        return RuleEvent("change", path=path, new=self._new_files.get(call_id, False))
+
+    def _refusal(self, call: ToolCall) -> str | None:
+        """Why a command may not run yet, from the checks that run before it; ``None`` when it may."""
+        if self._checks is None or call.name != "bash":
+            return None
+        failed = self._checks.before_command(self._facts(), str(call.args.get("command", "")))
+        return "\n".join(failed) or None
+
+    def _check_change(self, event: Event) -> None:
+        """Notes whether a file is new before it is written, and runs the checks after a change."""
+        if self._checks is None:
+            return
+        if isinstance(event, ToolStarted) and event.name == "write":
+            self._new_files[event.id] = not self.workspace.resolve(str(event.args.get("path", ""))).exists()
+        elif isinstance(event, ToolFinished) and event.name in ("edit", "write") and event.kind == "done":
+            failed = self._checks.after_change(self._facts(), self._change(event.id, dict(event.args)))
+            if failed:
+                self._remind(failed)
+
+    def _run_end_checks(self) -> list[str]:
+        return self._checks.at_run_end(self._facts()) if self._checks is not None and self._state else []
+
+    def _remind(self, failed: list[str]) -> None:
+        """Tells the agent what a memory check found, as a notice the user sees too."""
+        assert self._state is not None
+        for say in failed:
+            text = f"A check from the project's memory failed: {say}"
+            self._state.add_message(Message.notice(text))
+            self._recorder.add_notice(text, "memory_check")
 
     def _track(self, event: Event) -> None:
         """Follows what the run is doing. Info is announced when the activity changes and after every model call

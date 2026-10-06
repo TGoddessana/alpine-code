@@ -529,6 +529,8 @@ export interface MemoryInfo {
   path: string | null;
   evidence: MemoryEvidence[];
   saidAgain: MemoryEvidence[];
+  check?: MemoryCheck | null;
+  guard?: MemoryGuard | null;
 }
 /**
  * Where a suggestion came from, as the harness saw it.
@@ -540,6 +542,27 @@ export interface MemoryEvidence {
   sessionId: string;
   at: string;
   quote: string;
+}
+/**
+ * What the harness checks while the agent works, in the forms of docs/memory.md (English, for the model).
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryCheck".
+ */
+export interface MemoryCheck {
+  when: string;
+  expect: string;
+  say: string;
+}
+/**
+ * A call the user is always asked about, whatever the mode.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryGuard".
+ */
+export interface MemoryGuard {
+  before: string;
+  say: string;
 }
 /**
  * A project's memories or suggestions changed; ``memory/list`` has the new ones.
@@ -593,6 +616,8 @@ export interface MemorySuggestionInfo {
   evidence: MemoryEvidence[];
   source: string;
   remove: boolean;
+  check?: MemoryCheck | null;
+  guard?: MemoryGuard | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema

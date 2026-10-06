@@ -11,7 +11,8 @@ from typing import Any
 from alpineagents import State, ToolError, tool
 
 from .inbox import Inbox, Refused
-from .model import KINDS, Evidence, Kind
+from .model import KINDS, Check, Evidence, Guard, Kind
+from .rules import FORMS
 
 #: Longest quote of the user's message kept as evidence.
 QUOTE_CHARS = 500
@@ -53,7 +54,11 @@ class AgentProposes(Proposer):
             "did not solve, or a one-off detail of this task.\n\n"
             f"Kinds:\n{kinds}\n\n"
             "Scopes: team (kept in the repository, for everyone working on it), project_me (this project, only "
-            "this user), me (this user, every project)."
+            "this user), me (this user, every project).\n\n"
+            "A rule can also carry a check, which the harness runs on what it observes (the commands that ran, the "
+            "files that changed) and which reminds you when it fails, or a guard, for calls the user must always be "
+            "asked about (production data, payments, deleting what cannot come back). Add one only when the rule is "
+            f"worth enforcing and fits the forms exactly: {FORMS}."
         )
         source = self.source
 
@@ -66,6 +71,8 @@ class AgentProposes(Proposer):
             name: str,
             state: State,
             replaces: list[str] | None = None,
+            check: Check | None = None,
+            guard: Guard | None = None,
         ) -> str:
             """
             Args:
@@ -75,6 +82,8 @@ class AgentProposes(Proposer):
                 body: Why, with concrete examples (commands, paths, what happened). Keep the specifics
                 name: A short file name in English, like lint-before-commit
                 replaces: Names of memories in the same scope that this one changes, merges or removes
+                check: when, expect and say, in the forms above
+                guard: before and say, in the forms above
             """
             try:
                 suggestion = inbox.propose(
@@ -86,6 +95,8 @@ class AgentProposes(Proposer):
                     evidence=Evidence(state.id, datetime.now(UTC), _last_user_text(state)),
                     source=source,
                     replaces=replaces or (),
+                    check=check,
+                    guard=guard,
                 )
             except Refused as e:
                 raise ToolError(str(e)) from e

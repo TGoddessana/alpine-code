@@ -110,7 +110,8 @@ function Summary({ row, summary }: { row: ToolRow; summary: ToolSummary }) {
     case 'state': {
       const word = t[wordOf[call.status]];
       if (call.status === 'running') return <span>{word}…</span>;
-      const feedback = call.status === 'denied' ? approval?.feedback : null;
+      // Denied without asking me: a memory check refused it, and what it said is the reason.
+      const feedback = call.status === 'denied' ? (approval ? approval.feedback : call.result) : null;
       return (
         <span className={clsx('whitespace-pre-wrap', word === t.toolFailed && 'text-danger')}>
           {word}

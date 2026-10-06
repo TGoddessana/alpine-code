@@ -330,7 +330,7 @@ def test_an_approved_memory_reaches_an_open_session_as_a_notice(project, home, m
 
     memories.approve(project, suggestion.id)
     [notice] = [i for i in session.snapshot().items if i.kind == "notice"]
-    assert notice.source == "memory"
+    assert notice.source == "memory_added"
     assert (
         notice.text
         == "The user approved a new memory (team):\n- rule: 화면 문구는 해요체로 쓴다 (.alpine/memory/ui-tone.md)"
@@ -360,7 +360,7 @@ def test_the_users_memory_reaches_sessions_of_other_projects(project, home, monk
     session.send("hi")
     suggestion = propose(memories.of(project), "설명은 쉬운 말로", kind="user", scope="me", name="plain")
     memories.approve(project, suggestion.id)
-    assert [i.source for i in session.snapshot().items if i.kind == "notice"] == ["memory"]
+    assert [i.source for i in session.snapshot().items if i.kind == "notice"] == ["memory_added"]
 
     team = propose(memories.of(project), "화면 문구는 해요체로 쓴다")
     memories.approve(project, team.id)

@@ -417,7 +417,7 @@ def test_memory_from_suggestion_to_approval(folder, monkeypatch):
                 for e in client.events(sid, "item_completed")
                 if e["event"]["item"]["kind"] == "notice"
             ]
-            assert [n["source"] for n in notices] == ["memory"]
+            assert [n["source"] for n in notices] == ["memory_added"]
 
             again = await client.call("memory/approve", cwd=str(folder), suggestionId=pending["id"])
             assert again["error"]["data"]["reason"] == "not_found"

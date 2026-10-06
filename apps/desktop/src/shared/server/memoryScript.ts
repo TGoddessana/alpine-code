@@ -62,6 +62,22 @@ export const MEMORY: MemoryListResult = {
       path: '/Users/me/alpine-code/.alpine/memory/lint-before-commit.md',
       evidence: [said('커밋하기 전에 린트 좀 돌려', 12)],
       saidAgain: [said('또 린트 안 돌렸네', 3, 's-old-2'), said('린트!', 1)],
+      check: {
+        when: 'before command "git commit"',
+        expect: 'command "pnpm lint" ran after the last change',
+        say: '커밋 전에 `pnpm lint`를 먼저 돌려 주세요.',
+      },
+    },
+    {
+      id: 'prod-db',
+      kind: 'rule',
+      scope: 'team',
+      headline: '운영 DB에는 직접 SQL을 실행하지 않는다',
+      body: '이유: 9/20에 운영 데이터를 잘못 지워 백업에서 되살렸어요. 바꿀 땐 마이그레이션으로 해요.',
+      path: '/Users/me/alpine-code/.alpine/memory/prod-db.md',
+      evidence: [said('운영 DB 건드리지 마', 16)],
+      saidAgain: [],
+      guard: { before: 'command "supabase db execute --linked"', say: '운영 DB에 직접 SQL을 실행하려고 해요.' },
     },
     {
       id: 'deploy',

@@ -26,7 +26,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .model import KINDS, Evidence, Kind, Memory, Scope, Suggestion, file_name
+from .model import KINDS, Check, Evidence, Guard, Kind, Memory, Scope, Suggestion, file_name
+from .rules import check_form, guard_form
 from .store import MemoryStore
 
 #: Most memories per scope to start with (docs/memory.md, Pruning).
@@ -90,15 +91,25 @@ class Inbox:
         evidence: Evidence,
         source: str,
         replaces: Sequence[str] = (),
+        check: Check | None = None,
+        guard: Guard | None = None,
     ) -> Suggestion:
         """Takes a suggestion to wait for the user. Returns it as it waits (joined with an earlier one, maybe).
 
         Raises:
-            Refused: An unknown kind or a scope the kind may not use, a headline that is not one line, a memory in
-                ``replaces`` that does not exist, evidence the user already declined, or a full scope.
+            Refused: An unknown kind or a scope the kind may not use, a headline that is not one line, a check or
+                guard not in the forms (``rules.py``), a memory in ``replaces`` that does not exist, evidence the
+                user already declined, or a full scope.
         """
         headline = " ".join(headline.split())
         self._check(kind, scope, headline)
+        try:
+            if check is not None:
+                check_form(check)
+            if guard is not None:
+                guard_form(guard)
+        except ValueError as e:
+            raise Refused(str(e)) from e
         with self._lock:
             data = self._read()
             memories = {m.id: m for m in self.store.list(scope)}
@@ -130,6 +141,8 @@ class Inbox:
                         replaces=tuple(dict.fromkeys([*waiting["replaces"], *replaces])),
                         evidence=(*_load_suggestion(waiting).evidence, evidence),
                         source=source,
+                        check=check,
+                        guard=guard,
                     )
                     data["pending"][i] = _dump_suggestion(joined)
                     self._write(data)
@@ -149,6 +162,8 @@ class Inbox:
                 replaces=tuple(replaces),
                 evidence=(evidence,),
                 source=source,
+                check=check,
+                guard=guard,
             )
             data["pending"].append(_dump_suggestion(suggestion))
             self._write(data)
@@ -217,9 +232,21 @@ class Inbox:
             if len(existing) - len(replaced) + 1 > self.cap:
                 raise Refused(f"{suggestion.scope} memory is full ({self.cap})")
             memory_id = replaced[0] if replaced else _unique(suggestion.name, existing)
+            # A change that does not mention the check or guard of what it changes keeps them.
+            before = next((m for m in self.store.list(suggestion.scope) if m.id == memory_id), None)
+            check = suggestion.check or (before.check if before else None)
+            guard = suggestion.guard or (before.guard if before else None)
             evidence = [e for r in replaced for e in self._notes(data, suggestion.scope, r).evidence]
             memory = self.store.put(
-                Memory(memory_id, suggestion.kind, suggestion.scope, suggestion.headline, suggestion.body)
+                Memory(
+                    memory_id,
+                    suggestion.kind,
+                    suggestion.scope,
+                    suggestion.headline,
+                    suggestion.body,
+                    check=check,
+                    guard=guard,
+                )
             )
             for other in replaced[1:]:
                 self.store.remove(suggestion.scope, other)
@@ -367,4 +394,6 @@ def _load_suggestion(data: dict[str, Any]) -> Suggestion:
         evidence=tuple(_load_evidence(e) for e in data["evidence"]),
         source=data["source"],
         remove=data.get("remove", False),
+        check=Check(**data["check"]) if data.get("check") else None,
+        guard=Guard(**data["guard"]) if data.get("guard") else None,
     )

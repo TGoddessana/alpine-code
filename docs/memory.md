@@ -176,7 +176,18 @@ observed.
    only the user reads ("기억 하나가 가리키는 파일이 없어졌어요 · 확인하기 ›"); the suggestion waits on the memory page.
    Memories said again were already handled by the inbox in step 1. Removing a memory (approved, or with 지우기)
    reaches open sessions as a notice.
-4. Checks and guards in the permission step.
+4. **Done:** checks and guards. A memory's check and guard live in its front matter (`check-when`,
+   `check-expect`, `check-say`, `guard-before`, `guard-say`); `propose_memory` takes them and the inbox refuses ones
+   outside the forms (`memory/rules.py`), with the forms in the message. A change that does not mention them keeps
+   them. The session takes the checks and guards of the memories kept now, and again whenever one is approved or
+   removed, so a guard applies from the next call. Facts come from the session's own items: the commands that ran
+   (by their words, as permissions read them) and the files edited or written (new when `write` made them). A
+   before-command check is a deny permission (`RefuseByChecks`), so it runs before anyone is asked and in every mode;
+   a command and the ones before it in the same script count (`pnpm lint && git commit` passes). A change check and
+   a run-end check add a `memory_check` notice; a failed run-end check lets the run go on once, and each check
+   reminds once per message. A guard is part of `PermissionPolicy.evaluate` before the mode and anything remembered,
+   with no "always allow". Memory notices have their own sources (`memory_added`, `memory_removed`,
+   `memory_check`) so the app words them; a call a check refused shows the check's words.
 
 ## Decisions
 
@@ -201,3 +212,5 @@ observed.
 | 2026-10-06 | Deleting a project removes the user's own memory of it (`~/.alpine-code/projects/<project>/`); team memory and the memory for every project stay | keeping it | the delete dialog promises Alpine's records of the project go; team memory lives in the folder, which delete never touches |
 | 2026-10-06 | Harness suggestions end the run with one quiet line that only the user reads, and are answered on the memory page | the memory page only, with a count; a card in the chat | told where it happened without holding up the conversation; the harness's judgement is not shown as the agent's |
 | 2026-10-06 | Missing paths are relative paths with a `/` whose first folder still exists, in team and this-project memories | every backticked token; files without a folder | a false "gone" is worse than a missed one; memories for every project name no project's paths |
+| 2026-10-06 | Commands match by their words without flags, as a prefix; paths by `fnmatch` relative to the project | regular expressions; the raw command string | the same reading as permissions; `pnpm lint --fix` still counts as `pnpm lint` |
+| 2026-10-06 | A failed run-end check reminds once per message and the run goes on | ending the run with a note; reminding until it passes | the agent can fix it or say why not; a check that cannot pass must not loop |

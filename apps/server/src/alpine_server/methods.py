@@ -14,6 +14,7 @@ from alpine_core import (
     CloneError,
     ConfigError,
     Connection,
+    Mode,
     ModelListError,
     Project,
     ProjectList,
@@ -29,6 +30,7 @@ from alpine_core import (
     pull_request,
     remove_connection,
     save_connection,
+    set_default_mode,
     set_default_model,
     show_model,
 )
@@ -69,6 +71,10 @@ from alpine_protocol import (
     ProviderInfo,
     PullRequestInfo,
     ServerInfo,
+    SettingsGetParams,
+    SettingsGetResult,
+    SettingsSetModeParams,
+    SettingsSetModeResult,
 )
 
 #: JSON-RPC's range for errors the server defines; ``data`` is an ``ErrorData`` saying which.
@@ -175,6 +181,21 @@ def set_default(params: ConnectionsSetDefaultParams) -> ConnectionsSetDefaultRes
     except ConfigError as e:
         raise MethodError(APP_ERROR, str(e), "invalid_config") from e
     return ConnectionsSetDefaultResult(default_model=params.model)
+
+
+# ------------------------------------------------------------ settings
+
+
+def get_settings(params: SettingsGetParams) -> SettingsGetResult:
+    return SettingsGetResult(mode=_settings().mode.value)
+
+
+def set_mode(params: SettingsSetModeParams) -> SettingsSetModeResult:
+    try:
+        set_default_mode(Mode(params.mode))
+    except ConfigError as e:
+        raise MethodError(APP_ERROR, str(e), "invalid_config") from e
+    return SettingsSetModeResult(mode=params.mode)
 
 
 def _connection(provider_id: str | None, base_url: str | None, settings: Settings) -> Connection:
@@ -319,6 +340,8 @@ HANDLERS: dict[str, Callable[[Any], Any]] = {
     "connections/remove": remove,
     "connections/showModel": show,
     "connections/setDefault": set_default,
+    "settings/get": get_settings,
+    "settings/setMode": set_mode,
     "projects/list": list_projects,
     "projects/open": open_project,
     "projects/archive": archive_project,

@@ -50,13 +50,13 @@ JSON-RPC 2.0 over stdio, camelCase on the wire.
 | Method | Params | Result |
 |---|---|---|
 | `initialize` | `protocolVersion`, `clientName` | `protocolVersion`, `server` |
-| `session/new` | `cwd`, `model?`, `mode?` | `info` |
+| `session/new` | `cwd`, `model?`, `mode?` | `info`. Without `mode`, the default from `settings/get` (config.toml `mode`) |
 | `session/list` | — | `sessions`: every session of every project, most recently updated first |
 | `session/open` | `sessionId` | a snapshot; loads the session from disk if it is not in memory |
 | `session/send` | `sessionId`, `text` | `{}` at once; the run is reported by events. Error if the session is running |
 | `session/cancel` | `sessionId` | `{}`; does nothing if idle |
 | `session/answer` | `sessionId`, `requestId`, `decision`, `feedback?` | `accepted`: `false` if the approval was already answered |
-| `session/setMode` | `sessionId`, `mode` | `info` |
+| `session/setMode` | `sessionId`, `mode` | `info`. Counts from the next tool call, also while running; an approval already waiting stays |
 | `session/setModel` | `sessionId`, `model` | `info`. Error if the session is running |
 | `session/delete` | `sessionId` | `{}`; a running session is cancelled first |
 

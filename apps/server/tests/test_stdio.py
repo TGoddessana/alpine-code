@@ -86,6 +86,10 @@ def test_connections_and_projects(tmp_path, monkeypatch):
     assert request("projects/list")["result"]["projects"][0]["archived"] is True
     assert request("connections/setDefault", {"model": "local/qwen3"})["result"] == {"defaultModel": "local/qwen3"}
     assert request("connections/list")["result"]["defaultModel"] == "local/qwen3"
+    assert request("settings/get")["result"] == {"mode": "default"}
+    assert request("settings/setMode", {"mode": "accept_edits"})["result"] == {"mode": "accept_edits"}
+    assert request("settings/get")["result"] == {"mode": "accept_edits"}
+    assert request("settings/setMode", {"mode": "never"})["error"]["code"] == -32602
     assert request("connections/remove", {"connection": "local"})["result"] == {"defaultModel": None}
     assert [c["name"] for c in request("connections/list")["result"]["connections"]] == ["anthropic"]
     assert request("connections/remove", {"connection": "anthropic"})["result"] == {"defaultModel": None}

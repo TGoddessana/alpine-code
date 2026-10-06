@@ -1,7 +1,8 @@
-import { Tabs } from '@alpine/ui/primitives';
+import { OptionList, Tabs } from '@alpine/ui/primitives';
 
 import { LOCALES, useLocale, useMessages, type Locale } from '@/shared/i18n';
-import { useServerInfo } from '@/shared/server';
+import { MODES, modeMessages, type Mode } from '@/shared/components/composer';
+import { useServerInfo, useSetDefaultMode, useSettings } from '@/shared/server';
 
 import { ConnectionTab } from './Connection';
 import { messages } from './messages';
@@ -63,8 +64,11 @@ function General() {
   const t = useMessages(messages);
   const { locale, setLocale } = useLocale();
   const server = useServerInfo();
+  const m = useMessages(modeMessages);
+  const mode = useSettings().data?.mode;
+  const setMode = useSetDefaultMode();
   return (
-    <dl className="grid max-w-xl grid-cols-[160px_1fr] items-center gap-x-6 gap-y-4">
+    <dl className="grid max-w-3xl grid-cols-[160px_1fr] items-center gap-x-6 gap-y-4">
       <dt className="text-fg-muted">
         <label htmlFor="settings-language">{t.language}</label>
       </dt>
@@ -82,6 +86,24 @@ function General() {
           ))}
         </select>
       </dd>
+      {mode && (
+        <>
+          <dt className="self-start pt-2 text-fg-muted">{t.safety}</dt>
+          <dd className="flex flex-col gap-2">
+            <OptionList<Mode>
+              aria-label={t.safety}
+              value={setMode.isPending && setMode.variables ? setMode.variables : mode}
+              onValueChange={(value) => setMode.mutate(value)}
+              options={MODES.map((value) => ({
+                value,
+                label: <span className={value === 'yolo' ? 'text-danger' : undefined}>{m.name(value)}</span>,
+                description: m.description(value),
+              }))}
+            />
+            <p className="text-meta text-fg-muted">{t.safetyLead}</p>
+          </dd>
+        </>
+      )}
       <dt className="text-fg-muted">{t.server}</dt>
       <dd>
         {server.data

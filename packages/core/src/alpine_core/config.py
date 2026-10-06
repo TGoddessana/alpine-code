@@ -214,6 +214,14 @@ def set_default_model(model: str) -> None:
     _save(doc)
 
 
+@_locked
+def set_default_mode(mode: Mode) -> None:
+    """The permission mode new sessions start with, in the desktop app and in the terminal."""
+    doc = _edit()
+    doc["mode"] = mode.value
+    _save(doc)
+
+
 def _read(file: Path) -> dict[str, Any]:
     if not file.is_file():
         return {}

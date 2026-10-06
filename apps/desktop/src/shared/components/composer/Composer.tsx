@@ -6,11 +6,13 @@ import { useMessages } from '@/shared/i18n';
 import { SESSION_RUNNING, ServerError, useConnections } from '@/shared/server';
 
 import { messages } from './messages';
+import { ModeChip, nextMode, type Mode } from './ModeChip';
 import { ModelPicker } from './ModelPicker';
 
 /**
- * The input, the same on every screen: a box of a few lines with its bar underneath (the model, or whatever `bar`
- * puts there; attaching, the safety rules and thinking effort join it when the core has them).
+ * The input, the same on every screen: a box of a few lines with its bar underneath: the permission `mode` on the
+ * left, and the model (or whatever `bar` puts there) on the right; attaching and thinking effort join it when the
+ * core has them. Shift+Tab in the box goes to the next mode.
  *
  * Enter sends: `onSend` resolves once the server took the message, and the box empties; if it rejects, the text
  * stays and a quiet line says why. While `running` the send button becomes a stop button (`onStop`) and Enter
@@ -26,6 +28,7 @@ export function Composer({
   onStop,
   answer,
   prefill,
+  mode,
 }: {
   locked?: boolean;
   running?: boolean;
@@ -37,6 +40,8 @@ export function Composer({
   answer?: { placeholder: string; onSend: (text: string) => Promise<unknown> };
   /** Fills the box and focuses it whenever `key` changes, e.g. a suggestion I picked. */
   prefill?: { text: string; key: number };
+  /** The permission mode, shown and changed from the bar. */
+  mode?: { value: Mode; onChange: (mode: Mode) => void };
 }) {
   const t = useMessages(messages);
   const [text, setText] = useState('');
@@ -115,10 +120,15 @@ export function Composer({
               event.preventDefault();
               void send();
             }
+            if (event.key === 'Tab' && event.shiftKey && mode && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              mode.onChange(nextMode(mode.value));
+            }
           }}
           className="max-h-60 min-h-11 w-full resize-none bg-transparent text-reading text-fg outline-none placeholder:text-fg-muted disabled:text-fg-muted"
         />
         <div className="-ml-2 flex items-center gap-1">
+          {mode && <ModeChip mode={mode.value} onChange={mode.onChange} disabled={locked} />}
           <span className="grow" />
           {bar ?? <ModelPicker disabled={locked} />}
           {running && !(answer && text.trim()) ? (

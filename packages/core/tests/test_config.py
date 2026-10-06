@@ -11,6 +11,7 @@ from alpine_core import (
     config_file,
     remove_connection,
     save_connection,
+    set_default_mode,
     set_default_model,
     show_model,
 )
@@ -59,6 +60,10 @@ def test_saving_connections_keeps_comments(home):
 
     with pytest.raises(ConfigError):
         save_connection("a/b", provider="anthropic")
+
+    set_default_mode(Mode.ACCEPT_EDITS)
+    assert Settings.load().mode is Mode.ACCEPT_EDITS
+    assert config_file().read_text().startswith("# my settings")
 
 
 def test_removing_a_connection_takes_its_default_model_along(home):

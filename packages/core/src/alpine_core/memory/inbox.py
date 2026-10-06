@@ -66,13 +66,17 @@ class Inbox:
         kinds: Sequence[Kind] = KINDS,
         cap: int = CAP,
         similar: Similar = similar_text,
+        on_change: Callable[[], None] | None = None,
     ) -> None:
+        """``on_change`` is called after every change to what the inbox or the store holds, so an app can redraw."""
         self.store = store
         self.file = file
         self.kinds = {k.name: k for k in kinds}
         self.cap = cap
         self.similar = similar
-        self._lock = threading.Lock()
+        self.on_change = on_change
+        # Reentrant: on_change runs while the lock is held and may read the inbox again.
+        self._lock = threading.RLock()
 
     def propose(
         self,
@@ -252,6 +256,8 @@ class Inbox:
         tmp = self.file.with_name(f".{self.file.name}.tmp")
         tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
         tmp.replace(self.file)
+        if self.on_change is not None:
+            self.on_change()
 
 
 def _normal(text: str) -> str:

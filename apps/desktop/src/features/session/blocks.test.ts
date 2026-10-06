@@ -33,6 +33,15 @@ const approval = (id: string, callId: string, over: Partial<ApprovalItem> = {}):
 });
 
 describe('toBlocks', () => {
+  it('puts a suggested memory right after its call, once the call is done', () => {
+    const memory = (id: string, status: ToolCallItem['status']) =>
+      call(id, { name: 'propose_memory', args: { headline: '해요체로 쓴다' }, status });
+    const blocks = toBlocks([call('c1'), memory('c2', 'done'), call('c3'), memory('c4', 'running')], []);
+    expect(blocks.map((b) => b.type)).toEqual(['tools', 'memory', 'tools']);
+    expect(blocks[1]).toMatchObject({ call: { id: 'c2' } });
+    expect(blocks[2]).toMatchObject({ rows: [{ call: { id: 'c3' } }, { call: { id: 'c4' } }] });
+  });
+
   it('joins tool calls in a row and splits them at messages', () => {
     const blocks = toBlocks([call('c1'), call('c2'), message('m1'), call('c3')], []);
     expect(blocks.map((b) => b.type)).toEqual(['tools', 'item', 'tools']);

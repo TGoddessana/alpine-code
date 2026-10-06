@@ -1,0 +1,41 @@
+import { defineMessages } from '@/shared/i18n';
+
+export const messages = defineMessages({
+  ko: {
+    title: '기억',
+    lead: (name: string) => `${name}에서 일하며 배운 것 중 허락한 것만 기억해요. 지우면 다음 대화부터 잊어요.`,
+    noProject: '프로젝트를 고르면 그 프로젝트의 기억을 볼 수 있어요',
+    loadFailed: '기억을 불러오지 못했어요',
+    pending: '기다리는 제안',
+    empty: '아직 기억한 게 없어요',
+    emptyLead: '대화하다 고쳐 말한 것이나 오래 걸린 문제를 Alpine이 기억해 두자고 제안해요.',
+    teamLead: '저장소의 .alpine/memory에 있어서 팀원과 함께 써요',
+    mineLead: '내 컴퓨터에만 있어요',
+    saidAgain: (n: string) => `허락한 뒤에 다시 말함 ${n}번`,
+    learnedFrom: '처음 나온 곳',
+    saidAgainWhen: '다시 말한 때',
+    file: '파일',
+    forget: '지우기',
+    forgetConfirm: '이 기억을 지울까요?',
+    cancel: '취소',
+  },
+  en: {
+    title: 'Memory',
+    lead: (name: string) =>
+      `What Alpine learned working in ${name}, only what you allowed. Remove something and the next conversation forgets it.`,
+    noProject: 'Pick a project to see its memory',
+    loadFailed: "Couldn't load the memory",
+    pending: 'Waiting for you',
+    empty: 'Nothing remembered yet',
+    emptyLead: 'When you correct Alpine or a problem takes long, it suggests remembering it.',
+    teamLead: 'Kept in the repository at .alpine/memory, shared with your team',
+    mineLead: 'Only on this computer',
+    saidAgain: (n: string) => `Said again ${n} ${n === '1' ? 'time' : 'times'} since you allowed it`,
+    learnedFrom: 'Came from',
+    saidAgainWhen: 'Said again',
+    file: 'File',
+    forget: 'Remove',
+    forgetConfirm: 'Remove this memory?',
+    cancel: 'Cancel',
+  },
+});

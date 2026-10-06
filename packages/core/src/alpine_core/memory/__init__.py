@@ -12,17 +12,13 @@ The inbox between proposer and store is not a port: only what the user approves 
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
-
-from ..home import home_dir
 from .inbox import CAP, Inbox, MemoryNotes, Refused, Similar, similar_text
 from .model import KINDS, SCOPES, Evidence, Kind, Memory, Scope, Suggestion, project_key
 from .proposer import AgentProposes, Proposer
 from .recall import IndexRecall, Recall
+from .registry import Memories
 from .store import MarkdownStore, MemoryStore, scope_folders
+from .system import MemorySystem, memory_system
 
 __all__ = [
     "CAP",
@@ -34,6 +30,7 @@ __all__ = [
     "IndexRecall",
     "Kind",
     "MarkdownStore",
+    "Memories",
     "Memory",
     "MemoryNotes",
     "MemoryStore",
@@ -45,53 +42,7 @@ __all__ = [
     "Similar",
     "Suggestion",
     "memory_system",
+    "project_key",
     "scope_folders",
     "similar_text",
 ]
-
-
-@dataclass(frozen=True)
-class MemorySystem:
-    kinds: tuple[Kind, ...]
-    store: MemoryStore
-    recall: Recall
-    proposer: Proposer
-    inbox: Inbox
-
-    def memories(self) -> list[Memory]:
-        return [m for scope in SCOPES for m in self.store.list(scope)]
-
-    def system_block(self) -> str:
-        """For the system prompt when a session starts."""
-        return self.recall.system_block(self.memories())
-
-    def tools(self) -> list[Any]:
-        """For the working agent: the proposer's tools and the recall's."""
-        return [*self.proposer.tools(self.inbox), *self.recall.tools()]
-
-
-def memory_system(
-    project: Path,
-    *,
-    home: Path | None = None,
-    kinds: Sequence[Kind] = KINDS,
-    store: MemoryStore | None = None,
-    recall: Recall | None = None,
-    proposer: Proposer | None = None,
-    cap: int = CAP,
-    similar: Similar = similar_text,
-) -> MemorySystem:
-    """The memory of one project, with the defaults for every part left out. What the inbox knows is kept under
-    ``<home>/projects/<project>/inbox.json``."""
-    project = project.expanduser().resolve()
-    home = home or home_dir()
-    kinds = tuple(kinds)
-    store = store or MarkdownStore(project, home)
-    inbox = Inbox(store, home / "projects" / project_key(project) / "inbox.json", kinds=kinds, cap=cap, similar=similar)
-    return MemorySystem(
-        kinds=kinds,
-        store=store,
-        recall=recall or IndexRecall(project, kinds),
-        proposer=proposer or AgentProposes(kinds),
-        inbox=inbox,
-    )

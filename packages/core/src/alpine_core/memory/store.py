@@ -39,6 +39,11 @@ class MemoryStore(Protocol):
         """Removes one memory. Nothing happens when there is none."""
         ...
 
+    def folders(self) -> list[Path]:
+        """Folders holding memory files, which the agent may read without asking. Empty when memories are not
+        files."""
+        ...
+
 
 def scope_folders(project: Path, home: Path | None = None) -> dict[Scope, Path]:
     """Team memory is in the repository; the user's own memory never is, so it cannot be committed by mistake."""
@@ -54,11 +59,11 @@ class MarkdownStore:
     """``MemoryStore`` over the folders of ``scope_folders``. Safe to use from several threads."""
 
     def __init__(self, project: Path, home: Path | None = None) -> None:
-        self.folders = scope_folders(project.expanduser().resolve(), home)
+        self._folders = scope_folders(project.expanduser().resolve(), home)
         self._lock = threading.Lock()
 
     def list(self, scope: Scope) -> list[Memory]:
-        folder = self.folders[scope]
+        folder = self._folders[scope]
         if not folder.is_dir():
             return []
         memories = []
@@ -78,7 +83,7 @@ class MarkdownStore:
         name = file_name(memory.id)
         if name != memory.id:
             raise ValueError(f"not a memory id: {memory.id!r}")
-        folder = self.folders[memory.scope]
+        folder = self._folders[memory.scope]
         with self._lock:
             folder.mkdir(parents=True, exist_ok=True)
             file = folder / f"{name}.md"
@@ -88,12 +93,15 @@ class MarkdownStore:
 
     def remove(self, scope: Scope, memory_id: str) -> None:
         with self._lock:
-            (self.folders[scope] / f"{file_name(memory_id)}.md").unlink(missing_ok=True)
+            (self._folders[scope] / f"{file_name(memory_id)}.md").unlink(missing_ok=True)
             self._write_index(scope)
+
+    def folders(self) -> list[Path]:
+        return list(self._folders.values())
 
     def _write_index(self, scope: Scope) -> None:
         memories = self.list(scope)
-        index = self.folders[scope] / INDEX
+        index = self._folders[scope] / INDEX
         if not memories:
             index.unlink(missing_ok=True)
             return

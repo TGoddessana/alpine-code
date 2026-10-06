@@ -1,0 +1,43 @@
+import { defineMessages } from '@/shared/i18n';
+
+/** The words for a memory's kind and scope, the same wherever a memory shows. */
+export const messages = defineMessages({
+  ko: {
+    kind_rule: '규칙',
+    kind_fact: '사실',
+    kind_lesson: '겪은 일',
+    kind_user: '나에 대해',
+    scope_team: '팀 기억',
+    scope_project_me: '이 프로젝트 · 나만',
+    scope_me: '모든 프로젝트 · 나만',
+    suggestionLabel: '기억 제안',
+    ask: '기억해 둘까요?',
+    from: (quote: string) => `“${quote}”에서 나왔어요`,
+    changes: (n: string) => `지금 있는 기억 ${n}개를 고쳐요`,
+    keep: '기억하기',
+    decline: '안 함',
+    showBody: '내용 보기',
+    hideBody: '접기',
+    full: '기억이 가득 찼어요. 안 쓰는 기억을 지워 주세요',
+    failed: '저장하지 못했어요. 다시 눌러 주세요',
+  },
+  en: {
+    kind_rule: 'Rule',
+    kind_fact: 'Fact',
+    kind_lesson: 'Lesson',
+    kind_user: 'About me',
+    scope_team: 'Team memory',
+    scope_project_me: 'This project · only me',
+    scope_me: 'Every project · only me',
+    suggestionLabel: 'Memory suggestion',
+    ask: 'Remember this?',
+    from: (quote: string) => `From “${quote}”`,
+    changes: (n: string) => `Changes ${n} ${n === '1' ? 'memory' : 'memories'} you have`,
+    keep: 'Remember',
+    decline: 'No',
+    showBody: 'Show details',
+    hideBody: 'Hide',
+    full: 'Memory is full. Remove something you no longer need',
+    failed: "Couldn't save it. Please try again",
+  },
+});

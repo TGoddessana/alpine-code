@@ -1,6 +1,7 @@
 export { CHATGPT_USAGE_URL, useChatGPTSignIn, useChatGPTSignOut, type SignInState } from './chatgpt';
 export { ServerError, type Notification, type ServerConnection } from './connection';
 export { ServerProvider, useServer } from './context';
+export { useApproveMemory, useForgetMemory, useMemory, useRejectMemory } from './memory';
 export {
   useAnswerApproval,
   useCancelSession,
@@ -66,6 +67,7 @@ export {
   statefulScript,
   withRouterScript,
 } from './fixtures';
+export { MEMORY, MEMORY_SUGGESTION, memoryScript } from './memoryScript';
 export { mergeScripts, scriptedConnection, type Script, type ScriptContext } from './scripted';
 export {
   SESSION_NOT_FOUND,

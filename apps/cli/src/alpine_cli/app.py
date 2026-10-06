@@ -8,7 +8,7 @@ from pathlib import Path
 
 from prompt_toolkit.application import create_app_session
 
-from alpine_core import ConfigError, Mode, ProjectList, Session, Settings
+from alpine_core import ConfigError, Memories, Mode, ProjectList, Session, Settings
 
 from ._version import __version__
 from .approval import CliApprover
@@ -58,8 +58,14 @@ def main(argv: list[str] | None = None) -> None:
                 console.print('[error]-p needs a prompt: alpine -p "..." (or pipe one in)[/]')
                 sys.exit(2)
             sys.exit(run_headless(settings, prompt, usage_path=args.usage_file))
+        # Memory is suggested here and approved in the app, which shares ~/.alpine-code. Not with -p: benchmarks
+        # and scripts must run the same each time.
         session = Session(
-            settings, on_event=Renderer(console), approver=CliApprover(console), projects=ProjectList.default()
+            settings,
+            on_event=Renderer(console),
+            approver=CliApprover(console),
+            projects=ProjectList.default(),
+            memories=Memories(),
         )
     except ConfigError as e:
         console.print(f"[error]{e}[/]")

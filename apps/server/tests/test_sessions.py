@@ -379,3 +379,51 @@ def test_info_carries_activity_usage_and_context_on_the_wire(folder, monkeypatch
             assert during[-1]["runUsage"]["requests"] == 2 and during[-1]["runUsage"]["cost"] is None
 
     run(scenario())
+
+
+def test_memory_from_suggestion_to_approval(folder, monkeypatch):
+    fake_model(
+        monkeypatch,
+        tool_call(
+            "propose_memory",
+            kind="rule",
+            scope="team",
+            headline="화면 문구는 해요체로 쓴다",
+            body="이유: 사용자가 고쳐 말함.",
+            name="ui-tone",
+        ),
+        "알겠어요",
+    )
+
+    async def scenario():
+        async with Client([]) as client:
+            sid = await client.new(folder)
+            await client.call("session/send", sessionId=sid, text="버튼 문구는 해요체로 해줘")
+            await client.status(sid, "idle")
+            await client.until(lambda out: [m for m in out if m.get("method") == "memory/changed"])
+
+            listed = (await client.call("memory/list", cwd=str(folder)))["result"]
+            assert listed["memories"] == []
+            [pending] = listed["pending"]
+            assert (pending["headline"], pending["source"]) == ("화면 문구는 해요체로 쓴다", "agent")
+            assert pending["evidence"][0]["quote"] == "버튼 문구는 해요체로 해줘"
+            assert pending["evidence"][0]["sessionId"] == sid
+
+            approved = (await client.call("memory/approve", cwd=str(folder), suggestionId=pending["id"]))["result"]
+            assert approved["memory"]["id"] == "ui-tone"
+            assert (folder / ".alpine" / "memory" / "ui-tone.md").exists()
+            notices = [
+                e["event"]["item"]
+                for e in client.events(sid, "item_completed")
+                if e["event"]["item"]["kind"] == "notice"
+            ]
+            assert [n["source"] for n in notices] == ["memory"]
+
+            again = await client.call("memory/approve", cwd=str(folder), suggestionId=pending["id"])
+            assert again["error"]["data"]["reason"] == "not_found"
+
+            await client.call("memory/forget", cwd=str(folder), scope="team", memoryId="ui-tone")
+            listed = (await client.call("memory/list", cwd=str(folder)))["result"]
+            assert listed == {"memories": [], "pending": []}
+
+    run(scenario())

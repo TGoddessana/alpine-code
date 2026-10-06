@@ -1,6 +1,7 @@
 import type { ConnectionInfo, ConnectionsListResult, ProjectInfo, ProviderInfo } from '@alpine/protocol';
 
 import { ServerError } from './connection';
+import { memoryScript } from './memoryScript';
 import { mergeScripts, type Script } from './scripted';
 import { sessionInfo, sessionScript, type SessionScriptOptions } from './sessionScript';
 import { toolsScript } from './toolsScript';
@@ -247,7 +248,7 @@ export const firstRunScript = (chatgpt: ScriptState['chatgpt'] = 'connected') =>
 
 /** Everything set up: three connections and three projects. */
 export const setUpScript = () =>
-  mergeScripts(statefulScript({ connections: CONNECTED, projects: PROJECTS }), toolsScript());
+  mergeScripts(statefulScript({ connections: CONNECTED, projects: PROJECTS }), toolsScript(), memoryScript());
 
 /** Two earlier sessions, for a rail that is not empty. */
 export const SESSIONS = [

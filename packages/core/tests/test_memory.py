@@ -237,6 +237,9 @@ class DictStore:
     def remove(self, scope: Scope, memory_id: str) -> None:
         self.items.pop((scope, memory_id), None)
 
+    def folders(self) -> list:
+        return []
+
 
 class LoadEverything:
     def system_block(self, memories: Sequence[Memory]) -> str:
@@ -275,3 +278,90 @@ def test_kinds_can_be_replaced(project, home):
         "ui-tone", "decision", "team", "색은 토큰으로만", "이유: 사용자가 고쳐 말함."
     )
     assert "Headline: the decision" in memory.tools()[0].spec.description
+
+
+# Sessions
+
+
+def memory_session(project, monkeypatch, memories, *replies):
+    from alpineagents.testing import FakeModel
+
+    from alpine_core import Session, Settings
+    from alpine_core import session as session_module
+
+    class NeverAsked:
+        def approve(self, request):
+            raise AssertionError(f"asked: {request}")
+
+    monkeypatch.setattr(session_module, "make_model", lambda settings: FakeModel(list(replies)))
+    return Session(Settings(model="fake"), approver=NeverAsked(), cwd=project, memories=memories)
+
+
+def test_a_session_gets_the_memory_in_its_prompt_and_the_tool(project, home, monkeypatch):
+    from alpine_core import Memories
+
+    memories = Memories(home)
+    memories.of(project).store.put(Memory("ui-tone", "rule", "team", "화면 문구는 해요체로 쓴다", ""))
+    session = memory_session(project, monkeypatch, memories)
+
+    assert "- rule: 화면 문구는 해요체로 쓴다 (.alpine/memory/ui-tone.md)" in session._agent.system
+    assert "propose_memory" in session._agent.tool_map
+
+
+def test_a_session_reads_the_users_memory_files_without_asking(project, home, monkeypatch):
+    from alpine_core import Memories
+
+    memories = Memories(home)
+    mine = memories.of(project).store.put(Memory("plain", "user", "me", "설명은 쉬운 말로", ""))
+    session = memory_session(project, monkeypatch, memories)
+    read = session._agent.tool_map["read"]
+
+    assert session.policy.evaluate("read", {"path": str(mine.path)}, read).allowed
+    assert not session.policy.evaluate("read", {"path": str(home / "auth.json")}, read).allowed
+
+
+def test_an_approved_memory_reaches_an_open_session_as_a_notice(project, home, monkeypatch):
+    from alpine_core import Memories
+
+    memories = Memories(home)
+    session = memory_session(project, monkeypatch, memories, "네, 그렇게 할게요")
+    session.send("버튼 문구는 해요체로 해줘")
+    suggestion = propose(memories.of(project), "화면 문구는 해요체로 쓴다")
+
+    memories.approve(project, suggestion.id)
+    [notice] = [i for i in session.snapshot().items if i.kind == "notice"]
+    assert notice.source == "memory"
+    assert (
+        notice.text
+        == "The user approved a new memory (team):\n- rule: 화면 문구는 해요체로 쓴다 (.alpine/memory/ui-tone.md)"
+    )
+    assert session._state.messages[-1].is_notice
+    assert "# Memory" not in session._agent.system  # the prompt stays as it started
+
+
+def test_before_the_first_message_an_approved_memory_goes_into_the_prompt(project, home, monkeypatch):
+    from alpine_core import Memories
+
+    memories = Memories(home)
+    session = memory_session(project, monkeypatch, memories)
+    memories.approve(project, propose(memories.of(project), "화면 문구는 해요체로 쓴다").id)
+
+    assert "화면 문구는 해요체로 쓴다" in session._agent.system
+    assert [i for i in session.snapshot().items if i.kind == "notice"] == []
+
+
+def test_the_users_memory_reaches_sessions_of_other_projects(project, home, monkeypatch, tmp_path):
+    from alpine_core import Memories
+
+    other = tmp_path / "other"
+    other.mkdir()
+    memories = Memories(home)
+    session = memory_session(other, monkeypatch, memories, "ok")
+    session.send("hi")
+    suggestion = propose(memories.of(project), "설명은 쉬운 말로", kind="user", scope="me", name="plain")
+    memories.approve(project, suggestion.id)
+    assert [i.source for i in session.snapshot().items if i.kind == "notice"] == ["memory"]
+
+    team = propose(memories.of(project), "화면 문구는 해요체로 쓴다")
+    memories.approve(project, team.id)
+    assert len([i for i in session.snapshot().items if i.kind == "notice"]) == 1

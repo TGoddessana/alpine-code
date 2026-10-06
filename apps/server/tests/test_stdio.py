@@ -31,10 +31,16 @@ def test_notifications_get_no_reply():
 def test_every_protocol_method_has_a_handler():
     from alpine_protocol import METHODS
     from alpine_server.chatgpt import ChatGPTSignIns
+    from alpine_server.memory import MemoryMethods
     from alpine_server.sessions import SessionManager
     from alpine_server.stdio import HANDLERS
 
-    async_handlers = SessionManager(lambda params: None).handlers() | ChatGPTSignIns(lambda params: None).handlers()
+    sessions = SessionManager(lambda params: None)
+    async_handlers = (
+        sessions.handlers()
+        | ChatGPTSignIns(lambda params: None).handlers()
+        | MemoryMethods(sessions.memories, lambda params: None).handlers()
+    )
     assert set(HANDLERS) | set(async_handlers) == set(METHODS)
 
 

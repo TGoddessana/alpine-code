@@ -59,6 +59,7 @@ from .items import (
     item_from_dict,
     item_to_dict,
 )
+from .memory import Evidence, Memories, Memory, MemoryNotes, Refused, Scope, Suggestion
 from .models import ModelListError, chatgpt_tokens, list_models
 from .permissions import Mode
 from .profiles import DEFAULT_ID as DEFAULT_PROFILE
@@ -96,6 +97,13 @@ from .toolbox import (
 
 __all__ = [
     "Session",
+    "Evidence",
+    "Memories",
+    "Memory",
+    "MemoryNotes",
+    "Refused",
+    "Scope",
+    "Suggestion",
     "Snapshot",
     "list_sessions",
     "delete_session",

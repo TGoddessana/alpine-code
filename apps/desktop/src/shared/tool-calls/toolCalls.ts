@@ -1,9 +1,10 @@
 import type { ApprovalItem } from '@alpine/protocol';
 
-export type ToolKind = 'edit' | 'run' | 'read' | 'search' | 'other';
+export type ToolKind = 'edit' | 'run' | 'read' | 'search' | 'memory' | 'other';
 
 /** What a tool call does, from its name: the core's tools (`edit`, `bash`, `read`...) and the scripted `*_file` ones. */
 export function toolKind(name: string): ToolKind {
+  if (name === 'propose_memory') return 'memory';
   if (/^(edit|write)(_file)?$/.test(name)) return 'edit';
   if (name === 'bash') return 'run';
   if (/^read(_file)?$/.test(name)) return 'read';
@@ -12,13 +13,13 @@ export function toolKind(name: string): ToolKind {
 }
 
 /**
- * The part of a call's arguments worth showing on its line: a path, a command or a pattern (and where it looks).
- * Takes a call or an approval, which carries its call's arguments.
+ * The part of a call's arguments worth showing on its line: a path, a command, a pattern (and where it looks) or a
+ * memory's headline. Takes a call or an approval, which carries its call's arguments.
  */
 export function toolTarget({ args }: { args: Record<string, unknown> }): string {
-  const { path, file_path, command, pattern } = args;
+  const { path, file_path, command, pattern, headline } = args;
   if (typeof pattern === 'string') return typeof path === 'string' && path ? `${pattern}  ${path}` : pattern;
-  for (const value of [path, file_path, command]) if (typeof value === 'string') return value;
+  for (const value of [path, file_path, command, headline]) if (typeof value === 'string') return value;
   return '';
 }
 

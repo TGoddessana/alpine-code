@@ -25,7 +25,7 @@ as outside.
 from __future__ import annotations
 
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from functools import cache
 from pathlib import Path
@@ -129,6 +129,8 @@ class Remembered:
 class PermissionPolicy:
     workspace: Workspace
     mode: Mode = Mode.DEFAULT
+    readable: tuple[Path, ...] = ()
+    """Folders outside the workspace whose files may be read without asking: the user's memory folders."""
 
     def evaluate(
         self, name: str, args: dict[str, Any], tool: Tool | None, remembered: Remembered | None = None
@@ -137,7 +139,10 @@ class PermissionPolicy:
         for, or ``None`` for a name the model made up. ``remembered`` is what the user already allowed."""
         if self.mode is Mode.YOLO:
             return ALLOW
-        return _Evaluation(self.workspace, self.mode, remembered or Remembered()).evaluate(name, args, tool)
+        remembered = remembered or Remembered()
+        if self.readable:
+            remembered = replace(remembered, read_dirs=remembered.read_dirs | {d.resolve() for d in self.readable})
+        return _Evaluation(self.workspace, self.mode, remembered).evaluate(name, args, tool)
 
 
 @dataclass(frozen=True)

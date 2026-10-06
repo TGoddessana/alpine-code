@@ -16,12 +16,13 @@ export interface ToolRow {
 export type Block =
   | { type: 'item'; item: Exclude<Item, ToolCallItem | ApprovalItem> }
   | { type: 'tools'; id: string; rows: ToolRow[] }
-  | { type: 'approval'; item: ApprovalItem };
+  | { type: 'approval'; item: ApprovalItem }
+  | { type: 'memory'; call: ToolCallItem };
 
 /**
  * The items in the order they started, as blocks. Tool calls in a row become one block. A waiting approval is its
  * own block where the call will be; a finished one is not drawn on its own but goes with its call (a denied call
- * shows what I said).
+ * shows what I said). A memory the agent suggested gets its own block right after its call, where I answer it.
  */
 export function toBlocks(items: Item[], activeIds: readonly string[]): Block[] {
   const active = new Set(activeIds);
@@ -36,6 +37,7 @@ export function toBlocks(items: Item[], activeIds: readonly string[]): Block[] {
       const last = blocks.at(-1);
       if (last?.type === 'tools') last.rows.push(row);
       else blocks.push({ type: 'tools', id: item.id, rows: [row] });
+      if (toolKind(item.name) === 'memory' && item.status === 'done') blocks.push({ type: 'memory', call: item });
     } else blocks.push({ type: 'item', item });
   }
   return blocks;

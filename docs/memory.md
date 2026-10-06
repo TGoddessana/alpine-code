@@ -160,10 +160,14 @@ observed.
 
 1. **Done:** `alpine_core/memory/`: kinds, `MarkdownStore`, `IndexRecall`, `AgentProposes` (`propose_memory`) and
    the inbox, with a second implementation of each port in `tests/test_memory.py`. Not yet connected to sessions.
-2. Connect it: the index into `build_system_prompt`, `propose_memory` into the session's tools, approvals through
-   the protocol, 기억과 학습 in the app, and a notice to running sessions on approval. Reading bodies under
-   `~/.alpine-code` must not ask: today `read` outside the working directory does, so the memory folders need to be
-   allowed for reading.
+2. **Done but the app:** `Memories` (one memory per project, shared by sessions and the server) puts the index into
+   `build_system_prompt`, `propose_memory` into every profile's tools, the memory folders into what `read` may open
+   without asking, and approvals into open sessions as `notice` items. The protocol has `memory/*` and
+   `memory/changed` ([session-protocol.md](session-protocol.md)). The interactive CLI suggests and recalls; `-p`
+   has no memory, so benchmarks and scripts run the same each time. **The app:** a suggestion is a card under
+   its call in the chat (기억하기 · 안 함 · 내용 보기); it does not hold up the run, and once kept it is one quiet line.
+   The project menu in the rail opens 기억 (`/memory?project=`): waiting suggestions, then what is kept by scope, each
+   opening to its reason, where it came from, when it was said again, its file, and 지우기.
 3. Pruning proposers: facts naming a missing path, memories said again.
 4. Checks and guards in the permission step.
 
@@ -185,3 +189,6 @@ observed.
 | 2026-10-05 | Checks hook three moments (before a command, after a file change, when the run ends) in a fixed when/expect/say form; a failed before-command check refuses that one call | notices only; Python checks now | a notice after a commit comes too late; refusing one call keeps the run going; non-developers can read the form |
 | 2026-10-05 | Must-hold rules carry guards that always ask the user; no deny; team guards committed; guards ask in yolo too | deny guards; guards skipped in yolo | the user can still say yes in the moment; a guard grants nothing, so a repository may carry it; a specific approved rule beats a general mode |
 | 2026-10-05 | "This project · me" memory lives outside the project, under `~/.alpine-code/projects/<project>/memory/`; a moved folder is joined again through `projects.json` | `.alpine/local/memory/` with a `.gitignore` entry | the user's folder and `.gitignore` are never changed quietly; personal memory can never be committed; Claude Code does the same |
+| 2026-10-06 | Suggestions are answered in a card under their call in the chat; the project menu's 기억 열기 lists everything | a memory page only, with a badge; one card when the run ends | answered where the context is, without holding up the run; a kept memory reaches the open session at once |
+| 2026-10-06 | The context meter is 대화 길이 (Conversation length), not 대화 기억 | keeping two meanings of 기억 | 기억 now means what was learned; the meter is how much of what the model can read at once the chat fills |
+| 2026-10-06 | Deleting a project removes the user's own memory of it (`~/.alpine-code/projects/<project>/`); team memory and the memory for every project stay | keeping it | the delete dialog promises Alpine's records of the project go; team memory lives in the folder, which delete never touches |

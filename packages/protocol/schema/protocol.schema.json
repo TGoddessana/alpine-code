@@ -119,6 +119,22 @@
       "params": "ProfilesResolveParams",
       "result": "ProfilesResolveResult"
     },
+    "memory/list": {
+      "params": "MemoryListParams",
+      "result": "MemoryListResult"
+    },
+    "memory/approve": {
+      "params": "MemoryApproveParams",
+      "result": "MemoryApproveResult"
+    },
+    "memory/reject": {
+      "params": "MemoryRejectParams",
+      "result": "MemoryRejectResult"
+    },
+    "memory/forget": {
+      "params": "MemoryForgetParams",
+      "result": "MemoryForgetResult"
+    },
     "session/new": {
       "params": "SessionNewParams",
       "result": "SessionNewResult"
@@ -158,7 +174,8 @@
   },
   "x-notifications": {
     "session/event": "SessionEventParams",
-    "chatgpt/signInFinished": "ChatGPTSignInFinishedParams"
+    "chatgpt/signInFinished": "ChatGPTSignInFinishedParams",
+    "memory/changed": "MemoryChangedParams"
   },
   "$defs": {
     "Activity": {
@@ -869,7 +886,9 @@
             "install_failed",
             "name_taken",
             "profile_conflict",
-            "model_failed"
+            "model_failed",
+            "not_found",
+            "memory_full"
           ],
           "type": "string"
         }
@@ -1138,6 +1157,263 @@
         "item"
       ],
       "title": "ItemStartedEvent",
+      "type": "object"
+    },
+    "MemoryApproveParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "suggestionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "suggestionId"
+      ],
+      "title": "MemoryApproveParams",
+      "type": "object"
+    },
+    "MemoryApproveResult": {
+      "properties": {
+        "memory": {
+          "$ref": "#/$defs/MemoryInfo"
+        }
+      },
+      "required": [
+        "memory"
+      ],
+      "title": "MemoryApproveResult",
+      "type": "object"
+    },
+    "MemoryChangedParams": {
+      "description": "A project's memories or suggestions changed; ``memory/list`` has the new ones.",
+      "properties": {
+        "cwd": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "title": "MemoryChangedParams",
+      "type": "object"
+    },
+    "MemoryEvidence": {
+      "description": "Where a suggestion came from, as the harness saw it.",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "quote": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "at",
+        "quote"
+      ],
+      "title": "MemoryEvidence",
+      "type": "object"
+    },
+    "MemoryForgetParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "team",
+            "project_me",
+            "me"
+          ],
+          "type": "string"
+        },
+        "memoryId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "scope",
+        "memoryId"
+      ],
+      "title": "MemoryForgetParams",
+      "type": "object"
+    },
+    "MemoryForgetResult": {
+      "properties": {},
+      "title": "MemoryForgetResult",
+      "type": "object"
+    },
+    "MemoryInfo": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "team",
+            "project_me",
+            "me"
+          ],
+          "type": "string"
+        },
+        "headline": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/MemoryEvidence"
+          },
+          "type": "array"
+        },
+        "saidAgain": {
+          "items": {
+            "$ref": "#/$defs/MemoryEvidence"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "scope",
+        "headline",
+        "body",
+        "path",
+        "evidence",
+        "saidAgain"
+      ],
+      "title": "MemoryInfo",
+      "type": "object"
+    },
+    "MemoryListParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "title": "MemoryListParams",
+      "type": "object"
+    },
+    "MemoryListResult": {
+      "properties": {
+        "memories": {
+          "items": {
+            "$ref": "#/$defs/MemoryInfo"
+          },
+          "type": "array"
+        },
+        "pending": {
+          "items": {
+            "$ref": "#/$defs/MemorySuggestionInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "memories",
+        "pending"
+      ],
+      "title": "MemoryListResult",
+      "type": "object"
+    },
+    "MemoryRejectParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "suggestionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "suggestionId"
+      ],
+      "title": "MemoryRejectParams",
+      "type": "object"
+    },
+    "MemoryRejectResult": {
+      "properties": {},
+      "title": "MemoryRejectResult",
+      "type": "object"
+    },
+    "MemorySuggestionInfo": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "team",
+            "project_me",
+            "me"
+          ],
+          "type": "string"
+        },
+        "headline": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "replaces": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/MemoryEvidence"
+          },
+          "type": "array"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "scope",
+        "headline",
+        "body",
+        "replaces",
+        "evidence",
+        "source"
+      ],
+      "title": "MemorySuggestionInfo",
       "type": "object"
     },
     "NoticeItem": {

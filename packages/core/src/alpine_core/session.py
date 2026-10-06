@@ -45,6 +45,7 @@ from .events import (
 )
 from .items import Item, ItemCompleted, ItemEvent, ItemRecorder, item_from_dict, item_to_dict
 from .loop import coding
+from .memory import Memories, Memory
 from .models import make_model
 from .permissions import Mode, PermissionPolicy
 from .profiles import Profile, ProfileList
@@ -89,7 +90,8 @@ class Session:
     the run and keeps the conversation. ``send`` is the same for a frontend without an event loop, stopped with
     Ctrl+C. With ``projects``, the first message of a conversation records its folder there. With ``profiles``, the
     agent gets the tools of ``profile`` (an id) or of the profile its folder and model match, including the user's
-    tools from ``toolbox``; the choice is saved with the session.
+    tools from ``toolbox``; the choice is saved with the session. With ``memories``, the prompt carries the
+    project's memory, the agent can suggest memories, and memories approved through ``memories`` reach it as notices.
 
     The conversation is also kept as items (``docs/session-protocol.md``): ``on_item_event(session_id, seq,
     event)`` gets every item event, and ``snapshot()`` returns the items so far. With ``storage``, the session is
@@ -114,12 +116,15 @@ class Session:
         profiles: ProfileList | None = None,
         toolbox: Toolbox | None = None,
         profile: str | None = None,
+        memories: Memories | None = None,
         _saved: _Saved | None = None,
     ) -> None:
         if mode is not None:
             settings = dataclasses.replace(settings, mode=mode)
         self.workspace = Workspace((cwd or Path.cwd()).resolve())
-        self.policy = PermissionPolicy(self.workspace, settings.mode)
+        self._memory = memories.of(self.workspace.root) if memories is not None else None
+        readable = tuple(self._memory.readable()) if self._memory is not None else ()
+        self.policy = PermissionPolicy(self.workspace, settings.mode, readable)
         self._on_event = on_event
         self._on_item_event = on_item_event
         self._storage = storage
@@ -142,6 +147,9 @@ class Session:
         self._run_base = UsageInfo()
         self._running_tools: dict[str, str] = {}
         self._recorder = ItemRecorder(self._on_recorded)
+        self._stop_memory = (
+            memories.on_approved(self.workspace.root, self._on_memory_approved) if memories is not None else None
+        )
         if _saved is None:
             self._begin_conversation()
         else:
@@ -161,6 +169,7 @@ class Session:
         projects: ProjectList | None = None,
         profiles: ProfileList | None = None,
         toolbox: Toolbox | None = None,
+        memories: Memories | None = None,
     ) -> Session:
         """Opens a saved session and continues it: the items and ``seq`` from the log, the conversation from the
         store. The session's own model, mode and folder win over ``settings`` and ``cwd``. If the process died
@@ -194,6 +203,7 @@ class Session:
             storage=storage,
             profiles=profiles,
             toolbox=toolbox,
+            memories=memories,
             _saved=_Saved(info, records, state),
         )
 
@@ -201,7 +211,9 @@ class Session:
         try:
             return Agent(
                 make_model(settings),
-                system=build_system_prompt(self.workspace.root),
+                system=build_system_prompt(
+                    self.workspace.root, self._memory.system_block() if self._memory is not None else ""
+                ),
                 tools=self._tools(),
                 loop=coding,
                 permissions=self._permissions,
@@ -220,15 +232,17 @@ class Session:
         return saved or self._profiles.resolve(self.workspace.root, settings.model)
 
     def _tools(self) -> list[Any]:
-        """The built-in tools, and the user's tools, that the profile turns on. Without profiles, the built-ins."""
+        """The built-in tools, and the user's tools, that the profile turns on (without profiles, the built-ins),
+        then the memory's tools, which every profile has."""
         builtin = default_tools(self.workspace)
+        memory = self._memory.tools() if self._memory is not None else []
         if self._profile is None:
-            return builtin
+            return builtin + memory
         on = set(self._profile.tools)
         tools: list[Any] = [tool for name, tool in collect_tools(builtin).items() if name in on]
         if self._toolbox is not None:
             tools += self._toolbox.load(on)
-        return tools
+        return tools + memory
 
     # ------------------------------------------------------------ actions
 
@@ -284,6 +298,7 @@ class Session:
         """Starts a new conversation. With ``storage`` it is a new session: ``id`` changes, and the old one stays
         saved."""
         self._state = None
+        self._agent = self._build_agent(self._settings)  # the new conversation's prompt has today's memory
         self._begin_conversation()
 
     async def acompact(self) -> bool:
@@ -329,6 +344,8 @@ class Session:
         """Removes the session from storage and announces ``Deleted``. Cancel a running ``asend`` first. The
         session is not usable afterwards."""
         self._closed = True
+        if self._stop_memory is not None:
+            self._stop_memory()
         if self._storage is not None:
             delete_session(self._storage, self._id)
         self._recorder.deleted()
@@ -432,6 +449,19 @@ class Session:
         return self._state is not None
 
     # ------------------------------------------------------------ items and storage
+
+    def _on_memory_approved(self, memory: Memory) -> None:
+        """A memory was approved while this session is open. The prompt is kept as it was when the conversation
+        started, so the prompt cache holds; the model hears of the memory as a notice instead. Runs on the thread
+        that approved, which must be the event loop's (the server approves there)."""
+        if self._closed or self._memory is None:
+            return
+        if self._state is None:  # nothing was sent yet, so the prompt can still change
+            self._agent = self._build_agent(self._settings)
+            return
+        text = self._memory.recall.notice(memory)
+        self._state.add_message(Message.notice(text))
+        self._recorder.add_notice(text, "memory")
 
     def _dispatch(self, event: Event) -> None:
         """A core event: the item recorder first (so ``snapshot()`` is current), then the frontend's callback."""

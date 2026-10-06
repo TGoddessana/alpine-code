@@ -3,6 +3,9 @@ import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-r
 import { expect, screen, userEvent, waitFor } from 'storybook/test';
 
 import {
+  MEMORY,
+  MEMORY_SUGGESTION,
+  memoryScript,
   mergeScripts,
   sessionInfo,
   sessionScript,
@@ -209,7 +212,7 @@ export const Conversation: Story = {
   },
 };
 
-/** The memory pie in the input bar opens what the conversation used: the memory, then what was sent and received. */
+/** The pie in the input bar opens what the conversation used: its length, then what was sent and received. */
 export const Usage: Story = {
   parameters: {
     server: mergeScripts(
@@ -238,7 +241,7 @@ export const Usage: Story = {
     ),
   },
   play: async () => {
-    await userEvent.click(await screen.findByRole('button', { name: /대화 기억 \d+%|Memory \d+%/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /대화 길이 \d+%|Conversation length \d+%/ }));
     await expect(await screen.findByText(/18,400 토큰|18,400 tokens/)).toBeVisible();
   },
 };
@@ -380,3 +383,41 @@ export const NotFound: Story = {
     await waitFor(() => expect(screen.getByRole('status')).toBeVisible());
   },
 };
+
+/** The agent suggested a memory after I corrected it: a card under its call, which does not hold up the run. */
+export const MemorySuggested: Story = { parameters: { server: memorySuggested() } };
+
+/** Keeping it turns the card into one quiet line. */
+export const MemoryKept: Story = {
+  parameters: { server: memorySuggested() },
+  play: async () => {
+    await expect(await screen.findByRole('region', { name: /기억 제안|Memory suggestion/ })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: /^(기억하기|Remember)$/ }));
+    await expect(await screen.findByText(/기억했어요 · 팀 기억|Remembered · Team memory/)).toBeVisible();
+  },
+};
+
+/** A session where the agent suggested a memory, with its own memory state (keeping it changes only this one). */
+function memorySuggested() {
+  return mergeScripts(
+    server([
+      { id: 'm1', kind: 'user_message', text: '버튼 문구는 해요체로 해줘' },
+      {
+        id: 'm2',
+        kind: 'tool_call',
+        name: 'propose_memory',
+        args: { kind: 'rule', scope: 'team', headline: MEMORY_SUGGESTION.headline, body: MEMORY_SUGGESTION.body },
+        status: 'done',
+        result: "Suggested; it waits for the user's approval. Carry on.",
+        images: 0,
+      },
+      { id: 'm3', kind: 'agent_message', text: '버튼 문구를 해요체로 바꿨어요. 앞으로도 그렇게 쓸게요.' },
+    ]),
+    memoryScript({
+      '/Users/me/alpine-code': {
+        ...MEMORY,
+        pending: [{ ...MEMORY_SUGGESTION, evidence: MEMORY_SUGGESTION.evidence.map((e) => ({ ...e, sessionId: ID })) }],
+      },
+    }),
+  );
+}

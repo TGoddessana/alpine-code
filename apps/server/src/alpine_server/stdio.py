@@ -19,9 +19,18 @@ from typing import Any, TextIO
 
 from pydantic import ValidationError
 
-from alpine_protocol import METHODS, ChatGPTSignInFinishedParams, ErrorObject, Request, Response, SessionEventParams
+from alpine_protocol import (
+    METHODS,
+    ChatGPTSignInFinishedParams,
+    ErrorObject,
+    MemoryChangedParams,
+    Request,
+    Response,
+    SessionEventParams,
+)
 
 from .chatgpt import ChatGPTSignIns
+from .memory import MemoryMethods
 from .methods import HANDLERS as METHOD_HANDLERS
 from .methods import INVALID_PARAMS, MethodError
 from .sessions import SessionManager
@@ -45,8 +54,8 @@ class _Failure(Exception):
 
 
 class Server:
-    """Answers requests and sends notifications (session events, the end of a sign-in) through ``write``, which
-    takes one finished line."""
+    """Answers requests and sends notifications (session events, the end of a sign-in, memory changes) through
+    ``write``, which takes one finished line."""
 
     def __init__(
         self, write: Write, manager: SessionManager | None = None, sign_ins: ChatGPTSignIns | None = None
@@ -54,13 +63,17 @@ class Server:
         self._write = write
         self.sessions = manager or SessionManager(self._send_event)
         self.sign_ins = sign_ins or ChatGPTSignIns(self._send_sign_in_finished)
-        self._async_handlers = self.sessions.handlers() | self.sign_ins.handlers()
+        self.memory = MemoryMethods(self.sessions.memories, self._send_memory_changed)
+        self._async_handlers = self.sessions.handlers() | self.sign_ins.handlers() | self.memory.handlers()
 
     def _send_event(self, params: SessionEventParams) -> None:
         self._notify("session/event", params)
 
     def _send_sign_in_finished(self, params: ChatGPTSignInFinishedParams) -> None:
         self._notify("chatgpt/signInFinished", params)
+
+    def _send_memory_changed(self, params: MemoryChangedParams) -> None:
+        self._notify("memory/changed", params)
 
     def _notify(self, method: str, params: Any) -> None:
         message = {"jsonrpc": "2.0", "method": method, "params": params.model_dump(by_alias=True, mode="json")}

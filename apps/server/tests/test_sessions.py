@@ -427,3 +427,33 @@ def test_memory_from_suggestion_to_approval(folder, monkeypatch):
             assert listed == {"memories": [], "pending": []}
 
     run(scenario())
+
+
+def test_the_harness_suggests_removing_a_memory_whose_path_is_gone(folder, monkeypatch):
+    from alpine_core import Memories
+    from alpine_core.memory import Memory
+
+    (folder / "src").mkdir()
+    Memories().of(folder).store.put(Memory("pay", "fact", "team", "결제 코드는 `src/pay/toss.ts`에 있다", ""))
+    fake_model(monkeypatch, "지웠어요")
+
+    async def scenario():
+        async with Client([]) as client:
+            sid = await client.new(folder)
+            await client.call("session/send", sessionId=sid, text="toss.ts 지워줘")
+            await client.status(sid, "idle")
+            items = [e["event"]["item"] for e in client.events(sid, "item_completed")]
+            [review] = [i for i in items if i["kind"] == "memory_review"]
+            assert (review["source"], review["count"]) == ("missing_paths", 1)
+
+            [removal] = (await client.call("memory/list", cwd=str(folder)))["result"]["pending"]
+            assert (removal["remove"], removal["replaces"], removal["evidence"][0]["quote"]) == (
+                True,
+                ["pay"],
+                "src/pay/toss.ts",
+            )
+            await client.call("memory/approve", cwd=str(folder), suggestionId=removal["id"])
+            listed = (await client.call("memory/list", cwd=str(folder)))["result"]
+            assert listed == {"memories": [], "pending": []}
+
+    run(scenario())

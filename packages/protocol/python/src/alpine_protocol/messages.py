@@ -661,6 +661,17 @@ class StatusLineItem(ItemModel):
     text: str
 
 
+class MemoryReviewItem(ItemModel):
+    """Something the harness noticed about the project's memory during the run, waiting on the memory page. Only the
+    user reads it."""
+
+    id: str
+    kind: Literal["memory_review"] = "memory_review"
+    source: str
+    """What noticed it, which says what it was: ``missing_paths`` (a memory names a path that is gone)."""
+    count: int
+
+
 class CompactionItem(ItemModel):
     id: str
     kind: Literal["compaction"] = "compaction"
@@ -686,6 +697,7 @@ Item = Annotated[
     | ApprovalItem
     | NoticeItem
     | StatusLineItem
+    | MemoryReviewItem
     | CompactionItem
     | RunStoppedItem,
     Field(discriminator="kind"),
@@ -876,7 +888,11 @@ class MemorySuggestionInfo(Message):
     """Memories of the same scope it changes, merges or removes, by id."""
     evidence: list[MemoryEvidence]
     source: str
-    """Who suggested it: ``agent`` for the working agent."""
+    """Who suggested it: ``agent`` for the working agent, ``missing_paths`` for the harness when paths a memory names
+    are gone (each evidence's ``quote`` is then the missing paths)."""
+    remove: bool
+    """It removes the memory in ``replaces`` instead of keeping something; ``headline`` and ``body`` are that
+    memory's."""
 
 
 class MemoryListParams(Message):

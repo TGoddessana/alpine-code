@@ -168,7 +168,14 @@ observed.
    its call in the chat (기억하기 · 안 함 · 내용 보기); it does not hold up the run, and once kept it is one quiet line.
    The project menu in the rail opens 기억 (`/memory?project=`): waiting suggestions, then what is kept by scope, each
    opening to its reason, where it came from, when it was said again, its file, and 지우기.
-3. Pruning proposers: facts naming a missing path, memories said again.
+3. **Done:** pruning. A suggestion can remove a memory (`remove`, approved like any other; declining it on the same
+   evidence is final). A project has several proposers; after every run each looks (`on_run_end`). `MissingPaths`
+   checks the backticked paths of team and this-project memories: a relative path with a `/` whose first folder still
+   exists but which is gone is suggested for removal, with the missing paths as the evidence, so a branch
+   (`origin/main`) or a package (`@alpine/ui`) is never taken for a path. The run ends with a `memory_review` item that
+   only the user reads ("기억 하나가 가리키는 파일이 없어졌어요 · 확인하기 ›"); the suggestion waits on the memory page.
+   Memories said again were already handled by the inbox in step 1. Removing a memory (approved, or with 지우기)
+   reaches open sessions as a notice.
 4. Checks and guards in the permission step.
 
 ## Decisions
@@ -192,3 +199,5 @@ observed.
 | 2026-10-06 | Suggestions are answered in a card under their call in the chat; the project menu's 기억 열기 lists everything | a memory page only, with a badge; one card when the run ends | answered where the context is, without holding up the run; a kept memory reaches the open session at once |
 | 2026-10-06 | The context meter is 대화 길이 (Conversation length), not 대화 기억 | keeping two meanings of 기억 | 기억 now means what was learned; the meter is how much of what the model can read at once the chat fills |
 | 2026-10-06 | Deleting a project removes the user's own memory of it (`~/.alpine-code/projects/<project>/`); team memory and the memory for every project stay | keeping it | the delete dialog promises Alpine's records of the project go; team memory lives in the folder, which delete never touches |
+| 2026-10-06 | Harness suggestions end the run with one quiet line that only the user reads, and are answered on the memory page | the memory page only, with a count; a card in the chat | told where it happened without holding up the conversation; the harness's judgement is not shown as the agent's |
+| 2026-10-06 | Missing paths are relative paths with a `/` whose first folder still exists, in team and this-project memories | every backticked token; files without a folder | a false "gone" is worse than a missed one; memories for every project name no project's paths |

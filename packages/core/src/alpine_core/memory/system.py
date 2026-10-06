@@ -7,10 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from alpineagents import State
+
 from ..home import home_dir
 from .inbox import CAP, Inbox, Similar, similar_text
 from .model import KINDS, SCOPES, Kind, Memory, project_key
 from .proposer import AgentProposes, Proposer
+from .pruning import MissingPaths
 from .recall import IndexRecall, Recall
 from .store import MarkdownStore, MemoryStore
 
@@ -20,7 +23,7 @@ class MemorySystem:
     kinds: tuple[Kind, ...]
     store: MemoryStore
     recall: Recall
-    proposer: Proposer
+    proposers: tuple[Proposer, ...]
     inbox: Inbox
 
     def memories(self) -> list[Memory]:
@@ -31,8 +34,14 @@ class MemorySystem:
         return self.recall.system_block(self.memories())
 
     def tools(self) -> list[Any]:
-        """For the working agent: the proposer's tools and the recall's."""
-        return [*self.proposer.tools(self.inbox), *self.recall.tools()]
+        """For the working agent: the proposers' tools and the recall's."""
+        return [*(t for p in self.proposers for t in p.tools(self.inbox)), *self.recall.tools()]
+
+    def on_run_end(self, state: State) -> dict[str, int]:
+        """Lets every proposer look after a run. Returns how many new suggestions each made, by source, leaving out
+        the ones that made none."""
+        made = {p.source: p.on_run_end(state, self.inbox) for p in self.proposers}
+        return {source: n for source, n in made.items() if n}
 
     def readable(self) -> list[Path]:
         """Folders the agent may read without asking, so a memory's file can be opened."""
@@ -46,7 +55,7 @@ def memory_system(
     kinds: Sequence[Kind] = KINDS,
     store: MemoryStore | None = None,
     recall: Recall | None = None,
-    proposer: Proposer | None = None,
+    proposers: Sequence[Proposer] | None = None,
     cap: int = CAP,
     similar: Similar = similar_text,
     on_change: Callable[[], None] | None = None,
@@ -69,6 +78,6 @@ def memory_system(
         kinds=kinds,
         store=store,
         recall=recall or IndexRecall(project, kinds),
-        proposer=proposer or AgentProposes(kinds),
+        proposers=tuple(proposers) if proposers is not None else (AgentProposes(kinds), MissingPaths(project)),
         inbox=inbox,
     )

@@ -2,7 +2,8 @@
 
 Its rules are fixed (docs/memory.md); everything around it is a port:
 
-- A suggestion close to a pending one joins it, adding its evidence.
+- A suggestion close to a pending one joins it, adding its evidence. A suggestion to remove a memory joins a pending
+  one for the same memory.
 - A suggestion close to an approved memory marks that memory "said again" and becomes a change of it.
 - A suggestion on evidence the user already declined is refused.
 - A scope is full at ``cap`` memories: a new one must name what it merges or removes, and both are approved at once.
@@ -104,13 +105,7 @@ class Inbox:
             unknown = [r for r in replaces if r not in memories]
             if unknown:
                 raise Refused(f"no {scope} memory named {', '.join(unknown)}; use the names in the memory index")
-            for declined in data["rejected"]:
-                if (
-                    declined["scope"] == scope
-                    and evidence.quote in declined["quotes"]
-                    and self.similar(declined["headline"], headline)
-                ):
-                    raise Refused("the user already declined this suggestion; do not suggest it again")
+            self._check_declined(data, scope, headline, evidence, remove=False)
 
             replaces = list(dict.fromkeys(replaces))
             for memory in memories.values():
@@ -122,7 +117,11 @@ class Inbox:
                     replaces.append(memory.id)
 
             for i, waiting in enumerate(data["pending"]):
-                if waiting["scope"] == scope and self.similar(waiting["headline"], headline):
+                if (
+                    not waiting.get("remove")
+                    and waiting["scope"] == scope
+                    and self.similar(waiting["headline"], headline)
+                ):
                     joined = replace(
                         _load_suggestion(waiting),
                         kind=kind,
@@ -155,12 +154,49 @@ class Inbox:
             self._write(data)
             return suggestion
 
+    def propose_removal(self, *, scope: Scope, memory_id: str, evidence: Evidence, source: str) -> Suggestion:
+        """Takes a suggestion to remove a memory, to wait for the user like any other.
+
+        Raises:
+            Refused: No such memory, or the user already declined removing it on the same evidence.
+        """
+        with self._lock:
+            data = self._read()
+            memory = next((m for m in self.store.list(scope) if m.id == memory_id), None)
+            if memory is None:
+                raise Refused(f"no {scope} memory named {memory_id}")
+            self._check_declined(data, scope, memory.headline, evidence, remove=True)
+            for i, waiting in enumerate(data["pending"]):
+                if waiting.get("remove") and waiting["scope"] == scope and waiting["replaces"] == [memory_id]:
+                    joined = _load_suggestion(waiting)
+                    if evidence.quote not in (e.quote for e in joined.evidence):
+                        joined = replace(joined, evidence=(*joined.evidence, evidence))
+                        data["pending"][i] = _dump_suggestion(joined)
+                        self._write(data)
+                    return joined
+            suggestion = Suggestion(
+                id=uuid.uuid4().hex[:12],
+                kind=memory.kind,
+                scope=scope,
+                headline=memory.headline,
+                body=memory.body,
+                name=memory.id,
+                replaces=(memory.id,),
+                evidence=(evidence,),
+                source=source,
+                remove=True,
+            )
+            data["pending"].append(_dump_suggestion(suggestion))
+            self._write(data)
+            return suggestion
+
     def pending(self) -> list[Suggestion]:
         with self._lock:
             return [_load_suggestion(s) for s in self._read()["pending"]]
 
     def approve(self, suggestion_id: str) -> Memory:
-        """Keeps the suggestion: writes it, removes what it replaces, and returns the memory as stored.
+        """Keeps the suggestion: writes it, removes what it replaces, and returns the memory as stored. A suggestion
+        to remove a memory removes it and returns it as it was.
 
         Raises:
             KeyError: No such pending suggestion.
@@ -169,6 +205,13 @@ class Inbox:
         with self._lock:
             data = self._read()
             suggestion = self._take(data, suggestion_id)
+            if suggestion.remove:
+                [memory_id] = suggestion.replaces
+                gone = next((m for m in self.store.list(suggestion.scope) if m.id == memory_id), None)
+                self.store.remove(suggestion.scope, memory_id)
+                data["memories"].pop(_key(suggestion.scope, memory_id), None)
+                self._write(data)
+                return gone or Memory(memory_id, suggestion.kind, suggestion.scope, suggestion.headline, "")
             existing = {m.id for m in self.store.list(suggestion.scope)}
             replaced = [r for r in suggestion.replaces if r in existing]
             if len(existing) - len(replaced) + 1 > self.cap:
@@ -201,6 +244,7 @@ class Inbox:
                     "scope": suggestion.scope,
                     "headline": suggestion.headline,
                     "quotes": [e.quote for e in suggestion.evidence],
+                    "remove": suggestion.remove,
                 }
             )
             self._write(data)
@@ -224,6 +268,18 @@ class Inbox:
             raise Refused(f"{kind} memories may only be kept in {', '.join(sorted(self.kinds[kind].scopes))}")
         if not headline:
             raise Refused("the headline is empty")
+
+    def _check_declined(
+        self, data: dict[str, Any], scope: Scope, headline: str, evidence: Evidence, *, remove: bool
+    ) -> None:
+        for declined in data["rejected"]:
+            if (
+                declined.get("remove", False) == remove
+                and declined["scope"] == scope
+                and evidence.quote in declined["quotes"]
+                and self.similar(declined["headline"], headline)
+            ):
+                raise Refused("the user already declined this suggestion; do not suggest it again")
 
     def _take(self, data: dict[str, Any], suggestion_id: str) -> Suggestion:
         for i, waiting in enumerate(data["pending"]):
@@ -310,4 +366,5 @@ def _load_suggestion(data: dict[str, Any]) -> Suggestion:
         replaces=tuple(data["replaces"]),
         evidence=tuple(_load_evidence(e) for e in data["evidence"]),
         source=data["source"],
+        remove=data.get("remove", False),
     )

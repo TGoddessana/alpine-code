@@ -1,5 +1,6 @@
-"""Who suggests memories, and when. The default gives the working agent ``propose_memory``; other proposers (a
-review before compacting, a forked review every few turns, the harness's pruning) act at the moments below."""
+"""Who suggests memories, and when. The default gives the working agent ``propose_memory``; other proposers (the
+harness's pruning in ``pruning.py``; later a review before compacting, or a forked review every few turns) act at
+the moments below. A moment is added here when a session first calls it."""
 
 from __future__ import annotations
 
@@ -20,19 +21,15 @@ class Proposer:
     """Base for proposers: every moment does nothing unless a subclass says otherwise."""
 
     source = "proposer"
+    """Recorded on its suggestions, so the app can say who suggested and why."""
 
     def tools(self, inbox: Inbox) -> list[Any]:
         """Tools given to the working agent."""
         return []
 
-    async def on_turn_end(self, agent: Any, state: State, inbox: Inbox) -> None:
-        pass
-
-    async def on_before_compact(self, agent: Any, state: State, inbox: Inbox) -> None:
-        pass
-
-    async def on_session_end(self, agent: Any, state: State, inbox: Inbox) -> None:
-        pass
+    def on_run_end(self, state: State, inbox: Inbox) -> int:
+        """After the agent answered. Returns how many new suggestions it made; the session tells the user."""
+        return 0
 
 
 class AgentProposes(Proposer):

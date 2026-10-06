@@ -421,3 +421,17 @@ function memorySuggested() {
     }),
   );
 }
+
+/** At the end of a run the harness noticed a memory names a file that is gone: one quiet line to the memory page. */
+export const MemoryReviewed: Story = {
+  parameters: {
+    server: server([
+      { id: 'r1', kind: 'user_message', text: '토스 결제 코드 지워줘' },
+      { id: 'r2', kind: 'agent_message', text: '`src/pay/toss.ts`를 지웠어요.' },
+      { id: 'r3', kind: 'memory_review', source: 'missing_paths', count: 1 },
+    ]),
+  },
+  play: async () => {
+    await expect(await screen.findByText(/기억 하나가 가리키는 파일이 없어졌어요|A memory names a file/)).toBeVisible();
+  },
+};

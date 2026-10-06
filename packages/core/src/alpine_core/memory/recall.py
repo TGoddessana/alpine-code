@@ -22,8 +22,9 @@ class Recall(Protocol):
         there is nothing to recall."""
         ...
 
-    def notice(self, memory: Memory) -> str:
-        """Text for a memory approved while a session runs, added to the conversation instead of the prompt."""
+    def notice(self, memory: Memory, removed: bool = False) -> str:
+        """Text for a memory approved (or removed) while a session runs, added to the conversation instead of the
+        prompt."""
         ...
 
     def tools(self) -> list[Any]:
@@ -52,7 +53,10 @@ class IndexRecall:
                 parts.append(f"## {_HEADINGS[scope]}\n" + "\n".join(lines))
         return "\n\n".join(parts)
 
-    def notice(self, memory: Memory) -> str:
+    def notice(self, memory: Memory, removed: bool = False) -> str:
+        if removed:
+            line = f"- {memory.kind}: {memory.headline}"
+            return f"The user removed a memory ({_SCOPE_NAMES[memory.scope]}); do not follow it any more:\n{line}"
         return f"The user approved a new memory ({_SCOPE_NAMES[memory.scope]}):\n{self._line(memory)}"
 
     def tools(self) -> list[Any]:

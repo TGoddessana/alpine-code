@@ -106,6 +106,19 @@ class StatusLine:
 
 
 @dataclass(frozen=True)
+class MemoryReview:
+    """Something the harness noticed about the project's memory during the run, waiting on the memory page. Only
+    the user reads it; the model never hears of it."""
+
+    id: str
+    source: str
+    """The proposer that noticed, which says what it was: ``missing_paths`` (a memory names a path that is gone)."""
+    count: int
+    """How many suggestions it made."""
+    kind: ClassVar[str] = "memory_review"
+
+
+@dataclass(frozen=True)
 class Compaction:
     id: str
     before_tokens: int
@@ -123,11 +136,31 @@ class RunStopped:
     kind: ClassVar[str] = "run_stopped"
 
 
-Item = UserMessage | AgentMessage | ToolCallItem | ApprovalItem | NoticeItem | StatusLine | Compaction | RunStopped
+Item = (
+    UserMessage
+    | AgentMessage
+    | ToolCallItem
+    | ApprovalItem
+    | NoticeItem
+    | StatusLine
+    | MemoryReview
+    | Compaction
+    | RunStopped
+)
 
 ITEM_KINDS: dict[str, type] = {
     cls.kind: cls
-    for cls in (UserMessage, AgentMessage, ToolCallItem, ApprovalItem, NoticeItem, StatusLine, Compaction, RunStopped)
+    for cls in (
+        UserMessage,
+        AgentMessage,
+        ToolCallItem,
+        ApprovalItem,
+        NoticeItem,
+        StatusLine,
+        MemoryReview,
+        Compaction,
+        RunStopped,
+    )
 }
 
 
@@ -338,6 +371,10 @@ class ItemRecorder:
         """A message the model reads that the user did not write."""
         return self._born_finished(NoticeItem(self._new_id(), text, source))
 
+    def add_memory_review(self, source: str, count: int) -> MemoryReview:
+        """Suggestions about the memory that the harness made during the run."""
+        return self._born_finished(MemoryReview(self._new_id(), source, count))
+
     def start_approval(
         self,
         call_id: str,
@@ -515,6 +552,7 @@ __all__ = [
     "ApprovalItem",
     "NoticeItem",
     "StatusLine",
+    "MemoryReview",
     "Compaction",
     "RunStopped",
     "ItemEvent",

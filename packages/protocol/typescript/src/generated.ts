@@ -384,6 +384,7 @@ export interface ItemCompletedEvent {
     | ApprovalItem
     | NoticeItem
     | StatusLineItem
+    | MemoryReviewItem
     | CompactionItem
     | RunStoppedItem;
 }
@@ -435,6 +436,19 @@ export interface StatusLineItem {
   text: string;
 }
 /**
+ * Something the harness noticed about the project's memory during the run, waiting on the memory page. Only the
+ * user reads it.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MemoryReviewItem".
+ */
+export interface MemoryReviewItem {
+  id: string;
+  kind: 'memory_review';
+  source: string;
+  count: number;
+}
+/**
  * Why a run ended other than by answering.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -483,6 +497,7 @@ export interface ItemStartedEvent {
     | ApprovalItem
     | NoticeItem
     | StatusLineItem
+    | MemoryReviewItem
     | CompactionItem
     | RunStoppedItem;
 }
@@ -577,6 +592,7 @@ export interface MemorySuggestionInfo {
   replaces: string[];
   evidence: MemoryEvidence[];
   source: string;
+  remove: boolean;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -890,6 +906,7 @@ export interface SessionOpenResult {
     | ApprovalItem
     | NoticeItem
     | StatusLineItem
+    | MemoryReviewItem
     | CompactionItem
     | RunStoppedItem
   )[];
@@ -900,6 +917,7 @@ export interface SessionOpenResult {
     | ApprovalItem
     | NoticeItem
     | StatusLineItem
+    | MemoryReviewItem
     | CompactionItem
     | RunStoppedItem
   )[];

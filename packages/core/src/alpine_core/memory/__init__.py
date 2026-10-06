@@ -5,7 +5,7 @@ The parts are ports, each with one default, put together by ``memory_system``:
 - kinds (``Kind``, default ``KINDS``): what is worth keeping
 - store (``MemoryStore``, default ``MarkdownStore``): where memories are kept
 - recall (``Recall``, default ``IndexRecall``): how they reach the model
-- proposer (``Proposer``, default ``AgentProposes``): who suggests them, and when
+- proposers (``Proposer``, default ``AgentProposes`` and ``MissingPaths``): who suggests them, and when
 
 The inbox between proposer and store is not a port: only what the user approves is kept.
 """
@@ -15,6 +15,7 @@ from __future__ import annotations
 from .inbox import CAP, Inbox, MemoryNotes, Refused, Similar, similar_text
 from .model import KINDS, SCOPES, Evidence, Kind, Memory, Scope, Suggestion, project_key
 from .proposer import AgentProposes, Proposer
+from .pruning import MissingPaths
 from .recall import IndexRecall, Recall
 from .registry import Memories
 from .store import MarkdownStore, MemoryStore, scope_folders
@@ -35,6 +36,7 @@ __all__ = [
     "MemoryNotes",
     "MemoryStore",
     "MemorySystem",
+    "MissingPaths",
     "Proposer",
     "Recall",
     "Refused",

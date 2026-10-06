@@ -21,12 +21,38 @@ export const MEMORY_SUGGESTION = {
   replaces: [],
   evidence: [said('버튼 문구는 해요체로 해줘', 0)],
   source: 'agent',
+  remove: false,
+} as const satisfies MemoryListResult['pending'][number];
+
+/** A memory naming a file that was deleted, and the harness's suggestion to remove it. */
+const PAY_CODE: MemoryInfo = {
+  id: 'pay-code',
+  kind: 'fact',
+  scope: 'team',
+  headline: '결제 코드는 `src/pay/toss.ts`에 있다',
+  body: '토스페이먼츠 위젯을 여기서 불러요.',
+  path: '/Users/me/alpine-code/.alpine/memory/pay-code.md',
+  evidence: [said('결제 코드 어디 있어?', 30)],
+  saidAgain: [],
+};
+
+export const MEMORY_REMOVAL = {
+  id: 'sg-2',
+  kind: 'fact',
+  scope: 'team',
+  headline: PAY_CODE.headline,
+  body: PAY_CODE.body,
+  replaces: ['pay-code'],
+  evidence: [said('src/pay/toss.ts', 0)],
+  source: 'missing_paths',
+  remove: true,
 } as const satisfies MemoryListResult['pending'][number];
 
 /** A project that has learned a few things, one of them said again after it was approved. */
 export const MEMORY: MemoryListResult = {
-  pending: [MEMORY_SUGGESTION],
+  pending: [MEMORY_SUGGESTION, MEMORY_REMOVAL],
   memories: [
+    PAY_CODE,
     {
       id: 'lint-before-commit',
       kind: 'rule',
@@ -95,6 +121,15 @@ export function memoryScript(start: Record<string, MemoryListResult> = { '/Users
         const list = of(cwd);
         const suggestion = list.pending.find((s) => s.id === suggestionId);
         if (!suggestion) throw new ServerError(-32000, 'No such suggestion', { reason: 'not_found' });
+        if (suggestion.remove) {
+          const gone = list.memories.find((m) => m.id === suggestion.replaces[0])!;
+          state.set(cwd, {
+            pending: list.pending.filter((s) => s !== suggestion),
+            memories: list.memories.filter((m) => m !== gone),
+          });
+          context.emit({ method: 'memory/changed', params: { cwd } });
+          return { memory: gone };
+        }
         const memory: MemoryInfo = {
           id: suggestion.replaces[0] ?? suggestionId,
           kind: suggestion.kind,

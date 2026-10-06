@@ -90,7 +90,9 @@ class Suggestion:
     """Memories of the same scope it changes, merges or removes."""
     evidence: tuple[Evidence, ...]
     source: str
-    """Which proposer made it ("agent", ...), so the app can say who."""
+    """Which proposer made it ("agent", "missing_paths", ...), so the app can say who and why."""
+    remove: bool = False
+    """It removes the one memory in ``replaces``; ``headline`` and ``body`` are that memory's."""
 
 
 _NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")

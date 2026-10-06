@@ -16,9 +16,11 @@ from alpine_protocol import (
     MemoryApproveParams,
     MemoryApproveResult,
     MemoryChangedParams,
+    MemoryCheck,
     MemoryEvidence,
     MemoryForgetParams,
     MemoryForgetResult,
+    MemoryGuard,
     MemoryInfo,
     MemoryListParams,
     MemoryListResult,
@@ -116,6 +118,8 @@ def _memory(memory: Memory, notes: MemoryNotes) -> MemoryInfo:
         path=str(memory.path) if memory.path else None,
         evidence=[_evidence(e) for e in notes.evidence],
         said_again=[_evidence(e) for e in notes.said_again],
+        check=_check(memory),
+        guard=_guard(memory),
     )
 
 
@@ -130,4 +134,16 @@ def _suggestion(suggestion: Suggestion) -> MemorySuggestionInfo:
         evidence=[_evidence(e) for e in suggestion.evidence],
         source=suggestion.source,
         remove=suggestion.remove,
+        check=_check(suggestion),
+        guard=_guard(suggestion),
     )
+
+
+def _check(of: Memory | Suggestion) -> MemoryCheck | None:
+    check = of.check
+    return MemoryCheck(when=check.when, expect=check.expect, say=check.say) if check else None
+
+
+def _guard(of: Memory | Suggestion) -> MemoryGuard | None:
+    guard = of.guard
+    return MemoryGuard(before=guard.before, say=guard.say) if guard else None

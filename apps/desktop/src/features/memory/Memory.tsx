@@ -3,7 +3,7 @@ import { Button, LinkButton } from '@alpine/ui/primitives';
 import clsx from 'clsx';
 import { useState } from 'react';
 
-import { Headline, SuggestionCard, useMemoryWords } from '@/shared/components/memory';
+import { Headline, Rules, SuggestionCard, useMemoryWords } from '@/shared/components/memory';
 import { useFormat, useMessages } from '@/shared/i18n';
 import { useForgetMemory, useMemory } from '@/shared/server';
 
@@ -117,6 +117,8 @@ function Row({ cwd, memory }: { cwd: string; memory: MemoryInfo }) {
         <span className="min-w-0 grow text-body">
           <Headline text={memory.headline} />
         </span>
+        {memory.check && <span className="shrink-0 pt-px text-meta text-fg-muted">{words.checkBadge}</span>}
+        {memory.guard && <span className="shrink-0 pt-px text-meta text-fg-muted">{words.guardBadge}</span>}
         {memory.saidAgain.length > 0 && (
           <span className="shrink-0 pt-px text-meta text-attention">
             {t.saidAgain(format.number(memory.saidAgain.length))}
@@ -129,6 +131,21 @@ function Row({ cwd, memory }: { cwd: string; memory: MemoryInfo }) {
       {open && (
         <div className="flex flex-col gap-3 px-3 pb-3 pl-22">
           {memory.body && <p className="text-body whitespace-pre-wrap text-fg-muted">{memory.body}</p>}
+          {(memory.check || memory.guard) && (
+            <div className="flex flex-col gap-1 text-meta text-fg-muted">
+              {memory.check && (
+                <p className="text-fg">
+                  {words.checkBadge} · <Headline text={memory.check.say} />
+                </p>
+              )}
+              {memory.guard && (
+                <p className="text-fg">
+                  {words.guardAsks} · <Headline text={memory.guard.say} />
+                </p>
+              )}
+              <Rules check={memory.check} guard={memory.guard} />
+            </div>
+          )}
           <Said label={t.learnedFrom} evidence={memory.evidence} />
           <Said label={t.saidAgainWhen} evidence={memory.saidAgain} />
           {memory.path && (

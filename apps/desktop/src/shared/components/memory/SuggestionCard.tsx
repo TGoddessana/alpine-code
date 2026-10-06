@@ -7,6 +7,7 @@ import { useFormat, useMessages } from '@/shared/i18n';
 import { ServerError, useApproveMemory, useRejectMemory } from '@/shared/server';
 
 import { Headline } from './Headline';
+import { Rules } from './Rules';
 import { messages } from './messages';
 import { useMemoryWords } from './words';
 
@@ -60,10 +61,25 @@ export function SuggestionCard({ cwd, suggestion }: { cwd: string; suggestion: M
           )}
         </div>
       )}
+      {!suggestion.remove && (suggestion.check || suggestion.guard) && (
+        <div className="flex flex-col gap-0.5 text-meta">
+          {suggestion.check && (
+            <p>
+              {t.checkBadge} · <Headline text={suggestion.check.say} />
+            </p>
+          )}
+          {suggestion.guard && (
+            <p>
+              {t.guardAsks} · <Headline text={suggestion.guard.say} />
+            </p>
+          )}
+        </div>
+      )}
       {open && (
-        <p className="rounded-lg bg-canvas-sunken px-3 py-2 text-body whitespace-pre-wrap text-fg-muted">
-          {suggestion.body}
-        </p>
+        <div className="flex flex-col gap-2 rounded-lg bg-canvas-sunken px-3 py-2 text-body text-fg-muted">
+          {suggestion.body && <p className="whitespace-pre-wrap">{suggestion.body}</p>}
+          <Rules check={suggestion.check} guard={suggestion.guard} />
+        </div>
       )}
       {error && (
         <p role="alert" className="text-meta text-danger">
@@ -78,7 +94,7 @@ export function SuggestionCard({ cwd, suggestion }: { cwd: string; suggestion: M
           {suggestion.remove ? t.keepIt : t.decline}
         </Button>
         <span className="grow" />
-        {suggestion.body && (
+        {(suggestion.body || suggestion.check || suggestion.guard) && (
           <LinkButton aria-expanded={open} onClick={() => setOpen(!open)}>
             {open ? t.hideBody : t.showBody}
             <span aria-hidden="true" className={clsx('ml-1 inline-block transition-transform', open && 'rotate-90')}>

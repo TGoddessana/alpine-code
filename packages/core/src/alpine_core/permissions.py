@@ -29,12 +29,15 @@ from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from functools import cache
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from alpineagents import Tool
 
 from . import shell
 from .tools import Workspace
+
+if TYPE_CHECKING:
+    from .memory.rules import GuardMatcher
 
 ToolKind = Literal["read", "edit", "exec"]
 
@@ -131,12 +134,18 @@ class PermissionPolicy:
     mode: Mode = Mode.DEFAULT
     readable: tuple[Path, ...] = ()
     """Folders outside the workspace whose files may be read without asking: the user's memory folders."""
+    guards: GuardMatcher | None = None
+    """Calls the user is always asked about, whatever the mode and whatever was allowed before (memory guards)."""
 
     def evaluate(
         self, name: str, args: dict[str, Any], tool: Tool | None, remembered: Remembered | None = None
     ) -> Verdict:
         """Whether a call to ``name`` with ``args`` may run without asking. ``tool`` is the Tool the name stands
         for, or ``None`` for a name the model made up. ``remembered`` is what the user already allowed."""
+        if self.guards is not None:
+            reason = self.guards.asks(name, args, self.workspace.root)
+            if reason:
+                return Verdict(False, reason)  # no grant: a guard asks every time
         if self.mode is Mode.YOLO:
             return ALLOW
         remembered = remembered or Remembered()

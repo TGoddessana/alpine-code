@@ -1,18 +1,19 @@
 """The permissions the Agent runs, and how they ask a frontend whether a tool call may run.
 
-``build_permissions`` builds the list alpineagents asks about every call: deny permissions first (none yet; rules
-the user writes will go there), then ``AllowByPolicy`` for what the mode and the conversation's "don't ask again"
-answers allow, then ``DecideByApprover``, which asks the frontend's ``Approver`` about the rest.
+``build_permissions`` builds the list alpineagents asks about every call: deny permissions first (memory checks
+that refuse a command until something else ran), then ``AllowByPolicy`` for what the mode and the conversation's
+"don't ask again" answers allow, then ``DecideByApprover``, which asks the frontend's ``Approver`` about the rest.
 """
 
 from __future__ import annotations
 
 import difflib
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
 from alpineagents import State, Tool, ToolCall
-from alpineagents.permissions import Allowed, AllowPermission, DecidePermission, Denied, Permission
+from alpineagents.permissions import Allowed, AllowPermission, DecidePermission, Denied, DenyPermission, Permission
 
 from .permissions import PermissionPolicy, Remembered, Verdict
 from .tools import Workspace, preview_edit
@@ -87,9 +88,29 @@ class AsyncApprover(Protocol):
 Approver = BlockingApprover | AsyncApprover
 
 
-def build_permissions(policy: PermissionPolicy, approver: Approver) -> list[Permission]:
-    """The permissions for ``Agent(permissions=...)``, in the order alpineagents asks them."""
-    return [AllowByPolicy(policy), DecideByApprover(policy, approver)]
+def build_permissions(
+    policy: PermissionPolicy, approver: Approver, refusal: Callable[[ToolCall], str | None] | None = None
+) -> list[Permission]:
+    """The permissions for ``Agent(permissions=...)``, in the order alpineagents asks them. With ``refusal``, a call
+    it gives a reason for is refused first (memory checks)."""
+    first: list[Permission] = [RefuseByChecks(refusal)] if refusal is not None else []
+    return [*first, AllowByPolicy(policy), DecideByApprover(policy, approver)]
+
+
+class RefuseByChecks(DenyPermission):
+    """Refuses a call when a memory check says it must not run yet (``git commit`` before ``pnpm lint``): the model is
+    told what to do first, and the run goes on. Deny permissions come first, so the user is not asked about a call
+    that would be refused anyway."""
+
+    def __init__(self, refusal: Callable[[ToolCall], str | None]) -> None:
+        self.refusal = refusal
+
+    def check(self, state: State, call: ToolCall, tool: Tool) -> Denied | None:
+        reason = self.refusal(call)
+        return Denied(reason) if reason else None
+
+    async def acheck(self, state: State, call: ToolCall, tool: Tool) -> Denied | None:
+        return self.check(state, call, tool)  # quick, and reads the session on its own thread
 
 
 class AllowByPolicy(AllowPermission):

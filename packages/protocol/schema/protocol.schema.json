@@ -1208,6 +1208,27 @@
       "title": "MemoryChangedParams",
       "type": "object"
     },
+    "MemoryCheck": {
+      "description": "What the harness checks while the agent works, in the forms of docs/memory.md (English, for the model).",
+      "properties": {
+        "when": {
+          "type": "string"
+        },
+        "expect": {
+          "type": "string"
+        },
+        "say": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "when",
+        "expect",
+        "say"
+      ],
+      "title": "MemoryCheck",
+      "type": "object"
+    },
     "MemoryEvidence": {
       "description": "Where a suggestion came from, as the harness saw it.",
       "properties": {
@@ -1260,6 +1281,23 @@
       "title": "MemoryForgetResult",
       "type": "object"
     },
+    "MemoryGuard": {
+      "description": "A call the user is always asked about, whatever the mode.",
+      "properties": {
+        "before": {
+          "type": "string"
+        },
+        "say": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "before",
+        "say"
+      ],
+      "title": "MemoryGuard",
+      "type": "object"
+    },
     "MemoryInfo": {
       "properties": {
         "id": {
@@ -1303,6 +1341,28 @@
             "$ref": "#/$defs/MemoryEvidence"
           },
           "type": "array"
+        },
+        "check": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MemoryCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "guard": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MemoryGuard"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1439,6 +1499,28 @@
         },
         "remove": {
           "type": "boolean"
+        },
+        "check": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MemoryCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "guard": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MemoryGuard"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [

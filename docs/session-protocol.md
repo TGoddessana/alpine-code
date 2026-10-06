@@ -25,7 +25,7 @@ finished items are stored; text deltas are sent live and never saved.
 | `agent_message` | `text` | the agent's prose |
 | `tool_call` | `name`, `args`, `status`, `result`, `images` | a tool line or card; `id` is the model's call id; `images` is how many images the tool sent to the model (a count, not the images) |
 | `approval` | `callId`, `title`, `preview`, `previewKind`, `reason`, `remember`, `decision`, `feedback` | while active: a card in the chat where the call will be; when finished: nothing of its own, a denied call shows the feedback |
-| `notice` | `text`, `source` | a message the **model reads** that the user did not write (e.g. a hand-back after a reply with no tool call, or `source: memory`: a memory the user approved while the session was open) |
+| `notice` | `text`, `source` | a message the **model reads** that the user did not write (e.g. a hand-back after a reply with no tool call, or a memory: `memory_added` and `memory_removed` when the user approves or removes one while the session is open, `memory_check` when a memory's check failed; the app words these itself) |
 | `status_line` | `text` | a line only the user reads (e.g. a model fallback) |
 | `memory_review` | `source`, `count` | a line only the user reads: the harness made `count` suggestions about the memory at the end of the run (`source: missing_paths`); they wait on the memory page |
 | `compaction` | `beforeTokens`, `afterTokens` | a divider |

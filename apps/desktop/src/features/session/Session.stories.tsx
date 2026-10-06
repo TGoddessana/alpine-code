@@ -435,3 +435,49 @@ export const MemoryReviewed: Story = {
     await expect(await screen.findByText(/기억 하나가 가리키는 파일이 없어졌어요|A memory names a file/)).toBeVisible();
   },
 };
+
+/** A memory's check refused a commit until lint ran, and another reminded the agent after it edited a migration. */
+export const MemoryChecks: Story = {
+  parameters: {
+    server: server([
+      { id: 'c1', kind: 'user_message', text: '테이블 고치고 커밋해 줘' },
+      {
+        id: 'c2',
+        kind: 'tool_call',
+        name: 'edit',
+        args: { path: 'supabase/migrations/001_init.sql' },
+        status: 'done',
+        result: 'Edited supabase/migrations/001_init.sql',
+        images: 0,
+      },
+      {
+        id: 'c3',
+        kind: 'notice',
+        text: "A check from the project's memory failed: 기존 마이그레이션은 고치지 말고 새 파일로 만들어 주세요.",
+        source: 'memory_check',
+      },
+      {
+        id: 'c4',
+        kind: 'tool_call',
+        name: 'bash',
+        args: { command: 'git commit -am "Fix table"' },
+        status: 'denied',
+        result: '커밋 전에 `pnpm lint`를 먼저 돌려 주세요.',
+        images: 0,
+      },
+      {
+        id: 'c5',
+        kind: 'tool_call',
+        name: 'bash',
+        args: { command: 'pnpm lint && git commit -am "Fix table"' },
+        status: 'done',
+        result: '✓ lint passed\n[main 1a2b3c4] Fix table',
+        images: 0,
+      },
+      { id: 'c6', kind: 'agent_message', text: '새 마이그레이션 파일로 옮기고, 린트를 돌린 뒤 커밋했어요.' },
+    ]),
+  },
+  play: async () => {
+    await expect(await screen.findByText(/기억에 적힌 확인에 걸렸어요|A memory check failed/)).toBeVisible();
+  },
+};

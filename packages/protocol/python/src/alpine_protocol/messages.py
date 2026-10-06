@@ -863,6 +863,23 @@ class MemoryEvidence(Message):
     """The user's last message when it was made."""
 
 
+class MemoryCheck(Message):
+    """What the harness checks while the agent works, in the forms of docs/memory.md (English, for the model)."""
+
+    when: str
+    expect: str
+    say: str
+    """What the agent is told when it fails, in the user's words."""
+
+
+class MemoryGuard(Message):
+    """A call the user is always asked about, whatever the mode."""
+
+    before: str
+    say: str
+    """Why it asks; the approval card shows it."""
+
+
 class MemoryInfo(Message):
     id: str
     kind: str
@@ -876,6 +893,8 @@ class MemoryInfo(Message):
     evidence: list[MemoryEvidence]
     said_again: list[MemoryEvidence]
     """Suggestions close to it after it was approved: it was not followed, or needs saying better."""
+    check: MemoryCheck | None = None
+    guard: MemoryGuard | None = None
 
 
 class MemorySuggestionInfo(Message):
@@ -893,6 +912,8 @@ class MemorySuggestionInfo(Message):
     remove: bool
     """It removes the memory in ``replaces`` instead of keeping something; ``headline`` and ``body`` are that
     memory's."""
+    check: MemoryCheck | None = None
+    guard: MemoryGuard | None = None
 
 
 class MemoryListParams(Message):

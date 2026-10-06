@@ -9,6 +9,14 @@ A memory file::
 
     이유: 사용자가 두 번 고쳐 말함 (버튼, 오류 메시지).
 
+A check or a guard (``model.py``) is written in the front matter, one key per line::
+
+    check-when: before command "git commit"
+    check-expect: command "pnpm lint" ran after the last change
+    check-say: 커밋 전에 `pnpm lint`를 먼저 돌려 주세요.
+    guard-before: command "supabase db execute --linked"
+    guard-say: 운영 DB에 직접 SQL을 실행하려고 해요.
+
 The files are the truth: ``index.md`` is rewritten from them on every change, for people browsing the folder. A file
 people wrote by hand without the front matter is a rule, and its first line is its headline.
 """
@@ -21,7 +29,7 @@ from pathlib import Path
 from typing import Protocol
 
 from ..home import home_dir
-from .model import Memory, Scope, file_name, project_key
+from .model import Check, Guard, Memory, Scope, file_name, project_key
 
 INDEX = "index.md"
 
@@ -111,26 +119,41 @@ class MarkdownStore:
 
 def _render(memory: Memory) -> str:
     body = memory.body.strip()
-    return f"---\nkind: {memory.kind}\n---\n# {memory.headline}\n" + (f"\n{body}\n" if body else "")
+    front = [f"kind: {memory.kind}"]
+    if memory.check is not None:
+        front += [f"check-{key}: {_line(value)}" for key, value in vars(memory.check).items()]
+    if memory.guard is not None:
+        front += [f"guard-{key}: {_line(value)}" for key, value in vars(memory.guard).items()]
+    return "---\n" + "\n".join(front) + f"\n---\n# {memory.headline}\n" + (f"\n{body}\n" if body else "")
+
+
+def _line(value: str) -> str:
+    return " ".join(value.split())
 
 
 def _parse(text: str, memory_id: str, scope: Scope) -> Memory | None:
-    kind = "rule"
+    front: dict[str, str] = {}
     lines = text.splitlines()
     if lines and lines[0].strip() == "---" and "---" in (line.strip() for line in lines[1:]):
         end = next(i for i, line in enumerate(lines[1:], 1) if line.strip() == "---")
         for line in lines[1:end]:
             key, _, value = line.partition(":")
-            if key.strip() == "kind" and value.strip():
-                kind = value.strip()
+            if value.strip():
+                front[key.strip()] = value.strip()
         lines = lines[end + 1 :]
+    kind = front.get("kind", "rule")
+    check = guard = None
+    if all(f"check-{key}" in front for key in ("when", "expect", "say")):
+        check = Check(front["check-when"], front["check-expect"], front["check-say"])
+    if all(f"guard-{key}" in front for key in ("before", "say")):
+        guard = Guard(front["guard-before"], front["guard-say"])
     while lines and not lines[0].strip():
         lines.pop(0)
     if not lines:
         return None
     headline = lines[0].strip().lstrip("#").strip()
     body = "\n".join(lines[1:]).strip()
-    return Memory(memory_id, kind, scope, headline, body) if headline else None
+    return Memory(memory_id, kind, scope, headline, body, check=check, guard=guard) if headline else None
 
 
 def _write(file: Path, text: str) -> None:

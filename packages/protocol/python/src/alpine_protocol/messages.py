@@ -208,6 +208,26 @@ class ConnectionsSetDefaultResult(Message):
     default_model: str
 
 
+# Settings: what new sessions start with, besides the model (connections/setDefault).
+
+
+class SettingsGetParams(Message):
+    pass
+
+
+class SettingsGetResult(Message):
+    mode: Mode
+    """The permission mode new sessions start with (config.toml ``mode``, shared with the terminal)."""
+
+
+class SettingsSetModeParams(Message):
+    mode: Mode
+
+
+class SettingsSetModeResult(Message):
+    mode: Mode
+
+
 # ChatGPT: a connection that signs in with the user's ChatGPT account and runs on their plan
 # (docs/chatgpt-sign-in.md). The browser does the signing in; the server waits for it and announces the end with
 # chatgpt/signInFinished.
@@ -969,6 +989,8 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "connections/remove": (ConnectionsRemoveParams, ConnectionsRemoveResult),
     "connections/showModel": (ConnectionsShowModelParams, ConnectionsShowModelResult),
     "connections/setDefault": (ConnectionsSetDefaultParams, ConnectionsSetDefaultResult),
+    "settings/get": (SettingsGetParams, SettingsGetResult),
+    "settings/setMode": (SettingsSetModeParams, SettingsSetModeResult),
     "chatgpt/signIn": (ChatGPTSignInParams, ChatGPTSignInResult),
     "chatgpt/cancelSignIn": (ChatGPTCancelSignInParams, ChatGPTCancelSignInResult),
     "chatgpt/signOut": (ChatGPTSignOutParams, ChatGPTSignOutResult),

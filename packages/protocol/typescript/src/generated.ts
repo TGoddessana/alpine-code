@@ -994,6 +994,32 @@ export interface SessionSetModelResult {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SettingsGetParams".
+ */
+export interface SettingsGetParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SettingsGetResult".
+ */
+export interface SettingsGetResult {
+  mode: 'default' | 'accept_edits' | 'yolo';
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SettingsSetModeParams".
+ */
+export interface SettingsSetModeParams {
+  mode: 'default' | 'accept_edits' | 'yolo';
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SettingsSetModeResult".
+ */
+export interface SettingsSetModeResult {
+  mode: 'default' | 'accept_edits' | 'yolo';
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ToolFileInfo".
  */
 export interface ToolFileInfo {
@@ -1184,6 +1210,8 @@ export interface Methods {
   'connections/remove': { params: ConnectionsRemoveParams; result: ConnectionsRemoveResult };
   'connections/showModel': { params: ConnectionsShowModelParams; result: ConnectionsShowModelResult };
   'connections/setDefault': { params: ConnectionsSetDefaultParams; result: ConnectionsSetDefaultResult };
+  'settings/get': { params: SettingsGetParams; result: SettingsGetResult };
+  'settings/setMode': { params: SettingsSetModeParams; result: SettingsSetModeResult };
   'chatgpt/signIn': { params: ChatGPTSignInParams; result: ChatGPTSignInResult };
   'chatgpt/cancelSignIn': { params: ChatGPTCancelSignInParams; result: ChatGPTCancelSignInResult };
   'chatgpt/signOut': { params: ChatGPTSignOutParams; result: ChatGPTSignOutResult };

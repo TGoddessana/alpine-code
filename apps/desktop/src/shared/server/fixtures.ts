@@ -1,4 +1,10 @@
-import type { ConnectionInfo, ConnectionsListResult, ProjectInfo, ProviderInfo } from '@alpine/protocol';
+import type {
+  ConnectionInfo,
+  ConnectionsListResult,
+  ProjectInfo,
+  ProviderInfo,
+  SettingsGetResult,
+} from '@alpine/protocol';
 
 import { ServerError } from './connection';
 import { memoryScript } from './memoryScript';
@@ -91,6 +97,7 @@ interface ScriptState {
  */
 export function statefulScript(start: ScriptState): Script {
   let { connections, projects } = start;
+  let settings: SettingsGetResult = { mode: 'default' };
   const signIns = new Map<string, ReturnType<typeof setTimeout>>();
   /** Models shown or hidden by hand, by connection: `connections/showModel`. */
   const chosen = new Map<string, Map<string, boolean>>();
@@ -198,6 +205,8 @@ export function statefulScript(start: ScriptState): Script {
         connections = { ...connections, defaultModel: model };
         return { defaultModel: model };
       },
+      'settings/get': () => settings,
+      'settings/setMode': ({ mode }) => (settings = { mode }),
       'projects/list': () => ({ projects, cloneParent: '/Users/me' }),
       'projects/open': ({ path }) => {
         const opened = project(path);

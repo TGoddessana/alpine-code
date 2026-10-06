@@ -35,7 +35,9 @@ export {
   useProjects,
   useRemoveConnection,
   useServerInfo,
+  useSetDefaultMode,
   useSetDefaultModel,
+  useSettings,
   useShowModel,
   shownModels,
 } from './queries';

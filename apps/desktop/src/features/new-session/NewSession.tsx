@@ -2,11 +2,11 @@ import type { ProjectInfo } from '@alpine/protocol';
 import { Button, Menu } from '@alpine/ui/primitives';
 import { useRef, useState } from 'react';
 
-import { Composer, ModelPicker, ProfileChip } from '@/shared/components/composer';
+import { Composer, ModelPicker, ProfileChip, type Mode } from '@/shared/components/composer';
 import { GitBar } from '@/shared/components/git';
 import { useMessages } from '@/shared/i18n';
 import { useOpenFolder } from '@/shared/platform';
-import { useConnections, useNewSession, useSendMessage } from '@/shared/server';
+import { useConnections, useNewSession, useSendMessage, useSettings } from '@/shared/server';
 
 import { CloneDialog } from './CloneDialog';
 import { ExampleCards } from './ExampleCards';
@@ -17,7 +17,8 @@ import { messages } from './messages';
  * a session and appear with the first message, while the input stays where it is.
  *
  * Sending starts the session in the project's folder with the default model, sends the message, and calls
- * `onStarted` with the new session's id so the app can show it.
+ * `onStarted` with the new session's id so the app can show it. The session starts in the default permission mode
+ * (Settings › General) unless one is picked in the chip, which counts for this session only.
  */
 export function NewSession({
   projects,
@@ -41,6 +42,9 @@ export function NewSession({
   // A profile picked in the chip, for this project only; otherwise the one the project and model match.
   const [profile, setProfile] = useState<{ path: string; id: string } | null>(null);
   const [prefill, setPrefill] = useState({ text: '', key: 0 });
+  const defaultMode = useSettings().data?.mode;
+  const [mode, setMode] = useState<Mode | null>(null);
+  const shownMode = mode ?? defaultMode;
   const chosen = profile?.path === project.path ? profile.id : null;
 
   const start = async (text: string) => {
@@ -49,12 +53,14 @@ export function NewSession({
         cwd: project.path,
         ...(defaultModel ? { model: defaultModel } : {}),
         ...(chosen ? { profile: chosen } : {}),
+        ...(mode ? { mode } : {}),
       });
       made.current = { path: project.path, id: info.id };
     }
     const { id } = made.current;
     await sendMessage.mutateAsync({ sessionId: id, text });
     made.current = null;
+    setMode(null);
     onStarted(id);
   };
 
@@ -96,6 +102,7 @@ export function NewSession({
         <Composer
           onSend={start}
           prefill={prefill}
+          mode={shownMode ? { value: shownMode, onChange: setMode } : undefined}
           bar={
             <>
               <ProfileChip

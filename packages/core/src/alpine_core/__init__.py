@@ -14,6 +14,7 @@ from .config import (
     config_file,
     remove_connection,
     save_connection,
+    set_default_mode,
     set_default_model,
     show_model,
 )
@@ -122,6 +123,7 @@ __all__ = [
     "Connection",
     "remove_connection",
     "save_connection",
+    "set_default_mode",
     "set_default_model",
     "show_model",
     "hidden_models",

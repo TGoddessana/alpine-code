@@ -4,6 +4,7 @@ import {
   type ConnectionsModelsParams,
   type ConnectionsModelsResult,
   type ConnectionsShowModelParams,
+  type SettingsGetResult,
 } from '@alpine/protocol';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -114,6 +115,21 @@ export function useSetDefaultModel() {
   return useMutation({
     mutationFn: (model: string) => server.request('connections/setDefault', { model }),
     onSuccess: () => client.invalidateQueries({ queryKey: ['connections'] }),
+  });
+}
+
+/** What new sessions start with besides the model: the permission mode (shared with the terminal). */
+export function useSettings() {
+  const server = useServer();
+  return useQuery({ queryKey: ['settings'], queryFn: () => server.request('settings/get', {}), retry: false });
+}
+
+export function useSetDefaultMode() {
+  const server = useServer();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (mode: SettingsGetResult['mode']) => server.request('settings/setMode', { mode }),
+    onSuccess: (result) => client.setQueryData(['settings'], result),
   });
 }
 

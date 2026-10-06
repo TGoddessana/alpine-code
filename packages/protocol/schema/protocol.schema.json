@@ -31,6 +31,14 @@
       "params": "ConnectionsSetDefaultParams",
       "result": "ConnectionsSetDefaultResult"
     },
+    "settings/get": {
+      "params": "SettingsGetParams",
+      "result": "SettingsGetResult"
+    },
+    "settings/setMode": {
+      "params": "SettingsSetModeParams",
+      "result": "SettingsSetModeResult"
+    },
     "chatgpt/signIn": {
       "params": "ChatGPTSignInParams",
       "result": "ChatGPTSignInResult"
@@ -2671,6 +2679,62 @@
         "info"
       ],
       "title": "SessionSetModelResult",
+      "type": "object"
+    },
+    "SettingsGetParams": {
+      "properties": {},
+      "title": "SettingsGetParams",
+      "type": "object"
+    },
+    "SettingsGetResult": {
+      "properties": {
+        "mode": {
+          "enum": [
+            "default",
+            "accept_edits",
+            "yolo"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "SettingsGetResult",
+      "type": "object"
+    },
+    "SettingsSetModeParams": {
+      "properties": {
+        "mode": {
+          "enum": [
+            "default",
+            "accept_edits",
+            "yolo"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "SettingsSetModeParams",
+      "type": "object"
+    },
+    "SettingsSetModeResult": {
+      "properties": {
+        "mode": {
+          "enum": [
+            "default",
+            "accept_edits",
+            "yolo"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "SettingsSetModeResult",
       "type": "object"
     },
     "StatusLineItem": {

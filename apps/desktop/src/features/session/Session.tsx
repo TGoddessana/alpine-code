@@ -10,6 +10,7 @@ import {
   useCancelSession,
   useSendMessage,
   useSession,
+  useSetSessionMode,
 } from '@/shared/server';
 
 import { Chat } from './Chat';
@@ -23,7 +24,8 @@ const FOLLOW_PX = 80;
 /**
  * A session's centre column: the chat ending in the progress line while a run is
  * active (a call that waits for my answer is a card in it), and the input at the bottom (with the conversation
- * length meter in its bar). While the run goes on the send button is a stop button. While a call waits, what I write in the input skips
+ * length meter in its bar, and the permission mode, which can change any time and counts from the next call: a call
+ * already waiting stays). While the run goes on the send button is a stop button. While a call waits, what I write in the input skips
  * it and tells the agent what to do instead. Project, branch and state are in the top bar.
  */
 export function Session({ sessionId }: { sessionId: string }) {
@@ -32,6 +34,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   const send = useSendMessage();
   const cancel = useCancelSession();
   const answer = useAnswerApproval();
+  const setMode = useSetSessionMode();
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const following = useRef(true);
@@ -108,6 +111,7 @@ export function Session({ sessionId }: { sessionId: string }) {
             return send.mutateAsync({ sessionId, text });
           }}
           onStop={() => cancel.mutate(sessionId)}
+          mode={{ value: info.mode, onChange: (mode) => setMode.mutate({ sessionId, mode }) }}
         />
       </div>
     </main>

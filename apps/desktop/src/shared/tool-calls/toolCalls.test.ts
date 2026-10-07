@@ -32,6 +32,8 @@ describe('editDiff', () => {
     remember: null,
     decision: 'allow',
     feedback: null,
+    review: null,
+    reviewError: null,
     tool: 'edit',
     args: { path: 'a.ts' },
     ...over,

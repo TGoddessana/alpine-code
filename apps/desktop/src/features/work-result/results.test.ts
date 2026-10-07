@@ -25,6 +25,8 @@ const diffApproval = (callId: string, path: string, preview: string): ApprovalIt
   remember: null,
   decision: 'allow',
   feedback: null,
+  review: null,
+  reviewError: null,
   tool: 'edit',
   args: { path },
 });

@@ -37,6 +37,7 @@ export {
   useServerInfo,
   useSetDefaultMode,
   useSetDefaultModel,
+  useSetReviewModel,
   useSettings,
   useShowModel,
   shownModels,

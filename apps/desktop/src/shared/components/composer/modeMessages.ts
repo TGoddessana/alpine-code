@@ -9,12 +9,14 @@ export const modeMessages = defineMessages({
       ({
         default: '물어보고 하기',
         accept_edits: '파일 수정은 바로',
+        auto: '알아서 하기',
         yolo: '묻지 않고 다 하기',
       })[mode],
     description: (mode: Mode) =>
       ({
         default: '파일을 고치거나 명령을 실행하기 전에 물어봐요',
         accept_edits: '파일은 바로 고치고, 명령은 실행하기 전에 물어봐요',
+        auto: '위험해 보이는 일만 AI가 확인하고 막아요',
         yolo: '폴더 밖 파일이나 위험한 명령도 묻지 않고 실행해요',
       })[mode],
     chipTitle: '안전 · Shift+Tab으로 바꾸기',
@@ -26,12 +28,14 @@ export const modeMessages = defineMessages({
       ({
         default: 'Ask first',
         accept_edits: 'Edit files freely',
+        auto: 'Auto',
         yolo: 'Never ask',
       })[mode],
     description: (mode: Mode) =>
       ({
         default: 'Asks before changing files or running commands',
         accept_edits: 'Changes files right away, asks before running commands',
+        auto: 'An AI checks what looks risky and blocks it',
         yolo: 'Runs anything without asking, even outside the folder',
       })[mode],
     chipTitle: 'Safety · Shift+Tab to change',

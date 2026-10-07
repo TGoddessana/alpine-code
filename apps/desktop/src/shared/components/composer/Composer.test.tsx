@@ -60,12 +60,15 @@ describe('Composer', () => {
     const { getByRole, rerender } = show(<Composer bar={null} mode={{ value: 'accept_edits', onChange }} />);
     const box = getByRole('textbox');
     fireEvent.keyDown(box, { key: 'Tab', shiftKey: true });
+    expect(onChange).toHaveBeenLastCalledWith('auto');
+    rerender(<Composer bar={null} mode={{ value: 'auto', onChange }} />);
+    fireEvent.keyDown(box, { key: 'Tab', shiftKey: true });
     expect(onChange).toHaveBeenLastCalledWith('yolo');
     rerender(<Composer bar={null} mode={{ value: 'yolo', onChange }} />);
     fireEvent.keyDown(box, { key: 'Tab', shiftKey: true });
     expect(onChange).toHaveBeenLastCalledWith('default');
     fireEvent.keyDown(box, { key: 'Tab' });
-    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(onChange).toHaveBeenCalledTimes(3);
     expect(getByRole('button', { name: '안전: 묻지 않고 다 하기' })).toBeTruthy();
   });
 });

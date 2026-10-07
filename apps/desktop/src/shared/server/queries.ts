@@ -118,7 +118,8 @@ export function useSetDefaultModel() {
   });
 }
 
-/** What new sessions start with besides the model: the permission mode (shared with the terminal). */
+/** What new sessions start with besides the model: the permission mode (shared with the terminal) and the model auto
+ * mode's reviewer uses. */
 export function useSettings() {
   const server = useServer();
   return useQuery({ queryKey: ['settings'], queryFn: () => server.request('settings/get', {}), retry: false });
@@ -129,7 +130,19 @@ export function useSetDefaultMode() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (mode: SettingsGetResult['mode']) => server.request('settings/setMode', { mode }),
-    onSuccess: (result) => client.setQueryData(['settings'], result),
+    onSuccess: (result) =>
+      client.setQueryData(['settings'], (old: SettingsGetResult | undefined) => ({ ...old, ...result })),
+  });
+}
+
+/** The model auto mode's reviewer uses in new sessions; `null` is each session's own model. */
+export function useSetReviewModel() {
+  const server = useServer();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (reviewModel: string | null) => server.request('settings/setReviewModel', { reviewModel }),
+    onSuccess: (result) =>
+      client.setQueryData(['settings'], (old: SettingsGetResult | undefined) => ({ ...old!, ...result })),
   });
 }
 

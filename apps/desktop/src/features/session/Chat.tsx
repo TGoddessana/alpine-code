@@ -11,7 +11,7 @@ import { toBlocks, type Block } from './blocks';
 import { MemoryCard, MemoryReviewLine } from './MemoryCard';
 import { messages } from './messages';
 import { useRevealed } from './reveal';
-import { ToolCalls } from './ToolCalls';
+import { BlockedLine, ToolCalls } from './ToolCalls';
 
 const quiet = 'text-meta text-fg-muted whitespace-pre-wrap';
 
@@ -37,6 +37,8 @@ export function Chat({
       {toBlocks(items, activeIds).map((block) =>
         block.type === 'tools' ? (
           <ToolCalls key={block.id} rows={block.rows} />
+        ) : block.type === 'blocked' ? (
+          <BlockedLine key={block.item.id} item={block.item} />
         ) : block.type === 'approval' ? (
           <ApprovalCard key={block.item.id} sessionId={sessionId} approval={block.item} />
         ) : block.type === 'memory' ? (

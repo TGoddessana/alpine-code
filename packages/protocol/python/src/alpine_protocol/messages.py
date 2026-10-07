@@ -218,6 +218,8 @@ class SettingsGetParams(Message):
 class SettingsGetResult(Message):
     mode: Mode
     """The permission mode new sessions start with (config.toml ``mode``, shared with the terminal)."""
+    review_model: str | None = None
+    """``<connection>/<model>`` of auto mode's reviewer in new sessions; ``None``: each session's own model."""
 
 
 class SettingsSetModeParams(Message):
@@ -226,6 +228,15 @@ class SettingsSetModeParams(Message):
 
 class SettingsSetModeResult(Message):
     mode: Mode
+
+
+class SettingsSetReviewModelParams(Message):
+    review_model: str | None
+    """``None``: each session's own model."""
+
+
+class SettingsSetReviewModelResult(Message):
+    review_model: str | None
 
 
 # ChatGPT: a connection that signs in with the user's ChatGPT account and runs on their plan
@@ -556,8 +567,9 @@ class ProfilesResolveResult(Message):
 
 # Sessions: see docs/session-protocol.md
 
-Mode = Literal["default", "accept_edits", "yolo"]
-"""The core's permission modes: ask before edits and commands, ask before commands only, or never ask."""
+Mode = Literal["default", "accept_edits", "auto", "yolo"]
+"""The core's permission modes: ask before edits and commands, ask before commands only, let a reviewer model
+decide what ``accept_edits`` would ask (docs/auto-mode.md), or never ask."""
 
 SessionStatus = Literal["idle", "running", "waiting", "failed"]
 """``waiting``: an approval is active. ``failed``: the last run failed; until the next message."""
@@ -577,9 +589,10 @@ class Usage(Message):
     """Dollars; ``None`` when the model has no known price."""
 
 
-ActivityKind = Literal["thinking", "writing", "running_tool", "waiting_approval", "compacting"]
+ActivityKind = Literal["thinking", "writing", "running_tool", "reviewing", "waiting_approval", "compacting"]
 """``thinking``: request sent, no text yet. ``writing``: reply text streaming. ``running_tool``: a tool call runs.
-``waiting_approval``: an approval is active. ``compacting``: the context is being summarized."""
+``reviewing``: auto mode's reviewer decides about a call (``tool_name``). ``waiting_approval``: an approval is
+active. ``compacting``: the context is being summarized."""
 
 
 class Activity(Message):
@@ -662,6 +675,23 @@ class ApprovalItem(ItemModel):
     tool: str = ""
     """The call's tool and arguments, so the app can draw the call it asks about (empty in older sessions)."""
     args: dict[str, Any] = Field(default_factory=dict)
+    review: Literal["blocked_in_a_row", "failed"] | None = None
+    """In auto mode, why the user is asked instead of the reviewer: it blocked 3 calls in a row, or it failed."""
+    review_error: str | None = None
+    """What went wrong when ``review`` is ``failed``, in the error's own words."""
+
+
+class ReviewBlockedItem(ItemModel):
+    """Auto mode's reviewer blocked a call; the model was told ``reason`` and went on. The call follows as a denied
+    ``tool_call`` with the same ``call_id``."""
+
+    id: str
+    kind: Literal["review_blocked"] = "review_blocked"
+    call_id: str
+    tool: str
+    args: dict[str, Any]
+    reason: str | None = None
+    """A few words from the reviewer, in the user's language when it follows the instructions."""
 
 
 class NoticeItem(ItemModel):
@@ -715,6 +745,7 @@ Item = Annotated[
     | AgentMessageItem
     | ToolCallItem
     | ApprovalItem
+    | ReviewBlockedItem
     | NoticeItem
     | StatusLineItem
     | MemoryReviewItem
@@ -991,6 +1022,7 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "connections/setDefault": (ConnectionsSetDefaultParams, ConnectionsSetDefaultResult),
     "settings/get": (SettingsGetParams, SettingsGetResult),
     "settings/setMode": (SettingsSetModeParams, SettingsSetModeResult),
+    "settings/setReviewModel": (SettingsSetReviewModelParams, SettingsSetReviewModelResult),
     "chatgpt/signIn": (ChatGPTSignInParams, ChatGPTSignInResult),
     "chatgpt/cancelSignIn": (ChatGPTCancelSignInParams, ChatGPTCancelSignInResult),
     "chatgpt/signOut": (ChatGPTSignOutParams, ChatGPTSignOutResult),

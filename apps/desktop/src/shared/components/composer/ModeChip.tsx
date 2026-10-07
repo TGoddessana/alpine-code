@@ -11,7 +11,7 @@ import { modeMessages } from './modeMessages';
 export type Mode = SessionInfo['mode'];
 
 /** The modes in the order the menu lists them and Shift+Tab goes through them. */
-export const MODES: readonly Mode[] = ['default', 'accept_edits', 'yolo'];
+export const MODES: readonly Mode[] = ['default', 'accept_edits', 'auto', 'yolo'];
 
 /** The mode after `mode`, as Shift+Tab goes: back to the first after the last. */
 export function nextMode(mode: Mode): Mode {

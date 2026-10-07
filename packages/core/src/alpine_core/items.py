@@ -34,6 +34,7 @@ ToolCallStatus = Literal["running", "done", "error", "input_error", "aborted", "
 RunStopReason = Literal["interrupted", "failed", "limit", "repeating", "permission", "plan_limit", "signed_out"]
 ApprovalDecision = Literal["allow", "allow_always", "deny"]
 PreviewKind = Literal["diff", "command", "text"]
+ReviewAsk = Literal["blocked_in_a_row", "failed"]
 
 
 # ----------------------------------------------------------------------------------------------------- items
@@ -83,7 +84,24 @@ class ApprovalItem:
     feedback: str | None = None
     tool: str = ""
     args: dict[str, Any] = field(default_factory=dict)
+    review: ReviewAsk | None = None
+    """In auto mode, why the user is asked instead of the reviewer (``ApprovalRequest.review``)."""
+    review_error: str | None = None
+    """What went wrong when ``review`` is ``failed``."""
     kind: ClassVar[str] = "approval"
+
+
+@dataclass(frozen=True)
+class ReviewBlocked:
+    """Auto mode's reviewer blocked a call; the model was told ``reason`` and went on. The call itself follows as a
+    denied ``tool_call`` with the same ``call_id``."""
+
+    id: str
+    call_id: str
+    tool: str
+    args: dict[str, Any] = field(default_factory=dict)
+    reason: str | None = None
+    kind: ClassVar[str] = "review_blocked"
 
 
 @dataclass(frozen=True)
@@ -141,6 +159,7 @@ Item = (
     | AgentMessage
     | ToolCallItem
     | ApprovalItem
+    | ReviewBlocked
     | NoticeItem
     | StatusLine
     | MemoryReview
@@ -155,6 +174,7 @@ ITEM_KINDS: dict[str, type] = {
         AgentMessage,
         ToolCallItem,
         ApprovalItem,
+        ReviewBlocked,
         NoticeItem,
         StatusLine,
         MemoryReview,
@@ -222,7 +242,7 @@ def item_to_dict(item: Item) -> dict[str, Any]:
     """Plain JSON data with snake_case keys; ``kind`` comes first."""
     data = {"kind": item.kind}
     data.update({f.name: getattr(item, f.name) for f in dataclasses.fields(item)})
-    if isinstance(item, ToolCallItem | ApprovalItem):
+    if isinstance(item, ToolCallItem | ApprovalItem | ReviewBlocked):
         data["args"] = dict(item.args)
     return data
 
@@ -386,13 +406,29 @@ class ItemRecorder:
         *,
         tool: str = "",
         args: dict[str, Any] | None = None,
+        review: ReviewAsk | None = None,
+        review_error: str | None = None,
     ) -> ApprovalItem:
         """The core asks; the item's ``id`` is the request id."""
         item = ApprovalItem(
-            self._new_id(), call_id, title, preview, preview_kind, reason, remember, tool=tool, args=dict(args or {})
+            self._new_id(),
+            call_id,
+            title,
+            preview,
+            preview_kind,
+            reason,
+            remember,
+            tool=tool,
+            args=dict(args or {}),
+            review=review,
+            review_error=review_error,
         )
         self._start(item)
         return item
+
+    def add_review_blocked(self, call_id: str, tool: str, args: dict[str, Any], reason: str | None) -> ReviewBlocked:
+        """Auto mode's reviewer blocked a call."""
+        return self._born_finished(ReviewBlocked(self._new_id(), call_id, tool, dict(args), reason))
 
     def finish_approval(
         self,
@@ -550,6 +586,7 @@ __all__ = [
     "AgentMessage",
     "ToolCallItem",
     "ApprovalItem",
+    "ReviewBlocked",
     "NoticeItem",
     "StatusLine",
     "MemoryReview",

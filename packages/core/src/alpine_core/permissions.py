@@ -3,7 +3,8 @@
 A tool's kind comes from its hints for the call (see ``kind_of``): ``read`` for tools that only look at local files,
 ``edit`` for tools that change local files, ``exec`` for everything else.
 
-Rules, in order (``yolo`` skips all of them):
+Rules, in order (``yolo`` skips all of them; ``auto`` follows them as ``accept_edits`` does, and a reviewer model
+answers in the user's place what they would ask, see ``docs/auto-mode.md``):
 
 1. File tools (read, glob, grep, write, edit) on a path outside the working directory ask. "Don't ask again"
    remembers that directory for reading or for editing.
@@ -49,6 +50,8 @@ class Mode(StrEnum):
     """Ask before editing files or running commands."""
     ACCEPT_EDITS = "accept_edits"
     """Edit files without asking; ask before running commands."""
+    AUTO = "auto"
+    """Edit files without asking; a reviewer model decides what ``accept_edits`` would ask about."""
     YOLO = "yolo"
     """Never ask."""
 
@@ -77,6 +80,8 @@ class Verdict:
     """Why the call needs approval, when it is not just the mode."""
     grant: Grant | None = None
     """What to remember if the user says "don't ask again". ``None``: nothing is safe to remember."""
+    guard: bool = False
+    """A memory guard asks: the user decides, whatever the mode (a reviewer never answers it)."""
 
     @property
     def remember(self) -> str | None:
@@ -145,7 +150,7 @@ class PermissionPolicy:
         if self.guards is not None:
             reason = self.guards.asks(name, args, self.workspace.root)
             if reason:
-                return Verdict(False, reason)  # no grant: a guard asks every time
+                return Verdict(False, reason, guard=True)  # no grant: a guard asks every time
         if self.mode is Mode.YOLO:
             return ALLOW
         remembered = remembered or Remembered()
@@ -173,7 +178,7 @@ class _Evaluation:
             return self._outside(kind, target)
         if kind == "read":
             return self._read_inside(name, target)
-        return ALLOW if self.mode is Mode.ACCEPT_EDITS else self._by_tool(name)
+        return ALLOW if self.mode in (Mode.ACCEPT_EDITS, Mode.AUTO) else self._by_tool(name)
 
     @property
     def _root(self) -> Path:

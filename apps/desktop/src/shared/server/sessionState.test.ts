@@ -111,6 +111,8 @@ describe('applyEvent', () => {
       remember: null,
       decision: null,
       feedback: null,
+      review: null,
+      reviewError: null,
       tool: 'bash',
       args: {},
     } as const;

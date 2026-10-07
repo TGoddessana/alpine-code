@@ -44,7 +44,7 @@ __all__ = [
 SessionStatus = Literal["idle", "running", "waiting", "failed"]
 """``waiting`` means an approval is active; ``failed`` means the last run failed, until the next message."""
 
-ActivityKind = Literal["thinking", "writing", "running_tool", "waiting_approval", "compacting"]
+ActivityKind = Literal["thinking", "writing", "running_tool", "reviewing", "waiting_approval", "compacting"]
 
 
 @dataclass(frozen=True)

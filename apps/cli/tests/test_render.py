@@ -4,6 +4,7 @@ from alpine_cli import commands
 from alpine_cli.render import Renderer
 from alpine_cli.theme import THEME
 from alpine_core import AssistantDone, Interrupted, ToolFinished, ToolStarted, TurnStarted
+from alpine_core.approval import BLOCKED
 
 
 def render(*events) -> str:
@@ -29,6 +30,12 @@ def test_tool_lines():
     assert "◆ edit(x.py)" in out and "Declined" in out
     assert "◆ read(y.py)" in out and "└  y.py does not exist" in out
     assert "◆ read(dot.png)" in out and "Viewed image (image/png, 34.2KB)" in out
+
+
+def test_a_call_auto_mode_blocked_says_why():
+    blocked = BLOCKED.format(reason="부탁하지 않은 강제 푸시라서")
+    out = render(ToolFinished("1", "bash", {"command": "git push -f"}, blocked, "denied"))
+    assert "◆ bash(git push -f)" in out and "Blocked by auto mode · 부탁하지 않은 강제 푸시라서" in out
 
 
 def test_interrupted():

@@ -64,6 +64,7 @@ from .permissions import Mode, PermissionPolicy
 from .profiles import Profile, ProfileList
 from .projects import ProjectList
 from .prompt import build_system_prompt
+from .review import GlobalAgentsMd, ModelReviewer, Review, Reviewer, ReviewRequest
 from .storage import Activity, ActivityKind, Record, SessionInfo, SessionStatus, Storage
 from .toolbox import Toolbox
 from .tools import Workspace, default_tools
@@ -144,8 +145,13 @@ class Session:
         self._on_event = on_event
         self._on_item_event = on_item_event
         self._storage = storage
+        self._reviewers: dict[str, Reviewer] = {}
         self._permissions = build_permissions(
-            self.policy, _ItemApprover(self, approver), self._refusal if self._memory is not None else None
+            self.policy,
+            _ItemApprover(self, approver),
+            self._refusal if self._memory is not None else None,
+            reviewer=self._reviewer,
+            trusted=[GlobalAgentsMd()],
         )
         self._projects = projects
         self._reporter = EventReporter(self._dispatch)
@@ -241,6 +247,25 @@ class Session:
             )
         except (ValueError, TypeError) as e:
             raise ConfigError(str(e)) from e
+
+    @property
+    def review_model(self) -> str | None:
+        """The model auto mode's reviewer uses: the configured one, else the session's own."""
+        return self._settings.review_model or self._settings.model
+
+    def _reviewer(self) -> Reviewer | None:
+        """Auto mode's reviewer for ``review_model``, made once per model. A model that cannot be made is a
+        reviewer that fails, so the user is asked and told why."""
+        name = self.review_model
+        if not name:
+            return None
+        if name not in self._reviewers:
+            try:
+                reviewer: Reviewer = ModelReviewer(make_model(self._settings.with_model(name)))
+            except (ConfigError, ValueError, TypeError) as e:
+                reviewer = _Unavailable(str(e).splitlines()[0] if str(e) else type(e).__name__)
+            self._reviewers[name] = _ItemReviewer(self, reviewer)
+        return self._reviewers[name]
 
     def _pick_profile(self, settings: Settings, saved_id: str | None) -> Profile | None:
         """The session's profile: the one it was saved with, or the one its folder and model match."""
@@ -719,6 +744,8 @@ class _ItemApprover:
             request.remember,
             tool=request.tool,
             args=request.args,
+            review=request.review,
+            review_error=request.review_error,
         )
         session._activity = Activity("waiting_approval", None, _now())
         session._set_status("waiting")
@@ -753,6 +780,39 @@ class _ItemApprover:
 
         threading.Thread(target=target, name="alpine-approver", daemon=True).start()
         return await future
+
+
+class _ItemReviewer:
+    """What auto mode asks: shows the session as ``reviewing`` while ``reviewer`` decides, and records a
+    ``review_blocked`` item when it blocks."""
+
+    def __init__(self, session: Session, reviewer: Reviewer) -> None:
+        self._session = session
+        self._reviewer = reviewer
+
+    async def review(self, request: ReviewRequest) -> Review:
+        session = self._session
+        session._activity = Activity("reviewing", request.call.tool, _now())
+        session._touch()
+        try:
+            review = await self._reviewer.review(request)
+        finally:
+            session._activity = Activity("running_tool", request.call.tool, _now())
+            session._touch()
+        if not review.allow:
+            call = request.call
+            session._recorder.add_review_blocked(call.call_id, call.tool, call.args, review.reason)
+        return review
+
+
+class _Unavailable:
+    """A reviewer whose model cannot be made: every review fails with why."""
+
+    def __init__(self, why: str) -> None:
+        self.why = why
+
+    async def review(self, request: ReviewRequest) -> Review:
+        raise RuntimeError(self.why)
 
 
 def _failed(error: BaseException) -> Failed:

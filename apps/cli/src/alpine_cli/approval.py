@@ -52,6 +52,10 @@ class CliApprover:
 
     def _panel(self, request: ApprovalRequest) -> Panel:
         body: list = []
+        if request.review == "blocked_in_a_row":
+            body.append(Text("Auto mode blocked 3 calls in a row, so you decide this one.", style="warn"))
+        elif request.review == "failed":
+            body.append(Text(f"Auto mode's reviewer could not answer ({request.review_error}).", style="warn"))
         if request.reason:
             body.append(Text(f"⚠ {request.reason}", style="warn"))
         if request.preview:

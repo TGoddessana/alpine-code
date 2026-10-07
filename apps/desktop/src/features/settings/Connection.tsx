@@ -18,6 +18,8 @@ import {
   useModelsOf,
   useRemoveConnection,
   useSetDefaultModel,
+  useSetReviewModel,
+  useSettings,
   shownModels,
 } from '@/shared/server';
 
@@ -101,6 +103,12 @@ export function ConnectionTab() {
             <DefaultModel id="settings-default-model" data={data} />
             <span />
           </div>
+          <div className={row}>
+            <label htmlFor="settings-review-model">{t.reviewModel}</label>
+            <ReviewModel id="settings-review-model" data={data} />
+            <span />
+          </div>
+          <p className="pt-2 text-meta text-fg-muted">{t.reviewModelLead}</p>
         </Section>
       )}
 
@@ -250,17 +258,61 @@ function Status({ connection, data }: { connection: ConnectionInfo; data: Connec
 /** Every model of every connection, grouped by connection. The current default stays listed even if unreachable. */
 function DefaultModel({ id, data }: { id: string; data: ConnectionsListResult }) {
   const t = useMessages(messages);
-  const c = useMessages(connectMessages);
   const setDefault = useSetDefaultModel();
+  return (
+    <ModelSelect
+      id={id}
+      data={data}
+      value={data.defaultModel}
+      empty={data.defaultModel === null ? t.chooseModel : null}
+      onChange={(model) => model && setDefault.mutate(model)}
+    />
+  );
+}
+
+/** The model auto mode's reviewer uses; first comes "the session's own model", which is the default. */
+function ReviewModel({ id, data }: { id: string; data: ConnectionsListResult }) {
+  const t = useMessages(messages);
+  const settings = useSettings();
+  const setReviewModel = useSetReviewModel();
+  if (!settings.data) return null;
+  const value = setReviewModel.isPending ? setReviewModel.variables : settings.data.reviewModel;
+  return (
+    <ModelSelect
+      id={id}
+      data={data}
+      value={value ?? null}
+      empty={t.sameAsSession}
+      onChange={(model) => setReviewModel.mutate(model)}
+    />
+  );
+}
+
+/** Every model of every connection, grouped by connection, after an `empty` choice if given. `value` stays listed
+ * even when its connection cannot list it. */
+function ModelSelect({
+  id,
+  data,
+  value,
+  empty,
+  onChange,
+}: {
+  id: string;
+  data: ConnectionsListResult;
+  value: string | null;
+  empty: string | null;
+  onChange: (model: string | null) => void;
+}) {
+  const c = useMessages(connectMessages);
   const lists = useModelsOf(data.connections.map((connection) => ({ connection: connection.name })));
   const keep = (connection: string) =>
-    data.defaultModel?.startsWith(`${connection}/`) ? data.defaultModel.slice(connection.length + 1) : null;
+    value?.startsWith(`${connection}/`) ? value.slice(connection.length + 1) : null;
   const shown = data.connections.map((connection, i) => shownModels(lists[i]?.data, [keep(connection.name)]));
   const listed = new Set(data.connections.flatMap((connection, i) => shown[i]!.map((m) => `${connection.name}/${m}`)));
   return (
-    <NativeSelect id={id} value={data.defaultModel ?? ''} onChange={(event) => setDefault.mutate(event.target.value)}>
-      {data.defaultModel === null && <option value="">{t.chooseModel}</option>}
-      {data.defaultModel !== null && !listed.has(data.defaultModel) && <option>{data.defaultModel}</option>}
+    <NativeSelect id={id} value={value ?? ''} onChange={(event) => onChange(event.target.value || null)}>
+      {empty !== null && <option value="">{empty}</option>}
+      {value !== null && !listed.has(value) && <option>{value}</option>}
       {data.connections.map((connection, i) => (
         <optgroup key={connection.name} label={connectionLabel(connection, data.providers, c)}>
           {shown[i]!.map((model) => (

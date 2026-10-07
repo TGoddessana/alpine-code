@@ -7,7 +7,7 @@ export const PROTOCOL_VERSION = 1;
  * via the `definition` "Activity".
  */
 export interface Activity {
-  kind: 'thinking' | 'writing' | 'running_tool' | 'waiting_approval' | 'compacting';
+  kind: 'thinking' | 'writing' | 'running_tool' | 'reviewing' | 'waiting_approval' | 'compacting';
   toolName: string | null;
   since: string;
 }
@@ -39,6 +39,8 @@ export interface ApprovalItem {
   args: {
     [k: string]: unknown;
   };
+  review: ('blocked_in_a_row' | 'failed') | null;
+  reviewError: string | null;
 }
 /**
  * The ChatGPT account behind a connection that signs in instead of using a key. Tokens never leave the server.
@@ -323,7 +325,7 @@ export interface SessionInfo {
   title: string;
   cwd: string;
   model: string;
-  mode: 'default' | 'accept_edits' | 'yolo';
+  mode: 'default' | 'accept_edits' | 'auto' | 'yolo';
   status: 'idle' | 'running' | 'waiting' | 'failed';
   createdAt: string;
   updatedAt: string;
@@ -382,6 +384,7 @@ export interface ItemCompletedEvent {
     | AgentMessageItem
     | ToolCallItem
     | ApprovalItem
+    | ReviewBlockedItem
     | NoticeItem
     | StatusLineItem
     | MemoryReviewItem
@@ -411,6 +414,23 @@ export interface ToolCallItem {
   status: 'running' | 'done' | 'error' | 'input_error' | 'aborted' | 'interrupted' | 'denied' | 'cancelled';
   result: string | null;
   images: number;
+}
+/**
+ * Auto mode's reviewer blocked a call; the model was told ``reason`` and went on. The call follows as a denied
+ * ``tool_call`` with the same ``call_id``.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ReviewBlockedItem".
+ */
+export interface ReviewBlockedItem {
+  id: string;
+  kind: 'review_blocked';
+  callId: string;
+  tool: string;
+  args: {
+    [k: string]: unknown;
+  };
+  reason: string | null;
 }
 /**
  * A message the model reads that the user did not write.
@@ -495,6 +515,7 @@ export interface ItemStartedEvent {
     | AgentMessageItem
     | ToolCallItem
     | ApprovalItem
+    | ReviewBlockedItem
     | NoticeItem
     | StatusLineItem
     | MemoryReviewItem
@@ -898,7 +919,7 @@ export interface SessionListResult {
 export interface SessionNewParams {
   cwd: string;
   model?: string | null;
-  mode?: ('default' | 'accept_edits' | 'yolo') | null;
+  mode?: ('default' | 'accept_edits' | 'auto' | 'yolo') | null;
   profile?: string | null;
 }
 /**
@@ -929,6 +950,7 @@ export interface SessionOpenResult {
     | AgentMessageItem
     | ToolCallItem
     | ApprovalItem
+    | ReviewBlockedItem
     | NoticeItem
     | StatusLineItem
     | MemoryReviewItem
@@ -940,6 +962,7 @@ export interface SessionOpenResult {
     | AgentMessageItem
     | ToolCallItem
     | ApprovalItem
+    | ReviewBlockedItem
     | NoticeItem
     | StatusLineItem
     | MemoryReviewItem
@@ -966,7 +989,7 @@ export interface SessionSendResult {}
  */
 export interface SessionSetModeParams {
   sessionId: string;
-  mode: 'default' | 'accept_edits' | 'yolo';
+  mode: 'default' | 'accept_edits' | 'auto' | 'yolo';
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -1002,21 +1025,36 @@ export interface SettingsGetParams {}
  * via the `definition` "SettingsGetResult".
  */
 export interface SettingsGetResult {
-  mode: 'default' | 'accept_edits' | 'yolo';
+  mode: 'default' | 'accept_edits' | 'auto' | 'yolo';
+  reviewModel?: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "SettingsSetModeParams".
  */
 export interface SettingsSetModeParams {
-  mode: 'default' | 'accept_edits' | 'yolo';
+  mode: 'default' | 'accept_edits' | 'auto' | 'yolo';
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "SettingsSetModeResult".
  */
 export interface SettingsSetModeResult {
-  mode: 'default' | 'accept_edits' | 'yolo';
+  mode: 'default' | 'accept_edits' | 'auto' | 'yolo';
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SettingsSetReviewModelParams".
+ */
+export interface SettingsSetReviewModelParams {
+  reviewModel: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SettingsSetReviewModelResult".
+ */
+export interface SettingsSetReviewModelResult {
+  reviewModel: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -1212,6 +1250,7 @@ export interface Methods {
   'connections/setDefault': { params: ConnectionsSetDefaultParams; result: ConnectionsSetDefaultResult };
   'settings/get': { params: SettingsGetParams; result: SettingsGetResult };
   'settings/setMode': { params: SettingsSetModeParams; result: SettingsSetModeResult };
+  'settings/setReviewModel': { params: SettingsSetReviewModelParams; result: SettingsSetReviewModelResult };
   'chatgpt/signIn': { params: ChatGPTSignInParams; result: ChatGPTSignInResult };
   'chatgpt/cancelSignIn': { params: ChatGPTCancelSignInParams; result: ChatGPTCancelSignInResult };
   'chatgpt/signOut': { params: ChatGPTSignOutParams; result: ChatGPTSignOutResult };

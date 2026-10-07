@@ -39,6 +39,10 @@
       "params": "SettingsSetModeParams",
       "result": "SettingsSetModeResult"
     },
+    "settings/setReviewModel": {
+      "params": "SettingsSetReviewModelParams",
+      "result": "SettingsSetReviewModelResult"
+    },
     "chatgpt/signIn": {
       "params": "ChatGPTSignInParams",
       "result": "ChatGPTSignInResult"
@@ -193,6 +197,7 @@
             "thinking",
             "writing",
             "running_tool",
+            "reviewing",
             "waiting_approval",
             "compacting"
           ],
@@ -342,6 +347,32 @@
         "args": {
           "additionalProperties": true,
           "type": "object"
+        },
+        "review": {
+          "anyOf": [
+            {
+              "enum": [
+                "blocked_in_a_row",
+                "failed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reviewError": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -356,7 +387,9 @@
         "decision",
         "feedback",
         "tool",
-        "args"
+        "args",
+        "review",
+        "reviewError"
       ],
       "title": "ApprovalItem",
       "type": "object"
@@ -1028,6 +1061,7 @@
               "compaction": "#/$defs/CompactionItem",
               "memory_review": "#/$defs/MemoryReviewItem",
               "notice": "#/$defs/NoticeItem",
+              "review_blocked": "#/$defs/ReviewBlockedItem",
               "run_stopped": "#/$defs/RunStoppedItem",
               "status_line": "#/$defs/StatusLineItem",
               "tool_call": "#/$defs/ToolCallItem",
@@ -1047,6 +1081,9 @@
             },
             {
               "$ref": "#/$defs/ApprovalItem"
+            },
+            {
+              "$ref": "#/$defs/ReviewBlockedItem"
             },
             {
               "$ref": "#/$defs/NoticeItem"
@@ -1131,6 +1168,7 @@
               "compaction": "#/$defs/CompactionItem",
               "memory_review": "#/$defs/MemoryReviewItem",
               "notice": "#/$defs/NoticeItem",
+              "review_blocked": "#/$defs/ReviewBlockedItem",
               "run_stopped": "#/$defs/RunStoppedItem",
               "status_line": "#/$defs/StatusLineItem",
               "tool_call": "#/$defs/ToolCallItem",
@@ -1150,6 +1188,9 @@
             },
             {
               "$ref": "#/$defs/ApprovalItem"
+            },
+            {
+              "$ref": "#/$defs/ReviewBlockedItem"
             },
             {
               "$ref": "#/$defs/NoticeItem"
@@ -2080,6 +2121,50 @@
       "title": "Response",
       "type": "object"
     },
+    "ReviewBlockedItem": {
+      "description": "Auto mode's reviewer blocked a call; the model was told ``reason`` and went on. The call follows as a denied\n``tool_call`` with the same ``call_id``.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "review_blocked",
+          "default": "review_blocked",
+          "type": "string"
+        },
+        "callId": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "callId",
+        "tool",
+        "args",
+        "reason"
+      ],
+      "title": "ReviewBlockedItem",
+      "type": "object"
+    },
     "RunStoppedItem": {
       "description": "Why a run ended other than by answering.",
       "properties": {
@@ -2290,6 +2375,7 @@
           "enum": [
             "default",
             "accept_edits",
+            "auto",
             "yolo"
           ],
           "type": "string"
@@ -2431,6 +2517,7 @@
               "enum": [
                 "default",
                 "accept_edits",
+                "auto",
                 "yolo"
               ],
               "type": "string"
@@ -2501,6 +2588,7 @@
                 "compaction": "#/$defs/CompactionItem",
                 "memory_review": "#/$defs/MemoryReviewItem",
                 "notice": "#/$defs/NoticeItem",
+                "review_blocked": "#/$defs/ReviewBlockedItem",
                 "run_stopped": "#/$defs/RunStoppedItem",
                 "status_line": "#/$defs/StatusLineItem",
                 "tool_call": "#/$defs/ToolCallItem",
@@ -2520,6 +2608,9 @@
               },
               {
                 "$ref": "#/$defs/ApprovalItem"
+              },
+              {
+                "$ref": "#/$defs/ReviewBlockedItem"
               },
               {
                 "$ref": "#/$defs/NoticeItem"
@@ -2549,6 +2640,7 @@
                 "compaction": "#/$defs/CompactionItem",
                 "memory_review": "#/$defs/MemoryReviewItem",
                 "notice": "#/$defs/NoticeItem",
+                "review_blocked": "#/$defs/ReviewBlockedItem",
                 "run_stopped": "#/$defs/RunStoppedItem",
                 "status_line": "#/$defs/StatusLineItem",
                 "tool_call": "#/$defs/ToolCallItem",
@@ -2568,6 +2660,9 @@
               },
               {
                 "$ref": "#/$defs/ApprovalItem"
+              },
+              {
+                "$ref": "#/$defs/ReviewBlockedItem"
               },
               {
                 "$ref": "#/$defs/NoticeItem"
@@ -2628,6 +2723,7 @@
           "enum": [
             "default",
             "accept_edits",
+            "auto",
             "yolo"
           ],
           "type": "string"
@@ -2692,9 +2788,21 @@
           "enum": [
             "default",
             "accept_edits",
+            "auto",
             "yolo"
           ],
           "type": "string"
+        },
+        "reviewModel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -2709,6 +2817,7 @@
           "enum": [
             "default",
             "accept_edits",
+            "auto",
             "yolo"
           ],
           "type": "string"
@@ -2726,6 +2835,7 @@
           "enum": [
             "default",
             "accept_edits",
+            "auto",
             "yolo"
           ],
           "type": "string"
@@ -2735,6 +2845,44 @@
         "mode"
       ],
       "title": "SettingsSetModeResult",
+      "type": "object"
+    },
+    "SettingsSetReviewModelParams": {
+      "properties": {
+        "reviewModel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "reviewModel"
+      ],
+      "title": "SettingsSetReviewModelParams",
+      "type": "object"
+    },
+    "SettingsSetReviewModelResult": {
+      "properties": {
+        "reviewModel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "reviewModel"
+      ],
+      "title": "SettingsSetReviewModelResult",
       "type": "object"
     },
     "StatusLineItem": {

@@ -27,6 +27,8 @@ const approval = (id: string, callId: string, over: Partial<ApprovalItem> = {}):
   remember: null,
   decision: null,
   feedback: null,
+  review: null,
+  reviewError: null,
   tool: 'bash',
   args: {},
   ...over,
@@ -54,6 +56,21 @@ describe('toBlocks', () => {
       { type: 'tools', id: 'c1', rows: [{ call: call('c1'), approval: null }] },
       { type: 'approval', item: waiting },
     ]);
+  });
+
+  it('draws a call auto mode blocked as its own line, in place of the denied call', () => {
+    const blocked: Item = {
+      id: 'b1',
+      kind: 'review_blocked',
+      callId: 'c2',
+      tool: 'bash',
+      args: { command: 'git push -f' },
+      reason: 'not asked',
+    };
+    const blocks = toBlocks([call('c1'), blocked, call('c2', { status: 'denied' }), call('c3')], []);
+    expect(blocks.map((b) => b.type)).toEqual(['tools', 'blocked', 'tools']);
+    expect(blocks[1]).toEqual({ type: 'blocked', item: blocked });
+    expect(blocks[2]).toMatchObject({ rows: [{ call: { id: 'c3' } }] });
   });
 
   it('puts a finished approval with its call instead of drawing it', () => {

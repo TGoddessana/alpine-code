@@ -1,4 +1,4 @@
-import { Tabs } from '@alpine/ui/primitives';
+import { LinkButton, Tabs } from '@alpine/ui/primitives';
 
 import { LOCALES, useLocale, useMessages, type Locale } from '@/shared/i18n';
 import { MODES, modeMessages, type Mode } from '@/shared/components/composer';
@@ -43,7 +43,7 @@ export function Settings({
           <Tabs.Tab value="harness">{t.harness}</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="general">
-          <General />
+          <General onReviewModel={() => onChange({ tab: 'connection' })} />
         </Tabs.Panel>
         <Tabs.Panel value="connection">
           <ConnectionTab />
@@ -60,7 +60,7 @@ export function Settings({
   );
 }
 
-function General() {
+function General({ onReviewModel }: { onReviewModel: () => void }) {
   const t = useMessages(messages);
   const { locale, setLocale } = useLocale();
   const server = useServerInfo();
@@ -110,6 +110,7 @@ function General() {
               <br />
               {t.safetyLead}
             </p>
+            {shownMode === 'auto' && <LinkButton onClick={onReviewModel}>{t.changeReviewModel}</LinkButton>}
           </dd>
         </>
       )}

@@ -31,6 +31,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--base-url", help="Base URL of an OpenAI-compatible server")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--accept-edits", action="store_true", help="Edit files without asking")
+    mode.add_argument(
+        "--auto", action="store_true", help="Edit files without asking; a reviewer model decides about the rest"
+    )
     mode.add_argument("--yolo", action="store_true", help="Never ask before editing files or running commands")
     parser.add_argument(
         "--usage-file",
@@ -45,7 +48,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
     console = ReplayConsole(theme=THEME, highlight=False)
-    mode = Mode.YOLO if args.yolo else Mode.ACCEPT_EDITS if args.accept_edits else None
+    mode = Mode.YOLO if args.yolo else Mode.AUTO if args.auto else Mode.ACCEPT_EDITS if args.accept_edits else None
     prompt = " ".join(args.prompt).strip()
     if args.print and not sys.stdin.isatty():
         piped = sys.stdin.read().strip()

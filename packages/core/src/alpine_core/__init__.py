@@ -5,7 +5,7 @@ A frontend creates a ``Session`` with an ``on_event`` callback and an ``Approver
 or core submodules directly.
 """
 
-from .approval import ApprovalRequest, Approver, AsyncApprover, BlockingApprover, Decision
+from .approval import ApprovalRequest, Approver, AsyncApprover, BlockingApprover, Decision, blocked_reason
 from .catalog import hidden_models, load_catalog
 from .config import (
     ConfigError,
@@ -16,6 +16,7 @@ from .config import (
     save_connection,
     set_default_mode,
     set_default_model,
+    set_review_model,
     show_model,
 )
 from .events import (
@@ -51,6 +52,7 @@ from .items import (
     ItemRecorder,
     ItemStarted,
     NoticeItem,
+    ReviewBlocked,
     RunStopped,
     StatusLine,
     ToolCallItem,
@@ -67,6 +69,7 @@ from .profiles import DEFAULT_ID as DEFAULT_PROFILE
 from .profiles import Profile, ProfileConflict, ProfileList
 from .projects import Project, ProjectList
 from .providers import PROVIDERS, Api, Auth, Billing, Provider
+from .review import GlobalAgentsMd, ModelReviewer, Review, Reviewer, ReviewRequest, TrustedNote, TrustedSource
 from .secrets import FileSecrets, Secrets
 from .session import Session, Snapshot, delete_session, list_sessions
 from .storage import (
@@ -125,6 +128,8 @@ __all__ = [
     "save_connection",
     "set_default_mode",
     "set_default_model",
+    "set_review_model",
+    "blocked_reason",
     "show_model",
     "hidden_models",
     "load_catalog",
@@ -166,6 +171,13 @@ __all__ = [
     "pull_request",
     "PullRequest",
     "Mode",
+    "Reviewer",
+    "ReviewRequest",
+    "Review",
+    "ModelReviewer",
+    "TrustedSource",
+    "TrustedNote",
+    "GlobalAgentsMd",
     "Approver",
     "BlockingApprover",
     "AsyncApprover",
@@ -187,6 +199,7 @@ __all__ = [
     "UsageInfo",
     "AgentMessage",
     "ApprovalItem",
+    "ReviewBlocked",
     "Compaction",
     "Deleted",
     "InfoChanged",

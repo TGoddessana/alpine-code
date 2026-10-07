@@ -3,7 +3,8 @@
 Config file: ``~/.alpine-code/config.toml`` (see ``home_dir``)::
 
     default_model = "anthropic/claude-sonnet-5"   # <connection>/<model>
-    # mode = "default"                             # default | accept_edits | yolo
+    # mode = "default"                             # default | accept_edits | auto | yolo
+    # review_model = "openrouter/qwen3"           # auto mode's reviewer; unset: the session's model
     # context_window = 128000
 
     [connections.anthropic]
@@ -49,7 +50,12 @@ _ENV = {
 }
 
 #: Keys of config.toml -> Settings fields.
-_FILE_KEYS = {"default_model": "model", "mode": "mode", "context_window": "context_window"}
+_FILE_KEYS = {
+    "default_model": "model",
+    "mode": "mode",
+    "review_model": "review_model",
+    "context_window": "context_window",
+}
 
 _CONNECTION_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 
@@ -110,6 +116,8 @@ class Settings:
     """The key for ``base_url``."""
     context_window: int | None = None
     mode: Mode = Mode.DEFAULT
+    review_model: str | None = None
+    """``<connection>/<model>`` of auto mode's reviewer; ``None``: the session's model."""
     connections: Mapping[str, Connection] = field(default_factory=dict)
     secrets: Secrets | None = field(default=None, compare=False, repr=False)
 
@@ -194,15 +202,17 @@ def _with(models: list[str], model: str) -> list[str]:
 
 @_locked
 def remove_connection(name: str) -> bool:
-    """Takes the connection out of config.toml, and the default model with it when it was one of the connection's.
+    """Takes the connection out of config.toml, and the default and reviewer models with it when they were the
+    connection's.
     Its saved key stays: the caller forgets it. ``False`` when there was no such connection."""
     doc = _edit()
     connections = doc.get("connections")
     if connections is None or name not in connections:
         return False
     del connections[name]
-    if str(doc.get("default_model", "")).startswith(f"{name}/"):
-        del doc["default_model"]
+    for key in ("default_model", "review_model"):
+        if str(doc.get(key, "")).startswith(f"{name}/"):
+            del doc[key]
     _save(doc)
     return True
 
@@ -219,6 +229,17 @@ def set_default_mode(mode: Mode) -> None:
     """The permission mode new sessions start with, in the desktop app and in the terminal."""
     doc = _edit()
     doc["mode"] = mode.value
+    _save(doc)
+
+
+@_locked
+def set_review_model(model: str | None) -> None:
+    """The model auto mode's reviewer uses, or ``None`` for each session's own model."""
+    doc = _edit()
+    if model:
+        doc["review_model"] = model
+    elif "review_model" in doc:
+        del doc["review_model"]
     _save(doc)
 
 

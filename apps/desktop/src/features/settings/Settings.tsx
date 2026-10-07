@@ -1,4 +1,4 @@
-import { OptionList, Tabs } from '@alpine/ui/primitives';
+import { Tabs } from '@alpine/ui/primitives';
 
 import { LOCALES, useLocale, useMessages, type Locale } from '@/shared/i18n';
 import { MODES, modeMessages, type Mode } from '@/shared/components/composer';
@@ -67,6 +67,7 @@ function General() {
   const m = useMessages(modeMessages);
   const mode = useSettings().data?.mode;
   const setMode = useSetDefaultMode();
+  const shownMode = setMode.isPending && setMode.variables ? setMode.variables : mode;
   return (
     <dl className="grid max-w-3xl grid-cols-[160px_1fr] items-center gap-x-6 gap-y-4">
       <dt className="text-fg-muted">
@@ -86,21 +87,29 @@ function General() {
           ))}
         </select>
       </dd>
-      {mode && (
+      {shownMode && (
         <>
-          <dt className="self-start pt-2 text-fg-muted">{t.safety}</dt>
-          <dd className="flex flex-col gap-2">
-            <OptionList<Mode>
-              aria-label={t.safety}
-              value={setMode.isPending && setMode.variables ? setMode.variables : mode}
-              onValueChange={(value) => setMode.mutate(value)}
-              options={MODES.map((value) => ({
-                value,
-                label: <span className={value === 'yolo' ? 'text-danger' : undefined}>{m.name(value)}</span>,
-                description: m.description(value),
-              }))}
-            />
-            <p className="text-meta text-fg-muted">{t.safetyLead}</p>
+          <dt className="self-start pt-1.5 text-fg-muted">
+            <label htmlFor="settings-safety">{t.safety}</label>
+          </dt>
+          <dd className="flex flex-col items-start gap-2">
+            <select
+              id="settings-safety"
+              value={shownMode}
+              onChange={(event) => setMode.mutate(event.target.value as Mode)}
+              className={`min-h-8 rounded-md border border-line bg-canvas-raised px-2 ${shownMode === 'yolo' ? 'text-danger' : ''}`}
+            >
+              {MODES.map((value) => (
+                <option key={value} value={value}>
+                  {m.name(value)}
+                </option>
+              ))}
+            </select>
+            <p className="text-meta text-fg-muted">
+              {m.description(shownMode)}
+              <br />
+              {t.safetyLead}
+            </p>
           </dd>
         </>
       )}

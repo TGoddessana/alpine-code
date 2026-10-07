@@ -1,3 +1,4 @@
+import type { SettingsGetResult } from '@alpine/protocol';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { setUpScript, withRouterScript } from '@/shared/server';
@@ -16,7 +17,11 @@ type Story = StoryObj<typeof meta>;
 export const General: Story = {
   parameters: {
     server: {
-      results: { initialize: { protocolVersion: 1, server: { name: 'alpine-code-server', version: '0.1.0' } } },
+      results: {
+        initialize: { protocolVersion: 1, server: { name: 'alpine-code-server', version: '0.1.0' } },
+        'settings/get': { mode: 'default' },
+        'settings/setMode': ({ mode }: SettingsGetResult) => ({ mode }),
+      },
     },
   },
 };

@@ -1,4 +1,4 @@
-import type { ApprovalItem, ToolCallItem } from '@alpine/protocol';
+import type { ApprovalItem, ReviewBlockedItem, ToolCallItem } from '@alpine/protocol';
 
 import type { Item } from '@/shared/server';
 import { editDiff, toolKind } from '@/shared/tool-calls';
@@ -14,7 +14,8 @@ export interface ToolRow {
  * answer.
  */
 export type Block =
-  | { type: 'item'; item: Exclude<Item, ToolCallItem | ApprovalItem> }
+  | { type: 'item'; item: Exclude<Item, ToolCallItem | ApprovalItem | ReviewBlockedItem> }
+  | { type: 'blocked'; item: ReviewBlockedItem }
   | { type: 'tools'; id: string; rows: ToolRow[] }
   | { type: 'approval'; item: ApprovalItem }
   | { type: 'memory'; call: ToolCallItem };
@@ -22,17 +23,25 @@ export type Block =
 /**
  * The items in the order they started, as blocks. Tool calls in a row become one block. A waiting approval is its
  * own block where the call will be; a finished one is not drawn on its own but goes with its call (a denied call
- * shows what I said). A memory the agent suggested gets its own block right after its call, where I answer it.
+ * shows what I said). A memory the agent suggested gets its own block right after its call, where I answer it. A call
+ * auto mode's reviewer blocked is drawn as its own line in place of the call, so it is seen without opening the list.
  */
 export function toBlocks(items: Item[], activeIds: readonly string[]): Block[] {
   const active = new Set(activeIds);
   const approvals = new Map<string, ApprovalItem>();
-  for (const item of items) if (item.kind === 'approval') approvals.set(item.callId, item);
+  const blocked = new Set<string>();
+  for (const item of items) {
+    if (item.kind === 'approval') approvals.set(item.callId, item);
+    if (item.kind === 'review_blocked') blocked.add(item.callId);
+  }
   const blocks: Block[] = [];
   for (const item of items) {
     if (item.kind === 'approval') {
       if (active.has(item.id)) blocks.push({ type: 'approval', item });
+    } else if (item.kind === 'review_blocked') {
+      blocks.push({ type: 'blocked', item });
     } else if (item.kind === 'tool_call') {
+      if (blocked.has(item.id) && item.status === 'denied') continue;
       const row = { call: item, approval: approvals.get(item.id) ?? null };
       const last = blocks.at(-1);
       if (last?.type === 'tools') last.rows.push(row);

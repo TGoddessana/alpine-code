@@ -1,4 +1,4 @@
-import type { ToolCallItem } from '@alpine/protocol';
+import type { ReviewBlockedItem, ToolCallItem } from '@alpine/protocol';
 import { LinkButton } from '@alpine/ui/primitives';
 import clsx from 'clsx';
 import { memo, useState } from 'react';
@@ -89,6 +89,23 @@ const Call = memo(
   },
   (before, after) => before.row.call === after.row.call && before.row.approval === after.row.approval,
 );
+
+/**
+ * A call auto mode's reviewer blocked, as one line in the chat: who stopped it, the call as calls are drawn, and the
+ * reviewer's reason. The agent was told the reason and went on; to let it through, I say so in the input.
+ */
+export function BlockedLine({ item }: { item: ReviewBlockedItem }) {
+  const t = useMessages(messages);
+  return (
+    <div className="flex flex-col gap-0.5" role="note" aria-label={t.blockedLabel}>
+      <CallTitle name={item.tool} args={item.args} />
+      <p className="pl-4 text-meta whitespace-pre-wrap text-fg-muted">
+        <span className="text-attention">{t.blockedBy}</span>
+        {item.reason && <span className="text-fg"> · {item.reason}</span>}
+      </p>
+    </div>
+  );
+}
 
 /** A call as `Kind(target)`: the kind in words, then what it works on in mono. */
 export function CallTitle({ name, args }: { name: string; args: Record<string, unknown> }) {

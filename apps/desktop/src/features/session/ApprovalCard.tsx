@@ -54,6 +54,13 @@ export function ApprovalCard({ sessionId, approval }: { sessionId: string; appro
           />
         </div>
       )}
+      {approval.review === 'blocked_in_a_row' && <p className="text-body text-attention">{t.askedAfterBlocks}</p>}
+      {approval.review === 'failed' && (
+        <p className="text-body text-attention">
+          {t.askedAfterFailure}
+          {approval.reviewError && <span className="text-meta text-fg-muted"> · {approval.reviewError}</span>}
+        </p>
+      )}
       {approval.reason && <p className="text-body text-fg-muted">{approval.reason}</p>}
       {answer.isError && (
         <p role="alert" className="text-meta text-danger">

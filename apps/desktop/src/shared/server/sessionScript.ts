@@ -251,6 +251,8 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         remember: editing ? 'Edits to README.md' : 'pnpm test',
         decision: null,
         feedback: null,
+        review: null,
+        reviewError: null,
         tool: pending.name,
         args: pending.args,
       };

@@ -9,6 +9,7 @@ describe('activityWord', () => {
     expect(activityWord({ kind: 'thinking', toolName: null })).toBe('thinking');
     expect(activityWord({ kind: 'writing', toolName: null })).toBe('writing');
     expect(activityWord({ kind: 'waiting_approval', toolName: 'bash' })).toBe('approval');
+    expect(activityWord({ kind: 'reviewing', toolName: 'bash' })).toBe('reviewing');
     expect(activityWord({ kind: 'compacting', toolName: null })).toBe('compacting');
     expect(activityWord(null)).toBe('thinking');
   });

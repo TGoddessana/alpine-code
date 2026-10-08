@@ -23,6 +23,7 @@ from alpine_core import (
     ToolFinished,
     ToolStarted,
     TurnStarted,
+    blocked_reason,
 )
 
 from .theme import BULLET, PEAK, RESULT
@@ -126,6 +127,9 @@ def summarize(event: ToolFinished) -> list[Text]:
     """The lines shown under a finished tool call."""
     match event.kind:
         case "denied":
+            reason = blocked_reason(event.result)
+            if reason is not None:
+                return [_line(f"Blocked by auto mode · {reason}", "warn")]
             return [_line("Declined", "warn")]
         case "cancelled":
             return [_line("Not run", "warn")]

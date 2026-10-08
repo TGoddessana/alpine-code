@@ -97,7 +97,7 @@ interface ScriptState {
  */
 export function statefulScript(start: ScriptState): Script {
   let { connections, projects } = start;
-  let settings: SettingsGetResult = { mode: 'default' };
+  let settings: SettingsGetResult = { mode: 'default', reviewModel: null };
   const signIns = new Map<string, ReturnType<typeof setTimeout>>();
   /** Models shown or hidden by hand, by connection: `connections/showModel`. */
   const chosen = new Map<string, Map<string, boolean>>();
@@ -206,7 +206,14 @@ export function statefulScript(start: ScriptState): Script {
         return { defaultModel: model };
       },
       'settings/get': () => settings,
-      'settings/setMode': ({ mode }) => (settings = { mode }),
+      'settings/setMode': ({ mode }) => {
+        settings = { ...settings, mode };
+        return { mode };
+      },
+      'settings/setReviewModel': ({ reviewModel }) => {
+        settings = { ...settings, reviewModel };
+        return { reviewModel };
+      },
       'projects/list': () => ({ projects, cloneParent: '/Users/me' }),
       'projects/open': ({ path }) => {
         const opened = project(path);

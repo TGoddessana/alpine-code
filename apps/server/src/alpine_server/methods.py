@@ -34,6 +34,9 @@ from alpine_core import (
     set_default_model,
     show_model,
 )
+from alpine_core import (
+    set_review_model as save_review_model,
+)
 from alpine_core.chatgpt import account_of, is_chatgpt
 from alpine_protocol import (
     PROTOCOL_VERSION,
@@ -75,6 +78,8 @@ from alpine_protocol import (
     SettingsGetResult,
     SettingsSetModeParams,
     SettingsSetModeResult,
+    SettingsSetReviewModelParams,
+    SettingsSetReviewModelResult,
 )
 
 #: JSON-RPC's range for errors the server defines; ``data`` is an ``ErrorData`` saying which.
@@ -187,7 +192,8 @@ def set_default(params: ConnectionsSetDefaultParams) -> ConnectionsSetDefaultRes
 
 
 def get_settings(params: SettingsGetParams) -> SettingsGetResult:
-    return SettingsGetResult(mode=_settings().mode.value)
+    settings = _settings()
+    return SettingsGetResult(mode=settings.mode.value, review_model=settings.review_model)
 
 
 def set_mode(params: SettingsSetModeParams) -> SettingsSetModeResult:
@@ -196,6 +202,14 @@ def set_mode(params: SettingsSetModeParams) -> SettingsSetModeResult:
     except ConfigError as e:
         raise MethodError(APP_ERROR, str(e), "invalid_config") from e
     return SettingsSetModeResult(mode=params.mode)
+
+
+def set_review_model(params: SettingsSetReviewModelParams) -> SettingsSetReviewModelResult:
+    try:
+        save_review_model(params.review_model)
+    except ConfigError as e:
+        raise MethodError(APP_ERROR, str(e), "invalid_config") from e
+    return SettingsSetReviewModelResult(review_model=params.review_model)
 
 
 def _connection(provider_id: str | None, base_url: str | None, settings: Settings) -> Connection:
@@ -342,6 +356,7 @@ HANDLERS: dict[str, Callable[[Any], Any]] = {
     "connections/setDefault": set_default,
     "settings/get": get_settings,
     "settings/setMode": set_mode,
+    "settings/setReviewModel": set_review_model,
     "projects/list": list_projects,
     "projects/open": open_project,
     "projects/archive": archive_project,

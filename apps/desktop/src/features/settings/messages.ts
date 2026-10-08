@@ -39,6 +39,10 @@ export const messages = defineMessages({
     defaultModel: '기본 모델',
     newSession: '새 세션',
     chooseModel: '모델을 골라 주세요',
+    reviewModel: '확인',
+    sameAsSession: '세션 모델과 같게',
+    reviewModelLead: '알아서 하기에서 위험해 보이는 일을 확인하는 모델이에요. 새 세션부터 적용돼요.',
+    changeReviewModel: '확인 모델 바꾸기 ›',
   },
   en: {
     title: 'Settings',
@@ -77,5 +81,9 @@ export const messages = defineMessages({
     defaultModel: 'Default model',
     newSession: 'New sessions',
     chooseModel: 'Choose a model',
+    reviewModel: 'Checks',
+    sameAsSession: "Same as the session's model",
+    reviewModelLead: 'The model that checks risky-looking actions in Auto mode. Applies to new sessions.',
+    changeReviewModel: 'Change the checking model ›',
   },
 });

@@ -56,6 +56,7 @@ THEME = Theme(
 MODE_LABELS = {
     "default": "ask before edits",
     "accept_edits": "accept edits",
+    "auto": "auto — a reviewer model decides",
     "yolo": "yolo — never ask",
 }
 

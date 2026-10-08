@@ -51,6 +51,8 @@ const earlier: Item[] = [
     remember: 'edit',
     decision: 'allow',
     feedback: null,
+    review: null,
+    reviewError: null,
     tool: 'edit',
     args: { path: 'tests/login.test.ts' },
   },
@@ -74,6 +76,8 @@ const earlier: Item[] = [
     remember: 'pnpm test',
     decision: 'allow',
     feedback: null,
+    review: null,
+    reviewError: null,
     tool: 'bash',
     args: { command: 'pnpm test login' },
   },
@@ -107,6 +111,8 @@ const earlier: Item[] = [
     remember: 'pnpm lint',
     decision: 'deny',
     feedback: '린트는 지금 안 돌려도 돼요',
+    review: null,
+    reviewError: null,
     tool: 'bash',
     args: { command: 'pnpm lint' },
   },
@@ -479,5 +485,45 @@ export const MemoryChecks: Story = {
   },
   play: async () => {
     await expect(await screen.findByText(/기억에 적힌 확인에 걸렸어요|A memory check failed/)).toBeVisible();
+  },
+};
+
+/** Auto mode: the reviewer blocked a push the user did not ask for; the line shows who stopped it and why. */
+export const AutoModeBlocked: Story = {
+  parameters: {
+    server: server([
+      { id: 'a1', kind: 'user_message', text: '로그인 테스트 고치고 커밋해 줘' },
+      {
+        id: 'a2',
+        kind: 'tool_call',
+        name: 'bash',
+        args: { command: 'pnpm test login' },
+        status: 'done',
+        result: 'Tests  4 passed',
+        images: 0,
+      },
+      {
+        id: 'a3',
+        kind: 'review_blocked',
+        callId: 'a4',
+        tool: 'bash',
+        args: { command: 'git push --force origin main' },
+        reason: '커밋만 부탁했는데 main에 강제로 푸시하려고 해서',
+      },
+      {
+        id: 'a4',
+        kind: 'tool_call',
+        name: 'bash',
+        args: { command: 'git push --force origin main' },
+        status: 'denied',
+        result: "Auto mode's reviewer blocked this call: 커밋만 부탁했는데 main에 강제로 푸시하려고 해서. Do not try...",
+        images: 0,
+      },
+      { id: 'a5', kind: 'agent_message', text: '커밋까지 했어요. 푸시는 막혀서 하지 않았어요. 필요하면 말씀해 주세요.' },
+    ]),
+  },
+  play: async () => {
+    await expect(await screen.findByText(/알아서 하기가 막았어요|Auto blocked this/)).toBeVisible();
+    await expect(screen.getByText(/main에 강제로 푸시하려고 해서/)).toBeVisible();
   },
 };

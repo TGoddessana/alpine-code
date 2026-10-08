@@ -118,7 +118,7 @@ def _model(ctx: Context, arg: str) -> bool:
     return True
 
 
-@command("mode", "Show or set the permission mode (default, accept_edits, yolo)")
+@command("mode", "Show or set the permission mode (default, accept_edits, auto, yolo)")
 def _mode(ctx: Context, arg: str) -> bool:
     if arg:
         try:

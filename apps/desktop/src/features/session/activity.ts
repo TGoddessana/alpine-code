@@ -12,6 +12,7 @@ export type ActivityWord =
   | 'running'
   | 'remembering'
   | 'tool'
+  | 'reviewing'
   | 'approval'
   | 'compacting';
 
@@ -23,6 +24,8 @@ export function activityWord(activity: Pick<Activity, 'kind' | 'toolName'> | nul
       return 'thinking';
     case 'writing':
       return 'writing';
+    case 'reviewing':
+      return 'reviewing';
     case 'waiting_approval':
       return 'approval';
     case 'compacting':

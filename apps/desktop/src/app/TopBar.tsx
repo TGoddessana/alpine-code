@@ -87,7 +87,7 @@ function SessionPart({ sessionId }: { sessionId: string }) {
 
 function Drag({ className, children }: { className: string; children: ReactNode }) {
   return (
-    <div data-tauri-drag-region className={`flex min-w-0 grow items-center self-stretch ${className}`}>
+    <div data-tauri-drag-region="deep" className={`flex min-w-0 grow items-center self-stretch ${className}`}>
       {children}
     </div>
   );

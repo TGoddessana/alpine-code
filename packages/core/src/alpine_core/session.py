@@ -282,8 +282,13 @@ class Session:
         if self._agents is None:
             return None
         if saved is not None:
-            picked = self._agents.get(saved.agent or "") or self._agents.default()
+            found = self._agents.get(saved.agent or "")
             applied = saved.agent_applied
+            if found is None and saved.agent and applied:
+                # The agent was deleted since. Keep its id and what it was applied with, so the first message
+                # switches to the default agent and says so, as for a live session.
+                found = dataclasses.replace(self._agents.default(), id=saved.agent, name="")
+            picked = found or self._agents.default()
             if not applied:
                 return picked
             return dataclasses.replace(
@@ -292,6 +297,7 @@ class Session:
                 instructions=applied.get("instructions", ""),
                 tools=tuple(applied.get("tools", picked.tools)),
             )
+        self._agents.list()  # reading the list first runs the profiles migration, which sets the project's last agent
         project = self._projects.get(self.workspace.root) if self._projects is not None else None
         last = project.last_agent if project is not None else None
         return self._agents.get(agent_id or "") or self._agents.get(last or "") or self._agents.default()
@@ -488,7 +494,10 @@ class Session:
                 self._agent = self._build_agent(settings)
                 self._settings, moved = settings, latest.model
             except ConfigError:
-                pass  # keep the current model; the tools and instructions still apply
+                # Keep the current model, and try the edit again at the next message.
+                self._applied = dataclasses.replace(latest, model=applied.model)
+        if not (added or removed or instructions or moved):
+            return
         if moved is None:
             self._agent = self._build_agent(self._settings)
         if self._state is not None:

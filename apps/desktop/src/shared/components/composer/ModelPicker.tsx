@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 
+import { shortModel } from '@/shared/components/agent';
 import { connectionLabel, connectMessages, PlanLine, useConnectPrompt } from '@/shared/components/connect';
 import { useMessages } from '@/shared/i18n';
 import { shownModels, useConnections, useModelsOf } from '@/shared/server';
@@ -47,9 +48,8 @@ export function ModelPicker({
   const navigate = useNavigate();
   const lists = useModelsOf((data?.connections ?? []).map((connection) => ({ connection: connection.name })));
 
-  const short = (model: string) => model.slice(model.indexOf('/') + 1);
   const defaultModel = data?.defaultModel ?? null;
-  const defaultText = defaultModel ? t.defaultModel(short(defaultModel)) : t.defaultModelPlain;
+  const defaultText = defaultModel ? t.defaultModel(shortModel(defaultModel)) : t.defaultModelPlain;
   const sources = (data?.connections ?? []).map((connection, i) => ({
     name: connection.name,
     label: connectionLabel(connection, data?.providers ?? [], c),
@@ -64,7 +64,7 @@ export function ModelPicker({
       : found;
   const all = groups.flatMap((g) => g.items);
   const selected = value ?? (allowDefault ? DEFAULT_ITEM : null);
-  const text = (item: string) => (item === DEFAULT_ITEM ? defaultText : short(item));
+  const text = (item: string) => (item === DEFAULT_ITEM ? defaultText : shortModel(item));
 
   if (!data) return null;
   if (data.connections.length === 0)

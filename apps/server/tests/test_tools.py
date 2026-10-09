@@ -98,3 +98,28 @@ def test_check_and_test_run_unsaved_code():
     assert [t["name"] for t in check["tools"]] == ["fetch"]
     result = call("tools/test", source=SOURCE, tool="fetch", args={"url": "https://example.com"})["result"]
     assert result["ok"] and result["output"] == "https://example.com"
+
+
+def test_deleting_a_broken_tool_file_forgets_its_tools():
+    shop = call("agents/save", agent=agent())["result"]["agent"]
+    call("tools/save", name="fetch", source=SOURCE, enableIn=shop["id"])
+    broken = SOURCE + "\nraise RuntimeError('boom')\n"
+    call("tools/save", name="fetch", source=broken)
+    assert call("tools/list")["result"]["files"][0]["status"] != "ready"
+    call("tools/delete", name="fetch")
+    assert call("agents/list")["result"]["agents"][1]["tools"] == ["read"]
+
+
+def test_concurrent_agent_saves_lose_nothing():
+    from concurrent.futures import ThreadPoolExecutor
+
+    from alpine_core import AgentConfig
+    from alpine_server.agents import agents as shared
+
+    def work(n: int) -> None:
+        for i in range(15):
+            shared().save(AgentConfig("", f"a{n}-{i}"))
+
+    with ThreadPoolExecutor(4) as pool:
+        list(pool.map(work, range(4)))
+    assert len(shared().list()) == 1 + 60

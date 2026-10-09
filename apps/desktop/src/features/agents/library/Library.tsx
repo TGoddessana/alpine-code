@@ -128,13 +128,12 @@ function List({
             </Menu.Popup>
           </Menu.Root>
         </div>
-        <div role="tablist" aria-label={t.tabs} className="flex flex-wrap gap-1">
+        <div role="group" aria-label={t.tabs} className="flex flex-wrap gap-1">
           {TABS.map((id) => (
             <button
               key={id}
               type="button"
-              role="tab"
-              aria-selected={id === tab}
+              aria-pressed={id === tab}
               onClick={() => onViewChange({ kind: 'list', tab: id })}
               className={clsx(
                 'min-h-7 cursor-pointer rounded-md px-2.5 text-body',
@@ -199,10 +198,7 @@ function Soon({ tab }: { tab: 'skill' | 'mcp' | 'sub' }) {
     sub: [t.subSoonTitle, t.subSoonBody],
   }[tab];
   return (
-    <div
-      role="tabpanel"
-      className="mx-5 mb-5 flex flex-col items-start gap-1.5 rounded-xl border border-dashed border-line p-5"
-    >
+    <div className="mx-5 mb-5 flex flex-col items-start gap-1.5 rounded-xl border border-dashed border-line p-5">
       <span className="rounded-full bg-canvas-sunken px-2 text-meta text-fg-muted">{t.soon}</span>
       <span className="font-medium">{words[0]}</span>
       <span className="text-meta text-fg-muted">{words[1]}</span>
@@ -257,6 +253,7 @@ function ToolCard({
           <span className="text-meta text-interactive">{t.added}</span>
           <Button
             className="min-h-6.5 border-transparent bg-transparent px-2 text-meta text-fg-muted"
+            aria-label={t.removeTool(card.label)}
             onClick={onRemove}
           >
             {t.remove}
@@ -264,7 +261,11 @@ function ToolCard({
         </div>
       )}
       {ready && !card.added && (
-        <Button className="min-h-7 border-interactive text-interactive" onClick={onAdd}>
+        <Button
+          className="min-h-7 border-interactive text-interactive"
+          aria-label={t.addTool(card.label)}
+          onClick={onAdd}
+        >
           {t.add}
         </Button>
       )}

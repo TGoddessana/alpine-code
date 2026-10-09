@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { agentMessages } from './messages';
-import { abilities, agentName, isBuiltin, toolDoes, toolLabel } from './names';
+import { abilities, agentName, isBuiltin, shortModel, toolLabel } from './names';
 
 const t = agentMessages.ko;
 
@@ -20,10 +20,15 @@ describe('toolLabel', () => {
     expect(toolLabel('read', t)).toBe('파일 읽기');
     expect(toolLabel('edit', t)).toBe('파일 고치기');
     expect(toolLabel('fetch', t)).toBe('fetch');
-    expect(toolDoes('bash', t)).toBe('터미널 명령을 실행해요');
-    expect(toolDoes('fetch', t)).toBe('');
     expect(isBuiltin('grep')).toBe(true);
     expect(isBuiltin('fetch')).toBe(false);
+  });
+});
+
+describe('shortModel', () => {
+  it('drops the connection name', () => {
+    expect(shortModel('anthropic/claude-sonnet-5')).toBe('claude-sonnet-5');
+    expect(shortModel('gpt-5')).toBe('gpt-5');
   });
 });
 

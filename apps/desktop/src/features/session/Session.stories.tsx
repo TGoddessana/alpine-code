@@ -559,8 +559,8 @@ const websiteItems: Item[] = [
   },
 ];
 
-const withAgents = (items: Item[]) =>
-  mergeScripts(setUpScript(), sessionScript({ sessions: [{ info: sessionInfo({ id: ID, agent: 'a-site' }), items }] }));
+const withAgents = (items: Item[], agent = 'a-site') =>
+  mergeScripts(setUpScript(), sessionScript({ sessions: [{ info: sessionInfo({ id: ID, agent }), items }] }));
 
 /**
  * Board 세션 중에 바뀌는 것, 에이전트 바꾸기: a divider says the session went on with another agent and what stays,
@@ -568,17 +568,20 @@ const withAgents = (items: Item[]) =>
  */
 export const AgentSwitched: Story = {
   parameters: {
-    server: withAgents([
-      ...websiteItems,
-      { id: 'w3', kind: 'agent_switched', agent: 'a-review', name: '꼼꼼한 검토자', look: 'glasses', color: 3 },
-      { id: 'w4', kind: 'user_message', text: '방금 바꾼 거 한번 봐 줘' },
-      {
-        id: 'w5',
-        kind: 'agent_message',
-        agent: 'a-review',
-        text: '바뀐 파일 2개를 읽었어요. 꼭 고칠 것은 하나예요. 크루아상 사진의 대체 글이 비어 있어요.',
-      },
-    ]),
+    server: withAgents(
+      [
+        ...websiteItems,
+        { id: 'w3', kind: 'agent_switched', agent: 'a-review', name: '꼼꼼한 검토자', look: 'glasses', color: 3 },
+        { id: 'w4', kind: 'user_message', text: '방금 바꾼 거 한번 봐 줘' },
+        {
+          id: 'w5',
+          kind: 'agent_message',
+          agent: 'a-review',
+          text: '바뀐 파일 2개를 읽었어요. 꼭 고칠 것은 하나예요. 크루아상 사진의 대체 글이 비어 있어요.',
+        },
+      ],
+      'a-review',
+    ),
   },
   play: async () => {
     await expect(
@@ -618,5 +621,38 @@ export const AgentChanged: Story = {
       await screen.findByText(/홈페이지 담당 설정이 바뀌었어요 · fetch 추가 · 지침 바뀜 · 이 메시지부터 적용돼요/),
     ).toBeVisible();
     expect(screen.getByRole('link', { name: '보기' })).toBeVisible();
+  },
+};
+
+/**
+ * An answer is one header however many pieces of text it has, and the session of a deleted agent still shows who
+ * wrote the earlier answers (from the dividers) and offers the default agent in the chip.
+ */
+export const DeletedAgent: Story = {
+  parameters: {
+    server: withAgents(
+      [
+        { id: 'g1', kind: 'agent_switched', agent: 'a-gone', name: '지워진 도우미', look: 'cap', color: 5 },
+        { id: 'g2', kind: 'user_message', text: '메뉴 페이지를 확인해 줘' },
+        { id: 'g3', kind: 'agent_message', agent: 'a-gone', text: '먼저 파일을 읽어 볼게요.' },
+        {
+          id: 'g4',
+          kind: 'tool_call',
+          name: 'read',
+          args: { path: 'menu.html' },
+          status: 'done',
+          result: '<html></html>',
+          images: 0,
+        },
+        { id: 'g5', kind: 'agent_message', agent: 'a-gone', text: '문제 없이 잘 되어 있어요.' },
+      ],
+      'a-gone',
+    ),
+  },
+  play: async () => {
+    await expect(await screen.findByText('문제 없이 잘 되어 있어요.')).toBeVisible();
+    // The name above the answer comes once, and the chip names the default agent that takes over.
+    expect(screen.getAllByText('지워진 도우미')).toHaveLength(1);
+    await expect(await screen.findByRole('button', { name: '에이전트: 기본 에이전트' })).toBeVisible();
   },
 };

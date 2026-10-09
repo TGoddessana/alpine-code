@@ -27,6 +27,7 @@ export const messages = defineMessages({
     lastUsed: '이 프로젝트에서 마지막으로 씀',
     newAgent: '새 에이전트',
     agentSettings: '에이전트 설정',
+    chipUnavailable: '에이전트를 불러오지 못했어요',
   },
   en: {
     message: 'Message',
@@ -54,5 +55,6 @@ export const messages = defineMessages({
     lastUsed: 'Last used in this project',
     newAgent: 'New agent',
     agentSettings: 'Agent settings',
+    chipUnavailable: "Couldn't load the agents",
   },
 });

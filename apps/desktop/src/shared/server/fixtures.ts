@@ -10,7 +10,7 @@ import { ServerError } from './connection';
 import { memoryScript } from './memoryScript';
 import { mergeScripts, type Script } from './scripted';
 import { sessionInfo, sessionScript, type SessionScriptOptions } from './sessionScript';
-import { toolsScript } from './toolsScript';
+import { agentStore, toolsScript, type AgentStore } from './toolsScript';
 
 /** The providers the server ships, for scripts. */
 export const PROVIDERS: ProviderInfo[] = [
@@ -104,6 +104,8 @@ interface ScriptState {
   projects: ProjectInfo[];
   /** How a ChatGPT sign-in ends, a moment after it starts: signed in (the default), or with plan usage declined. */
   chatgpt?: 'connected' | 'declined';
+  /** Where sessions record each project's last agent; `projects/list` reads it back. */
+  agents?: AgentStore;
 }
 
 /**
@@ -230,7 +232,10 @@ export function statefulScript(start: ScriptState): Script {
         settings = { ...settings, reviewModel };
         return { reviewModel };
       },
-      'projects/list': () => ({ projects, cloneParent: '/Users/me' }),
+      'projects/list': () => ({
+        projects: projects.map((p) => ({ ...p, lastAgent: start.agents?.lastAgent.get(p.path) ?? p.lastAgent })),
+        cloneParent: '/Users/me',
+      }),
       'projects/open': ({ path }) => {
         const opened = project(path);
         projects = [opened, ...projects.filter((p) => p.path !== path)];
@@ -279,8 +284,12 @@ export const firstRunScript = (chatgpt: ScriptState['chatgpt'] = 'connected') =>
   statefulScript({ connections: NOTHING_CONNECTED, projects: [], chatgpt });
 
 /** Everything set up: three connections and three projects. */
-export const setUpScript = () =>
-  mergeScripts(statefulScript({ connections: CONNECTED, projects: PROJECTS }), toolsScript(), memoryScript());
+export const setUpScript = (agents: AgentStore = agentStore()) =>
+  mergeScripts(
+    statefulScript({ connections: CONNECTED, projects: PROJECTS, agents }),
+    toolsScript(agents),
+    memoryScript(),
+  );
 
 /** Three earlier sessions, one of them at work, for a rail that is not empty. */
 export const SESSIONS = [
@@ -324,5 +333,10 @@ export const SESSIONS = [
  * Everything set up, and a server that runs sessions: `session/send` plays a turn (see `sessionScript`), so a story
  * can send a message, answer the approval and watch the reply.
  */
-export const chatScript = (options: SessionScriptOptions = {}) =>
-  mergeScripts(setUpScript(), sessionScript({ sessions: SESSIONS.map((info) => ({ info })), ...options }));
+export const chatScript = (options: SessionScriptOptions = {}) => {
+  const agents = options.agents ?? agentStore();
+  return mergeScripts(
+    setUpScript(agents),
+    sessionScript({ sessions: SESSIONS.map((info) => ({ info })), ...options, agents }),
+  );
+};

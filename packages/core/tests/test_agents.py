@@ -164,3 +164,49 @@ def test_garbage_profiles_give_the_default(home):
     home.mkdir(parents=True)
     (home / "profiles.json").write_text("[1, 2")
     assert AgentList(home).list() == [AgentConfig("default", "")]
+
+
+def test_separate_instances_on_one_file_do_not_lose_updates(home):
+    from concurrent.futures import ThreadPoolExecutor
+
+    def work(n):
+        mine = AgentList(home)
+        for i in range(15):
+            mine.save(AgentConfig("", f"a{n}-{i}"))
+
+    with ThreadPoolExecutor(4) as pool:
+        list(pool.map(work, range(4)))
+    assert len(AgentList(home).list()) == 61
+    assert [p.name for p in home.iterdir() if p.name.endswith(".tmp")] == []
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "null",
+        "[]",
+        '{"agents": null}',
+        '{"agents": 5}',
+        '{"agents": [{"id": "a", "tools": null, "look": "robot", "color": "3"}]}',
+        '{"agents": [{"id": "a", "look": "glasses", "color": 99, "model": 4}]}',
+    ],
+)
+def test_wrongly_shaped_files_still_give_usable_agents(home, content):
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "agents.json").write_text(content)
+    listed = AgentList(home).list()
+    assert listed[0].is_default
+    for a in listed:
+        assert a.look in LOOKS and a.color in COLORS and isinstance(a.tools, tuple)
+        assert a.model is None or isinstance(a.model, str)
+
+
+@pytest.mark.parametrize(
+    "content", ["null", '{"profiles": null}', '{"profiles": 5}', '{"profiles": [{"id": "p", "tools": null}]}']
+)
+def test_wrongly_shaped_profiles_do_not_break_the_migration(home, content):
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "profiles.json").write_text(content)
+    listed = AgentList(home).list()
+    assert listed[0].is_default
+    assert all(isinstance(a.tools, tuple) for a in listed)

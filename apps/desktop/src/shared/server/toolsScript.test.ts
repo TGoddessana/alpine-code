@@ -20,6 +20,30 @@ describe('toolsScript agents', () => {
     expect([agent.look, agent.color]).toEqual(['hardhat', 2]);
   });
 
+  it('lets an existing agent share a look and colour, as the core does', async () => {
+    const connection = scriptedConnection(toolsScript());
+    const site = AGENTS.find((a) => a.id === 'a-site')!;
+    const { agent } = await connection.request('agents/save', { agent: { ...site, look: 'glasses', color: 3 } });
+    expect([agent.look, agent.color]).toEqual(['glasses', 3]);
+  });
+
+  it('trims the text, drops repeated tools and replaces an unknown look or colour', async () => {
+    const connection = scriptedConnection(toolsScript());
+    const { agent } = await connection.request('agents/save', {
+      agent: {
+        ...NEW,
+        name: '  이름 ',
+        description: ' 설명  ',
+        tools: ['read', 'read', 'grep'],
+        look: 'nope' as never,
+        color: 99,
+      },
+    });
+    expect(agent).toMatchObject({ name: '이름', description: '설명', tools: ['read', 'grep'], look: 'antenna' });
+    expect(agent.color).toBeGreaterThanOrEqual(1);
+    expect(agent.color).toBeLessThanOrEqual(8);
+  });
+
   it('keeps the default agent when it is deleted', async () => {
     const connection = scriptedConnection(toolsScript());
     await connection.request('agents/delete', { id: 'default' });

@@ -3,13 +3,15 @@ import { Plus, Pencil, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useState, type ReactNode } from 'react';
 
-import { BUILTIN_TOOLS, agentMessages, isBuiltin, toolLabel } from '@/shared/components/agent';
+import { BUILTIN_TOOLS, agentMessages, isBuiltin, shortModel, toolLabel } from '@/shared/components/agent';
 import { ModelPicker } from '@/shared/components/composer';
 import { connectionLabel, connectMessages } from '@/shared/components/connect';
 import { useFormat, useMessages } from '@/shared/i18n';
 import { useConnections, useTools } from '@/shared/server';
 
 import type { LibraryTab } from './library';
+import { libraryMessages } from './library/messages';
+import { statusLine } from './library/status';
 import { agentsMessages } from './messages';
 
 const dashed =
@@ -69,7 +71,7 @@ export function AgentRows({
   agent: AgentInfo;
   /** The tool that was just added. */
   flash: string | null;
-  onChange: (agent: AgentInfo) => void;
+  onChange: (agent: AgentInfo) => unknown;
   onAdd: (tools: string[], label: string) => void;
   onRemove: (tools: string[], label: string) => void;
   onOpenTool: (file: string, tool: string) => void;
@@ -166,12 +168,22 @@ function CustomTile({
   onRemove: () => void;
 }) {
   const t = useMessages(agentsMessages);
-  const file = tools?.files.find((f) => f.tools.some((x) => x.name === tool));
-  const does = file?.tools.find((x) => x.name === tool)?.description.split('\n')[0] ?? '';
+  const l = useMessages(libraryMessages);
+  const format = useFormat();
+  // A file changed outside the app or broken lists no tools, so it is found by its name, as the library's card is.
+  const file =
+    tools?.files.find((f) => f.tools.some((x) => x.name === tool)) ??
+    tools?.files.find((f) => f.status !== 'ready' && f.name === tool);
+  const does =
+    file?.status === 'ready' || !file
+      ? (file?.tools.find((x) => x.name === tool)?.description.split('\n')[0] ?? '')
+      : statusLine(file, l, format.since);
   const body = (
     <>
       <span className="text-body font-medium">{tool}</span>
-      {does && <span className="text-meta text-fg-muted">{does}</span>}
+      {does && (
+        <span className={clsx('text-meta', file?.status === 'error' ? 'text-danger' : 'text-fg-muted')}>{does}</span>
+      )}
       {file && <span className="mt-0.5 text-meta text-interactive">{t.openCode}</span>}
     </>
   );
@@ -193,15 +205,14 @@ function CustomTile({
   );
 }
 
-function ModelRow({ agent, onChange }: { agent: AgentInfo; onChange: (agent: AgentInfo) => void }) {
+function ModelRow({ agent, onChange }: { agent: AgentInfo; onChange: (agent: AgentInfo) => unknown }) {
   const t = useMessages(agentsMessages);
   const c = useMessages(connectMessages);
   const data = useConnections().data;
-  const short = (model: string) => model.slice(model.indexOf('/') + 1);
   const model = agent.model ?? data?.defaultModel ?? null;
   const connection = model ? data?.connections.find((x) => model.startsWith(`${x.name}/`)) : undefined;
   const via = connection ? connectionLabel(connection, data?.providers ?? [], c) : null;
-  const name = agent.model ? short(agent.model) : model ? t.defaultModel(short(model)) : t.defaultModelPlain;
+  const name = agent.model ? shortModel(agent.model) : model ? t.defaultModel(shortModel(model)) : t.defaultModelPlain;
   return (
     <Row label={t.modelLabel} note={t.modelNote}>
       <div className="flex items-start gap-3">
@@ -223,13 +234,19 @@ function ModelRow({ agent, onChange }: { agent: AgentInfo; onChange: (agent: Age
 const LONG_GUIDE = 2000;
 
 /** 지침: text to read, or a bare box to write in (decision 13). Enter is a new line; leaving the box saves. */
-function GuideRow({ agent, onChange }: { agent: AgentInfo; onChange: (agent: AgentInfo) => void }) {
+function GuideRow({ agent, onChange }: { agent: AgentInfo; onChange: (agent: AgentInfo) => unknown }) {
   const t = useMessages(agentsMessages);
   const format = useFormat();
   const [draft, setDraft] = useState<string | null>(null);
+  const [notSaved, setNotSaved] = useState(false);
   const text = draft ?? agent.instructions;
-  const stop = () => {
-    if (draft !== null && draft !== agent.instructions) onChange({ ...agent, instructions: draft });
+  // What I typed stays in the box until the save worked, so a failed save loses nothing.
+  const stop = async () => {
+    if (draft !== null && draft !== agent.instructions) {
+      const saved = await onChange({ ...agent, instructions: draft });
+      if (saved === false) return setNotSaved(true);
+    }
+    setNotSaved(false);
     setDraft(null);
   };
   return (
@@ -254,8 +271,11 @@ function GuideRow({ agent, onChange }: { agent: AgentInfo; onChange: (agent: Age
           rows={4}
           value={draft}
           placeholder={t.guidePlaceholder}
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={stop}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setNotSaved(false);
+          }}
+          onBlur={() => void stop()}
           className="block w-full resize-y rounded-sm bg-transparent p-0 text-body outline-none placeholder:text-fg-faint focus-visible:ring-2 focus-visible:ring-interactive"
         />
       )}
@@ -263,6 +283,11 @@ function GuideRow({ agent, onChange }: { agent: AgentInfo; onChange: (agent: Age
         <div className="mt-1.5 flex flex-wrap gap-x-2 text-meta text-fg-faint">
           <span>{t.guideCount(format.number(text.length))}</span>
           {text.length > LONG_GUIDE && <span className="text-attention">{t.guideLong}</span>}
+          {notSaved && (
+            <span role="alert" className="text-danger">
+              {t.guideNotSaved}
+            </span>
+          )}
           {draft !== null && <span className="ml-auto">{t.guideBlur}</span>}
         </div>
       )}

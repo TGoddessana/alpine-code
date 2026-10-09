@@ -5,6 +5,7 @@ Every window shares one ``Toolbox`` per home folder, so a file's module is impor
 
 from __future__ import annotations
 
+import ast
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -115,10 +116,33 @@ def confirm_tool(params: ToolsConfirmParams) -> ToolsConfirmResult:
 def delete_tool(params: ToolsDeleteParams) -> ToolsDeleteResult:
     box = toolbox()
     names = {t.name for f in box.list() if f.name == params.name for t in f.tools}
+    try:
+        # A broken or unconfirmed file lists no tools, so read the names from its text.
+        names |= _declared_tools(box.source(params.name))
+    except LookupError:
+        pass
     box.delete(params.name)
     if names:
         agents().forget_tools(names)
     return ToolsDeleteResult()
+
+
+def _declared_tools(source: str) -> set[str]:
+    """The names of the functions a file decorates with ``tool``, without running it."""
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return set()
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            for deco in node.decorator_list:
+                target = deco.func if isinstance(deco, ast.Call) else deco
+                if (isinstance(target, ast.Name) and target.id == "tool") or (
+                    isinstance(target, ast.Attribute) and target.attr == "tool"
+                ):
+                    names.add(node.name)
+    return names
 
 
 def install_packages(params: ToolsInstallParams) -> ToolsInstallResult:

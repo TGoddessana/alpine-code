@@ -12,6 +12,8 @@ Kept in ``~/.alpine-code/agents.json``. Tool names cover built-in and user tools
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import threading
 import uuid
 from dataclasses import dataclass, replace
@@ -77,13 +79,25 @@ def free_character(taken: set[tuple[str, int]], look: str = "antenna", color: in
     return look, color
 
 
+_locks: dict[Path, threading.Lock] = {}
+_locks_guard = threading.Lock()
+
+
+def _lock_for(file: Path) -> threading.Lock:
+    """One lock per file, shared by every ``AgentList`` on it, so separate instances cannot lose each other's
+    updates."""
+    key = file.resolve()
+    with _locks_guard:
+        return _locks.setdefault(key, threading.Lock())
+
+
 class AgentList:
-    """The agents in ``home/agents.json``. Safe to use from several threads."""
+    """The agents in ``home/agents.json``. Safe to use from several threads, also through several instances."""
 
     def __init__(self, home: Path | None = None) -> None:
         self._home = home or home_dir()
         self._file = self._home / "agents.json"
-        self._lock = threading.Lock()
+        self._lock = _lock_for(self._file)
 
     def list(self) -> list[AgentConfig]:
         """The default agent first, then the others in the order they were made."""
@@ -153,18 +167,10 @@ class AgentList:
             return self._migrate()
         except (OSError, ValueError):
             data = {}
+        items = data.get("agents") if isinstance(data, dict) else None
         agents = [
-            AgentConfig(
-                id=str(item["id"]),
-                name=str(item.get("name", "")),
-                description=str(item.get("description", "")),
-                model=item.get("model"),
-                instructions=str(item.get("instructions", "")),
-                tools=tuple(item.get("tools", BUILTIN)),
-                look=item.get("look", "antenna"),
-                color=item.get("color", 2),
-            )
-            for item in data.get("agents", [])
+            _agent_from(item)
+            for item in (items if isinstance(items, list) else [])
             if isinstance(item, dict) and item.get("id")
         ]
         return _default_first(agents)
@@ -172,8 +178,11 @@ class AgentList:
     def _migrate(self) -> list[AgentConfig]:
         """Turns ``profiles.json`` into agents (decision 11 of ``docs/agents.md``), once. Without it, the default."""
         try:
-            profiles = json.loads((self._home / "profiles.json").read_text("utf-8")).get("profiles", [])
-        except (OSError, ValueError, AttributeError):
+            data = json.loads((self._home / "profiles.json").read_text("utf-8"))
+        except (OSError, ValueError):
+            return _default_first([])
+        profiles = data.get("profiles") if isinstance(data, dict) else None
+        if not isinstance(profiles, list):
             return _default_first([])
         profiles = [p for p in profiles if isinstance(p, dict) and p.get("id")]
         agents: list[AgentConfig] = []
@@ -189,8 +198,8 @@ class AgentList:
                 AgentConfig(
                     id=str(profile["id"]),
                     name="" if is_default else str(profile.get("name", "")),
-                    model=profile.get("model"),
-                    tools=tuple(profile.get("tools", BUILTIN)),
+                    model=_model_of(profile.get("model")),
+                    tools=_tools_of(profile.get("tools")),
                     look=look,
                     color=color,
                 )
@@ -224,11 +233,42 @@ class AgentList:
                 for a in agents
             ]
         }
-        tmp = self._file.with_name(".agents.json.tmp")
-        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), "utf-8")
-        tmp.replace(self._file)
+        fd, name = tempfile.mkstemp(dir=self._file.parent, prefix=".agents.json.", suffix=".tmp")
+        tmp = Path(name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(json.dumps(data, indent=2, ensure_ascii=False))
+            tmp.replace(self._file)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
 
 
 def _default_first(agents: list[AgentConfig]) -> list[AgentConfig]:
     default = next((a for a in agents if a.is_default), AgentConfig(DEFAULT_ID, ""))
     return [default, *(a for a in agents if not a.is_default)]
+
+
+def _tools_of(value: object) -> tuple[str, ...]:
+    if isinstance(value, list) and all(isinstance(t, str) for t in value):
+        return tuple(value)
+    return BUILTIN
+
+
+def _model_of(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
+def _agent_from(item: dict) -> AgentConfig:
+    """An agent from a stored entry, with anything of the wrong shape replaced by its default."""
+    look, color = item.get("look"), item.get("color")
+    return AgentConfig(
+        id=str(item["id"]),
+        name=str(item.get("name", "")),
+        description=str(item.get("description", "")),
+        model=_model_of(item.get("model")),
+        instructions=str(item.get("instructions", "")),
+        tools=_tools_of(item.get("tools", BUILTIN)),
+        look=look if isinstance(look, str) and look in LOOKS else "antenna",
+        color=color if isinstance(color, int) and not isinstance(color, bool) and color in COLORS else 2,
+    )

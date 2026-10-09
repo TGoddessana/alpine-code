@@ -77,6 +77,7 @@ function Editor({
   const [toast, setToast] = useState<ToastState | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState(0);
+  const [failed, setFailed] = useState(false);
   const name = agentName(agent, a);
 
   useEffect(() => {
@@ -91,12 +92,24 @@ function Editor({
   }, [flash]);
   const dismiss = useCallback(() => setToast(null), []);
 
-  const persist = (next: AgentInfo) => save.mutate(next, { onSuccess: () => setSavedAt(Date.now()) });
+  /** Saves the agent; says whether it worked. A save that fails is told in the header, and nothing else claims it. */
+  const persist = async (next: AgentInfo) => {
+    setFailed(false);
+    try {
+      await save.mutateAsync(next);
+      setSavedAt(Date.now());
+      return true;
+    } catch {
+      setSavedAt(0);
+      setFailed(true);
+      return false;
+    }
+  };
 
-  const change = (tools: string[], text: string, lit: string | null) => {
+  const change = async (tools: string[], text: string, lit: string | null) => {
+    if (!(await persist({ ...agent, tools }))) return;
     setToast({ id: Date.now(), text, previous: agent.tools });
     setFlash(lit);
-    persist({ ...agent, tools });
   };
   const add = (tools: string[], label: string) => {
     const fresh = tools.filter((tool) => !agent.tools.includes(tool));
@@ -115,7 +128,7 @@ function Editor({
     setSavedAt(Date.now());
   };
   const undo = () => {
-    if (toast) persist({ ...agent, tools: toast.previous });
+    if (toast) void persist({ ...agent, tools: toast.previous });
     setToast(null);
   };
 
@@ -138,7 +151,7 @@ function Editor({
           onDrop={dragging ? drop : undefined}
           className="flex grow flex-col gap-4 overflow-y-auto px-6 py-5"
         >
-          <AgentHeader agent={agent} saved={savedAt !== 0} onSave={persist} onSelect={onSelect} />
+          <AgentHeader agent={agent} saved={savedAt !== 0} failed={failed} onSave={persist} onSelect={onSelect} />
           <WorkingLine agentId={agent.id} />
           <AgentRows
             agent={agent}
@@ -158,10 +171,7 @@ function Editor({
           </div>
         )}
       </div>
-      <aside
-        aria-label={t.library}
-        className="flex w-110 shrink-0 flex-col border-l border-line-subtle bg-canvas-sunken"
-      >
+      <div className="flex w-110 shrink-0 flex-col">
         <Library
           agent={agent}
           agents={agents}
@@ -172,7 +182,7 @@ function Editor({
           onCreated={created}
           onDragChange={setDragging}
         />
-      </aside>
+      </div>
       {toast && <Toast id={toast.id} agent={agent} text={toast.text} onUndo={undo} onDismiss={dismiss} />}
     </div>
   );

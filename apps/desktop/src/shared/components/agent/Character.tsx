@@ -34,8 +34,10 @@ export function Character({
       viewBox="0 0 120 120"
       width={size}
       height={size}
-      role="img"
-      aria-label={label ?? t.characterLabel(t[`look_${kind}`])}
+      // A character with an empty `label` is decoration: the words next to it already say who it is.
+      {...(label === ''
+        ? { 'aria-hidden': true }
+        : { role: 'img', 'aria-label': label ?? t.characterLabel(t[`look_${kind}`]) })}
       className={clsx('shrink-0', paint.ink, className)}
     >
       <ellipse cx="60" cy="111" rx="32" ry="4" fill="currentColor" opacity="0.14" />

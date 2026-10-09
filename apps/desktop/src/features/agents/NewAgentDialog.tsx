@@ -85,7 +85,20 @@ function Form({ onClose, onCreated }: { onClose: () => void; onCreated: (id: str
         <Dialog.Description>{t.newLead}</Dialog.Description>
       </div>
 
-      <div role="radiogroup" aria-label={t.starts} className="grid grid-cols-4 gap-2.5">
+      <div
+        role="radiogroup"
+        aria-label={t.starts}
+        onKeyDown={(event) => {
+          const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+          if (!step || event.nativeEvent.isComposing) return;
+          event.preventDefault();
+          const at = STARTS.findIndex((s) => s.id === pick);
+          const next = STARTS[(at + step + STARTS.length) % STARTS.length]!;
+          choose(next.id);
+          event.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')[STARTS.indexOf(next)]?.focus();
+        }}
+        className="grid grid-cols-4 gap-2.5"
+      >
         {STARTS.map((s) => {
           const words = startText(s.id, t);
           return (
@@ -94,6 +107,7 @@ function Form({ onClose, onCreated }: { onClose: () => void; onCreated: (id: str
               type="button"
               role="radio"
               aria-checked={s.id === pick}
+              tabIndex={s.id === pick ? 0 : -1}
               onClick={() => choose(s.id)}
               className={clsx(
                 'flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 px-2.5 pt-4 pb-3.5 text-center',

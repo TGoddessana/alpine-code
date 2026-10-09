@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from alpine_core import AgentConfig, AgentList, home_dir
 from alpine_protocol import (
     AgentInfo,
@@ -13,9 +15,15 @@ from alpine_protocol import (
     AgentsSaveResult,
 )
 
+_lists: dict[Path, AgentList] = {}
+
 
 def agents() -> AgentList:
-    return AgentList(home_dir())
+    """The agent list of the current home folder, made once, shared by every handler and session."""
+    home = home_dir()
+    if home not in _lists:
+        _lists[home] = AgentList(home)
+    return _lists[home]
 
 
 def list_agents(params: AgentsListParams) -> AgentsListResult:

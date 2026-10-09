@@ -19,13 +19,16 @@ import { agentsMessages } from './messages';
 export function AgentHeader({
   agent,
   saved,
+  failed = false,
   onSave,
   onSelect,
 }: {
   agent: AgentInfo;
   /** Whether something was just saved. */
   saved: boolean;
-  onSave: (agent: AgentInfo) => void;
+  /** Whether the last save did not work. */
+  failed?: boolean;
+  onSave: (agent: AgentInfo) => unknown;
   onSelect: (id: string) => void;
 }) {
   const t = useMessages(agentsMessages);
@@ -45,6 +48,8 @@ export function AgentHeader({
     if (next.name !== agent.name || next.description !== agent.description) onSave(next);
   };
   const onKeyDown = (event: KeyboardEvent) => {
+    // Enter and Esc while a Hangul syllable is still being composed belong to the input method.
+    if (event.nativeEvent.isComposing) return;
     if (event.key === 'Enter') {
       event.preventDefault();
       commit();
@@ -100,8 +105,11 @@ export function AgentHeader({
         )}
       </div>
       <div className="flex items-center gap-2">
-        <span role="status" className={clsx('text-meta', saved ? 'text-interactive' : 'text-fg-faint')}>
-          {saved ? t.saved : t.autoSaves}
+        <span
+          role="status"
+          className={clsx('text-meta', failed ? 'text-danger' : saved ? 'text-interactive' : 'text-fg-faint')}
+        >
+          {failed ? t.saveFailed : saved ? t.saved : t.autoSaves}
         </span>
         <AgentMenu agent={agent} onSelect={onSelect} />
         <Link

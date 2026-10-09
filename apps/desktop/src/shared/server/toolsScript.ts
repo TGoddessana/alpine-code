@@ -85,6 +85,17 @@ export const AGENTS: AgentInfo[] = [
   },
 ];
 
+/**
+ * What the scripted servers share about agents: the list (which the agents screen edits and sessions read), and each
+ * project's last agent by path. One store per running script, so a session sees the agent just made.
+ */
+export interface AgentStore {
+  agents: AgentInfo[];
+  lastAgent: Map<string, string>;
+}
+
+export const agentStore = (): AgentStore => ({ agents: AGENTS.map((a) => ({ ...a })), lastAgent: new Map() });
+
 const LOOKS = [
   'antenna',
   'hardhat',
@@ -119,7 +130,7 @@ const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).
  * broken. `tools/check` reads the `def` names and docstrings without running anything; `trafilatura` needs an
  * approval.
  */
-export function toolsScript(): Script {
+export function toolsScript(store: AgentStore = agentStore()): Script {
   const sources: Record<string, string> = { fetch: FETCH_SOURCE, order_stats: '', csv_summary: 'def oops(:\n' };
   let files: ToolFileInfo[] = [
     ready('fetch', FETCH_SOURCE),
@@ -142,8 +153,7 @@ export function toolsScript(): Script {
       packages: [],
     },
   ];
-  let agents: AgentInfo[] = AGENTS.map((a) => ({ ...a }));
-  let nextAgent = agents.length;
+  let nextAgent = store.agents.length;
   const approved = new Set<string>();
 
   return {
@@ -178,7 +188,8 @@ export function toolsScript(): Script {
         sources[name] = source;
         files = [...files.filter((f) => f.name !== name), file];
         const added = file.tools.filter((t) => !before.has(t.name)).map((t) => t.name);
-        if (enableIn) agents = agents.map((a) => (a.id === enableIn ? { ...a, tools: [...a.tools, ...added] } : a));
+        if (enableIn)
+          store.agents = store.agents.map((a) => (a.id === enableIn ? { ...a, tools: [...a.tools, ...added] } : a));
         return { file };
       },
       'tools/confirm': ({ name }) => {
@@ -189,7 +200,7 @@ export function toolsScript(): Script {
       'tools/delete': ({ name }) => {
         const gone = new Set(files.find((f) => f.name === name)?.tools.map((t) => t.name));
         files = files.filter((f) => f.name !== name);
-        agents = agents.map((a) => ({ ...a, tools: a.tools.filter((t) => !gone.has(t)) }));
+        store.agents = store.agents.map((a) => ({ ...a, tools: a.tools.filter((t) => !gone.has(t)) }));
         return {};
       },
       'tools/install': ({ packages }) => {
@@ -200,20 +211,30 @@ export function toolsScript(): Script {
       'tools/draft': ({ description }) => ({
         source: FETCH_SOURCE.replace('웹 페이지를 가져와 글만 돌려줘요.', description.split('\n')[0] ?? ''),
       }),
-      'agents/list': () => ({ agents }),
+      'agents/list': () => ({ agents: store.agents }),
       'agents/save': ({ agent }) => {
-        const taken = new Set(agents.filter((a) => a.id !== agent.id).map((a) => `${a.look}/${a.color}`));
-        const character = taken.has(`${agent.look}/${agent.color}`)
-          ? freeCharacter(taken, agent.look, agent.color)
-          : { look: agent.look, color: agent.color };
-        const saved = { ...agent, ...character, id: agent.id || `a-${nextAgent++}` };
-        agents = agents.some((a) => a.id === saved.id)
-          ? agents.map((a) => (a.id === saved.id ? saved : a))
-          : [...agents, saved];
+        // As the core does: text is trimmed, tools de-duplicated, an unknown look or colour replaced, and only a
+        // new agent is moved off a look and colour another agent has.
+        const look = LOOKS.includes(agent.look as (typeof LOOKS)[number]) ? agent.look : 'antenna';
+        const color = Number.isInteger(agent.color) && agent.color >= 1 && agent.color <= 8 ? agent.color : 1;
+        const taken = new Set(store.agents.map((a) => `${a.look}/${a.color}`));
+        const character =
+          !agent.id && taken.has(`${look}/${color}`) ? freeCharacter(taken, look, color) : { look, color };
+        const saved: AgentInfo = {
+          ...agent,
+          ...character,
+          name: agent.name.trim(),
+          description: agent.description.trim(),
+          tools: [...new Set(agent.tools)],
+          id: agent.id || `a-${nextAgent++}`,
+        };
+        store.agents = store.agents.some((a) => a.id === saved.id)
+          ? store.agents.map((a) => (a.id === saved.id ? saved : a))
+          : [...store.agents, saved];
         return { agent: saved };
       },
       'agents/delete': ({ id }) => {
-        agents = agents.filter((a) => a.id !== id || a.id === 'default');
+        store.agents = store.agents.filter((a) => a.id !== id || a.id === 'default');
         return {};
       },
     },

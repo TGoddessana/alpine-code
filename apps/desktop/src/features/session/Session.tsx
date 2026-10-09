@@ -5,6 +5,7 @@ import { useMessages } from '@/shared/i18n';
 import {
   activeApproval,
   SESSION_NOT_FOUND,
+  SESSION_RUNNING,
   ServerError,
   useAnswerApproval,
   useCancelSession,
@@ -74,6 +75,15 @@ export function Session({ sessionId }: { sessionId: string }) {
   const running = info.status === 'running' || info.status === 'waiting';
   const approval = activeApproval(state);
   const title = info.title || t.untitled;
+  const agentError = setAgent.error;
+  const agentFailed =
+    agentError instanceof ServerError && agentError.code === SESSION_RUNNING
+      ? t.agentRunning
+      : agentError instanceof ServerError && agentError.data?.reason === 'invalid_config'
+        ? t.agentInvalidConfig
+        : agentError instanceof ServerError && agentError.data?.reason === 'agent_not_found'
+          ? t.agentNotFound
+          : t.agentFailed;
 
   return (
     <main aria-label={title} className="flex min-w-120 grow flex-col bg-canvas">
@@ -91,6 +101,11 @@ export function Session({ sessionId }: { sessionId: string }) {
         </div>
       </div>
       <div className="mx-auto flex w-full max-w-175 flex-col gap-2 px-6 pt-3 pb-6">
+        {setAgent.isError && (
+          <p role="alert" className="px-1 text-meta text-fg-muted">
+            {agentFailed}
+          </p>
+        )}
         <Composer
           running={running}
           answer={
@@ -107,7 +122,7 @@ export function Session({ sessionId }: { sessionId: string }) {
               context="session"
               agentId={info.agent ?? 'default'}
               model={info.model}
-              disabled={running}
+              disabled={running || setAgent.isPending}
               onChange={(agent) => setAgent.mutate({ sessionId, agent })}
             />
           }

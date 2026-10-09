@@ -42,7 +42,7 @@ export function NewSession({
   const newSession = useNewSession();
   const sendMessage = useSendMessage();
   // A session made for a message that then failed to send is used again on retry (with the same agent), not made twice.
-  const made = useRef<{ path: string; agent: string; id: string } | null>(null);
+  const made = useRef<{ path: string; agent: string | null; id: string } | null>(null);
   const openFolder = useOpenFolder(onProjectChange);
   const [cloning, setCloning] = useState(false);
   // An agent picked in the chip, for this project only.
@@ -53,17 +53,21 @@ export function NewSession({
   const [mode, setMode] = useState<Mode | null>(null);
   const shownMode = mode ?? defaultMode;
   const wanted = (picked?.path === project.path ? picked.id : null) ?? agent ?? project.lastAgent ?? DEFAULT_AGENT;
-  const shown = agents?.some((a) => a.id === wanted) ? wanted : DEFAULT_AGENT;
+  // Until the agents are read (or when they cannot be), no agent is sent, so the server applies its own choice
+  // (the project's last agent, then the default) rather than the app forcing the default one.
+  const known = agents?.some((a) => a.id === wanted) ?? false;
+  const shown = known ? wanted : DEFAULT_AGENT;
+  const sent = known ? wanted : null;
   const shownAgent = agents?.find((a) => a.id === shown);
 
   const start = async (text: string) => {
-    if (made.current?.path !== project.path || made.current.agent !== shown) {
+    if (made.current?.path !== project.path || made.current.agent !== sent) {
       const info = await newSession.mutateAsync({
         cwd: project.path,
-        agent: shown,
+        ...(sent ? { agent: sent } : {}),
         ...(mode ? { mode } : {}),
       });
-      made.current = { path: project.path, agent: shown, id: info.id };
+      made.current = { path: project.path, agent: sent, id: info.id };
     }
     const { id } = made.current;
     await sendMessage.mutateAsync({ sessionId: id, text });

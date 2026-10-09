@@ -1,6 +1,6 @@
 import { LinkButton } from '@alpine/ui/primitives';
 import { Link } from '@tanstack/react-router';
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { agentMessages, agentName, Character, toolLabel } from '@/shared/components/agent';
 import { Markdown } from '@/shared/components/markdown';
@@ -9,6 +9,7 @@ import { openInBrowser } from '@/shared/platform';
 import { CHATGPT_USAGE_URL, useAgents, type Item } from '@/shared/server';
 
 import { ApprovalCard } from './ApprovalCard';
+import { answers, type Answer } from './answers';
 import { toBlocks, type Block } from './blocks';
 import { MemoryCard, MemoryReviewLine } from './MemoryCard';
 import { messages } from './messages';
@@ -35,6 +36,7 @@ export function Chat({
   items: Item[];
   activeIds: readonly string[];
 }) {
+  const answered = useMemo(() => answers(items), [items]);
   return (
     <div className="flex flex-col gap-4">
       {toBlocks(items, activeIds).map((block) =>
@@ -49,22 +51,40 @@ export function Chat({
         ) : block.item.kind === 'memory_review' ? (
           <MemoryReviewLine key={block.item.id} cwd={cwd} item={block.item} />
         ) : (
-          <ItemView key={block.item.id} item={block.item} active={activeIds.includes(block.item.id)} />
+          <ItemView
+            key={block.item.id}
+            item={block.item}
+            active={activeIds.includes(block.item.id)}
+            header={answered.get(block.item.id)?.header ?? true}
+            remembered={answered.get(block.item.id)?.remembered ?? null}
+          />
         ),
       )}
     </div>
   );
 }
 
-/** A reply as it streams in: let out at an even pace, drawn as markdown, under the face and name of its agent. */
-function AgentMessage({ text, agent, streaming }: { text: string; agent: string | null; streaming: boolean }) {
+/**
+ * A reply as it streams in: let out at an even pace, drawn as markdown, under the face and name of its agent (once
+ * per answer, see `header`). An agent that was deleted is still shown as the conversation remembers it.
+ */
+function AgentMessage({
+  text,
+  agent,
+  streaming,
+  header,
+  remembered,
+}: { text: string; agent: string | null; streaming: boolean } & Answer) {
   const a = useMessages(agentMessages);
-  const writer = useAgents().data?.agents.find((candidate) => candidate.id === agent);
+  const found = useAgents().data?.agents.find((candidate) => candidate.id === agent);
+  const writer =
+    found ??
+    (remembered && agent ? { id: agent, name: remembered.name, look: remembered.look, color: remembered.color } : null);
   const shown = useRevealed(text, streaming);
   if (!shown) return null;
   return (
     <div className="flex flex-col gap-2">
-      {writer && (
+      {header && writer && (
         <div className="flex items-center gap-2 text-meta text-fg-muted">
           <Character look={writer.look} color={writer.color} size={22} />
           {agentName(writer, a)}
@@ -79,10 +99,12 @@ function AgentMessage({ text, agent, streaming }: { text: string; agent: string 
 const ItemView = memo(function ItemView({
   item,
   active,
+  header,
+  remembered,
 }: {
   item: Extract<Block, { type: 'item' }>['item'];
   active: boolean;
-}) {
+} & Answer) {
   const t = useMessages(messages);
   const format = useFormat();
   const a = useMessages(agentMessages);
@@ -94,7 +116,9 @@ const ItemView = memo(function ItemView({
         </div>
       );
     case 'agent_message':
-      return <AgentMessage text={item.text} agent={item.agent} streaming={active} />;
+      return (
+        <AgentMessage text={item.text} agent={item.agent} streaming={active} header={header} remembered={remembered} />
+      );
     case 'notice':
       // The model reads the core's words; memory notices are worded here, in the app's language.
       if (item.source === 'memory_added' || item.source === 'memory_removed')

@@ -1,7 +1,7 @@
-import type { Activity, ApprovalItem, SessionInfo, ToolCallItem, Usage } from '@alpine/protocol';
+import type { Activity, AgentInfo, ApprovalItem, SessionInfo, ToolCallItem, Usage } from '@alpine/protocol';
 
 import { ServerError } from './connection';
-import { AGENTS } from './toolsScript';
+import { agentStore, type AgentStore } from './toolsScript';
 import type { Script, ScriptContext } from './scripted';
 import { applyEvent, toSnapshot, type Item, type SessionEvent, type SessionState } from './sessionState';
 
@@ -20,6 +20,8 @@ export interface SessionScriptOptions {
    * between them (`wordMs` per piece on average). For seeing long markdown stream in.
    */
   reply?: string;
+  /** The agents and the projects' last agents, shared with `toolsScript` so a session sees the agents as edited. */
+  agents?: AgentStore;
 }
 
 /** A session info with sensible values, for scripts and stories. */
@@ -79,6 +81,7 @@ const ANSWER = 'I read the README, then ran the check you asked for. ';
 export function sessionScript(options: SessionScriptOptions = {}): Script {
   const stepMs = options.stepMs ?? 0;
   const wordMs = options.wordMs ?? stepMs;
+  const store = options.agents ?? agentStore();
   const sessions = new Map<string, Live>();
   let nextSession = 1;
 
@@ -147,6 +150,21 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
       runUsage: info.runUsage ? add(info.runUsage) : null,
       contextUsed: info.contextUsed + tokens.output + tokens.cacheWrite,
     });
+  }
+
+  /**
+   * Moves the session to `picked` (and to its model, if it has one). Once the conversation has begun, a divider in it
+   * says so; before that there is nothing to divide.
+   */
+  function switchAgent(context: ScriptContext, live: Live, picked: AgentInfo) {
+    if (live.state.items.length > 0) {
+      const { name, look, color } = picked;
+      const item: Item = { id: id(live, 'agent'), kind: 'agent_switched', agent: picked.id, name, look, color };
+      emit(context, live, { type: 'item_started', item });
+      emit(context, live, { type: 'item_completed', item });
+    }
+    setInfo(context, live, { agent: picked.id, ...(picked.model ? { model: picked.model } : {}) });
+    store.lastAgent.set(live.state.info.cwd, picked.id);
   }
 
   const id = (live: Live, prefix: string) => `${live.state.info.id}/${prefix}_${++live.counter}`;
@@ -363,6 +381,11 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         const live = find(sessionId);
         if (live.run) throw new ServerError(SESSION_RUNNING, 'The session is running');
         live.run = { cancelled: false, wake: null };
+        // Between turns the session takes the agent as it is now; a deleted one is replaced by the default.
+        const current =
+          store.agents.find((a) => a.id === live.state.info.agent) ?? store.agents.find((a) => a.id === 'default');
+        if (current && current.id !== live.state.info.agent) switchAgent(context, live, current);
+        store.lastAgent.set(live.state.info.cwd, live.state.info.agent ?? 'default');
         // Starts after the answer, so the first events come after `{}` like on the real server.
         void Promise.resolve().then(() => run(context, live, text));
         return {};
@@ -395,13 +418,9 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
       'session/setAgent': ({ sessionId, agent }, context) => {
         const live = find(sessionId);
         if (live.run) throw new ServerError(SESSION_RUNNING, 'The session is running');
-        const picked = AGENTS.find((a) => a.id === agent);
+        const picked = store.agents.find((a) => a.id === agent);
         if (!picked) throw new ServerError(-32000, 'No such agent', { reason: 'agent_not_found' });
-        const { name, look, color } = picked;
-        const item: Item = { id: id(live, 'agent'), kind: 'agent_switched', agent: picked.id, name, look, color };
-        emit(context, live, { type: 'item_started', item });
-        emit(context, live, { type: 'item_completed', item });
-        setInfo(context, live, { agent: picked.id });
+        switchAgent(context, live, picked);
         return { info: live.state.info };
       },
       'session/delete': ({ sessionId }, context) => {

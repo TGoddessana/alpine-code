@@ -8,6 +8,10 @@ export const messages = defineMessages({
     conversation: '대화',
     notFound: '이 세션을 찾을 수 없어요. 지워졌을 수 있어요',
     loadFailed: '세션을 불러오지 못했어요',
+    agentInvalidConfig: '이 에이전트의 모델을 쓸 수 없어서 바꾸지 못했어요. 연결을 확인해 주세요',
+    agentNotFound: '그 에이전트가 이제 없어요. 다른 에이전트를 골라 주세요',
+    agentRunning: '작업하는 중이라 바꾸지 못했어요. 끝나면 다시 골라 주세요',
+    agentFailed: '에이전트를 바꾸지 못했어요. 잠시 뒤에 다시 시도해 주세요',
 
     // Tool calls
     edit: '편집',
@@ -120,6 +124,10 @@ export const messages = defineMessages({
     conversation: 'Conversation',
     notFound: "We can't find this session. It may have been deleted",
     loadFailed: "Couldn't load this session",
+    agentInvalidConfig: "Couldn't switch: this agent's model can't be used. Check your connections",
+    agentNotFound: 'That agent no longer exists. Pick another one',
+    agentRunning: "Couldn't switch while it is working. Pick again when it finishes",
+    agentFailed: "Couldn't switch the agent. Please try again in a moment",
 
     edit: 'Edit',
     run: 'Run',

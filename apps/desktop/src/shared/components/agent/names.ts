@@ -21,9 +21,8 @@ export function toolLabel(name: string, t: Messages): string {
   return isBuiltin(name) ? t[name] : name;
 }
 
-export function toolDoes(name: string, t: Messages): string {
-  return isBuiltin(name) ? t[`${name}Does`] : '';
-}
+/** A model without its connection: 'anthropic/claude-sonnet-5' reads as 'claude-sonnet-5'. */
+export const shortModel = (model: string) => model.slice(model.indexOf('/') + 1);
 
 /** What the tools let an agent do, in a line: '파일 보기 · 바꾸기 · 명령 · 도구 2개 더'. */
 export function abilities(tools: readonly string[], t: Messages): string {

@@ -323,7 +323,9 @@ def test_a_deleted_agent_of_a_saved_session_opens_with_the_default(home, tmp_pat
     session.send("hello")
     agents.delete(site.id)
     resumed = Session.resume(storage, session.id, Settings(model="other"), approver=_NoApprover(), agents=agents)
-    assert resumed.agent_id == "default"
+    assert resumed.send("go on") == "ok"
+    assert resumed.agent_id == "default" and "bash" in tools_of(resumed)
+    assert [k for k in kinds(resumed) if k.startswith("agent_") and k != "agent_message"] == ["agent_switched"]
 
 
 def test_a_session_saved_with_a_profile_id_opens_with_that_agent(home, tmp_path, monkeypatch, agents):
@@ -341,3 +343,41 @@ def test_a_session_saved_with_a_profile_id_opens_with_that_agent(home, tmp_path,
     assert resumed.agent_id == "p1" and tools_of(resumed) == ["read"]
     assert not any(isinstance(i, AgentChanged) for i in resumed.snapshot().items)
     assert isinstance(resumed.snapshot().items[0], UserMessage)
+
+
+def test_a_model_edit_that_fails_is_tried_again_and_leaves_no_empty_divider(tmp_path, monkeypatch, agents):
+    from alpine_core import ConfigError
+
+    site = agents.save(AgentConfig("", "site", tools=("read",)))
+    broken = {"on": True}
+
+    def make_model(settings):
+        if settings.model == "x/later" and broken["on"]:
+            raise ConfigError("no such model")
+        return FakeModel(["ok"] * 5)
+
+    monkeypatch.setattr(session_module, "make_model", make_model)
+    session = make(tmp_path, agents, agent=site.id)
+    session.send("hello")
+    agents.save(dataclasses.replace(site, model="x/later"))
+    session.send("two")
+    assert [i for i in session.snapshot().items if isinstance(i, AgentChanged)] == []
+    assert session.model_name == "x/default"
+    broken["on"] = False
+    session.send("three")
+    changed = [i for i in session.snapshot().items if isinstance(i, AgentChanged)]
+    assert [c.model for c in changed] == ["x/later"] and session.model_name == "x/later"
+
+
+def test_the_first_session_after_the_upgrade_starts_with_the_migrated_project_agent(home, tmp_path, monkeypatch):
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "profiles.json").write_text(
+        json.dumps({"profiles": [{"id": "p1", "name": "old", "project": str(tmp_path.resolve()), "tools": ["read"]}]})
+    )
+    Models(monkeypatch)
+    projects = ProjectList(home / "projects.json")
+    projects.open(tmp_path)
+    session = Session(
+        Settings(model="x/default"), approver=_NoApprover(), cwd=tmp_path, agents=AgentList(home), projects=projects
+    )
+    assert session.agent_id == "p1"

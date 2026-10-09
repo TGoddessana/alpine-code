@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useServer } from './context';
 
-/** Built-in tools and the user's tool files, each with its state. */
+/** Every tool a session can get, where each comes from, and the user's tool files with their state. */
 export function useTools() {
   const server = useServer();
   return useQuery({ queryKey: ['tools'], queryFn: () => server.request('tools/list', {}), retry: false });

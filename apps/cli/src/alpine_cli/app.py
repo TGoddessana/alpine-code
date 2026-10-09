@@ -8,7 +8,7 @@ from pathlib import Path
 
 from prompt_toolkit.application import create_app_session
 
-from alpine_core import ConfigError, Memories, Mode, ProjectList, Session, Settings
+from alpine_core import Builtins, ConfigError, Memories, Mode, ProjectList, Session, Settings, ToolSource, Workspace
 
 from ._version import __version__
 from .approval import CliApprover
@@ -63,12 +63,18 @@ def main(argv: list[str] | None = None) -> None:
             sys.exit(run_headless(settings, prompt, usage_path=args.usage_file))
         # Memory is suggested here and approved in the app, which shares ~/.alpine-code. Not with -p: benchmarks
         # and scripts must run the same each time.
+        memories = Memories()
+
+        def tool_sources(project: Path) -> list[ToolSource]:
+            return [Builtins(Workspace(project)), memories.of(project)]
+
         session = Session(
             settings,
             on_event=Renderer(console),
             approver=CliApprover(console),
             projects=ProjectList.default(),
-            memories=Memories(),
+            tools=tool_sources,
+            memories=memories,
         )
     except ConfigError as e:
         console.print(f"[error]{e}[/]")

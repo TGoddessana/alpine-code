@@ -23,7 +23,6 @@ from alpineagents import (
     StoppedByUntil,
     ToolCall,
 )
-from alpineagents.tool import collect_tools
 from alpineagents.types import Stopped
 
 from . import shell
@@ -66,8 +65,8 @@ from .projects import ProjectList
 from .prompt import build_system_prompt
 from .review import GlobalAgentsMd, ModelReviewer, Review, Reviewer, ReviewRequest
 from .storage import Activity, ActivityKind, Record, SessionInfo, SessionStatus, Storage
-from .toolbox import Toolbox
-from .tools import Workspace, default_tools
+from .tool_sources import ToolSources, builtins_only, gather, pick
+from .tools import Workspace
 
 #: Longest session title, in characters.
 TITLE_LENGTH = 60
@@ -102,13 +101,15 @@ class Session:
     ``asend`` runs until the agent answers, reporting progress through ``on_event`` (core events, on the event
     loop's thread) and asking ``approver`` before tool calls the permission mode does not allow. Cancelling it stops
     the run and keeps the conversation. ``send`` is the same for a frontend without an event loop, stopped with
-    Ctrl+C. With ``projects``, the first message of a conversation records its folder there. With ``agents``, the
-    session works with an agent: ``agent`` (an id), else the one its project used last, else the default agent. The
-    agent brings its model (unless ``model`` says otherwise), its instructions and its tools, including the user's
-    tools from ``toolbox``; the choice is saved with the session and ``set_agent`` changes it. Edits to the agent
-    apply from the next message, announced in the items. Without agents the session has the built-in tools and no
-    instructions. With ``memories``, the prompt carries the
-    project's memory, the agent can suggest memories, and memories approved through ``memories`` reach it as notices.
+    Ctrl+C. With ``projects``, the first message of a conversation records its folder there. ``tools`` gives the
+    sources of the folder's tools (the built-ins unless told otherwise). With ``agents``, the session works with an
+    agent: ``agent`` (an id), else the one its project used last, else the default agent. The agent brings its model
+    (unless ``model`` says otherwise), its instructions and the tools it turns on from those sources; the tools no
+    agent can turn off (the memory's) are always there. The choice is saved with the session and ``set_agent``
+    changes it. Edits to the agent apply from the next message, announced in the items. Without agents the session
+    has every tool its sources offer and no instructions. With ``memories``, the prompt carries the project's memory,
+    its checks and guards apply, and memories approved through ``memories`` reach it as notices; the memory's tools
+    come from ``tools``, as ``memories.of(folder)``.
 
     The conversation is also kept as items (``docs/session-protocol.md``): ``on_item_event(session_id, seq,
     event)`` gets every item event, and ``snapshot()`` returns the items so far. With ``storage``, the session is
@@ -131,7 +132,7 @@ class Session:
         storage: Storage | None = None,
         mode: Mode | None = None,
         agents: AgentList | None = None,
-        toolbox: Toolbox | None = None,
+        tools: ToolSources = builtins_only,
         agent: str | None = None,
         model: str | None = None,
         memories: Memories | None = None,
@@ -159,7 +160,8 @@ class Session:
         )
         self._projects = projects
         self._agents = agents
-        self._toolbox = toolbox
+        self._tool_sources = tools
+        self._always: set[str] = set()
         self._applied = self._pick_agent(_saved.info if _saved else None, agent)
         if _saved is None and (chosen := model or (self._applied.model if self._applied else None)):
             settings = settings.with_model(chosen)
@@ -198,7 +200,7 @@ class Session:
         cwd: Path | None = None,
         projects: ProjectList | None = None,
         agents: AgentList | None = None,
-        toolbox: Toolbox | None = None,
+        tools: ToolSources = builtins_only,
         memories: Memories | None = None,
     ) -> Session:
         """Opens a saved session and continues it: the items and ``seq`` from the log, the conversation from the
@@ -232,7 +234,7 @@ class Session:
             projects=projects,
             storage=storage,
             agents=agents,
-            toolbox=toolbox,
+            tools=tools,
             memories=memories,
             _saved=_Saved(info, records, state),
         )
@@ -303,17 +305,11 @@ class Session:
         return self._agents.get(agent_id or "") or self._agents.get(last or "") or self._agents.default()
 
     def _tools(self) -> list[Any]:
-        """The built-in tools, and the user's tools, that the agent turns on (without agents, the built-ins), then
-        the memory's tools, which every agent has."""
-        builtin = default_tools(self.workspace)
-        memory = self._memory.tools() if self._memory is not None else []
-        if self._applied is None:
-            return builtin + memory
-        on = set(self._applied.tools)
-        tools: list[Any] = [tool for name, tool in collect_tools(builtin).items() if name in on]
-        if self._toolbox is not None:
-            tools += self._toolbox.load(on)
-        return tools + memory
+        """The tools the folder's sources offer that the agent turns on, and those no agent can turn off (without
+        agents, all of them)."""
+        offered = gather(self._tool_sources(self.workspace.root))
+        self._always = {o.tool.name for o in offered if not o.optional}
+        return pick(offered, self._applied.tools if self._applied is not None else None)
 
     # ------------------------------------------------------------ actions
 
@@ -478,8 +474,9 @@ class Session:
             except ConfigError:
                 pass  # keep working with the agent as it was
             return
-        added = [t for t in latest.tools if t not in applied.tools]
-        removed = [t for t in applied.tools if t not in latest.tools]
+        # Only tools the agent can turn on or off: one no agent can turn off (the memory's) changes nothing.
+        added = [t for t in latest.tools if t not in applied.tools and t not in self._always]
+        removed = [t for t in applied.tools if t not in latest.tools and t not in self._always]
         instructions = latest.instructions != applied.instructions
         model_changed = latest.model is not None and latest.model != applied.model
         if not (added or removed or instructions or model_changed):

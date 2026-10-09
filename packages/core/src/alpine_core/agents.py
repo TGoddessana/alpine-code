@@ -21,7 +21,7 @@ from pathlib import Path
 
 from .home import home_dir
 from .projects import ProjectList
-from .toolbox import BUILTIN
+from .tools import BUILTIN
 
 DEFAULT_ID = "default"
 

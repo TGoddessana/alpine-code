@@ -140,13 +140,17 @@ Core (`packages/core/src/alpine_core`):
   nothing about which one wins (decision 14). The headers are `# Instructions from <path>` with "The project's
   working rules, for whoever works in it." (for `~/.alpine-code/AGENTS.md`: "The user's own rules for every
   project."), then `# Instructions for this agent` with "The role and way of working the user gave this agent."
-- `session.py`: `Session` takes `agents` and `agent`. A new session starts with that agent, else the project's
-  `last_agent`, else the default agent; a saved one reopens with its own agent. The agent brings its model (unless
-  `model` is given), its instructions and its tools, user tools included. `set_agent` switches between turns (not
-  during a run), records an `agent_switched` item and remembers the agent in the project. Before each message
-  `_refresh_agent` takes edits made since the last one: a deleted agent becomes the default agent; a change to tools,
-  instructions or model rebuilds the agent and, once the conversation has begun, adds an `agent_changed` item; name,
-  description and look only update what the session knows.
+- `session.py`: `Session` takes `agents` and `agent`, and `tools`, the folder's tool sources (`tool_sources.py`: the
+  built-ins, the project's memory, the user's toolbox; built-ins only unless told otherwise). A new session starts
+  with that agent, else the project's `last_agent`, else the default agent; a saved one reopens with its own agent.
+  The agent brings its model (unless `model` is given) and its instructions, and picks its tools from what the
+  sources offer (`pick(gather(sources), agent.tools)`): an optional tool (built-in or user) only if the agent names
+  it, a non-optional one (the memory's `propose_memory`) always. Without agents the session gets every offered tool.
+  `set_agent` switches between turns (not during a run), records an `agent_switched` item and remembers the agent
+  in the project. Before each message `_refresh_agent` takes edits made since the last one: a deleted agent becomes
+  the default agent; a change to tools, instructions or model rebuilds the agent and, once the conversation has
+  begun, adds an `agent_changed` item; name, description and look only update what the session knows. The tool diff
+  counts only tools an agent can turn on or off, so naming a non-optional tool never adds a divider.
 - `items.py`: `AgentSwitched`, `AgentChanged`, and `AgentMessage.agent`, the id of the agent that wrote the answer.
 - `SessionInfo.agent` is the session's agent id; `agent_applied` (model, instructions, tools as last applied) is
   saved with the session so that it reopens as it was and the next edit shows as a change. Core only: it is not
@@ -158,15 +162,19 @@ Protocol (`packages/protocol`, version 2) and server (`apps/server`):
   `agent_not_found`, and an error while the session runs); `session/new` takes `agent`; `SessionInfo.agent`; the
   items `agent_switched` and `agent_changed`; `agent` on `agent_message`. Tool methods take an agent id where they
   used a profile id.
-- `alpine_server/agents.py` serves `agents/*` over `AgentList`; `sessions.py` gives sessions the agent list and the
-  toolbox, and handles `session/setAgent`.
+- `alpine_server/agents.py` serves `agents/*` over `AgentList`; `sessions.py` gives sessions the agent list and
+  `SessionManager.tool_sources(project)` (built-ins, the project's memory, the toolbox), and handles
+  `session/setAgent`. `tools/list` (optional `cwd`) is answered by `SessionManager` from the same sources, as
+  `tools: OfferedTool[]` with each tool's `origin` (`builtin`, `memory`, `user`) and `optional`, so the agents screen
+  shows what a session gets.
 
 Desktop (`apps/desktop/src`):
 
 - A rail item 에이전트 and the route `/agents` (`?agent=<id>`, `?create`). Settings › 도구 and
   `/settings/tools/$name` are gone, with `settings/Tools.tsx` and the old editor files.
 - `features/agents/`: the strip of agents, the header (character, name, description, 저장됨 and the working-now line),
-  the rows, the character picker, the 새 에이전트 dialog with its four starting points (`starts.ts`), and a toast with
+  the rows (기본 도구 lists the non-user tools from `tools/list`; a non-optional one, 기억 제안, is a locked tile
+  marked 항상 켜짐 with no ×), the character picker, the 새 에이전트 dialog with its four starting points (`starts.ts`), and a toast with
   되돌리기. `features/agents/library/` is the library: cards, drag and drop onto the agent, and the tool editor
   folded in as a detail view with ← 라이브러리 (`code.tsx` is the old editor's code part). 스킬, MCP and 서브에이전트
   are 준비 중 rows and disabled menu items.
@@ -178,7 +186,7 @@ Desktop (`apps/desktop/src`):
 - `features/session/Chat.tsx`: the `agent_switched` and `agent_changed` dividers, and the avatar and name on each
   answer.
 
-The CLI has no agents: it runs the built-in tools only, as before.
+The CLI has no agents: its sessions get every tool their sources offer (the built-ins and the project's memory).
 
 ## Open
 

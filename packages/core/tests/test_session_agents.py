@@ -12,12 +12,14 @@ from alpine_core import (
     AgentList,
     AgentMessage,
     AgentSwitched,
+    Builtins,
     InfoChanged,
     ProjectList,
     Session,
     Settings,
     Toolbox,
     UserMessage,
+    Workspace,
     file_storage,
 )
 from alpine_core import session as session_module
@@ -69,6 +71,11 @@ def kinds(session):
     return [i.kind for i in session.snapshot().items]
 
 
+def with_box(home):
+    """Tool sources with the user's tools: the built-ins, then the toolbox's."""
+    return lambda folder: [Builtins(Workspace(folder)), Toolbox(home)]
+
+
 def make(tmp_path, agents, **kwargs):
     return Session(Settings(model="x/default"), approver=_NoApprover(), cwd=tmp_path, agents=agents, **kwargs)
 
@@ -79,7 +86,7 @@ def test_a_new_session_takes_the_agents_tools_instructions_and_model(home, tmp_p
         AgentConfig("", "reviewer", tools=("read", "shout"), instructions="Only comment.", model="x/small")
     )
     models = Models(monkeypatch)
-    session = make(tmp_path, agents, toolbox=Toolbox(home), agent=reviewer.id)
+    session = make(tmp_path, agents, tools=with_box(home), agent=reviewer.id)
     assert tools_of(session) == ["read", "shout"]
     assert "# Instructions for this agent\nThe role and way of working the user gave this agent.\n\nOnly comment." in (
         session._agent.system
@@ -164,7 +171,7 @@ def test_set_agent_keeps_the_conversation_and_announces_the_switch(home, tmp_pat
         tmp_path,
         agents,
         projects=projects,
-        toolbox=Toolbox(home),
+        tools=with_box(home),
         on_item_event=lambda sid, seq, e: announced.append(e),
     )
     session.send("hello")
@@ -213,7 +220,7 @@ def test_an_edit_applies_at_the_next_message_ahead_of_it(home, tmp_path, monkeyp
     Toolbox(home).save("shout", SHOUT)
     site = agents.save(AgentConfig("", "site", tools=("read", "bash"), instructions="Build."))
     models = Models(monkeypatch, ["one"], [tool_call("shout", text="hi"), "done", "more"])
-    session = make(tmp_path, agents, toolbox=Toolbox(home), agent=site.id)
+    session = make(tmp_path, agents, tools=with_box(home), agent=site.id)
     session.send("hello")
     assert tools_of(session) == ["bash", "read"]
     agents.save(dataclasses.replace(site, tools=("read", "shout"), instructions="Review.", model="x/new"))
@@ -381,3 +388,26 @@ def test_the_first_session_after_the_upgrade_starts_with_the_migrated_project_ag
         Settings(model="x/default"), approver=_NoApprover(), cwd=tmp_path, agents=AgentList(home), projects=projects
     )
     assert session.agent_id == "p1"
+
+
+def test_every_agent_has_the_memory_tools_and_naming_them_changes_nothing(home, tmp_path, monkeypatch, agents):
+    from alpine_core import Memories
+
+    memories = Memories(home)
+    site = agents.save(AgentConfig("", "site", tools=("read",)))
+    Models(monkeypatch)
+    session = make(
+        tmp_path,
+        agents,
+        agent=site.id,
+        tools=lambda folder: [Builtins(Workspace(folder)), memories.of(folder)],
+        memories=memories,
+    )
+    assert tools_of(session) == ["propose_memory", "read"]
+    session.send("hello")
+    agents.save(dataclasses.replace(site, tools=("read", "propose_memory")))
+    session.send("go on")
+    agents.save(dataclasses.replace(site, tools=("read",)))
+    session.send("and again")
+    assert "agent_changed" not in kinds(session)
+    assert tools_of(session) == ["propose_memory", "read"]

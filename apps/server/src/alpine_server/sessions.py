@@ -17,6 +17,7 @@ from typing import Any
 
 from alpine_core import (
     ApprovalRequest,
+    Builtins,
     ConfigError,
     Decision,
     InfoChanged,
@@ -27,6 +28,8 @@ from alpine_core import (
     Session,
     Settings,
     Storage,
+    ToolSource,
+    Workspace,
     file_storage,
     list_sessions,
 )
@@ -54,11 +57,13 @@ from alpine_protocol import (
     SessionSetModelResult,
     SessionSetModeParams,
     SessionSetModeResult,
+    ToolsListParams,
+    ToolsListResult,
 )
 
 from .agents import agents
 from .methods import APP_ERROR, MethodError
-from .tools import toolbox
+from .tools import list_tools, toolbox
 from .wire import to_event_params, to_info, to_item
 
 Notify = Callable[[SessionEventParams], None]
@@ -134,7 +139,13 @@ class SessionManager:
             "session/setAgent": self.set_agent,
             "session/setModel": self.set_model,
             "session/delete": self.delete,
+            "tools/list": self.list_tools,
         }
+
+    def tool_sources(self, project: Path) -> list[ToolSource]:
+        """Where a folder's tools come from, for its sessions and for ``tools/list``: the built-ins, the project's
+        memory, then the user's tools, so a user tool cannot take an earlier one's name."""
+        return [Builtins(Workspace(project)), self.memories.of(project), toolbox()]
 
     async def shutdown(self) -> None:
         """Stops every running session, so each is saved ending in ``run_stopped: interrupted``."""
@@ -158,7 +169,7 @@ class SessionManager:
                 storage=self.storage,
                 mode=Mode(params.mode) if params.mode else None,
                 agents=agents(),
-                toolbox=toolbox(),
+                tools=self.tool_sources,
                 agent=params.agent,
                 model=params.model,
                 memories=self.memories,
@@ -169,6 +180,9 @@ class SessionManager:
         # The constructor announces nothing, so this is what tells the windows the session exists.
         self._on_item_event(session.id, session.seq, InfoChanged(session.info))
         return SessionNewResult(info=to_info(session.info))
+
+    async def list_tools(self, params: ToolsListParams) -> ToolsListResult:
+        return await asyncio.to_thread(list_tools, params, self.tool_sources)
 
     async def list(self, params: SessionListParams) -> SessionListResult:
         # A session that is not in memory has no run: "running" or "waiting" on disk is a process that died.
@@ -277,7 +291,7 @@ class SessionManager:
                 approver=approver,
                 projects=ProjectList.default(),
                 agents=agents(),
-                toolbox=toolbox(),
+                tools=self.tool_sources,
                 memories=self.memories,
             )
         except LookupError as e:

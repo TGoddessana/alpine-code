@@ -3,7 +3,7 @@ import { Plus, Pencil, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useState, type ReactNode } from 'react';
 
-import { BUILTIN_TOOLS, agentMessages, isBuiltin, shortModel, toolLabel } from '@/shared/components/agent';
+import { agentMessages, alpineTools, shortModel, toolLabel, type AlpineTool } from '@/shared/components/agent';
 import { ModelPicker } from '@/shared/components/composer';
 import { connectionLabel, connectMessages } from '@/shared/components/connect';
 import { useFormat, useMessages } from '@/shared/i18n';
@@ -81,19 +81,30 @@ export function AgentRows({
   const t = useMessages(agentsMessages);
   const a = useMessages(agentMessages);
   const tools = useTools().data;
-  const on = BUILTIN_TOOLS.filter((tool) => agent.tools.includes(tool));
-  const custom = agent.tools.filter((tool) => !isBuiltin(tool));
+  // The memory's tools are in every agent: a locked tile, counted as on.
+  const alpine = alpineTools(tools?.tools);
+  const isOn = (tool: AlpineTool) => !tool.optional || agent.tools.includes(tool.name);
+  const on = alpine.filter(isOn);
+  const custom = agent.tools.filter((tool) => !alpine.some((x) => x.name === tool));
 
   return (
     <div className="flex flex-col">
       <ModelRow agent={agent} onChange={onChange} />
       <GuideRow agent={agent} onChange={onChange} />
 
-      <Row label={t.builtinLabel} note={t.builtinNote(on.length, BUILTIN_TOOLS.length)}>
+      <Row label={t.builtinLabel} note={t.builtinNote(on.length, alpine.length)}>
         <div className="flex flex-wrap content-start gap-1.5">
-          {BUILTIN_TOOLS.map((tool) => {
+          {alpine.map((x) => {
+            const tool = x.name;
             const label = toolLabel(tool, a);
-            return agent.tools.includes(tool) ? (
+            if (!x.optional)
+              return (
+                <div key={tool} className={clsx(tile(false), 'px-2.5 py-1 text-body')}>
+                  <span>{label}</span>
+                  <span className="text-meta text-fg-muted">· {t.alwaysOn}</span>
+                </div>
+              );
+            return isOn(x) ? (
               <div key={tool} className={clsx(tile(flash === tool), 'py-1 pr-1 pl-2.5 text-body')}>
                 <span>{label}</span>
                 <Remove label={label} onClick={() => onRemove([tool], label)} />

@@ -26,7 +26,7 @@ const file = (name: string, patch: Partial<ToolFileInfo> = {}): ToolFileInfo => 
 });
 
 const tools: ToolsListResult = {
-  builtin: [],
+  tools: [],
   folder: '/tools',
   files: [
     file('fetch', { tools: [summary('fetch', 'Get a page.\nMore detail.')] }),

@@ -48,10 +48,8 @@ from .config import Settings
 from .home import home_dir
 from .models import make_model
 from .permissions import kind_of
-from .tools import Workspace, default_tools
-
-#: Names of the built-in tools, which a user tool may not take.
-BUILTIN = ("read", "glob", "grep", "write", "edit", "bash")
+from .tool_sources import Offered
+from .tools import BUILTIN
 
 #: Packages Alpine has reviewed: installed without asking. Normalized names (PEP 503).
 REVIEWED = frozenset(
@@ -206,15 +204,13 @@ class Toolbox:
             raise LookupError(name)
         return path.read_text("utf-8")
 
-    def load(self, names: Iterable[str]) -> list[Tool]:
-        """The tools with these names from the ready files, for a new session. Unknown names are skipped."""
-        wanted = set(names)
-        found: list[Tool] = []
+    def offered(self) -> list[Offered]:
+        """The tools of the ready files, for a session or the app's list. An agent chooses which are on."""
+        found: list[Offered] = []
         for path in self._files():
             loaded = self._load_saved(path)
-            if loaded is None:
-                continue
-            found += [tool for name, tool in loaded.tools.items() if name in wanted]
+            if loaded is not None:
+                found += [Offered(tool, "user") for tool in loaded.tools.values()]
         return found
 
     # ------------------------------------------------------------ changing
@@ -488,11 +484,6 @@ class Toolbox:
     def _write_record(self, record: dict[str, Any]) -> None:
         self.home.mkdir(parents=True, exist_ok=True)
         _write_atomic(self._record, json.dumps(record, indent=2, sort_keys=True).encode("utf-8"))
-
-
-def builtin_summaries() -> list[ToolSummary]:
-    """The built-in tools, described like user tools."""
-    return [summarize(t) for t in collect_tools(default_tools(Workspace(Path.home()))).values()]
 
 
 def draft(settings: Settings, description: str) -> str:

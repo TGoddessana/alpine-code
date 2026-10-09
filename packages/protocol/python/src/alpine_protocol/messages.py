@@ -432,13 +432,25 @@ class PackageInfo(Message):
     """Reviewed packages with a look-alike name."""
 
 
+class OfferedTool(Message):
+    """A tool a session can get, and where it comes from."""
+
+    tool: ToolSummary
+    origin: Literal["builtin", "memory", "user"]
+    optional: bool
+    """Whether an agent can turn it off. One that cannot is in every session (the memory's tools)."""
+
+
 class ToolsListParams(Message):
-    pass
+    cwd: str | None = None
+    """The project folder whose sessions' tools to list; without it, what every project gets."""
 
 
 class ToolsListResult(Message):
-    builtin: list[ToolSummary]
+    tools: list[OfferedTool]
+    """Every tool, the user's included, in the order a session gets them."""
     files: list[ToolFileInfo]
+    """The user's tool files, with what each defines or why it does not load."""
     folder: str
     """Where the files are."""
 

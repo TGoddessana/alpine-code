@@ -1,9 +1,21 @@
+import type { OfferedTool } from '@alpine/protocol';
+
 import type { useMessages } from '@/shared/i18n';
 
 import type { agentMessages } from './messages';
 
 export const BUILTIN_TOOLS = ['read', 'glob', 'grep', 'write', 'edit', 'bash'] as const;
 type Builtin = (typeof BUILTIN_TOOLS)[number];
+
+/** The tools Alpine says in plain words: the built-ins and the memory's, which every agent has. */
+const LABELED = [...BUILTIN_TOOLS, 'propose_memory'] as const;
+type Labeled = (typeof LABELED)[number];
+
+/** A tool that comes with Alpine, and whether an agent can turn it off. */
+export interface AlpineTool {
+  name: string;
+  optional: boolean;
+}
 
 type Messages = ReturnType<typeof useMessages<typeof agentMessages.ko>>;
 
@@ -16,9 +28,22 @@ export function agentName(agent: { id: string; name: string }, t: Messages): str
   return agent.name || t.defaultAgent;
 }
 
-/** A built-in tool in plain words; a user's tool shows as its own name. */
+function isLabeled(name: string): name is Labeled {
+  return (LABELED as readonly string[]).includes(name);
+}
+
+/**
+ * The tools that come with Alpine, as `tools/list` offers them: the built-ins and the memory's (which no agent can
+ * turn off), not the user's. Until the list is there, the built-ins.
+ */
+export function alpineTools(offered: readonly OfferedTool[] | undefined): AlpineTool[] {
+  if (!offered) return BUILTIN_TOOLS.map((name) => ({ name, optional: true }));
+  return offered.filter((o) => o.origin !== 'user').map((o) => ({ name: o.tool.name, optional: o.optional }));
+}
+
+/** A tool that comes with Alpine in plain words; a user's tool shows as its own name. */
 export function toolLabel(name: string, t: Messages): string {
-  return isBuiltin(name) ? t[name] : name;
+  return isLabeled(name) ? t[name] : name;
 }
 
 /** A model without its connection: 'anthropic/claude-sonnet-5' reads as 'claude-sonnet-5'. */
@@ -33,7 +58,7 @@ export function abilities(tools: readonly string[], t: Messages): string {
   if (has('write', 'edit')) parts.push(t.canChange);
   else if (canRead) parts.push(t.cannotChange);
   if (has('bash')) parts.push(t.canRun);
-  const more = tools.filter((name) => !isBuiltin(name)).length;
+  const more = tools.filter((name) => !isLabeled(name)).length;
   if (more > 0) parts.push(t.moreTools(more));
   return parts.join(' · ');
 }

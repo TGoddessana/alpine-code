@@ -19,6 +19,15 @@ const BUILTIN: ToolSummary[] = [
   ask: ask as ToolSummary['ask'],
 }));
 
+const PROPOSE_MEMORY: ToolSummary = {
+  name: 'propose_memory',
+  description: 'Suggest something to remember in later sessions.',
+  params: [],
+  readOnly: true,
+  openWorld: false,
+  ask: 'never',
+};
+
 const FETCH_SOURCE = `# /// script
 # dependencies = ["httpx"]
 # ///
@@ -89,7 +98,15 @@ export function toolsScript(): Script {
 
   return {
     results: {
-      'tools/list': () => ({ builtin: BUILTIN, files, folder: '/Users/me/.alpine-code/tools' }),
+      'tools/list': () => ({
+        tools: [
+          ...BUILTIN.map((tool) => ({ tool, origin: 'builtin' as const, optional: true })),
+          { tool: PROPOSE_MEMORY, origin: 'memory' as const, optional: false },
+          ...files.flatMap((f) => f.tools).map((tool) => ({ tool, origin: 'user' as const, optional: true })),
+        ],
+        files,
+        folder: '/Users/me/.alpine-code/tools',
+      }),
       'tools/source': ({ name }) => ({ source: sources[name] ?? '' }),
       'tools/check': ({ source }) => {
         const packages = dependencies(source);

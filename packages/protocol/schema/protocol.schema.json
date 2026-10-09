@@ -1613,6 +1613,32 @@
       "title": "NoticeItem",
       "type": "object"
     },
+    "OfferedTool": {
+      "description": "A tool a session can get, and where it comes from.",
+      "properties": {
+        "tool": {
+          "$ref": "#/$defs/ToolSummary"
+        },
+        "origin": {
+          "enum": [
+            "builtin",
+            "memory",
+            "user"
+          ],
+          "type": "string"
+        },
+        "optional": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "tool",
+        "origin",
+        "optional"
+      ],
+      "title": "OfferedTool",
+      "type": "object"
+    },
     "PackageInfo": {
       "description": "What the approval of a package Alpine has not reviewed shows. Facts PyPI did not give are ``None``.",
       "properties": {
@@ -3289,15 +3315,27 @@
       "type": "object"
     },
     "ToolsListParams": {
-      "properties": {},
+      "properties": {
+        "cwd": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
       "title": "ToolsListParams",
       "type": "object"
     },
     "ToolsListResult": {
       "properties": {
-        "builtin": {
+        "tools": {
           "items": {
-            "$ref": "#/$defs/ToolSummary"
+            "$ref": "#/$defs/OfferedTool"
           },
           "type": "array"
         },
@@ -3312,7 +3350,7 @@
         }
       },
       "required": [
-        "builtin",
+        "tools",
         "files",
         "folder"
       ],

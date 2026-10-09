@@ -5,6 +5,7 @@ from alpineagents.testing import FakeModel, tool_call
 
 from alpine_core import (
     DEFAULT_PROFILE,
+    Builtins,
     Profile,
     ProfileConflict,
     ProfileList,
@@ -13,6 +14,7 @@ from alpine_core import (
     Toolbox,
     ToolboxError,
     ToolFinished,
+    Workspace,
 )
 from alpine_core import session as session_module
 from alpine_core import toolbox as toolbox_module
@@ -50,7 +52,7 @@ def test_save_loads_the_tools_as_the_model_sees_them(box):
         ("times", "integer", False, 1),
     ]
     assert tool.ask == "never"
-    assert [t.name for t in box.load(["shout"])] == ["shout"]
+    assert [(o.tool.name, o.origin, o.optional) for o in box.offered()] == [("shout", "user", True)]
 
 
 def test_a_file_changed_outside_the_app_is_not_loaded_until_confirmed(box):
@@ -59,9 +61,9 @@ def test_a_file_changed_outside_the_app_is_not_loaded_until_confirmed(box):
     path.write_text(SHOUT.replace("upper()", "lower()"))
     (file,) = box.list()
     assert file.status == "unconfirmed"
-    assert box.load(["shout"]) == []
+    assert box.offered() == []
     assert box.confirm("shout").status == "ready"
-    assert box.load(["shout"])[0].run({"text": "Hi"}, None) == "hi"
+    assert box.offered()[0].tool.run({"text": "Hi"}, None) == "hi"
 
 
 def test_a_new_file_nobody_saved_is_unconfirmed(box):
@@ -77,7 +79,7 @@ def test_errors_stay_in_their_file(box):
     assert broken.error.startswith("Line 1:")
     crashing = box.save("crashing", "raise SystemExit(1)\n")
     assert crashing.status == "error" and "SystemExit" in crashing.error
-    assert [t.name for t in box.load(["shout", "oops"])] == ["shout"]
+    assert [o.tool.name for o in box.offered()] == ["shout"]
 
 
 def test_a_missing_package_is_named(box):
@@ -184,7 +186,7 @@ def test_a_session_gets_the_profiles_tools(home, tmp_path, monkeypatch):
         approver=_NoApprover(),
         cwd=tmp_path,
         profiles=profiles,
-        toolbox=box,
+        tools=lambda folder: [Builtins(Workspace(folder)), box],
     )
     assert session.info.profile == DEFAULT_PROFILE
     assert sorted(t.name for t in session._agent.tools) == ["read", "shout"]

@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from alpineagents import State
+from alpineagents.tool import collect_tools
 
 from ..home import home_dir
+from ..tool_sources import Offered
 from .inbox import CAP, Inbox, Similar, similar_text
 from .model import KINDS, SCOPES, Kind, Memory, project_key
 from .proposer import AgentProposes, Proposer
@@ -41,6 +43,10 @@ class MemorySystem:
     def tools(self) -> list[Any]:
         """For the working agent: the proposers' tools and the recall's."""
         return [*(t for p in self.proposers for t in p.tools(self.inbox)), *self.recall.tools()]
+
+    def offered(self) -> list[Offered]:
+        """The tools as a ``ToolSource``: in every session that has the memory, whatever its profile."""
+        return [Offered(tool, "memory", optional=False) for tool in collect_tools(self.tools()).values()]
 
     def checks(self) -> CheckRunner:
         """The checks of the memories kept now. Built again when the memories change."""

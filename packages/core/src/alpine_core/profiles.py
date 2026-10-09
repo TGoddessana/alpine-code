@@ -16,7 +16,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from .home import home_dir
-from .toolbox import BUILTIN
+from .tools import BUILTIN
 
 DEFAULT_ID = "default"
 

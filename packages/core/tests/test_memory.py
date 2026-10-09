@@ -286,7 +286,7 @@ def test_kinds_can_be_replaced(project, home):
 def memory_session(project, monkeypatch, memories, *replies):
     from alpineagents.testing import FakeModel
 
-    from alpine_core import Session, Settings
+    from alpine_core import Builtins, Session, Settings, Workspace
     from alpine_core import session as session_module
 
     class NeverAsked:
@@ -294,7 +294,13 @@ def memory_session(project, monkeypatch, memories, *replies):
             raise AssertionError(f"asked: {request}")
 
     monkeypatch.setattr(session_module, "make_model", lambda settings: FakeModel(list(replies)))
-    return Session(Settings(model="fake"), approver=NeverAsked(), cwd=project, memories=memories)
+    return Session(
+        Settings(model="fake"),
+        approver=NeverAsked(),
+        cwd=project,
+        tools=lambda folder: [Builtins(Workspace(folder)), memories.of(folder)],
+        memories=memories,
+    )
 
 
 def test_a_session_gets_the_memory_in_its_prompt_and_the_tool(project, home, monkeypatch):

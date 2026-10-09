@@ -35,7 +35,9 @@ type Label =
   | 'editTool'
   | 'editDoes'
   | 'bash'
-  | 'bashDoes';
+  | 'bashDoes'
+  | 'proposeMemory'
+  | 'proposeMemoryDoes';
 
 const BUILTIN_LABELS: Record<string, [Label, Label]> = {
   read: ['read', 'readDoes'],
@@ -44,6 +46,7 @@ const BUILTIN_LABELS: Record<string, [Label, Label]> = {
   write: ['write', 'writeDoes'],
   edit: ['editTool', 'editDoes'],
   bash: ['bash', 'bashDoes'],
+  propose_memory: ['proposeMemory', 'proposeMemoryDoes'],
 };
 
 const grid = 'grid grid-cols-[24px_220px_minmax(0,1fr)_104px_176px_28px] items-center gap-3 px-2';
@@ -124,8 +127,7 @@ function ProfileDetail({ profile, tools }: { profile: ProfileInfo; tools: ToolsL
   const on = new Set(profile.tools);
   const toggle = (name: string, checked: boolean) =>
     save.mutate({ ...profile, tools: checked ? [...profile.tools, name] : profile.tools.filter((n) => n !== name) });
-  const userTools = tools.files.flatMap((f) => f.tools);
-  const count = [...tools.builtin, ...userTools].filter((tool) => on.has(tool.name)).length;
+  const count = tools.tools.filter((o) => !o.optional || on.has(o.tool.name)).length;
 
   return (
     <div className="flex min-w-0 grow flex-col gap-7 overflow-y-auto px-6 py-5">
@@ -148,21 +150,24 @@ function ProfileDetail({ profile, tools }: { profile: ProfileInfo; tools: ToolsL
           <span>{t.colAsk}</span>
           <span />
         </div>
-        {tools.builtin.map((tool) => {
-          const [label, does] = BUILTIN_LABELS[tool.name] ?? [null, null];
-          return (
-            <ToolRow
-              key={tool.name}
-              name={tool.name}
-              label={label ? t[label] : tool.name}
-              does={does ? t[does] : tool.description}
-              source={t.builtin}
-              ask={tool.name === 'bash' ? t.askBash : askLabel(tool, t)}
-              checked={on.has(tool.name)}
-              onChange={(checked) => toggle(tool.name, checked)}
-            />
-          );
-        })}
+        {tools.tools
+          .filter((o) => o.origin !== 'user')
+          .map(({ tool, origin, optional }) => {
+            const [label, does] = BUILTIN_LABELS[tool.name] ?? [null, null];
+            return (
+              <ToolRow
+                key={tool.name}
+                name={tool.name}
+                label={label ? t[label] : tool.name}
+                does={does ? t[does] : firstLine(tool.description)}
+                source={origin === 'memory' ? t.fromMemory : t.builtin}
+                ask={tool.name === 'bash' ? t.askBash : askLabel(tool, t)}
+                checked={!optional || on.has(tool.name)}
+                locked={!optional}
+                onChange={(checked) => toggle(tool.name, checked)}
+              />
+            );
+          })}
         {tools.files.map((file) =>
           file.status === 'ready' ? (
             file.tools.map((tool) => (
@@ -289,6 +294,7 @@ function ToolRow({
   source,
   ask,
   checked,
+  locked = false,
   onChange,
   menu,
 }: {
@@ -298,6 +304,8 @@ function ToolRow({
   source: string;
   ask: string;
   checked: boolean;
+  /** On in every profile: the checkbox cannot turn it off. */
+  locked?: boolean;
   onChange: (checked: boolean) => void;
   menu?: ReactNode;
 }) {
@@ -307,6 +315,7 @@ function ToolRow({
         id={`tool-${name}`}
         type="checkbox"
         checked={checked}
+        disabled={locked}
         onChange={(event) => onChange(event.target.checked)}
         className="size-4 accent-interactive"
       />

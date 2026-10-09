@@ -6,6 +6,10 @@ policy reads.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from alpineagents.tool import collect_tools
+
 from ._common import Workspace
 from .bash import Bash
 from .edit import Edit, preview_edit
@@ -14,7 +18,7 @@ from .grep import Grep
 from .read import Read
 from .write import Write
 
-__all__ = ["Workspace", "default_tools", "preview_edit"]
+__all__ = ["BUILTIN", "Workspace", "default_tools", "preview_edit"]
 
 
 def default_tools(workspace: Workspace) -> list:
@@ -22,3 +26,7 @@ def default_tools(workspace: Workspace) -> list:
         Read(workspace), Glob(workspace), Grep(workspace),
         Write(workspace), Edit(workspace), Bash(workspace),
     ]
+
+
+#: Names of the built-in tools: what a profile turns on unless told otherwise, and what a user tool may not take.
+BUILTIN: tuple[str, ...] = tuple(collect_tools(default_tools(Workspace(Path()))))

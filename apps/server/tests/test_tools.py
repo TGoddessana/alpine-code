@@ -46,9 +46,14 @@ def test_saving_a_tool_turns_it_on_in_the_profile_being_viewed(tmp_path):
     ]
     assert call("profiles/resolve", cwd=str(tmp_path))["result"]["profile"]["id"] == profile["id"]
 
-    listed = call("tools/list")["result"]
-    assert [t["name"] for t in listed["builtin"]] == ["read", "glob", "grep", "write", "edit", "bash"]
+    listed = call("tools/list", cwd=str(tmp_path))["result"]
+    assert [(t["tool"]["name"], t["origin"], t["optional"]) for t in listed["tools"]] == [
+        *((name, "builtin", True) for name in ["read", "glob", "grep", "write", "edit", "bash"]),
+        ("propose_memory", "memory", False),
+        ("fetch", "user", True),
+    ]
     assert [f["name"] for f in listed["files"]] == ["fetch"]
+    assert [t["tool"]["name"] for t in call("tools/list")["result"]["tools"]][-2:] == ["propose_memory", "fetch"]
 
     call("tools/delete", name="fetch")
     assert call("profiles/list")["result"]["profiles"][1]["tools"] == ["read"]

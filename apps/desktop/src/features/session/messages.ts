@@ -1,3 +1,5 @@
+import { josa } from 'es-hangul';
+
 import { defineMessages } from '@/shared/i18n';
 
 export const messages = defineMessages({
@@ -71,6 +73,13 @@ export const messages = defineMessages({
     stopped_signed_out: 'ChatGPT 로그인이 끝나서 멈췄어요 · 설정 › 모델 연결에서 다시 로그인해 주세요',
     manageUsage: '사용량 관리 ↗',
     compaction: (before: string, after: string) => `대화를 정리했어요 · ${before} → ${after} 토큰`,
+    agentSwitched: (name: string) => `${josa(name, '으로/로')} 바꿨어요 · 프로젝트, 대화, 안전 설정은 그대로예요`,
+    agentChanged: (name: string, changes: string) => `${name} 설정이 바뀌었어요 · ${changes} · 이 메시지부터 적용돼요`,
+    changeAdded: (list: string) => `${list} 추가`,
+    changeRemoved: (list: string) => `${list} 뺌`,
+    changeInstructions: '지침 바뀜',
+    changeModel: '모델 바뀜',
+    seeAgent: '보기',
 
     // Progress line
     activity_thinking: '생각하는 중',
@@ -173,6 +182,13 @@ export const messages = defineMessages({
     stopped_signed_out: 'Stopped: the ChatGPT sign-in ended · sign in again in Settings › Model connection',
     manageUsage: 'Manage usage ↗',
     compaction: (before: string, after: string) => `Conversation compacted · ${before} → ${after} tokens`,
+    agentSwitched: (name: string) => `Switched to ${name} · project, conversation and safety stay the same`,
+    agentChanged: (name: string, changes: string) => `${name} was changed · ${changes} · applies from this message`,
+    changeAdded: (list: string) => `${list} added`,
+    changeRemoved: (list: string) => `${list} removed`,
+    changeInstructions: 'instructions changed',
+    changeModel: 'model changed',
+    seeAgent: 'See',
 
     activity_thinking: 'Thinking',
     activity_writing: 'Writing the answer',

@@ -1,10 +1,12 @@
 import { LinkButton } from '@alpine/ui/primitives';
+import { Link } from '@tanstack/react-router';
 import { memo } from 'react';
 
+import { agentMessages, agentName, Character, toolLabel } from '@/shared/components/agent';
 import { Markdown } from '@/shared/components/markdown';
 import { useFormat, useMessages } from '@/shared/i18n';
 import { openInBrowser } from '@/shared/platform';
-import { CHATGPT_USAGE_URL, type Item } from '@/shared/server';
+import { CHATGPT_USAGE_URL, useAgents, type Item } from '@/shared/server';
 
 import { ApprovalCard } from './ApprovalCard';
 import { toBlocks, type Block } from './blocks';
@@ -18,7 +20,8 @@ const quiet = 'text-meta text-fg-muted whitespace-pre-wrap';
 /**
  * The centre column as plain chat: my messages as bubbles, the agent's as prose, tool calls as one counted line
  * (with what I answered when they asked), a call that waits for my answer as a card, a memory the agent suggested as
- * a card under its call, and the rest (notices, why a run stopped) as quiet lines.
+ * a card under its call, and the rest (notices, why a run stopped) as quiet lines. Each answer of a known agent has
+ * its face and name above it; dividers (like the compaction one) mark the agent being switched or changed.
  */
 export function Chat({
   sessionId,
@@ -53,10 +56,23 @@ export function Chat({
   );
 }
 
-/** A reply as it streams in: let out at an even pace, drawn as markdown. */
-function AgentMessage({ text, streaming }: { text: string; streaming: boolean }) {
+/** A reply as it streams in: let out at an even pace, drawn as markdown, under the face and name of its agent. */
+function AgentMessage({ text, agent, streaming }: { text: string; agent: string | null; streaming: boolean }) {
+  const a = useMessages(agentMessages);
+  const writer = useAgents().data?.agents.find((candidate) => candidate.id === agent);
   const shown = useRevealed(text, streaming);
-  return shown ? <Markdown text={shown} streaming={streaming} /> : null;
+  if (!shown) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      {writer && (
+        <div className="flex items-center gap-2 text-meta text-fg-muted">
+          <Character look={writer.look} color={writer.color} size={22} />
+          {agentName(writer, a)}
+        </div>
+      )}
+      <Markdown text={shown} streaming={streaming} />
+    </div>
+  );
 }
 
 /** Drawn again only when its item changed (items keep their identity until an event changes them). */
@@ -69,6 +85,7 @@ const ItemView = memo(function ItemView({
 }) {
   const t = useMessages(messages);
   const format = useFormat();
+  const a = useMessages(agentMessages);
   switch (item.kind) {
     case 'user_message':
       return (
@@ -77,7 +94,7 @@ const ItemView = memo(function ItemView({
         </div>
       );
     case 'agent_message':
-      return <AgentMessage text={item.text} streaming={active} />;
+      return <AgentMessage text={item.text} agent={item.agent} streaming={active} />;
     case 'notice':
       // The model reads the core's words; memory notices are worded here, in the app's language.
       if (item.source === 'memory_added' || item.source === 'memory_removed')
@@ -115,5 +132,36 @@ const ItemView = memo(function ItemView({
           <span className="h-px grow bg-line-subtle" />
         </div>
       );
+    case 'agent_switched':
+      return (
+        <div role="note" className="flex items-center gap-3 text-meta text-fg-muted">
+          <span className="h-px grow bg-line-subtle" />
+          <Character look={item.look} color={item.color} size={22} />
+          {t.agentSwitched(agentName({ id: item.agent, name: item.name }, a))}
+          <span className="h-px grow bg-line-subtle" />
+        </div>
+      );
+    case 'agent_changed': {
+      const list = (names: string[]) => names.map((name) => toolLabel(name, a)).join(', ');
+      const changes = [
+        item.added.length > 0 && t.changeAdded(list(item.added)),
+        item.removed.length > 0 && t.changeRemoved(list(item.removed)),
+        item.instructions && t.changeInstructions,
+        item.model && t.changeModel,
+      ].filter((part): part is string => !!part);
+      return (
+        <div role="note" className="flex items-center gap-3 text-meta text-fg-muted">
+          <span className="h-px grow bg-line-subtle" />
+          <Character look={item.look} color={item.color} size={22} />
+          <span>
+            {t.agentChanged(agentName({ id: item.agent, name: item.name }, a), changes.join(' · '))} ·{' '}
+            <Link to="/agents" search={{ agent: item.agent }} className="text-interactive hover:underline">
+              {t.seeAgent}
+            </Link>
+          </span>
+          <span className="h-px grow bg-line-subtle" />
+        </div>
+      );
+    }
   }
 });

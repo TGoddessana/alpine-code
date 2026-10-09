@@ -548,3 +548,75 @@ export const AutoModeBlocked: Story = {
     await expect(screen.getByText(/main에 강제로 푸시하려고 해서/)).toBeVisible();
   },
 };
+
+const websiteItems: Item[] = [
+  { id: 'w1', kind: 'user_message', text: '메뉴판 사진을 새로 찍은 걸로 바꿔 줘' },
+  {
+    id: 'w2',
+    kind: 'agent_message',
+    agent: 'a-site',
+    text: '새 사진 3장을 웹에 맞게 줄여서 메뉴 페이지에 넣었어요. 휴대폰 화면에서도 잘 보여요.',
+  },
+];
+
+const withAgents = (items: Item[]) =>
+  mergeScripts(setUpScript(), sessionScript({ sessions: [{ info: sessionInfo({ id: ID, agent: 'a-site' }), items }] }));
+
+/**
+ * Board 세션 중에 바뀌는 것, 에이전트 바꾸기: a divider says the session went on with another agent and what stays,
+ * and each answer carries the face and name of the agent that wrote it.
+ */
+export const AgentSwitched: Story = {
+  parameters: {
+    server: withAgents([
+      ...websiteItems,
+      { id: 'w3', kind: 'agent_switched', agent: 'a-review', name: '꼼꼼한 검토자', look: 'glasses', color: 3 },
+      { id: 'w4', kind: 'user_message', text: '방금 바꾼 거 한번 봐 줘' },
+      {
+        id: 'w5',
+        kind: 'agent_message',
+        agent: 'a-review',
+        text: '바뀐 파일 2개를 읽었어요. 꼭 고칠 것은 하나예요. 크루아상 사진의 대체 글이 비어 있어요.',
+      },
+    ]),
+  },
+  play: async () => {
+    await expect(
+      await screen.findByText(/꼼꼼한 검토자로 바꿨어요 · 프로젝트, 대화, 안전 설정은 그대로예요/),
+    ).toBeVisible();
+    expect(screen.getAllByRole('note')).toHaveLength(1);
+    await waitFor(() => expect(screen.getByText('홈페이지 담당')).toBeVisible());
+    expect(screen.getAllByText('꼼꼼한 검토자').length).toBeGreaterThan(0);
+  },
+};
+
+/**
+ * Board 세션 중에 바뀌는 것, 설정 바뀜: the agent was edited between two messages; the divider says what changed and
+ * from which message it applies, with a link to the agent.
+ */
+export const AgentChanged: Story = {
+  parameters: {
+    server: withAgents([
+      ...websiteItems,
+      {
+        id: 'w3',
+        kind: 'agent_changed',
+        agent: 'a-site',
+        name: '홈페이지 담당',
+        look: 'hardhat',
+        color: 1,
+        added: ['fetch'],
+        removed: [],
+        instructions: true,
+        model: null,
+      },
+      { id: 'w4', kind: 'user_message', text: '옆 동네 빵집 메뉴 페이지도 참고해서 설명 글 다듬어 줘' },
+    ]),
+  },
+  play: async () => {
+    await expect(
+      await screen.findByText(/홈페이지 담당 설정이 바뀌었어요 · fetch 추가 · 지침 바뀜 · 이 메시지부터 적용돼요/),
+    ).toBeVisible();
+    expect(screen.getByRole('link', { name: '보기' })).toBeVisible();
+  },
+};

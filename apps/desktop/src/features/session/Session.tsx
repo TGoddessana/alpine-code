@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { Composer, ModelPicker, SessionProfile } from '@/shared/components/composer';
+import { AgentChip, Composer } from '@/shared/components/composer';
 import { useMessages } from '@/shared/i18n';
 import {
   activeApproval,
@@ -10,6 +10,7 @@ import {
   useCancelSession,
   useSendMessage,
   useSession,
+  useSetSessionAgent,
   useSetSessionMode,
 } from '@/shared/server';
 
@@ -24,7 +25,8 @@ const FOLLOW_PX = 80;
 /**
  * A session's centre column: the chat ending in the progress line while a run is
  * active (a call that waits for my answer is a card in it), and the input at the bottom (with the conversation
- * length meter in its bar, and the permission mode, which can change any time and counts from the next call: a call
+ * length meter in its bar, the agent chip, which hands the conversation to another agent between messages (it waits
+ * while a run goes on), and the permission mode, which can change any time and counts from the next call: a call
  * already waiting stays). While the run goes on the send button is a stop button. While a call waits, what I write in the input skips
  * it and tells the agent what to do instead. Project, branch and state are in the top bar.
  */
@@ -35,6 +37,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   const cancel = useCancelSession();
   const answer = useAnswerApproval();
   const setMode = useSetSessionMode();
+  const setAgent = useSetSessionAgent();
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const following = useRef(true);
@@ -99,13 +102,16 @@ export function Session({ sessionId }: { sessionId: string }) {
                 }
               : undefined
           }
-          bar={
-            <>
-              <ContextMeter info={info} />
-              <SessionProfile profileId={info.profile} />
-              <ModelPicker session={{ id: sessionId, model: info.model }} disabled={running} />
-            </>
+          agent={
+            <AgentChip
+              context="session"
+              agentId={info.agent ?? 'default'}
+              model={info.model}
+              disabled={running}
+              onChange={(agent) => setAgent.mutate({ sessionId, agent })}
+            />
           }
+          bar={<ContextMeter info={info} />}
           onSend={(text) => {
             following.current = true;
             return send.mutateAsync({ sessionId, text });

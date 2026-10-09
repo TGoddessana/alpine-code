@@ -1,20 +1,11 @@
 from pathlib import Path
 
 import pytest
-from alpineagents.testing import FakeModel, tool_call
 
 from alpine_core import (
-    DEFAULT_PROFILE,
-    Profile,
-    ProfileConflict,
-    ProfileList,
-    Session,
-    Settings,
     Toolbox,
     ToolboxError,
-    ToolFinished,
 )
-from alpine_core import session as session_module
 from alpine_core import toolbox as toolbox_module
 from alpine_core.toolbox import dependencies, extract_code
 
@@ -138,70 +129,6 @@ def test_delete_removes_file_and_record(box):
 def test_extract_code():
     assert extract_code("Here:\n```python\nx = 1\n```\n") == "x = 1\n"
 
-
-# ------------------------------------------------------------ profiles
-
-
-def test_the_most_specific_profile_wins(home, tmp_path):
-    profiles = ProfileList(home)
-    project = tmp_path / "shop"
-    project.mkdir()
-    by_model = profiles.save(Profile("", "light", model="local/motif"))
-    by_project = profiles.save(Profile("", "shop", project=str(project)))
-    both = profiles.save(Profile("", "shop-light", project=str(project), model="local/motif"))
-    assert profiles.resolve(project, "local/motif").id == both.id
-    assert profiles.resolve(project, "anthropic/sonnet").id == by_project.id
-    assert profiles.resolve(tmp_path, "local/motif").id == by_model.id
-    assert profiles.resolve(tmp_path, None).id == DEFAULT_PROFILE
-
-
-def test_two_profiles_cannot_claim_the_same_place(home):
-    profiles = ProfileList(home)
-    profiles.save(Profile("", "a", model="x/y"))
-    with pytest.raises(ProfileConflict):
-        profiles.save(Profile("", "b", model="x/y"))
-
-
-def test_the_default_profile_always_exists_and_applies_everywhere(home):
-    profiles = ProfileList(home)
-    saved = profiles.save(Profile(DEFAULT_PROFILE, "renamed", model="x/y", tools=("read",)))
-    assert (saved.project, saved.model, saved.tools) == (None, None, ("read",))
-    profiles.delete(DEFAULT_PROFILE)
-    assert profiles.list()[0].id == DEFAULT_PROFILE
-
-
-def test_a_session_gets_the_profiles_tools(home, tmp_path, monkeypatch):
-    box = Toolbox(home)
-    box.save("shout", SHOUT)
-    profiles = ProfileList(home)
-    profiles.save(Profile(DEFAULT_PROFILE, "", tools=("read", "shout")))
-    replies = [tool_call("shout", text="hi"), "done"]
-    monkeypatch.setattr(session_module, "make_model", lambda settings: FakeModel(replies))
-    events = []
-    session = Session(
-        Settings(model="fake"),
-        on_event=events.append,
-        approver=_NoApprover(),
-        cwd=tmp_path,
-        profiles=profiles,
-        toolbox=box,
-    )
-    assert session.info.profile == DEFAULT_PROFILE
-    assert sorted(t.name for t in session._agent.tools) == ["read", "shout"]
-    assert session.send("shout hi") == "done"
-    assert [(e.name, e.kind) for e in events if isinstance(e, ToolFinished)] == [("shout", "done")]
-
-
-
-def test_switching_the_model_keeps_the_profile(home, tmp_path, monkeypatch):
-    profiles = ProfileList(home)
-    profiles.save(Profile(DEFAULT_PROFILE, "", tools=("read", "bash")))
-    light = profiles.save(Profile("", "light", model="local/motif", tools=("read",)))
-    monkeypatch.setattr(session_module, "make_model", lambda settings: FakeModel([]))
-    session = Session(Settings(model="x/big"), approver=_NoApprover(), cwd=tmp_path, profiles=profiles)
-    session.set_model(light.model)
-    assert session.info.profile == DEFAULT_PROFILE  # the tools a conversation has do not change under it
-    assert sorted(t.name for t in session._agent.tools) == ["bash", "read"]
 
 class _NoApprover:
     def approve(self, request):

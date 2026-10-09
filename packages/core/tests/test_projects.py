@@ -62,3 +62,23 @@ def test_delete_removes_the_users_own_memory_of_the_project_only(tmp_path):
     projects.delete(folder)
     assert not mine.path.exists()
     assert team.path.exists() and everywhere.path.exists()
+
+
+def test_last_agent_round_trips_and_open_keeps_it(tmp_path):
+    projects = ProjectList(tmp_path / "projects.json")
+    folder = tmp_path / "a"
+    folder.mkdir()
+    assert projects.open(folder).last_agent is None
+    projects.set_agent(folder, "reviewer")
+    assert projects.get(folder).last_agent == "reviewer"
+    assert projects.open(folder).last_agent == "reviewer"
+    assert ProjectList(tmp_path / "projects.json").get(folder).last_agent == "reviewer"
+    projects.set_agent(folder, None)
+    assert projects.get(folder).last_agent is None
+
+
+def test_set_agent_ignores_unknown_folders(tmp_path):
+    projects = ProjectList(tmp_path / "projects.json")
+    projects.set_agent(tmp_path / "nowhere", "reviewer")
+    assert projects.list() == [] and projects.get(tmp_path / "nowhere") is None
+    assert not (tmp_path / "projects.json").exists()

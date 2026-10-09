@@ -5,6 +5,8 @@ A frontend creates a ``Session`` with an ``on_event`` callback and an ``Approver
 or core submodules directly.
 """
 
+from .agents import DEFAULT_ID as DEFAULT_AGENT
+from .agents import LOOKS, AgentConfig, AgentList, free_character
 from .approval import ApprovalRequest, Approver, AsyncApprover, BlockingApprover, Decision, blocked_reason
 from .catalog import hidden_models, load_catalog
 from .config import (
@@ -39,7 +41,9 @@ from .git import CloneError, GitStatus, PullRequest, clone, current_branch, pull
 from .git import status as git_status
 from .home import home_dir
 from .items import (
+    AgentChanged,
     AgentMessage,
+    AgentSwitched,
     ApprovalItem,
     Compaction,
     Deleted,
@@ -65,8 +69,6 @@ from .items import (
 from .memory import Evidence, Memories, Memory, MemoryNotes, Refused, Scope, Suggestion
 from .models import ModelListError, chatgpt_tokens, list_models
 from .permissions import Mode
-from .profiles import DEFAULT_ID as DEFAULT_PROFILE
-from .profiles import Profile, ProfileConflict, ProfileList
 from .projects import Project, ProjectList
 from .providers import PROVIDERS, Api, Auth, Billing, Provider
 from .review import GlobalAgentsMd, ModelReviewer, Review, Reviewer, ReviewRequest, TrustedNote, TrustedSource
@@ -145,10 +147,11 @@ __all__ = [
     "ModelListError",
     "Project",
     "ProjectList",
-    "Profile",
-    "ProfileList",
-    "ProfileConflict",
-    "DEFAULT_PROFILE",
+    "AgentConfig",
+    "AgentList",
+    "DEFAULT_AGENT",
+    "LOOKS",
+    "free_character",
     "Toolbox",
     "ToolboxError",
     "ToolFile",
@@ -198,6 +201,8 @@ __all__ = [
     "Failed",
     "UsageInfo",
     "AgentMessage",
+    "AgentSwitched",
+    "AgentChanged",
     "ApprovalItem",
     "ReviewBlocked",
     "Compaction",

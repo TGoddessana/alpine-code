@@ -43,7 +43,7 @@
   --color-diff-added: #e3efe0; /* behind an added line of a diff */
   --color-diff-removed: #f6e4e0; /* behind a removed line of a diff */
 
-  /* Avatars: soft fill with a dark ink of the same hue */
+  /* Avatars: soft fill with a dark ink of the same hue. 6-8 (teal, grey, apricot) are only for agent characters */
   --color-avatar-1: #dcebe1;
   --color-avatar-1-ink: #2b5a42;
   --color-avatar-2: #dce5f0;
@@ -54,6 +54,12 @@
   --color-avatar-4-ink: #6e5320;
   --color-avatar-5: #f2dfe0;
   --color-avatar-5-ink: #7a3b42;
+  --color-avatar-6: #d9eeec;
+  --color-avatar-6-ink: #285c58;
+  --color-avatar-7: #e6e8ec;
+  --color-avatar-7-ink: #3f4a57;
+  --color-avatar-8: #f6e3d6;
+  --color-avatar-8-ink: #7a4526;
 
   /* Behind a modal */
   --color-scrim: rgb(26 34 42 / 0.32);

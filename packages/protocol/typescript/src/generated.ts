@@ -1,6 +1,6 @@
 // Generated from packages/protocol/python by `pnpm protocol:generate`. Do not edit.
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -12,6 +12,62 @@ export interface Activity {
   since: string;
 }
 /**
+ * The agent was edited between two turns in a way the model sees.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "AgentChangedItem".
+ */
+export interface AgentChangedItem {
+  id: string;
+  kind: 'agent_changed';
+  agent: string;
+  name: string;
+  look:
+    | 'antenna'
+    | 'hardhat'
+    | 'glasses'
+    | 'beret'
+    | 'headphones'
+    | 'cap'
+    | 'chef'
+    | 'sprout'
+    | 'ribbon'
+    | 'beanie'
+    | 'bowtie'
+    | 'grad';
+  color: number;
+  added: string[];
+  removed: string[];
+  instructions: boolean;
+  model: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "AgentInfo".
+ */
+export interface AgentInfo {
+  id: string;
+  name: string;
+  description: string;
+  model: string | null;
+  instructions: string;
+  tools: string[];
+  look:
+    | 'antenna'
+    | 'hardhat'
+    | 'glasses'
+    | 'beret'
+    | 'headphones'
+    | 'cap'
+    | 'chef'
+    | 'sprout'
+    | 'ribbon'
+    | 'beanie'
+    | 'bowtie'
+    | 'grad';
+  color: number;
+}
+/**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "AgentMessageItem".
  */
@@ -19,6 +75,71 @@ export interface AgentMessageItem {
   id: string;
   kind: 'agent_message';
   text: string;
+  agent: string | null;
+}
+/**
+ * The session went on with another agent from here.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "AgentSwitchedItem".
+ */
+export interface AgentSwitchedItem {
+  id: string;
+  kind: 'agent_switched';
+  agent: string;
+  name: string;
+  look:
+    | 'antenna'
+    | 'hardhat'
+    | 'glasses'
+    | 'beret'
+    | 'headphones'
+    | 'cap'
+    | 'chef'
+    | 'sprout'
+    | 'ribbon'
+    | 'beanie'
+    | 'bowtie'
+    | 'grad';
+  color: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "AgentsDeleteParams".
+ */
+export interface AgentsDeleteParams {
+  id: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "AgentsDeleteResult".
+ */
+export interface AgentsDeleteResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "AgentsListParams".
+ */
+export interface AgentsListParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "AgentsListResult".
+ */
+export interface AgentsListResult {
+  agents: AgentInfo[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "AgentsSaveParams".
+ */
+export interface AgentsSaveParams {
+  agent: AgentInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "AgentsSaveResult".
+ */
+export interface AgentsSaveResult {
+  agent: AgentInfo;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -273,7 +394,7 @@ export interface ErrorData {
     | 'package_not_approved'
     | 'install_failed'
     | 'name_taken'
-    | 'profile_conflict'
+    | 'agent_not_found'
     | 'model_failed'
     | 'not_found'
     | 'memory_full';
@@ -335,7 +456,7 @@ export interface SessionInfo {
   activity: Activity | null;
   runStartedAt: string | null;
   runUsage: Usage | null;
-  profile: string | null;
+  agent: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -389,7 +510,9 @@ export interface ItemCompletedEvent {
     | StatusLineItem
     | MemoryReviewItem
     | CompactionItem
-    | RunStoppedItem;
+    | RunStoppedItem
+    | AgentSwitchedItem
+    | AgentChangedItem;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -520,7 +643,9 @@ export interface ItemStartedEvent {
     | StatusLineItem
     | MemoryReviewItem
     | CompactionItem
-    | RunStoppedItem;
+    | RunStoppedItem
+    | AgentSwitchedItem
+    | AgentChangedItem;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -667,70 +792,6 @@ export interface PackageInfo {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "ProfileInfo".
- */
-export interface ProfileInfo {
-  id: string;
-  name: string;
-  project: string | null;
-  model: string | null;
-  tools: string[];
-}
-/**
- * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "ProfilesDeleteParams".
- */
-export interface ProfilesDeleteParams {
-  id: string;
-}
-/**
- * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "ProfilesDeleteResult".
- */
-export interface ProfilesDeleteResult {}
-/**
- * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "ProfilesListParams".
- */
-export interface ProfilesListParams {}
-/**
- * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "ProfilesListResult".
- */
-export interface ProfilesListResult {
-  profiles: ProfileInfo[];
-}
-/**
- * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "ProfilesResolveParams".
- */
-export interface ProfilesResolveParams {
-  cwd: string;
-  model?: string | null;
-}
-/**
- * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "ProfilesResolveResult".
- */
-export interface ProfilesResolveResult {
-  profile: ProfileInfo;
-}
-/**
- * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "ProfilesSaveParams".
- */
-export interface ProfilesSaveParams {
-  profile: ProfileInfo;
-}
-/**
- * This interface was referenced by `AlpineProtocol`'s JSON-Schema
- * via the `definition` "ProfilesSaveResult".
- */
-export interface ProfilesSaveResult {
-  profile: ProfileInfo;
-}
-/**
- * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ProjectInfo".
  */
 export interface ProjectInfo {
@@ -739,6 +800,7 @@ export interface ProjectInfo {
   branch: string | null;
   lastUsedAt: string;
   archived: boolean;
+  lastAgent: string | null;
 }
 /**
  * Takes a project off the rail; its sessions stay, and opening the folder brings it back.
@@ -920,7 +982,7 @@ export interface SessionNewParams {
   cwd: string;
   model?: string | null;
   mode?: ('default' | 'accept_edits' | 'auto' | 'yolo') | null;
-  profile?: string | null;
+  agent?: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -956,6 +1018,8 @@ export interface SessionOpenResult {
     | MemoryReviewItem
     | CompactionItem
     | RunStoppedItem
+    | AgentSwitchedItem
+    | AgentChangedItem
   )[];
   active: (
     | UserMessageItem
@@ -968,6 +1032,8 @@ export interface SessionOpenResult {
     | MemoryReviewItem
     | CompactionItem
     | RunStoppedItem
+    | AgentSwitchedItem
+    | AgentChangedItem
   )[];
 }
 /**
@@ -983,6 +1049,24 @@ export interface SessionSendParams {
  * via the `definition` "SessionSendResult".
  */
 export interface SessionSendResult {}
+/**
+ * Goes on with another agent from the next message on. Not while the session runs. An unknown id fails with
+ * ``agent_not_found``.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionSetAgentParams".
+ */
+export interface SessionSetAgentParams {
+  sessionId: string;
+  agent: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionSetAgentResult".
+ */
+export interface SessionSetAgentResult {
+  info: SessionInfo;
+}
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "SessionSetModeParams".
@@ -1269,10 +1353,9 @@ export interface Methods {
   'tools/install': { params: ToolsInstallParams; result: ToolsInstallResult };
   'tools/test': { params: ToolsTestParams; result: ToolsTestResult };
   'tools/draft': { params: ToolsDraftParams; result: ToolsDraftResult };
-  'profiles/list': { params: ProfilesListParams; result: ProfilesListResult };
-  'profiles/save': { params: ProfilesSaveParams; result: ProfilesSaveResult };
-  'profiles/delete': { params: ProfilesDeleteParams; result: ProfilesDeleteResult };
-  'profiles/resolve': { params: ProfilesResolveParams; result: ProfilesResolveResult };
+  'agents/list': { params: AgentsListParams; result: AgentsListResult };
+  'agents/save': { params: AgentsSaveParams; result: AgentsSaveResult };
+  'agents/delete': { params: AgentsDeleteParams; result: AgentsDeleteResult };
   'memory/list': { params: MemoryListParams; result: MemoryListResult };
   'memory/approve': { params: MemoryApproveParams; result: MemoryApproveResult };
   'memory/reject': { params: MemoryRejectParams; result: MemoryRejectResult };
@@ -1285,6 +1368,7 @@ export interface Methods {
   'session/answer': { params: SessionAnswerParams; result: SessionAnswerResult };
   'session/setMode': { params: SessionSetModeParams; result: SessionSetModeResult };
   'session/setModel': { params: SessionSetModelParams; result: SessionSetModelResult };
+  'session/setAgent': { params: SessionSetAgentParams; result: SessionSetAgentResult };
   'session/delete': { params: SessionDeleteParams; result: SessionDeleteResult };
 }
 

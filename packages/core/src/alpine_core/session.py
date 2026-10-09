@@ -27,6 +27,7 @@ from alpineagents.tool import collect_tools
 from alpineagents.types import Stopped
 
 from . import shell
+from .agents import AgentConfig, AgentList
 from .approval import ApprovalRequest, Approver, Decision, build_permissions
 from .bridge import EventReporter
 from .chatgpt import PlanUsageOff, SignInNeeded, UsageLimitError
@@ -61,7 +62,6 @@ from .memory.rules import CheckRunner, Facts, relative
 from .memory.rules import Event as RuleEvent
 from .models import make_model
 from .permissions import Mode, PermissionPolicy
-from .profiles import Profile, ProfileList
 from .projects import ProjectList
 from .prompt import build_system_prompt
 from .review import GlobalAgentsMd, ModelReviewer, Review, Reviewer, ReviewRequest
@@ -102,9 +102,12 @@ class Session:
     ``asend`` runs until the agent answers, reporting progress through ``on_event`` (core events, on the event
     loop's thread) and asking ``approver`` before tool calls the permission mode does not allow. Cancelling it stops
     the run and keeps the conversation. ``send`` is the same for a frontend without an event loop, stopped with
-    Ctrl+C. With ``projects``, the first message of a conversation records its folder there. With ``profiles``, the
-    agent gets the tools of ``profile`` (an id) or of the profile its folder and model match, including the user's
-    tools from ``toolbox``; the choice is saved with the session. With ``memories``, the prompt carries the
+    Ctrl+C. With ``projects``, the first message of a conversation records its folder there. With ``agents``, the
+    session works with an agent: ``agent`` (an id), else the one its project used last, else the default agent. The
+    agent brings its model (unless ``model`` says otherwise), its instructions and its tools, including the user's
+    tools from ``toolbox``; the choice is saved with the session and ``set_agent`` changes it. Edits to the agent
+    apply from the next message, announced in the items. Without agents the session has the built-in tools and no
+    instructions. With ``memories``, the prompt carries the
     project's memory, the agent can suggest memories, and memories approved through ``memories`` reach it as notices.
 
     The conversation is also kept as items (``docs/session-protocol.md``): ``on_item_event(session_id, seq,
@@ -127,9 +130,10 @@ class Session:
         projects: ProjectList | None = None,
         storage: Storage | None = None,
         mode: Mode | None = None,
-        profiles: ProfileList | None = None,
+        agents: AgentList | None = None,
         toolbox: Toolbox | None = None,
-        profile: str | None = None,
+        agent: str | None = None,
+        model: str | None = None,
         memories: Memories | None = None,
         _saved: _Saved | None = None,
     ) -> None:
@@ -154,12 +158,14 @@ class Session:
             trusted=[GlobalAgentsMd()],
         )
         self._projects = projects
+        self._agents = agents
+        self._toolbox = toolbox
+        self._applied = self._pick_agent(_saved.info if _saved else None, agent)
+        if _saved is None and (chosen := model or (self._applied.model if self._applied else None)):
+            settings = settings.with_model(chosen)
         self._reporter = EventReporter(self._dispatch)
         self._state: State | None = None
         self._settings = settings
-        self._profiles = profiles
-        self._toolbox = toolbox
-        self._profile = self._pick_profile(settings, _saved.info.profile if _saved else profile)
         self._agent = self._build_agent(settings)
         self._closed = False
         self._id = ""
@@ -191,7 +197,7 @@ class Session:
         approver: Approver,
         cwd: Path | None = None,
         projects: ProjectList | None = None,
-        profiles: ProfileList | None = None,
+        agents: AgentList | None = None,
         toolbox: Toolbox | None = None,
         memories: Memories | None = None,
     ) -> Session:
@@ -225,7 +231,7 @@ class Session:
             cwd=folder,
             projects=projects,
             storage=storage,
-            profiles=profiles,
+            agents=agents,
             toolbox=toolbox,
             memories=memories,
             _saved=_Saved(info, records, state),
@@ -236,7 +242,9 @@ class Session:
             return Agent(
                 make_model(settings),
                 system=build_system_prompt(
-                    self.workspace.root, self._memory.system_block() if self._memory is not None else ""
+                    self.workspace.root,
+                    self._memory.system_block() if self._memory is not None else "",
+                    self._applied.instructions if self._applied is not None else "",
                 ),
                 tools=self._tools(),
                 loop=coding,
@@ -267,21 +275,35 @@ class Session:
             self._reviewers[name] = _ItemReviewer(self, reviewer)
         return self._reviewers[name]
 
-    def _pick_profile(self, settings: Settings, saved_id: str | None) -> Profile | None:
-        """The session's profile: the one it was saved with, or the one its folder and model match."""
-        if self._profiles is None:
+    def _pick_agent(self, saved: SessionInfo | None, agent_id: str | None) -> AgentConfig | None:
+        """The agent a session starts with. A new one: ``agent_id``, else the project's last agent, else the default
+        agent. A saved one: its own agent, as the session last applied it (the agent may have been edited since),
+        else the default agent."""
+        if self._agents is None:
             return None
-        saved = self._profiles.get(saved_id) if saved_id else None
-        return saved or self._profiles.resolve(self.workspace.root, settings.model)
+        if saved is not None:
+            picked = self._agents.get(saved.agent or "") or self._agents.default()
+            applied = saved.agent_applied
+            if not applied:
+                return picked
+            return dataclasses.replace(
+                picked,
+                model=applied.get("model"),
+                instructions=applied.get("instructions", ""),
+                tools=tuple(applied.get("tools", picked.tools)),
+            )
+        project = self._projects.get(self.workspace.root) if self._projects is not None else None
+        last = project.last_agent if project is not None else None
+        return self._agents.get(agent_id or "") or self._agents.get(last or "") or self._agents.default()
 
     def _tools(self) -> list[Any]:
-        """The built-in tools, and the user's tools, that the profile turns on (without profiles, the built-ins),
-        then the memory's tools, which every profile has."""
+        """The built-in tools, and the user's tools, that the agent turns on (without agents, the built-ins), then
+        the memory's tools, which every agent has."""
         builtin = default_tools(self.workspace)
         memory = self._memory.tools() if self._memory is not None else []
-        if self._profile is None:
+        if self._applied is None:
             return builtin + memory
-        on = set(self._profile.tools)
+        on = set(self._applied.tools)
         tools: list[Any] = [tool for name, tool in collect_tools(builtin).items() if name in on]
         if self._toolbox is not None:
             tools += self._toolbox.load(on)
@@ -295,10 +317,13 @@ class Session:
 
         Cancelling the task stops the run and keeps the conversation: ``Interrupted`` is emitted, the unfinished
         items are closed and ``CancelledError`` propagates."""
+        self._refresh_agent()
         if self._state is None:
             self._state = State(messages=[Message.user(text)], id=self._id)
             if self._projects is not None:
                 self._projects.open(self.workspace.root)
+                if self._applied is not None:
+                    self._projects.set_agent(self.workspace.root, self._applied.id)
             if self._title == NEW_TITLE:
                 self._title = _title(text)
         else:
@@ -353,6 +378,7 @@ class Session:
         """Starts a new conversation. With ``storage`` it is a new session: ``id`` changes, and the old one stays
         saved."""
         self._state = None
+        self._refresh_agent()
         self._agent = self._build_agent(self._settings)  # the new conversation's prompt has today's memory
         self._begin_conversation()
 
@@ -385,7 +411,7 @@ class Session:
 
     def set_model(self, model: str) -> None:
         """Switches the model from the next message on, and announces the new info. The conversation goes on with
-        the new model, and the profile (so the tools) stays the one the session started with. Not during a run.
+        the new model, and the agent (so the tools) stays the one the session has. Not during a run.
 
         Raises:
             ConfigError: The model cannot be used. The current model stays.
@@ -393,6 +419,82 @@ class Session:
         settings = self._settings.with_model(model)
         self._agent = self._build_agent(settings)
         self._settings = settings
+        self._touch()
+
+    def set_agent(self, agent_id: str) -> None:
+        """Puts another agent to work from the next message on: its model (if it has one), instructions and tools.
+        The project, the conversation and the safety setting stay. Once the conversation has begun, an
+        ``agent_switched`` item says so, and the project remembers the agent. Not during a run.
+
+        Raises:
+            LookupError: There are no agents, or none with this id.
+            ConfigError: The agent's model cannot be used. The current agent stays.
+        """
+        if self._agents is None:
+            raise LookupError("this session has no agents")
+        if self._applied is not None and self._applied.id == agent_id:
+            return
+        config = self._agents.get(agent_id)
+        if config is None:
+            raise LookupError(agent_id)
+        self._switch(config)
+
+    def _switch(self, config: AgentConfig) -> None:
+        previous, settings = self._applied, self._settings
+        if config.model:
+            settings = settings.with_model(config.model)
+        self._applied = config
+        try:
+            self._agent = self._build_agent(settings)
+        except ConfigError:
+            self._applied = previous
+            raise
+        self._settings = settings
+        self._recorder.agent = config.id
+        if self._state is not None:
+            self._recorder.add_agent_switched(config.id, config.name, config.look, config.color)
+            if self._projects is not None:
+                self._projects.set_agent(self.workspace.root, config.id)
+        self._touch()
+
+    def _refresh_agent(self) -> None:
+        """Takes the agent's edits since the last message (decision 10 of ``docs/agents.md``). A deleted agent is
+        replaced by the default agent. Edits the model never sees (name, description, look) only update what the
+        session knows; changed tools, instructions or model rebuild the agent, and once the conversation has begun
+        an ``agent_changed`` item says what changed, ahead of the user's message."""
+        if self._agents is None or self._applied is None:
+            return
+        applied = self._applied
+        latest = self._agents.get(applied.id)
+        if latest is None:
+            try:
+                self._switch(self._agents.default())
+            except ConfigError:
+                pass  # keep working with the agent as it was
+            return
+        added = [t for t in latest.tools if t not in applied.tools]
+        removed = [t for t in applied.tools if t not in latest.tools]
+        instructions = latest.instructions != applied.instructions
+        model_changed = latest.model is not None and latest.model != applied.model
+        if not (added or removed or instructions or model_changed):
+            self._applied = latest
+            return
+        self._applied = latest
+        moved: str | None = None
+        if model_changed:
+            assert latest.model is not None
+            try:
+                settings = self._settings.with_model(latest.model)
+                self._agent = self._build_agent(settings)
+                self._settings, moved = settings, latest.model
+            except ConfigError:
+                pass  # keep the current model; the tools and instructions still apply
+        if moved is None:
+            self._agent = self._build_agent(self._settings)
+        if self._state is not None:
+            self._recorder.add_agent_changed(
+                latest.id, latest.name, latest.look, latest.color, added, removed, instructions, moved
+            )
         self._touch()
 
     def delete(self) -> None:
@@ -423,6 +525,10 @@ class Session:
         return self._id
 
     @property
+    def agent_id(self) -> str | None:
+        return self._applied.id if self._applied is not None else None
+
+    @property
     def info(self) -> SessionInfo:
         return SessionInfo(
             id=self._id,
@@ -439,7 +545,14 @@ class Session:
             activity=self._activity,
             run_started_at=self._run_started_at,
             run_usage=self._run_usage(),
-            profile=self._profile.id if self._profile is not None else None,
+            agent=self.agent_id,
+            agent_applied=None
+            if self._applied is None
+            else {
+                "model": self._applied.model,
+                "instructions": self._applied.instructions,
+                "tools": list(self._applied.tools),
+            },
         )
 
     @property
@@ -659,6 +772,7 @@ class Session:
         self._activity = self._run_started_at = None
         self._created = self._updated = _now()
         self._recorder = ItemRecorder(self._on_recorded)
+        self._recorder.agent = self.agent_id
         if self._storage is not None:
             self._storage.log.create(self.info)
 
@@ -670,6 +784,7 @@ class Session:
         items = [item_from_dict(data) for _, data in saved.records]
         seq = max(info.last_seq, saved.records[-1][0] if saved.records else 0)
         self._recorder = ItemRecorder(self._on_recorded, seq=seq, items=items)
+        self._recorder.agent = self.agent_id
         if info.status in ("running", "waiting"):  # the process died mid-run: the store's conversation wins
             self._recorder.stop_run("interrupted")
             self._status = "idle"

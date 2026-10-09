@@ -3,7 +3,9 @@ import json
 import pytest
 
 from alpine_core import (
+    AgentChanged,
     AgentMessage,
+    AgentSwitched,
     ApprovalItem,
     Compaction,
     ItemCompleted,
@@ -314,6 +316,10 @@ ALL_ITEMS = [
     StatusLine("5", "fallback"),
     Compaction("6", 10, 2),
     RunStopped("7", "failed", "boom"),
+    AgentMessage("2", "yo", "a1"),
+    AgentSwitched("8", "a1", "Reviewer", "glasses", 3),
+    AgentChanged("9", "a1", "", "antenna", 2, ["fetch"], ["bash"], True, "x/y"),
+    AgentChanged("9", "a1", "Site", "hardhat", 1, [], [], False, None),
 ]
 
 
@@ -369,3 +375,18 @@ def test_event_from_dict_errors():
         event_from_dict({"type": "nope"})
     with pytest.raises(ValueError):
         event_from_dict({"type": "item_delta", "item_id": "1"})
+
+
+def test_recorder_marks_replies_with_the_agent():
+    rec, _ = make()
+    rec.agent = "a1"
+    rec.handle(AssistantDone("all at once"))
+    assert rec.items == (AgentMessage("i1", "all at once", "a1"),)
+
+
+def test_recorder_adds_agent_dividers():
+    rec, _ = make()
+    switched = rec.add_agent_switched("a1", "Reviewer", "glasses", 3)
+    changed = rec.add_agent_changed("a1", "Reviewer", "glasses", 3, ["fetch"], [], True, None)
+    assert rec.items == (switched, changed)
+    assert item_to_dict(changed)["added"] == ["fetch"] and item_to_dict(changed)["kind"] == "agent_changed"

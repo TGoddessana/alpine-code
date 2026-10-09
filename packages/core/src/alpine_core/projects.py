@@ -23,6 +23,8 @@ class Project:
     last_used_at: datetime
     archived: bool = False
     """Off the rail; its sessions and memory stay."""
+    last_agent: str | None = None
+    """The id of the agent last put to work here; a new session in the project starts with it."""
 
     @property
     def name(self) -> str:
@@ -59,6 +61,17 @@ class ProjectList:
         projects[folder] = project
         self._write(projects)
         return project
+
+    def get(self, folder: Path) -> Project | None:
+        return self._read().get(folder.expanduser().resolve())
+
+    def set_agent(self, folder: Path, agent_id: str | None) -> None:
+        """Remembers the agent last used in the folder. Does nothing for a folder that is not a project."""
+        folder = folder.expanduser().resolve()
+        projects = self._read()
+        if folder in projects:
+            projects[folder] = replace(projects[folder], last_agent=agent_id)
+            self._write(projects)
 
     def archive(self, folder: Path) -> None:
         """Takes the folder off the rail. Opening it again brings it back."""
@@ -99,6 +112,7 @@ class ProjectList:
                 datetime.fromisoformat(entry["added_at"]),
                 datetime.fromisoformat(entry["last_used_at"]),
                 entry.get("archived", False),
+                entry.get("last_agent"),
             )
         return projects
 
@@ -110,6 +124,7 @@ class ProjectList:
                     "added_at": p.added_at.isoformat(),
                     "last_used_at": p.last_used_at.isoformat(),
                     "archived": p.archived,
+                    "last_agent": p.last_agent,
                 }
                 for p in projects.values()
             ]

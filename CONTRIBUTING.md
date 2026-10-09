@@ -51,3 +51,6 @@ pnpm storybook             # every primitive and screen state, in Korean and Eng
 pnpm desktop               # the desktop app, with the server run from source
 pnpm protocol:check        # generated protocol files are up to date
 ```
+
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs these checks, except Storybook and the app, on every
+pull request and every push to main.

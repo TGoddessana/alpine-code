@@ -6,25 +6,18 @@ import { useServerInfo, useSetDefaultMode, useSettings } from '@/shared/server';
 
 import { ConnectionTab } from './Connection';
 import { messages } from './messages';
-import { ToolsTab } from './Tools';
 
 const LANGUAGE_NAMES: Record<Locale, string> = { ko: '한국어', en: 'English' };
 
-export type SettingsTab = 'general' | 'connection' | 'usage' | 'tools' | 'harness';
+export type SettingsTab = 'general' | 'connection' | 'usage' | 'harness';
 
-/** One page with tabs: general, model connection, usage, tools, models and harness. */
+/** One page with tabs: general, model connection, usage and harness. */
 export function Settings({
   tab = 'general',
-  profile,
-  saved,
   onChange,
 }: {
   tab?: SettingsTab;
-  /** The profile the tools tab shows. */
-  profile?: string;
-  /** A tool just saved from the editor, which the tools tab confirms. */
-  saved?: string;
-  onChange: (search: { tab: SettingsTab; profile?: string }) => void;
+  onChange: (search: { tab: SettingsTab }) => void;
 }) {
   const t = useMessages(messages);
   return (
@@ -39,7 +32,6 @@ export function Settings({
           <Tabs.Tab value="general">{t.general}</Tabs.Tab>
           <Tabs.Tab value="connection">{t.connection}</Tabs.Tab>
           <Tabs.Tab value="usage">{t.usage}</Tabs.Tab>
-          <Tabs.Tab value="tools">{t.tools}</Tabs.Tab>
           <Tabs.Tab value="harness">{t.harness}</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="general">
@@ -47,13 +39,6 @@ export function Settings({
         </Tabs.Panel>
         <Tabs.Panel value="connection">
           <ConnectionTab />
-        </Tabs.Panel>
-        <Tabs.Panel value="tools" className="flex min-h-0 grow pt-0">
-          <ToolsTab
-            profileId={profile}
-            saved={saved}
-            onProfileChange={(id) => onChange({ tab: 'tools', profile: id })}
-          />
         </Tabs.Panel>
       </Tabs.Root>
     </div>

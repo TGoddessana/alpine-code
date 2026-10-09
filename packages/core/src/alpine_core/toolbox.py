@@ -205,7 +205,7 @@ class Toolbox:
         return path.read_text("utf-8")
 
     def offered(self) -> list[Offered]:
-        """The tools of the ready files, for a session or the app's list. A profile chooses which are on."""
+        """The tools of the ready files, for a session or the app's list. An agent chooses which are on."""
         found: list[Offered] = []
         for path in self._files():
             loaded = self._load_saved(path)

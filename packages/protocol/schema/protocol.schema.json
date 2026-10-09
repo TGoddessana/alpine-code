@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AlpineProtocol",
-  "description": "alpine-code protocol version 1. Generated; do not edit.",
+  "description": "alpine-code protocol version 2. Generated; do not edit.",
   "x-methods": {
     "initialize": {
       "params": "InitializeParams",
@@ -115,21 +115,17 @@
       "params": "ToolsDraftParams",
       "result": "ToolsDraftResult"
     },
-    "profiles/list": {
-      "params": "ProfilesListParams",
-      "result": "ProfilesListResult"
+    "agents/list": {
+      "params": "AgentsListParams",
+      "result": "AgentsListResult"
     },
-    "profiles/save": {
-      "params": "ProfilesSaveParams",
-      "result": "ProfilesSaveResult"
+    "agents/save": {
+      "params": "AgentsSaveParams",
+      "result": "AgentsSaveResult"
     },
-    "profiles/delete": {
-      "params": "ProfilesDeleteParams",
-      "result": "ProfilesDeleteResult"
-    },
-    "profiles/resolve": {
-      "params": "ProfilesResolveParams",
-      "result": "ProfilesResolveResult"
+    "agents/delete": {
+      "params": "AgentsDeleteParams",
+      "result": "AgentsDeleteResult"
     },
     "memory/list": {
       "params": "MemoryListParams",
@@ -179,6 +175,10 @@
       "params": "SessionSetModelParams",
       "result": "SessionSetModelResult"
     },
+    "session/setAgent": {
+      "params": "SessionSetAgentParams",
+      "result": "SessionSetAgentResult"
+    },
     "session/delete": {
       "params": "SessionDeleteParams",
       "result": "SessionDeleteResult"
@@ -226,6 +226,150 @@
       "title": "Activity",
       "type": "object"
     },
+    "AgentChangedItem": {
+      "description": "The agent was edited between two turns in a way the model sees.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "agent_changed",
+          "default": "agent_changed",
+          "type": "string"
+        },
+        "agent": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "look": {
+          "enum": [
+            "antenna",
+            "hardhat",
+            "glasses",
+            "beret",
+            "headphones",
+            "cap",
+            "chef",
+            "sprout",
+            "ribbon",
+            "beanie",
+            "bowtie",
+            "grad"
+          ],
+          "type": "string"
+        },
+        "color": {
+          "type": "integer"
+        },
+        "added": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "removed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "instructions": {
+          "type": "boolean"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "agent",
+        "name",
+        "look",
+        "color",
+        "added",
+        "removed",
+        "instructions",
+        "model"
+      ],
+      "title": "AgentChangedItem",
+      "type": "object"
+    },
+    "AgentInfo": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "instructions": {
+          "type": "string"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "look": {
+          "enum": [
+            "antenna",
+            "hardhat",
+            "glasses",
+            "beret",
+            "headphones",
+            "cap",
+            "chef",
+            "sprout",
+            "ribbon",
+            "beanie",
+            "bowtie",
+            "grad"
+          ],
+          "type": "string"
+        },
+        "color": {
+          "maximum": 8,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "model",
+        "instructions",
+        "tools",
+        "look",
+        "color"
+      ],
+      "title": "AgentInfo",
+      "type": "object"
+    },
     "AgentMessageItem": {
       "properties": {
         "id": {
@@ -238,14 +382,136 @@
         },
         "text": {
           "type": "string"
+        },
+        "agent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
         "id",
         "kind",
-        "text"
+        "text",
+        "agent"
       ],
       "title": "AgentMessageItem",
+      "type": "object"
+    },
+    "AgentSwitchedItem": {
+      "description": "The session went on with another agent from here.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "agent_switched",
+          "default": "agent_switched",
+          "type": "string"
+        },
+        "agent": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "look": {
+          "enum": [
+            "antenna",
+            "hardhat",
+            "glasses",
+            "beret",
+            "headphones",
+            "cap",
+            "chef",
+            "sprout",
+            "ribbon",
+            "beanie",
+            "bowtie",
+            "grad"
+          ],
+          "type": "string"
+        },
+        "color": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "agent",
+        "name",
+        "look",
+        "color"
+      ],
+      "title": "AgentSwitchedItem",
+      "type": "object"
+    },
+    "AgentsDeleteParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "AgentsDeleteParams",
+      "type": "object"
+    },
+    "AgentsDeleteResult": {
+      "properties": {},
+      "title": "AgentsDeleteResult",
+      "type": "object"
+    },
+    "AgentsListParams": {
+      "properties": {},
+      "title": "AgentsListParams",
+      "type": "object"
+    },
+    "AgentsListResult": {
+      "properties": {
+        "agents": {
+          "items": {
+            "$ref": "#/$defs/AgentInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "agents"
+      ],
+      "title": "AgentsListResult",
+      "type": "object"
+    },
+    "AgentsSaveParams": {
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/AgentInfo"
+        }
+      },
+      "required": [
+        "agent"
+      ],
+      "title": "AgentsSaveParams",
+      "type": "object"
+    },
+    "AgentsSaveResult": {
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/AgentInfo"
+        }
+      },
+      "required": [
+        "agent"
+      ],
+      "title": "AgentsSaveResult",
       "type": "object"
     },
     "ApprovalItem": {
@@ -926,7 +1192,7 @@
             "package_not_approved",
             "install_failed",
             "name_taken",
-            "profile_conflict",
+            "agent_not_found",
             "model_failed",
             "not_found",
             "memory_full"
@@ -1056,7 +1322,9 @@
         "item": {
           "discriminator": {
             "mapping": {
+              "agent_changed": "#/$defs/AgentChangedItem",
               "agent_message": "#/$defs/AgentMessageItem",
+              "agent_switched": "#/$defs/AgentSwitchedItem",
               "approval": "#/$defs/ApprovalItem",
               "compaction": "#/$defs/CompactionItem",
               "memory_review": "#/$defs/MemoryReviewItem",
@@ -1099,6 +1367,12 @@
             },
             {
               "$ref": "#/$defs/RunStoppedItem"
+            },
+            {
+              "$ref": "#/$defs/AgentSwitchedItem"
+            },
+            {
+              "$ref": "#/$defs/AgentChangedItem"
             }
           ]
         }
@@ -1163,7 +1437,9 @@
         "item": {
           "discriminator": {
             "mapping": {
+              "agent_changed": "#/$defs/AgentChangedItem",
               "agent_message": "#/$defs/AgentMessageItem",
+              "agent_switched": "#/$defs/AgentSwitchedItem",
               "approval": "#/$defs/ApprovalItem",
               "compaction": "#/$defs/CompactionItem",
               "memory_review": "#/$defs/MemoryReviewItem",
@@ -1206,6 +1482,12 @@
             },
             {
               "$ref": "#/$defs/RunStoppedItem"
+            },
+            {
+              "$ref": "#/$defs/AgentSwitchedItem"
+            },
+            {
+              "$ref": "#/$defs/AgentChangedItem"
             }
           ]
         }
@@ -1681,147 +1963,6 @@
       "title": "PackageInfo",
       "type": "object"
     },
-    "ProfileInfo": {
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "project": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "model": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "tools": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "project",
-        "model",
-        "tools"
-      ],
-      "title": "ProfileInfo",
-      "type": "object"
-    },
-    "ProfilesDeleteParams": {
-      "properties": {
-        "id": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "id"
-      ],
-      "title": "ProfilesDeleteParams",
-      "type": "object"
-    },
-    "ProfilesDeleteResult": {
-      "properties": {},
-      "title": "ProfilesDeleteResult",
-      "type": "object"
-    },
-    "ProfilesListParams": {
-      "properties": {},
-      "title": "ProfilesListParams",
-      "type": "object"
-    },
-    "ProfilesListResult": {
-      "properties": {
-        "profiles": {
-          "items": {
-            "$ref": "#/$defs/ProfileInfo"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "profiles"
-      ],
-      "title": "ProfilesListResult",
-      "type": "object"
-    },
-    "ProfilesResolveParams": {
-      "properties": {
-        "cwd": {
-          "type": "string"
-        },
-        "model": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        }
-      },
-      "required": [
-        "cwd"
-      ],
-      "title": "ProfilesResolveParams",
-      "type": "object"
-    },
-    "ProfilesResolveResult": {
-      "properties": {
-        "profile": {
-          "$ref": "#/$defs/ProfileInfo"
-        }
-      },
-      "required": [
-        "profile"
-      ],
-      "title": "ProfilesResolveResult",
-      "type": "object"
-    },
-    "ProfilesSaveParams": {
-      "properties": {
-        "profile": {
-          "$ref": "#/$defs/ProfileInfo"
-        }
-      },
-      "required": [
-        "profile"
-      ],
-      "title": "ProfilesSaveParams",
-      "type": "object"
-    },
-    "ProfilesSaveResult": {
-      "properties": {
-        "profile": {
-          "$ref": "#/$defs/ProfileInfo"
-        }
-      },
-      "required": [
-        "profile"
-      ],
-      "title": "ProfilesSaveResult",
-      "type": "object"
-    },
     "ProjectInfo": {
       "properties": {
         "path": {
@@ -1846,6 +1987,16 @@
         },
         "archived": {
           "type": "boolean"
+        },
+        "lastAgent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1853,7 +2004,8 @@
         "name",
         "branch",
         "lastUsedAt",
-        "archived"
+        "archived",
+        "lastAgent"
       ],
       "title": "ProjectInfo",
       "type": "object"
@@ -2470,7 +2622,7 @@
             }
           ]
         },
-        "profile": {
+        "agent": {
           "anyOf": [
             {
               "type": "string"
@@ -2496,7 +2648,7 @@
         "activity",
         "runStartedAt",
         "runUsage",
-        "profile"
+        "agent"
       ],
       "title": "SessionInfo",
       "type": "object"
@@ -2554,7 +2706,7 @@
           ],
           "default": null
         },
-        "profile": {
+        "agent": {
           "anyOf": [
             {
               "type": "string"
@@ -2609,7 +2761,9 @@
           "items": {
             "discriminator": {
               "mapping": {
+                "agent_changed": "#/$defs/AgentChangedItem",
                 "agent_message": "#/$defs/AgentMessageItem",
+                "agent_switched": "#/$defs/AgentSwitchedItem",
                 "approval": "#/$defs/ApprovalItem",
                 "compaction": "#/$defs/CompactionItem",
                 "memory_review": "#/$defs/MemoryReviewItem",
@@ -2652,6 +2806,12 @@
               },
               {
                 "$ref": "#/$defs/RunStoppedItem"
+              },
+              {
+                "$ref": "#/$defs/AgentSwitchedItem"
+              },
+              {
+                "$ref": "#/$defs/AgentChangedItem"
               }
             ]
           },
@@ -2661,7 +2821,9 @@
           "items": {
             "discriminator": {
               "mapping": {
+                "agent_changed": "#/$defs/AgentChangedItem",
                 "agent_message": "#/$defs/AgentMessageItem",
+                "agent_switched": "#/$defs/AgentSwitchedItem",
                 "approval": "#/$defs/ApprovalItem",
                 "compaction": "#/$defs/CompactionItem",
                 "memory_review": "#/$defs/MemoryReviewItem",
@@ -2704,6 +2866,12 @@
               },
               {
                 "$ref": "#/$defs/RunStoppedItem"
+              },
+              {
+                "$ref": "#/$defs/AgentSwitchedItem"
+              },
+              {
+                "$ref": "#/$defs/AgentChangedItem"
               }
             ]
           },
@@ -2738,6 +2906,35 @@
     "SessionSendResult": {
       "properties": {},
       "title": "SessionSendResult",
+      "type": "object"
+    },
+    "SessionSetAgentParams": {
+      "description": "Goes on with another agent from the next message on. Not while the session runs. An unknown id fails with\n``agent_not_found``.",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "agent": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "agent"
+      ],
+      "title": "SessionSetAgentParams",
+      "type": "object"
+    },
+    "SessionSetAgentResult": {
+      "properties": {
+        "info": {
+          "$ref": "#/$defs/SessionInfo"
+        }
+      },
+      "required": [
+        "info"
+      ],
+      "title": "SessionSetAgentResult",
       "type": "object"
     },
     "SessionSetModeParams": {

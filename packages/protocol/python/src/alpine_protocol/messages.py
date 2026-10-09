@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 #: Bumped on every change an older app or server cannot read.
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 
 #: JSON-RPC error codes of the session methods.
 SESSION_NOT_FOUND = -32001
@@ -78,7 +78,7 @@ class ErrorData(Message):
         "package_not_approved",
         "install_failed",
         "name_taken",
-        "profile_conflict",
+        "agent_not_found",
         "model_failed",
         "not_found",
         "memory_full",
@@ -88,8 +88,8 @@ class ErrorData(Message):
     ``invalid_config``: config.toml cannot be read; the message says where. ``exists``: the clone's folder is already
     there. ``clone_failed``: git could not clone; the message is git's. ``invalid_name``: a tool file name is not
 lowercase letters, digits and ``_``. ``package_not_approved``: a tool needs a package nobody approved.
-``install_failed``: a package did not install. ``name_taken``: a tool name is already used. ``profile_conflict``:
-another profile applies to the same project and model. ``model_failed``: the model call behind a draft failed.
+``install_failed``: a package did not install. ``name_taken``: a tool name is already used. ``agent_not_found``:
+no agent has the id. ``model_failed``: the model call behind a draft failed.
 ``not_found``: the memory suggestion was already approved or declined. ``memory_full``: the scope filled up since the
 suggestion was made; the message says how full."""
 
@@ -300,6 +300,8 @@ class ProjectInfo(Message):
     """The checked-out branch; ``None`` outside git or on a detached HEAD."""
     last_used_at: datetime
     archived: bool
+    last_agent: str | None
+    """The agent the project's sessions used last; ``None`` before any."""
 
 
 class ProjectsListParams(Message):
@@ -379,7 +381,7 @@ class ProjectsGitResult(Message):
     """``None`` outside a git repository."""
 
 
-# Tools: built-in ones, the user's Python files, and profiles that choose which a session gets.
+# Tools: built-in ones, the user's Python files, and agents that choose which a session gets.
 
 ToolAsk = Literal["never", "edit", "ask"]
 """When a call asks: ``never`` (reads local files), ``edit`` (as editing files, by the safety mode) or ``ask``."""
@@ -436,7 +438,7 @@ class OfferedTool(Message):
     tool: ToolSummary
     origin: Literal["builtin", "memory", "user"]
     optional: bool
-    """Whether a profile can turn it off. One that cannot is in every session (the memory's tools)."""
+    """Whether an agent can turn it off. One that cannot is in every session (the memory's tools)."""
 
 
 class ToolsListParams(Message):
@@ -479,7 +481,7 @@ class ToolsSaveParams(Message):
     name: str
     source: str
     enable_in: str | None = None
-    """A profile id to turn the file's new tools on in."""
+    """An agent id to turn the file's new tools on in."""
 
 
 class ToolsSaveResult(Message):
@@ -533,48 +535,62 @@ class ToolsDraftResult(Message):
     source: str
 
 
-class ProfileInfo(Message):
+AgentLook = Literal[
+    "antenna",
+    "hardhat",
+    "glasses",
+    "beret",
+    "headphones",
+    "cap",
+    "chef",
+    "sprout",
+    "ribbon",
+    "beanie",
+    "bowtie",
+    "grad",
+]
+"""The hat or accessory of an agent's character."""
+
+
+class AgentInfo(Message):
     id: str
-    """``default`` for the profile that always exists and applies everywhere; empty to add a new one."""
+    """``default`` for the agent that always exists; empty to add a new one."""
     name: str
-    """Empty for the default profile."""
-    project: str | None
+    """Empty for the default agent until it is renamed."""
+    description: str
     model: str | None
+    """``<connection>/<model>``; the default model when ``None``."""
+    instructions: str
+    """The role and way of working the user gave the agent."""
     tools: list[str]
+    look: AgentLook
+    color: int = Field(ge=1, le=8)
+    """One of eight colours of the character."""
 
 
-class ProfilesListParams(Message):
+class AgentsListParams(Message):
     pass
 
 
-class ProfilesListResult(Message):
-    profiles: list[ProfileInfo]
-    """The default profile first."""
+class AgentsListResult(Message):
+    agents: list[AgentInfo]
+    """The default agent first."""
 
 
-class ProfilesSaveParams(Message):
-    profile: ProfileInfo
+class AgentsSaveParams(Message):
+    agent: AgentInfo
 
 
-class ProfilesSaveResult(Message):
-    profile: ProfileInfo
+class AgentsSaveResult(Message):
+    agent: AgentInfo
 
 
-class ProfilesDeleteParams(Message):
+class AgentsDeleteParams(Message):
     id: str
 
 
-class ProfilesDeleteResult(Message):
+class AgentsDeleteResult(Message):
     pass
-
-
-class ProfilesResolveParams(Message):
-    cwd: str
-    model: str | None = None
-
-
-class ProfilesResolveResult(Message):
-    profile: ProfileInfo
 
 
 # Sessions: see docs/session-protocol.md
@@ -635,8 +651,8 @@ class SessionInfo(Message):
     """When the current run started; ``None`` when idle."""
     run_usage: Usage | None
     """Usage since the current run started; ``None`` when idle."""
-    profile: str | None
-    """The id of the profile whose tools the session has."""
+    agent: str | None
+    """The id of the agent the session works as."""
 
 
 class ItemModel(Message):
@@ -655,6 +671,8 @@ class AgentMessageItem(ItemModel):
     id: str
     kind: Literal["agent_message"] = "agent_message"
     text: str
+    agent: str | None = None
+    """The id of the agent that wrote it; ``None`` for answers from before agents or from the CLI."""
 
 
 class ToolCallItem(ItemModel):
@@ -752,6 +770,36 @@ class RunStoppedItem(ItemModel):
     message: str | None = None
 
 
+class AgentSwitchedItem(ItemModel):
+    """The session went on with another agent from here."""
+
+    id: str
+    kind: Literal["agent_switched"] = "agent_switched"
+    agent: str
+    name: str
+    look: AgentLook
+    color: int
+
+
+class AgentChangedItem(ItemModel):
+    """The agent was edited between two turns in a way the model sees."""
+
+    id: str
+    kind: Literal["agent_changed"] = "agent_changed"
+    agent: str
+    name: str
+    look: AgentLook
+    color: int
+    added: list[str]
+    """Tools the agent got."""
+    removed: list[str]
+    """Tools the agent lost."""
+    instructions: bool
+    """Whether the instructions changed."""
+    model: str | None
+    """The model the agent switched to; ``None`` if it did not."""
+
+
 Item = Annotated[
     UserMessageItem
     | AgentMessageItem
@@ -762,7 +810,9 @@ Item = Annotated[
     | StatusLineItem
     | MemoryReviewItem
     | CompactionItem
-    | RunStoppedItem,
+    | RunStoppedItem
+    | AgentSwitchedItem
+    | AgentChangedItem,
     Field(discriminator="kind"),
 ]
 
@@ -770,10 +820,10 @@ Item = Annotated[
 class SessionNewParams(Message):
     cwd: str
     model: str | None = None
-    """``<connection>/<model>``; the default model when omitted."""
+    """``<connection>/<model>``; overrides the agent's model."""
     mode: Mode | None = None
-    profile: str | None = None
-    """A profile id; the one the folder and model match when omitted."""
+    agent: str | None = None
+    """An agent id; the project's last agent, else the default agent, when omitted."""
 
 
 class SessionNewResult(Message):
@@ -852,6 +902,19 @@ class SessionSetModelParams(Message):
 
 
 class SessionSetModelResult(Message):
+    info: SessionInfo
+
+
+class SessionSetAgentParams(Message):
+    """Goes on with another agent from the next message on. Not while the session runs. An unknown id fails with
+    ``agent_not_found``."""
+
+    session_id: str
+    agent: str
+    """An agent id."""
+
+
+class SessionSetAgentResult(Message):
     info: SessionInfo
 
 
@@ -1053,10 +1116,9 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "tools/install": (ToolsInstallParams, ToolsInstallResult),
     "tools/test": (ToolsTestParams, ToolsTestResult),
     "tools/draft": (ToolsDraftParams, ToolsDraftResult),
-    "profiles/list": (ProfilesListParams, ProfilesListResult),
-    "profiles/save": (ProfilesSaveParams, ProfilesSaveResult),
-    "profiles/delete": (ProfilesDeleteParams, ProfilesDeleteResult),
-    "profiles/resolve": (ProfilesResolveParams, ProfilesResolveResult),
+    "agents/list": (AgentsListParams, AgentsListResult),
+    "agents/save": (AgentsSaveParams, AgentsSaveResult),
+    "agents/delete": (AgentsDeleteParams, AgentsDeleteResult),
     "memory/list": (MemoryListParams, MemoryListResult),
     "memory/approve": (MemoryApproveParams, MemoryApproveResult),
     "memory/reject": (MemoryRejectParams, MemoryRejectResult),
@@ -1069,6 +1131,7 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "session/answer": (SessionAnswerParams, SessionAnswerResult),
     "session/setMode": (SessionSetModeParams, SessionSetModeResult),
     "session/setModel": (SessionSetModelParams, SessionSetModelResult),
+    "session/setAgent": (SessionSetAgentParams, SessionSetAgentResult),
     "session/delete": (SessionDeleteParams, SessionDeleteResult),
 }
 

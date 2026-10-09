@@ -10,14 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SessionSessionIdRouteImport } from './routes/session.$sessionId'
-import { Route as SettingsToolsNameRouteImport } from './routes/settings_.tools.$name'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentsRoute = AgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MemoryRoute = MemoryRouteImport.update({
@@ -35,64 +40,49 @@ const SessionSessionIdRoute = SessionSessionIdRouteImport.update({
   path: '/session/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsToolsNameRoute = SettingsToolsNameRouteImport.update({
-  id: '/settings_/tools/$name',
-  path: '/settings/tools/$name',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
   '/memory': typeof MemoryRoute
   '/settings': typeof SettingsRoute
   '/session/$sessionId': typeof SessionSessionIdRoute
-  '/settings/tools/$name': typeof SettingsToolsNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
   '/memory': typeof MemoryRoute
   '/settings': typeof SettingsRoute
   '/session/$sessionId': typeof SessionSessionIdRoute
-  '/settings/tools/$name': typeof SettingsToolsNameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
   '/memory': typeof MemoryRoute
   '/settings': typeof SettingsRoute
   '/session/$sessionId': typeof SessionSessionIdRoute
-  '/settings_/tools/$name': typeof SettingsToolsNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/memory'
-    | '/settings'
-    | '/session/$sessionId'
-    | '/settings/tools/$name'
+  fullPaths: '/' | '/agents' | '/memory' | '/settings' | '/session/$sessionId'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/memory'
-    | '/settings'
-    | '/session/$sessionId'
-    | '/settings/tools/$name'
+  to: '/' | '/agents' | '/memory' | '/settings' | '/session/$sessionId'
   id:
     | '__root__'
     | '/'
+    | '/agents'
     | '/memory'
     | '/settings'
     | '/session/$sessionId'
-    | '/settings_/tools/$name'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentsRoute: typeof AgentsRoute
   MemoryRoute: typeof MemoryRoute
   SettingsRoute: typeof SettingsRoute
   SessionSessionIdRoute: typeof SessionSessionIdRoute
-  SettingsToolsNameRoute: typeof SettingsToolsNameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -102,6 +92,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agents': {
+      id: '/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AgentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/memory': {
@@ -125,22 +122,15 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SessionSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings_/tools/$name': {
-      id: '/settings_/tools/$name'
-      path: '/settings/tools/$name'
-      fullPath: '/settings/tools/$name'
-      preLoaderRoute: typeof SettingsToolsNameRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentsRoute: AgentsRoute,
   MemoryRoute: MemoryRoute,
   SettingsRoute: SettingsRoute,
   SessionSessionIdRoute: SessionSessionIdRoute,
-  SettingsToolsNameRoute: SettingsToolsNameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

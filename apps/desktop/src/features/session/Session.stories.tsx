@@ -20,7 +20,12 @@ const ID = 's-story';
 
 const earlier: Item[] = [
   { id: 'i1', kind: 'user_message', text: '로그인 테스트가 가끔 실패해요. 원인을 찾아 주세요.' },
-  { id: 'i2', kind: 'agent_message', text: '테스트 코드를 먼저 읽어 볼게요.\n타이밍 문제일 가능성이 커 보여요.' },
+  {
+    id: 'i2',
+    kind: 'agent_message',
+    agent: null,
+    text: '테스트 코드를 먼저 읽어 볼게요.\n타이밍 문제일 가능성이 커 보여요.',
+  },
   {
     id: 'i3',
     kind: 'tool_call',
@@ -127,7 +132,7 @@ const earlier: Item[] = [
   },
   { id: 'i8', kind: 'notice', text: 'AGENTS.md를 읽었어요', source: 'agents_md' },
   { id: 'i9', kind: 'compaction', beforeTokens: 96_000, afterTokens: 12_000 },
-  { id: 'i10', kind: 'agent_message', text: '테스트가 아직 한 개 실패해요. 원인을 더 살펴볼게요.' },
+  { id: 'i10', kind: 'agent_message', agent: null, text: '테스트가 아직 한 개 실패해요. 원인을 더 살펴볼게요.' },
   { id: 'i11', kind: 'run_stopped', reason: 'limit', message: null },
 ];
 
@@ -180,7 +185,7 @@ const say = async (text: string) => {
 };
 
 /**
- * Boards for the session screen, without the rail and the right panel. The profile chip in the input bar is a link,
+ * Boards for the session screen, without the rail and the right panel. The agent chip in the input bar is a link,
  * so each story makes a router.
  */
 const meta = {
@@ -268,7 +273,7 @@ export const MarkdownAnswer: Story = {
   parameters: {
     server: server([
       { id: 'm1', kind: 'user_message', text: '로그인 버튼이 안 눌려요' },
-      { id: 'm2', kind: 'agent_message', text: MARKDOWN },
+      { id: 'm2', kind: 'agent_message', agent: null, text: MARKDOWN },
     ]),
   },
   play: async () => {
@@ -369,7 +374,12 @@ export const ChatGPTLimitHit: Story = {
             info: sessionInfo({ id: ID, title: '세션 목록이 사라지는 문제', model: 'chatgpt/gpt-5.5' }),
             items: [
               { id: 'l1', kind: 'user_message', text: '세션 목록이 가끔 사라지는 문제 고쳐 줘.' },
-              { id: 'l2', kind: 'agent_message', text: '원인을 찾았어요. 파싱이 실패하면 빈 목록을 돌려줘요.' },
+              {
+                id: 'l2',
+                kind: 'agent_message',
+                agent: null,
+                text: '원인을 찾았어요. 파싱이 실패하면 빈 목록을 돌려줘요.',
+              },
               { id: 'l3', kind: 'run_stopped', reason: 'plan_limit', message: 'The plan is used up.' },
             ],
           },
@@ -417,7 +427,7 @@ function memorySuggested() {
         result: "Suggested; it waits for the user's approval. Carry on.",
         images: 0,
       },
-      { id: 'm3', kind: 'agent_message', text: '버튼 문구를 해요체로 바꿨어요. 앞으로도 그렇게 쓸게요.' },
+      { id: 'm3', kind: 'agent_message', agent: null, text: '버튼 문구를 해요체로 바꿨어요. 앞으로도 그렇게 쓸게요.' },
     ]),
     memoryScript({
       '/Users/me/alpine-code': {
@@ -433,7 +443,7 @@ export const MemoryReviewed: Story = {
   parameters: {
     server: server([
       { id: 'r1', kind: 'user_message', text: '토스 결제 코드 지워줘' },
-      { id: 'r2', kind: 'agent_message', text: '`src/pay/toss.ts`를 지웠어요.' },
+      { id: 'r2', kind: 'agent_message', agent: null, text: '`src/pay/toss.ts`를 지웠어요.' },
       { id: 'r3', kind: 'memory_review', source: 'missing_paths', count: 1 },
     ]),
   },
@@ -480,7 +490,12 @@ export const MemoryChecks: Story = {
         result: '✓ lint passed\n[main 1a2b3c4] Fix table',
         images: 0,
       },
-      { id: 'c6', kind: 'agent_message', text: '새 마이그레이션 파일로 옮기고, 린트를 돌린 뒤 커밋했어요.' },
+      {
+        id: 'c6',
+        kind: 'agent_message',
+        agent: null,
+        text: '새 마이그레이션 파일로 옮기고, 린트를 돌린 뒤 커밋했어요.',
+      },
     ]),
   },
   play: async () => {
@@ -516,14 +531,128 @@ export const AutoModeBlocked: Story = {
         name: 'bash',
         args: { command: 'git push --force origin main' },
         status: 'denied',
-        result: "Auto mode's reviewer blocked this call: 커밋만 부탁했는데 main에 강제로 푸시하려고 해서. Do not try...",
+        result:
+          "Auto mode's reviewer blocked this call: 커밋만 부탁했는데 main에 강제로 푸시하려고 해서. Do not try...",
         images: 0,
       },
-      { id: 'a5', kind: 'agent_message', text: '커밋까지 했어요. 푸시는 막혀서 하지 않았어요. 필요하면 말씀해 주세요.' },
+      {
+        id: 'a5',
+        kind: 'agent_message',
+        agent: null,
+        text: '커밋까지 했어요. 푸시는 막혀서 하지 않았어요. 필요하면 말씀해 주세요.',
+      },
     ]),
   },
   play: async () => {
     await expect(await screen.findByText(/알아서 하기가 막았어요|Auto blocked this/)).toBeVisible();
     await expect(screen.getByText(/main에 강제로 푸시하려고 해서/)).toBeVisible();
+  },
+};
+
+const websiteItems: Item[] = [
+  { id: 'w1', kind: 'user_message', text: '메뉴판 사진을 새로 찍은 걸로 바꿔 줘' },
+  {
+    id: 'w2',
+    kind: 'agent_message',
+    agent: 'a-site',
+    text: '새 사진 3장을 웹에 맞게 줄여서 메뉴 페이지에 넣었어요. 휴대폰 화면에서도 잘 보여요.',
+  },
+];
+
+const withAgents = (items: Item[], agent = 'a-site') =>
+  mergeScripts(setUpScript(), sessionScript({ sessions: [{ info: sessionInfo({ id: ID, agent }), items }] }));
+
+/**
+ * Board 세션 중에 바뀌는 것, 에이전트 바꾸기: a divider says the session went on with another agent and what stays,
+ * and each answer carries the face and name of the agent that wrote it.
+ */
+export const AgentSwitched: Story = {
+  parameters: {
+    server: withAgents(
+      [
+        ...websiteItems,
+        { id: 'w3', kind: 'agent_switched', agent: 'a-review', name: '꼼꼼한 검토자', look: 'glasses', color: 3 },
+        { id: 'w4', kind: 'user_message', text: '방금 바꾼 거 한번 봐 줘' },
+        {
+          id: 'w5',
+          kind: 'agent_message',
+          agent: 'a-review',
+          text: '바뀐 파일 2개를 읽었어요. 꼭 고칠 것은 하나예요. 크루아상 사진의 대체 글이 비어 있어요.',
+        },
+      ],
+      'a-review',
+    ),
+  },
+  play: async () => {
+    await expect(
+      await screen.findByText(/꼼꼼한 검토자로 바꿨어요 · 프로젝트, 대화, 안전 설정은 그대로예요/),
+    ).toBeVisible();
+    expect(screen.getAllByRole('note')).toHaveLength(1);
+    await waitFor(() => expect(screen.getByText('홈페이지 담당')).toBeVisible());
+    expect(screen.getAllByText('꼼꼼한 검토자').length).toBeGreaterThan(0);
+  },
+};
+
+/**
+ * Board 세션 중에 바뀌는 것, 설정 바뀜: the agent was edited between two messages; the divider says what changed and
+ * from which message it applies, with a link to the agent.
+ */
+export const AgentChanged: Story = {
+  parameters: {
+    server: withAgents([
+      ...websiteItems,
+      {
+        id: 'w3',
+        kind: 'agent_changed',
+        agent: 'a-site',
+        name: '홈페이지 담당',
+        look: 'hardhat',
+        color: 1,
+        added: ['fetch'],
+        removed: [],
+        instructions: true,
+        model: null,
+      },
+      { id: 'w4', kind: 'user_message', text: '옆 동네 빵집 메뉴 페이지도 참고해서 설명 글 다듬어 줘' },
+    ]),
+  },
+  play: async () => {
+    await expect(
+      await screen.findByText(/홈페이지 담당 설정이 바뀌었어요 · fetch 추가 · 지침 바뀜 · 이 메시지부터 적용돼요/),
+    ).toBeVisible();
+    expect(screen.getByRole('link', { name: '보기' })).toBeVisible();
+  },
+};
+
+/**
+ * An answer is one header however many pieces of text it has, and the session of a deleted agent still shows who
+ * wrote the earlier answers (from the dividers) and offers the default agent in the chip.
+ */
+export const DeletedAgent: Story = {
+  parameters: {
+    server: withAgents(
+      [
+        { id: 'g1', kind: 'agent_switched', agent: 'a-gone', name: '지워진 도우미', look: 'cap', color: 5 },
+        { id: 'g2', kind: 'user_message', text: '메뉴 페이지를 확인해 줘' },
+        { id: 'g3', kind: 'agent_message', agent: 'a-gone', text: '먼저 파일을 읽어 볼게요.' },
+        {
+          id: 'g4',
+          kind: 'tool_call',
+          name: 'read',
+          args: { path: 'menu.html' },
+          status: 'done',
+          result: '<html></html>',
+          images: 0,
+        },
+        { id: 'g5', kind: 'agent_message', agent: 'a-gone', text: '문제 없이 잘 되어 있어요.' },
+      ],
+      'a-gone',
+    ),
+  },
+  play: async () => {
+    await expect(await screen.findByText('문제 없이 잘 되어 있어요.')).toBeVisible();
+    // The name above the answer comes once, and the chip names the default agent that takes over.
+    expect(screen.getAllByText('지워진 도우미')).toHaveLength(1);
+    await expect(await screen.findByRole('button', { name: '에이전트: 기본 에이전트' })).toBeVisible();
   },
 };

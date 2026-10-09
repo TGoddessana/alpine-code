@@ -10,7 +10,7 @@ import { ServerError } from './connection';
 import { memoryScript } from './memoryScript';
 import { mergeScripts, type Script } from './scripted';
 import { sessionInfo, sessionScript, type SessionScriptOptions } from './sessionScript';
-import { toolsScript } from './toolsScript';
+import { agentStore, toolsScript, type AgentStore } from './toolsScript';
 
 /** The providers the server ships, for scripts. */
 export const PROVIDERS: ProviderInfo[] = [
@@ -49,14 +49,29 @@ export const CONNECTED: ConnectionsListResult = {
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
 
 export const PROJECTS: ProjectInfo[] = [
-  { path: '/Users/me/alpine-code', name: 'alpine-code', branch: 'main', lastUsedAt: hoursAgo(0.2), archived: false },
-  { path: '/Users/me/docs-site', name: 'docs-site', branch: 'main', lastUsedAt: hoursAgo(2), archived: false },
+  {
+    path: '/Users/me/alpine-code',
+    name: 'alpine-code',
+    branch: 'main',
+    lastUsedAt: hoursAgo(0.2),
+    archived: false,
+    lastAgent: 'a-site',
+  },
+  {
+    path: '/Users/me/docs-site',
+    name: 'docs-site',
+    branch: 'main',
+    lastUsedAt: hoursAgo(2),
+    archived: false,
+    lastAgent: null,
+  },
   {
     path: '/Users/me/infra-terraform',
     name: 'infra-terraform',
     branch: null,
     lastUsedAt: hoursAgo(26),
     archived: false,
+    lastAgent: null,
   },
 ];
 
@@ -89,6 +104,8 @@ interface ScriptState {
   projects: ProjectInfo[];
   /** How a ChatGPT sign-in ends, a moment after it starts: signed in (the default), or with plan usage declined. */
   chatgpt?: 'connected' | 'declined';
+  /** Where sessions record each project's last agent; `projects/list` reads it back. */
+  agents?: AgentStore;
 }
 
 /**
@@ -113,6 +130,7 @@ export function statefulScript(start: ScriptState): Script {
     branch: 'main',
     lastUsedAt: new Date().toISOString(),
     archived: false,
+    lastAgent: null,
   });
   return {
     results: {
@@ -214,7 +232,10 @@ export function statefulScript(start: ScriptState): Script {
         settings = { ...settings, reviewModel };
         return { reviewModel };
       },
-      'projects/list': () => ({ projects, cloneParent: '/Users/me' }),
+      'projects/list': () => ({
+        projects: projects.map((p) => ({ ...p, lastAgent: start.agents?.lastAgent.get(p.path) ?? p.lastAgent })),
+        cloneParent: '/Users/me',
+      }),
       'projects/open': ({ path }) => {
         const opened = project(path);
         projects = [opened, ...projects.filter((p) => p.path !== path)];
@@ -263,10 +284,14 @@ export const firstRunScript = (chatgpt: ScriptState['chatgpt'] = 'connected') =>
   statefulScript({ connections: NOTHING_CONNECTED, projects: [], chatgpt });
 
 /** Everything set up: three connections and three projects. */
-export const setUpScript = () =>
-  mergeScripts(statefulScript({ connections: CONNECTED, projects: PROJECTS }), toolsScript(), memoryScript());
+export const setUpScript = (agents: AgentStore = agentStore()) =>
+  mergeScripts(
+    statefulScript({ connections: CONNECTED, projects: PROJECTS, agents }),
+    toolsScript(agents),
+    memoryScript(),
+  );
 
-/** Two earlier sessions, for a rail that is not empty. */
+/** Three earlier sessions, one of them at work, for a rail that is not empty. */
 export const SESSIONS = [
   sessionInfo({
     id: 's-old-1',
@@ -282,6 +307,7 @@ export const SESSIONS = [
       cost: 0.11,
     },
     contextUsed: 20_500,
+    agent: 'a-site',
   }),
   sessionInfo({
     id: 's-old-2',
@@ -289,6 +315,17 @@ export const SESSIONS = [
     cwd: '/Users/me/docs-site',
     createdAt: hoursAgo(30),
     updatedAt: hoursAgo(29),
+    agent: 'default',
+  }),
+  sessionInfo({
+    id: 's-old-3',
+    title: '결제 화면 문구 고치기',
+    createdAt: hoursAgo(1),
+    updatedAt: hoursAgo(0.05),
+    status: 'running',
+    activity: { kind: 'writing', toolName: null, since: hoursAgo(0.05) },
+    runStartedAt: hoursAgo(0.05),
+    agent: 'a-site',
   }),
 ];
 
@@ -296,5 +333,10 @@ export const SESSIONS = [
  * Everything set up, and a server that runs sessions: `session/send` plays a turn (see `sessionScript`), so a story
  * can send a message, answer the approval and watch the reply.
  */
-export const chatScript = (options: SessionScriptOptions = {}) =>
-  mergeScripts(setUpScript(), sessionScript({ sessions: SESSIONS.map((info) => ({ info })), ...options }));
+export const chatScript = (options: SessionScriptOptions = {}) => {
+  const agents = options.agents ?? agentStore();
+  return mergeScripts(
+    setUpScript(agents),
+    sessionScript({ sessions: SESSIONS.map((info) => ({ info })), ...options, agents }),
+  );
+};

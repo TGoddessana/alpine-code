@@ -51,6 +51,8 @@ class UserMessage:
 class AgentMessage:
     id: str
     text: str
+    agent: str | None = None
+    """The id of the agent that wrote it; ``None`` for a session without agents."""
     kind: ClassVar[str] = "agent_message"
 
 
@@ -145,6 +147,38 @@ class Compaction:
 
 
 @dataclass(frozen=True)
+class AgentSwitched:
+    """The session got another agent; the project, the conversation and the safety setting stayed."""
+
+    id: str
+    agent: str
+    name: str
+    """Empty for the default agent that was never renamed."""
+    look: str
+    color: int
+    kind: ClassVar[str] = "agent_switched"
+
+
+@dataclass(frozen=True)
+class AgentChanged:
+    """The agent the session works with was edited, and the edit applies from the next message."""
+
+    id: str
+    agent: str
+    name: str
+    look: str
+    color: int
+    added: list[str]
+    """Tools the agent has now that it did not have."""
+    removed: list[str]
+    instructions: bool
+    """Whether the instructions changed."""
+    model: str | None
+    """The model the session moved to, ``None`` when it did not change."""
+    kind: ClassVar[str] = "agent_changed"
+
+
+@dataclass(frozen=True)
 class RunStopped:
     """Why a run ended other than by answering."""
 
@@ -164,6 +198,8 @@ Item = (
     | StatusLine
     | MemoryReview
     | Compaction
+    | AgentSwitched
+    | AgentChanged
     | RunStopped
 )
 
@@ -179,6 +215,8 @@ ITEM_KINDS: dict[str, type] = {
         StatusLine,
         MemoryReview,
         Compaction,
+        AgentSwitched,
+        AgentChanged,
         RunStopped,
     )
 }
@@ -244,6 +282,8 @@ def item_to_dict(item: Item) -> dict[str, Any]:
     data.update({f.name: getattr(item, f.name) for f in dataclasses.fields(item)})
     if isinstance(item, ToolCallItem | ApprovalItem | ReviewBlocked):
         data["args"] = dict(item.args)
+    if isinstance(item, AgentChanged):
+        data["added"], data["removed"] = list(item.added), list(item.removed)
     return data
 
 
@@ -347,6 +387,7 @@ class ItemRecorder:
         self._pending = ""  # leading whitespace of a reply that has not shown any text yet
         self._message_id: str | None = None  # the active agent message
         self._stop_asked = False  # the user declined a call and asked to stop the run
+        self.agent: str | None = None  # the agent that writes the replies; the session sets it when that changes
 
     # ------------------------------------------------------------------ state
 
@@ -394,6 +435,26 @@ class ItemRecorder:
     def add_memory_review(self, source: str, count: int) -> MemoryReview:
         """Suggestions about the memory that the harness made during the run."""
         return self._born_finished(MemoryReview(self._new_id(), source, count))
+
+    def add_agent_switched(self, agent: str, name: str, look: str, color: int) -> AgentSwitched:
+        """The session works with another agent from now on."""
+        return self._born_finished(AgentSwitched(self._new_id(), agent, name, look, color))
+
+    def add_agent_changed(
+        self,
+        agent: str,
+        name: str,
+        look: str,
+        color: int,
+        added: list[str],
+        removed: list[str],
+        instructions: bool,
+        model: str | None,
+    ) -> AgentChanged:
+        """The agent was edited; what changed for the model applies from the next message."""
+        return self._born_finished(
+            AgentChanged(self._new_id(), agent, name, look, color, list(added), list(removed), instructions, model)
+        )
 
     def start_approval(
         self,
@@ -523,7 +584,7 @@ class ItemRecorder:
             self._pending += chunk
             if not self._pending.strip():
                 return  # wait for something to show
-            item = AgentMessage(self._new_id(), "")
+            item = AgentMessage(self._new_id(), "", self.agent)
             self._text[item.id] = []
             self._message_id = item.id
             chunk, self._pending = self._pending, ""
@@ -535,7 +596,7 @@ class ItemRecorder:
         self._pending = ""
         if self._message_id is None:
             if text.strip():  # not streamed
-                item = AgentMessage(self._new_id(), text)
+                item = AgentMessage(self._new_id(), text, self.agent)
                 self._start(item)
                 self._complete(item)
             return
@@ -548,7 +609,7 @@ class ItemRecorder:
             return
         self._message_id = None
         self._text.pop(item_id, None)
-        self._complete(AgentMessage(item_id, text))
+        self._complete(AgentMessage(item_id, text, self.agent))
 
     def _on_tool_finished(self, event: ToolFinished) -> None:
         active = self._active.get(event.id)
@@ -591,6 +652,8 @@ __all__ = [
     "StatusLine",
     "MemoryReview",
     "Compaction",
+    "AgentSwitched",
+    "AgentChanged",
     "RunStopped",
     "ItemEvent",
     "EVENT_TYPES",

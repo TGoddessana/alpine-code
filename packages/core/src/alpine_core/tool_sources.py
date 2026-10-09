@@ -28,7 +28,7 @@ class Offered:
     tool: Tool
     origin: Origin
     optional: bool = True
-    """Whether a profile can turn it off. One that cannot is in every session its source is given to."""
+    """Whether an agent can turn it off. One that cannot is in every session its source is given to."""
 
 
 class ToolSource(Protocol):
@@ -67,6 +67,6 @@ def gather(sources: Iterable[ToolSource]) -> list[Offered]:
 
 
 def pick(offered: Iterable[Offered], on: Collection[str] | None) -> list[Tool]:
-    """The tools a session gets: those a profile cannot turn off, and the others named in ``on`` (all of them
-    without a profile)."""
+    """The tools a session gets: those no agent can turn off, and the others named in ``on`` (all of them
+    without an agent)."""
     return [o.tool for o in offered if on is None or not o.optional or o.tool.name in on]

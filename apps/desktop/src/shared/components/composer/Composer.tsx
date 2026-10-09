@@ -7,12 +7,11 @@ import { SESSION_RUNNING, ServerError, useConnections } from '@/shared/server';
 
 import { messages } from './messages';
 import { ModeChip, nextMode, type Mode } from './ModeChip';
-import { ModelPicker } from './ModelPicker';
 
 /**
- * The input, the same on every screen: a box of a few lines with its bar underneath: the permission `mode` on the
- * left, and the model (or whatever `bar` puts there) on the right; attaching and thinking effort join it when the
- * core has them. Shift+Tab in the box goes to the next mode.
+ * The input, the same on every screen: a box of a few lines with its bar underneath: on the left the `agent` chip
+ * and the permission `mode` (its own chip: safety belongs to the session, not the agent), on the right whatever `bar`
+ * puts there; attaching and thinking effort join it when the core has them. Shift+Tab in the box goes to the next mode.
  *
  * Enter sends: `onSend` resolves once the server took the message, and the box empties; if it rejects, the text
  * stays and a quiet line says why. While `running` the send button becomes a stop button (`onStop`) and Enter
@@ -23,6 +22,7 @@ import { ModelPicker } from './ModelPicker';
 export function Composer({
   locked = false,
   running = false,
+  agent,
   bar,
   onSend,
   onStop,
@@ -32,7 +32,9 @@ export function Composer({
 }: {
   locked?: boolean;
   running?: boolean;
-  /** Replaces the model picker in the bar. */
+  /** The agent chip, first in the bar. */
+  agent?: ReactNode;
+  /** The right side of the bar, before the send button. */
   bar?: ReactNode;
   onSend?: (text: string) => Promise<unknown>;
   onStop?: () => void;
@@ -128,9 +130,10 @@ export function Composer({
           className="max-h-60 min-h-11 w-full resize-none bg-transparent text-reading text-fg outline-none placeholder:text-fg-muted disabled:text-fg-muted"
         />
         <div className="-ml-2 flex items-center gap-1">
+          {agent}
           {mode && <ModeChip mode={mode.value} onChange={mode.onChange} disabled={locked} />}
           <span className="grow" />
-          {bar ?? <ModelPicker disabled={locked} />}
+          {bar}
           {running && !(answer && text.trim()) ? (
             <button
               type="button"

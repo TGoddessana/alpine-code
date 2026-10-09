@@ -2,10 +2,11 @@ import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
 
 import { ServerError } from './connection';
-import { scriptedConnection } from './scripted';
-import { sessionScript } from './sessionScript';
+import { mergeScripts, scriptedConnection } from './scripted';
+import { sessionInfo, sessionScript } from './sessionScript';
 import { activeApproval, type SessionState } from './sessionState';
 import { SessionStore, sessionKey } from './sessionStore';
+import { agentStore, AGENTS, toolsScript } from './toolsScript';
 import { vi } from 'vitest';
 
 async function setup() {
@@ -131,6 +132,98 @@ describe('sessionScript', () => {
     expect(info.model).toBe('x/other');
     await vi.waitFor(() => expect(state().info.model).toBe('x/other'));
     expect(state().items).toHaveLength(before);
+  });
+
+  it('switches the agent before the conversation begins without a divider', async () => {
+    const { connection, id, state } = await setup();
+    expect(state().info.agent).toBe('default');
+    const { info } = await connection.request('session/setAgent', { sessionId: id, agent: 'a-review' });
+    expect(info.agent).toBe('a-review');
+    await vi.waitFor(() => expect(state().info.agent).toBe('a-review'));
+    expect(state().items).toEqual([]);
+  });
+
+  describe('agents shared with the tools script', () => {
+    async function shared() {
+      const agents = agentStore();
+      const connection = scriptedConnection(
+        mergeScripts(
+          toolsScript(agents),
+          sessionScript({
+            agents,
+            sessions: [
+              {
+                info: sessionInfo({ id: 's-1', cwd: '/work' }),
+                items: [{ id: 'u1', kind: 'user_message', text: 'hello' }],
+              },
+            ],
+          }),
+        ),
+      );
+      const client = new QueryClient();
+      const store = new SessionStore(connection, client);
+      store.start();
+      await store.open('s-1');
+      return { connection, agents, state: () => client.getQueryData<SessionState>(sessionKey('s-1'))! };
+    }
+
+    it('switches to an agent made after the script began, with its model, and says so in the conversation', async () => {
+      const { connection, state } = await shared();
+      const { agent } = await connection.request('agents/save', {
+        agent: { ...AGENTS[2]!, id: '', name: ' 새 담당 ', model: 'openai/gpt-5' },
+      });
+      expect(agent.name).toBe('새 담당');
+      const { info } = await connection.request('session/setAgent', { sessionId: 's-1', agent: agent.id });
+      expect(info).toMatchObject({ agent: agent.id, model: 'openai/gpt-5' });
+      await vi.waitFor(() => expect(state().items.map((i) => i.kind)).toEqual(['user_message', 'agent_switched']));
+      expect(state().items[1]).toMatchObject({ agent: agent.id, name: '새 담당' });
+    });
+
+    it('keeps the model when the agent has none', async () => {
+      const { connection } = await shared();
+      const { info } = await connection.request('session/setAgent', { sessionId: 's-1', agent: 'a-review' });
+      expect(info.model).toBe('anthropic/claude-sonnet-5');
+    });
+
+    it("remembers the project's last agent when the agent is switched and when a message is sent", async () => {
+      const { connection, agents } = await shared();
+      await connection.request('session/setAgent', { sessionId: 's-1', agent: 'a-writer' });
+      expect(agents.lastAgent.get('/work')).toBe('a-writer');
+      await connection.request('session/setAgent', { sessionId: 's-1', agent: 'a-review' });
+      await connection.request('session/send', { sessionId: 's-1', text: 'go' });
+      expect(agents.lastAgent.get('/work')).toBe('a-review');
+    });
+
+    it('moves a session whose agent was deleted to the default agent at the next message', async () => {
+      const { connection, state } = await shared();
+      await connection.request('session/setAgent', { sessionId: 's-1', agent: 'a-writer' });
+      await connection.request('agents/delete', { id: 'a-writer' });
+      await connection.request('session/send', { sessionId: 's-1', text: 'go' });
+      const switched = () =>
+        state()
+          .items.filter((i) => i.kind === 'agent_switched')
+          .map((i) => i.agent);
+      await vi.waitFor(() => expect(switched()).toEqual(['a-writer', 'default']));
+      expect(state().info.agent).toBe('default');
+    });
+  });
+
+  it('refuses to switch the agent while it runs, and an agent that does not exist', async () => {
+    const { connection, id, state } = await setup();
+    await expect(connection.request('session/setAgent', { sessionId: id, agent: 'nobody' })).rejects.toEqual(
+      new ServerError(-32000, 'No such agent', { reason: 'agent_not_found' }),
+    );
+    await connection.request('session/send', { sessionId: id, text: 'run the tests' });
+    await vi.waitFor(() => expect(activeApproval(state())).not.toBeNull());
+    await expect(connection.request('session/setAgent', { sessionId: id, agent: 'a-site' })).rejects.toEqual(
+      new ServerError(-32002, 'The session is running'),
+    );
+  });
+
+  it('starts a session with the asked agent', async () => {
+    const connection = scriptedConnection(sessionScript());
+    const { info } = await connection.request('session/new', { cwd: '/work', agent: 'a-writer' });
+    expect(info.agent).toBe('a-writer');
   });
 
   it('deletes a session', async () => {

@@ -6,6 +6,7 @@ export const messages = defineMessages({
   ko: {
     label: '주 메뉴',
     newSession: '새 세션',
+    agents: '에이전트',
     projects: '프로젝트',
     openFolder: '폴더 열기',
     settings: '설정',
@@ -35,6 +36,7 @@ export const messages = defineMessages({
   en: {
     label: 'Main menu',
     newSession: 'New session',
+    agents: 'Agents',
     projects: 'Projects',
     openFolder: 'Open folder',
     settings: 'Settings',

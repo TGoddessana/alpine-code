@@ -41,6 +41,19 @@ def test_info_round_trips_through_dict():
     assert SessionInfo.from_dict(json.loads(json.dumps(info.to_dict()))) == info
 
 
+def test_info_keeps_its_agent_and_what_was_applied():
+    info = make_info(agent="a1", agent_applied={"model": None, "instructions": "Be brief.", "tools": ["read"]})
+    data = json.loads(json.dumps(info.to_dict()))
+    assert data["agent"] == "a1" and "profile" not in data
+    assert SessionInfo.from_dict(data) == info
+
+
+def test_info_from_dict_reads_the_old_profile_key_as_the_agent():
+    info = SessionInfo.from_dict({"id": "x", "profile": "p1"})
+    assert (info.agent, info.agent_applied) == ("p1", None)
+    assert SessionInfo.from_dict({"id": "x", "agent": "a", "profile": "p"}).agent == "a"
+
+
 def test_info_from_dict_defaults_and_null_cost():
     info = SessionInfo.from_dict({"id": "x"})
     assert (info.status, info.usage, info.context_used) == ("idle", UsageInfo(), 0)

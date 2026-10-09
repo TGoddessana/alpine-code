@@ -2,12 +2,11 @@ from alpineagents import tool
 from alpineagents.testing import FakeModel
 
 from alpine_core import (
-    DEFAULT_PROFILE,
+    AgentConfig,
+    AgentList,
     Builtins,
     Memories,
     Offered,
-    Profile,
-    ProfileList,
     Session,
     Settings,
     Workspace,
@@ -51,22 +50,23 @@ def test_an_earlier_source_keeps_its_name(tmp_path):
     assert ("read", "builtin") in names and ("read", "user") not in names
 
 
-def test_a_profile_turns_off_only_what_is_optional():
+def test_an_agent_turns_off_only_what_is_optional():
     always = Offered(weather, "memory", optional=False)
     assert pick([Offered(fake_read, "user"), always], on=[]) == [weather]
     assert pick([Offered(fake_read, "user"), always], on=None) == [fake_read, weather]
 
 
-def test_the_memory_tool_is_in_a_session_its_profile_does_not_name(home, tmp_path, monkeypatch):
-    profiles = ProfileList(home)
-    profiles.save(Profile(DEFAULT_PROFILE, "", tools=("read",)))
+def test_the_memory_tool_is_in_a_session_its_agent_does_not_name(home, tmp_path, monkeypatch):
+    agents = AgentList(home)
+    reader = agents.save(AgentConfig("", "reader", tools=("read",)))
     memories = Memories(home)
     monkeypatch.setattr(session_module, "make_model", lambda settings: FakeModel([]))
     session = Session(
         Settings(model="fake"),
         approver=NeverAsked(),
         cwd=tmp_path,
-        profiles=profiles,
+        agents=agents,
+        agent=reader.id,
         tools=lambda folder: [Builtins(Workspace(folder)), memories.of(folder), Fixed(Offered(weather, "user"))],
         memories=memories,
     )

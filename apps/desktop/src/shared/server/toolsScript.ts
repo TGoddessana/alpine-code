@@ -1,4 +1,4 @@
-import type { ProfileInfo, ToolFileInfo, ToolSummary } from '@alpine/protocol';
+import type { AgentInfo, ToolFileInfo, ToolSummary } from '@alpine/protocol';
 
 import { ServerError } from './connection';
 import type { Script } from './scripted';
@@ -39,10 +39,83 @@ def fetch(url: str, max_chars: int = 20000) -> str:
     return response.text[:max_chars]
 `;
 
+const SIX = BUILTIN.map((t) => t.name);
+
+/** The agents a scripted server starts with: the default one and three the user made. */
+export const AGENTS: AgentInfo[] = [
+  {
+    id: 'default',
+    name: '',
+    description: '',
+    model: null,
+    instructions: '',
+    tools: [...SIX, 'fetch'],
+    look: 'antenna',
+    color: 2,
+  },
+  {
+    id: 'a-site',
+    name: '홈페이지 담당',
+    description: '가게 홈페이지를 만들고 고쳐요',
+    model: 'anthropic/claude-sonnet-5',
+    instructions: '바꾸기 전에 화면부터 보여 줘.\n어려운 말은 쉽게 풀어서.',
+    tools: [...SIX, 'fetch'],
+    look: 'hardhat',
+    color: 1,
+  },
+  {
+    id: 'a-review',
+    name: '꼼꼼한 검토자',
+    description: '바뀐 내용을 읽고 문제를 찾아요',
+    model: null,
+    instructions: '고치지 말고 의견만 적어 줘.',
+    tools: ['read', 'glob', 'grep'],
+    look: 'glasses',
+    color: 3,
+  },
+  {
+    id: 'a-writer',
+    name: '블로그 작가',
+    description: '가게 소식을 블로그 글로 써요',
+    model: null,
+    instructions: '존댓말, 짧은 문장.\n이모지는 쓰지 마.',
+    tools: ['read', 'write', 'edit'],
+    look: 'beret',
+    color: 4,
+  },
+];
+
+const LOOKS = [
+  'antenna',
+  'hardhat',
+  'glasses',
+  'beret',
+  'headphones',
+  'cap',
+  'chef',
+  'sprout',
+  'ribbon',
+  'beanie',
+  'bowtie',
+  'grad',
+] as const;
+
+/** The first free look and colour from the asked pair on: looks first, then colours, as the core does. */
+function freeCharacter(taken: Set<string>, look: AgentInfo['look'], color: number): Pick<AgentInfo, 'look' | 'color'> {
+  for (let i = 0; i < LOOKS.length; i++) {
+    const l = LOOKS[(Math.max(LOOKS.indexOf(look), 0) + i) % LOOKS.length]!;
+    for (let j = 0; j < 8; j++) {
+      const c = ((color - 1 + j) % 8) + 1;
+      if (!taken.has(`${l}/${c}`)) return { look: l, color: c };
+    }
+  }
+  return { look, color };
+}
+
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 /**
- * Tool files and profiles, remembered while the script runs: one ready tool, one changed outside the app, one
+ * Tool files and agents, remembered while the script runs: one ready tool, one changed outside the app, one
  * broken. `tools/check` reads the `def` names and docstrings without running anything; `trafilatura` needs an
  * approval.
  */
@@ -69,23 +142,9 @@ export function toolsScript(): Script {
       packages: [],
     },
   ];
-  let profiles: ProfileInfo[] = [
-    { id: 'default', name: '', project: null, model: null, tools: BUILTIN.map((t) => t.name) },
-    {
-      id: 'p-shop',
-      name: '쇼핑몰 작업',
-      project: '/Users/me/alpine-code',
-      model: null,
-      tools: [...BUILTIN.map((t) => t.name), 'fetch'],
-    },
-    { id: 'p-light', name: 'Motif-3 가볍게', project: null, model: 'local/motif-3', tools: ['read', 'grep', 'edit'] },
-  ];
+  let agents: AgentInfo[] = AGENTS.map((a) => ({ ...a }));
+  let nextAgent = agents.length;
   const approved = new Set<string>();
-
-  const resolve = (cwd: string, model: string | null) =>
-    profiles
-      .filter((p) => (p.project === null || p.project === cwd) && (p.model === null || p.model === model))
-      .reduce((best, p) => (rank(p) > rank(best) ? p : best));
 
   return {
     results: {
@@ -119,7 +178,7 @@ export function toolsScript(): Script {
         sources[name] = source;
         files = [...files.filter((f) => f.name !== name), file];
         const added = file.tools.filter((t) => !before.has(t.name)).map((t) => t.name);
-        if (enableIn) profiles = profiles.map((p) => (p.id === enableIn ? { ...p, tools: [...p.tools, ...added] } : p));
+        if (enableIn) agents = agents.map((a) => (a.id === enableIn ? { ...a, tools: [...a.tools, ...added] } : a));
         return { file };
       },
       'tools/confirm': ({ name }) => {
@@ -130,7 +189,7 @@ export function toolsScript(): Script {
       'tools/delete': ({ name }) => {
         const gone = new Set(files.find((f) => f.name === name)?.tools.map((t) => t.name));
         files = files.filter((f) => f.name !== name);
-        profiles = profiles.map((p) => ({ ...p, tools: p.tools.filter((t) => !gone.has(t)) }));
+        agents = agents.map((a) => ({ ...a, tools: a.tools.filter((t) => !gone.has(t)) }));
         return {};
       },
       'tools/install': ({ packages }) => {
@@ -141,27 +200,24 @@ export function toolsScript(): Script {
       'tools/draft': ({ description }) => ({
         source: FETCH_SOURCE.replace('웹 페이지를 가져와 글만 돌려줘요.', description.split('\n')[0] ?? ''),
       }),
-      'profiles/list': () => ({ profiles }),
-      'profiles/save': ({ profile }) => {
-        const clash = profiles.find(
-          (p) => p.id !== profile.id && p.project === profile.project && p.model === profile.model,
-        );
-        if (clash) throw new ServerError(-32000, 'Another profile applies there', { reason: 'profile_conflict' });
-        const saved = profile.id ? profile : { ...profile, id: `p-${profiles.length}` };
-        profiles = profile.id ? profiles.map((p) => (p.id === saved.id ? saved : p)) : [...profiles, saved];
-        return { profile: saved };
+      'agents/list': () => ({ agents }),
+      'agents/save': ({ agent }) => {
+        const taken = new Set(agents.filter((a) => a.id !== agent.id).map((a) => `${a.look}/${a.color}`));
+        const character = taken.has(`${agent.look}/${agent.color}`)
+          ? freeCharacter(taken, agent.look, agent.color)
+          : { look: agent.look, color: agent.color };
+        const saved = { ...agent, ...character, id: agent.id || `a-${nextAgent++}` };
+        agents = agents.some((a) => a.id === saved.id)
+          ? agents.map((a) => (a.id === saved.id ? saved : a))
+          : [...agents, saved];
+        return { agent: saved };
       },
-      'profiles/delete': ({ id }) => {
-        profiles = profiles.filter((p) => p.id !== id || p.id === 'default');
+      'agents/delete': ({ id }) => {
+        agents = agents.filter((a) => a.id !== id || a.id === 'default');
         return {};
       },
-      'profiles/resolve': ({ cwd, model }) => ({ profile: resolve(cwd, model ?? null) }),
     },
   };
-}
-
-function rank(profile: ProfileInfo) {
-  return (profile.project !== null ? 2 : 0) + (profile.model !== null ? 1 : 0);
 }
 
 function ready(name: string, source: string): ToolFileInfo {

@@ -1,6 +1,7 @@
 import type { Activity, ApprovalItem, SessionInfo, ToolCallItem, Usage } from '@alpine/protocol';
 
 import { ServerError } from './connection';
+import { AGENTS } from './toolsScript';
 import type { Script, ScriptContext } from './scripted';
 import { applyEvent, toSnapshot, type Item, type SessionEvent, type SessionState } from './sessionState';
 
@@ -39,7 +40,7 @@ export function sessionInfo(overrides: Partial<SessionInfo> = {}): SessionInfo {
     activity: null,
     runStartedAt: null,
     runUsage: null,
-    profile: 'default',
+    agent: 'default',
     ...overrides,
   };
 }
@@ -161,7 +162,7 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
       reply: string,
       pieces = (reply.match(/\S+\s*/g) ?? []).map((text) => ({ text, ms: wordMs })),
     ) => {
-      const message: Item = { id: id(live, 'msg'), kind: 'agent_message', text: '' };
+      const message: Item = { id: id(live, 'msg'), kind: 'agent_message', text: '', agent: live.state.info.agent };
       emit(context, live, { type: 'item_started', item: message });
       let streamed = '';
       try {
@@ -334,12 +335,13 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
 
   return {
     results: {
-      'session/new': ({ cwd, model, mode }, context) => {
+      'session/new': ({ cwd, model, mode, agent }, context) => {
         const info = sessionInfo({
           id: `s-${nextSession++}`,
           cwd,
           ...(model ? { model } : {}),
           ...(mode ? { mode } : {}),
+          agent: agent ?? 'default',
         });
         const live: Live = {
           state: { info, seq: 0, items: [], activeIds: [], deleted: false },
@@ -388,6 +390,18 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         const live = find(sessionId);
         if (live.run) throw new ServerError(SESSION_RUNNING, 'The session is running');
         setInfo(context, live, { model });
+        return { info: live.state.info };
+      },
+      'session/setAgent': ({ sessionId, agent }, context) => {
+        const live = find(sessionId);
+        if (live.run) throw new ServerError(SESSION_RUNNING, 'The session is running');
+        const picked = AGENTS.find((a) => a.id === agent);
+        if (!picked) throw new ServerError(-32000, 'No such agent', { reason: 'agent_not_found' });
+        const { name, look, color } = picked;
+        const item: Item = { id: id(live, 'agent'), kind: 'agent_switched', agent: picked.id, name, look, color };
+        emit(context, live, { type: 'item_started', item });
+        emit(context, live, { type: 'item_completed', item });
+        setInfo(context, live, { agent: picked.id });
         return { info: live.state.info };
       },
       'session/delete': ({ sessionId }, context) => {

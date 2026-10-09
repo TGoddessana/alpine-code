@@ -20,7 +20,12 @@ const ID = 's-story';
 
 const earlier: Item[] = [
   { id: 'i1', kind: 'user_message', text: '로그인 테스트가 가끔 실패해요. 원인을 찾아 주세요.' },
-  { id: 'i2', kind: 'agent_message', text: '테스트 코드를 먼저 읽어 볼게요.\n타이밍 문제일 가능성이 커 보여요.' },
+  {
+    id: 'i2',
+    kind: 'agent_message',
+    agent: null,
+    text: '테스트 코드를 먼저 읽어 볼게요.\n타이밍 문제일 가능성이 커 보여요.',
+  },
   {
     id: 'i3',
     kind: 'tool_call',
@@ -127,7 +132,7 @@ const earlier: Item[] = [
   },
   { id: 'i8', kind: 'notice', text: 'AGENTS.md를 읽었어요', source: 'agents_md' },
   { id: 'i9', kind: 'compaction', beforeTokens: 96_000, afterTokens: 12_000 },
-  { id: 'i10', kind: 'agent_message', text: '테스트가 아직 한 개 실패해요. 원인을 더 살펴볼게요.' },
+  { id: 'i10', kind: 'agent_message', agent: null, text: '테스트가 아직 한 개 실패해요. 원인을 더 살펴볼게요.' },
   { id: 'i11', kind: 'run_stopped', reason: 'limit', message: null },
 ];
 
@@ -268,7 +273,7 @@ export const MarkdownAnswer: Story = {
   parameters: {
     server: server([
       { id: 'm1', kind: 'user_message', text: '로그인 버튼이 안 눌려요' },
-      { id: 'm2', kind: 'agent_message', text: MARKDOWN },
+      { id: 'm2', kind: 'agent_message', agent: null, text: MARKDOWN },
     ]),
   },
   play: async () => {
@@ -369,7 +374,12 @@ export const ChatGPTLimitHit: Story = {
             info: sessionInfo({ id: ID, title: '세션 목록이 사라지는 문제', model: 'chatgpt/gpt-5.5' }),
             items: [
               { id: 'l1', kind: 'user_message', text: '세션 목록이 가끔 사라지는 문제 고쳐 줘.' },
-              { id: 'l2', kind: 'agent_message', text: '원인을 찾았어요. 파싱이 실패하면 빈 목록을 돌려줘요.' },
+              {
+                id: 'l2',
+                kind: 'agent_message',
+                agent: null,
+                text: '원인을 찾았어요. 파싱이 실패하면 빈 목록을 돌려줘요.',
+              },
               { id: 'l3', kind: 'run_stopped', reason: 'plan_limit', message: 'The plan is used up.' },
             ],
           },
@@ -417,7 +427,7 @@ function memorySuggested() {
         result: "Suggested; it waits for the user's approval. Carry on.",
         images: 0,
       },
-      { id: 'm3', kind: 'agent_message', text: '버튼 문구를 해요체로 바꿨어요. 앞으로도 그렇게 쓸게요.' },
+      { id: 'm3', kind: 'agent_message', agent: null, text: '버튼 문구를 해요체로 바꿨어요. 앞으로도 그렇게 쓸게요.' },
     ]),
     memoryScript({
       '/Users/me/alpine-code': {
@@ -433,7 +443,7 @@ export const MemoryReviewed: Story = {
   parameters: {
     server: server([
       { id: 'r1', kind: 'user_message', text: '토스 결제 코드 지워줘' },
-      { id: 'r2', kind: 'agent_message', text: '`src/pay/toss.ts`를 지웠어요.' },
+      { id: 'r2', kind: 'agent_message', agent: null, text: '`src/pay/toss.ts`를 지웠어요.' },
       { id: 'r3', kind: 'memory_review', source: 'missing_paths', count: 1 },
     ]),
   },
@@ -480,7 +490,12 @@ export const MemoryChecks: Story = {
         result: '✓ lint passed\n[main 1a2b3c4] Fix table',
         images: 0,
       },
-      { id: 'c6', kind: 'agent_message', text: '새 마이그레이션 파일로 옮기고, 린트를 돌린 뒤 커밋했어요.' },
+      {
+        id: 'c6',
+        kind: 'agent_message',
+        agent: null,
+        text: '새 마이그레이션 파일로 옮기고, 린트를 돌린 뒤 커밋했어요.',
+      },
     ]),
   },
   play: async () => {
@@ -516,10 +531,16 @@ export const AutoModeBlocked: Story = {
         name: 'bash',
         args: { command: 'git push --force origin main' },
         status: 'denied',
-        result: "Auto mode's reviewer blocked this call: 커밋만 부탁했는데 main에 강제로 푸시하려고 해서. Do not try...",
+        result:
+          "Auto mode's reviewer blocked this call: 커밋만 부탁했는데 main에 강제로 푸시하려고 해서. Do not try...",
         images: 0,
       },
-      { id: 'a5', kind: 'agent_message', text: '커밋까지 했어요. 푸시는 막혀서 하지 않았어요. 필요하면 말씀해 주세요.' },
+      {
+        id: 'a5',
+        kind: 'agent_message',
+        agent: null,
+        text: '커밋까지 했어요. 푸시는 막혀서 하지 않았어요. 필요하면 말씀해 주세요.',
+      },
     ]),
   },
   play: async () => {

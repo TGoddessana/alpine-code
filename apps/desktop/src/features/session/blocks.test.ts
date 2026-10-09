@@ -15,7 +15,7 @@ const call = (id: string, over: Partial<ToolCallItem> = {}): ToolCallItem => ({
   images: 0,
   ...over,
 });
-const message = (id: string): Item => ({ id, kind: 'agent_message', text: 'hi' });
+const message = (id: string): Item => ({ id, kind: 'agent_message', agent: null, text: 'hi' });
 const approval = (id: string, callId: string, over: Partial<ApprovalItem> = {}): ApprovalItem => ({
   id,
   kind: 'approval',

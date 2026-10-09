@@ -1,6 +1,7 @@
 export { CHATGPT_USAGE_URL, useChatGPTSignIn, useChatGPTSignOut, type SignInState } from './chatgpt';
 export { ServerError, type Notification, type ServerConnection } from './connection';
 export { ServerProvider, useServer } from './context';
+export { useAgents, useDeleteAgent, useSaveAgent } from './agents';
 export { useApproveMemory, useForgetMemory, useMemory, useRejectMemory } from './memory';
 export {
   useAnswerApproval,
@@ -10,6 +11,7 @@ export {
   useSendMessage,
   useSession,
   useSessions,
+  useSetSessionAgent,
   useSetSessionMode,
   useSetSessionModel,
 } from './sessions';
@@ -45,13 +47,9 @@ export {
 export {
   useCheckTool,
   useConfirmTool,
-  useDeleteProfile,
   useDeleteTool,
   useDraftTool,
   useInstallPackages,
-  useProfiles,
-  useResolveProfile,
-  useSaveProfile,
   useSaveTool,
   useTestTool,
   useToolSource,

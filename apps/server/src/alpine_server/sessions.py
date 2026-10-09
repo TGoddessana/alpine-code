@@ -48,14 +48,17 @@ from alpine_protocol import (
     SessionOpenResult,
     SessionSendParams,
     SessionSendResult,
+    SessionSetAgentParams,
+    SessionSetAgentResult,
     SessionSetModelParams,
     SessionSetModelResult,
     SessionSetModeParams,
     SessionSetModeResult,
 )
 
+from .agents import agents
 from .methods import APP_ERROR, MethodError
-from .tools import profiles, toolbox
+from .tools import toolbox
 from .wire import to_event_params, to_info, to_item
 
 Notify = Callable[[SessionEventParams], None]
@@ -128,6 +131,7 @@ class SessionManager:
             "session/cancel": self.cancel,
             "session/answer": self.answer,
             "session/setMode": self.set_mode,
+            "session/setAgent": self.set_agent,
             "session/setModel": self.set_model,
             "session/delete": self.delete,
         }
@@ -143,8 +147,6 @@ class SessionManager:
         if not folder.is_dir():
             raise MethodError(APP_ERROR, f"Not a folder: {params.cwd}", "not_a_folder")
         settings = self._load_settings()
-        if params.model:
-            settings = settings.with_model(params.model)
         approver = _Approver()
         try:
             session = Session(
@@ -155,9 +157,10 @@ class SessionManager:
                 projects=ProjectList.default(),
                 storage=self.storage,
                 mode=Mode(params.mode) if params.mode else None,
-                profiles=profiles(),
+                agents=agents(),
                 toolbox=toolbox(),
-                profile=params.profile,
+                agent=params.agent,
+                model=params.model,
                 memories=self.memories,
             )
         except ConfigError as e:
@@ -218,6 +221,18 @@ class SessionManager:
             raise MethodError(APP_ERROR, str(e), "invalid_config") from e
         return SessionSetModelResult(info=to_info(live.session.info))
 
+    async def set_agent(self, params: SessionSetAgentParams) -> SessionSetAgentResult:
+        live = self._get(params.session_id)
+        if live.running:
+            raise MethodError(SESSION_RUNNING, "The session is running")
+        try:
+            live.session.set_agent(params.agent)
+        except LookupError as e:
+            raise MethodError(APP_ERROR, f"No such agent: {params.agent}", "agent_not_found") from e
+        except ConfigError as e:
+            raise MethodError(APP_ERROR, str(e), "invalid_config") from e
+        return SessionSetAgentResult(info=to_info(live.session.info))
+
     async def delete(self, params: SessionDeleteParams) -> SessionDeleteResult:
         live = self._get(params.session_id)
         await self._stop(live)
@@ -261,7 +276,7 @@ class SessionManager:
                 on_item_event=self._on_item_event,
                 approver=approver,
                 projects=ProjectList.default(),
-                profiles=profiles(),
+                agents=agents(),
                 toolbox=toolbox(),
                 memories=self.memories,
             )

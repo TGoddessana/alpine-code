@@ -133,6 +133,42 @@ describe('sessionScript', () => {
     expect(state().items).toHaveLength(before);
   });
 
+  it('switches the agent between turns and says so in the conversation', async () => {
+    const { connection, id, state } = await setup();
+    expect(state().info.agent).toBe('default');
+    const { info } = await connection.request('session/setAgent', { sessionId: id, agent: 'a-review' });
+    expect(info.agent).toBe('a-review');
+    await vi.waitFor(() => expect(state().info.agent).toBe('a-review'));
+    expect(state().items).toEqual([
+      {
+        id: expect.any(String),
+        kind: 'agent_switched',
+        agent: 'a-review',
+        name: '꼼꼼한 검토자',
+        look: 'glasses',
+        color: 3,
+      },
+    ]);
+  });
+
+  it('refuses to switch the agent while it runs, and an agent that does not exist', async () => {
+    const { connection, id, state } = await setup();
+    await expect(connection.request('session/setAgent', { sessionId: id, agent: 'nobody' })).rejects.toEqual(
+      new ServerError(-32000, 'No such agent', { reason: 'agent_not_found' }),
+    );
+    await connection.request('session/send', { sessionId: id, text: 'run the tests' });
+    await vi.waitFor(() => expect(activeApproval(state())).not.toBeNull());
+    await expect(connection.request('session/setAgent', { sessionId: id, agent: 'a-site' })).rejects.toEqual(
+      new ServerError(-32002, 'The session is running'),
+    );
+  });
+
+  it('starts a session with the asked agent', async () => {
+    const connection = scriptedConnection(sessionScript());
+    const { info } = await connection.request('session/new', { cwd: '/work', agent: 'a-writer' });
+    expect(info.agent).toBe('a-writer');
+  });
+
   it('deletes a session', async () => {
     const { connection, id, state } = await setup();
     await connection.request('session/delete', { sessionId: id });

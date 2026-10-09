@@ -1,4 +1,4 @@
-"""The ``tools/*`` and ``profiles/*`` methods: the user's tool files and the profiles that pick a session's tools.
+"""The ``tools/*`` methods: the user's tool files.
 
 Every window shares one ``Toolbox`` per home folder, so a file's module is imported once per saved content.
 """
@@ -12,9 +12,6 @@ from typing import Any
 from alpine_core import (
     ConfigError,
     DraftError,
-    Profile,
-    ProfileConflict,
-    ProfileList,
     Toolbox,
     ToolboxError,
     ToolFile,
@@ -25,15 +22,6 @@ from alpine_core import (
 )
 from alpine_protocol import (
     PackageInfo,
-    ProfileInfo,
-    ProfilesDeleteParams,
-    ProfilesDeleteResult,
-    ProfilesListParams,
-    ProfilesListResult,
-    ProfilesResolveParams,
-    ProfilesResolveResult,
-    ProfilesSaveParams,
-    ProfilesSaveResult,
     ToolFileInfo,
     ToolsCheckParams,
     ToolsCheckResult,
@@ -56,6 +44,7 @@ from alpine_protocol import (
 )
 from alpine_protocol import ToolSummary as ToolSummaryModel
 
+from .agents import agents
 from .methods import APP_ERROR, INVALID_PARAMS, MethodError, _settings
 
 _toolboxes: dict[Path, Toolbox] = {}
@@ -67,10 +56,6 @@ def toolbox() -> Toolbox:
     if home not in _toolboxes:
         _toolboxes[home] = Toolbox(home)
     return _toolboxes[home]
-
-
-def profiles() -> ProfileList:
-    return ProfileList(home_dir())
 
 
 # ------------------------------------------------------------ tools
@@ -116,7 +101,7 @@ def save_tool(params: ToolsSaveParams) -> ToolsSaveResult:
     if params.enable_in:
         for tool in file.tools:
             if tool.name not in before:
-                profiles().enable(params.enable_in, tool.name)
+                agents().enable(params.enable_in, tool.name)
     return ToolsSaveResult(file=_file(file))
 
 
@@ -132,7 +117,7 @@ def delete_tool(params: ToolsDeleteParams) -> ToolsDeleteResult:
     names = {t.name for f in box.list() if f.name == params.name for t in f.tools}
     box.delete(params.name)
     if names:
-        profiles().forget_tools(names)
+        agents().forget_tools(names)
     return ToolsDeleteResult()
 
 
@@ -164,31 +149,6 @@ def draft_tool(params: ToolsDraftParams) -> ToolsDraftResult:
         raise MethodError(APP_ERROR, str(e), "model_failed") from e
 
 
-# ------------------------------------------------------------ profiles
-
-
-def list_profiles(params: ProfilesListParams) -> ProfilesListResult:
-    return ProfilesListResult(profiles=[_profile(p) for p in profiles().list()])
-
-
-def save_profile(params: ProfilesSaveParams) -> ProfilesSaveResult:
-    info = params.profile
-    try:
-        saved = profiles().save(Profile(info.id, info.name, info.project, info.model, tuple(info.tools)))
-    except ProfileConflict as e:
-        raise MethodError(APP_ERROR, str(e), "profile_conflict") from e
-    return ProfilesSaveResult(profile=_profile(saved))
-
-
-def delete_profile(params: ProfilesDeleteParams) -> ProfilesDeleteResult:
-    profiles().delete(params.id)
-    return ProfilesDeleteResult()
-
-
-def resolve_profile(params: ProfilesResolveParams) -> ProfilesResolveResult:
-    return ProfilesResolveResult(profile=_profile(profiles().resolve(Path(params.cwd), params.model)))
-
-
 # ------------------------------------------------------------ conversions
 
 
@@ -201,12 +161,6 @@ def _file(file: ToolFile) -> ToolFileInfo:
     return ToolFileInfo.model_validate(data)
 
 
-def _profile(profile: Profile) -> ProfileInfo:
-    return ProfileInfo(
-        id=profile.id, name=profile.name, project=profile.project, model=profile.model, tools=list(profile.tools)
-    )
-
-
 HANDLERS = {
     "tools/list": list_tools,
     "tools/source": tool_source,
@@ -217,8 +171,4 @@ HANDLERS = {
     "tools/install": install_packages,
     "tools/test": test_tool,
     "tools/draft": draft_tool,
-    "profiles/list": list_profiles,
-    "profiles/save": save_profile,
-    "profiles/delete": delete_profile,
-    "profiles/resolve": resolve_profile,
 }

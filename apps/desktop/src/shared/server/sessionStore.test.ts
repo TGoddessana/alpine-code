@@ -48,7 +48,7 @@ const snapshot = (seq: number, text = ''): SessionOpenResult => ({
   info,
   seq,
   items: [],
-  active: text ? [{ id: 'm1', kind: 'agent_message', text }] : [],
+  active: text ? [{ id: 'm1', kind: 'agent_message', agent: null, text }] : [],
 });
 const delta = (seq: number, text: string): SessionEventParams => ({
   sessionId: 's',

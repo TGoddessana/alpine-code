@@ -49,14 +49,29 @@ export const CONNECTED: ConnectionsListResult = {
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
 
 export const PROJECTS: ProjectInfo[] = [
-  { path: '/Users/me/alpine-code', name: 'alpine-code', branch: 'main', lastUsedAt: hoursAgo(0.2), archived: false },
-  { path: '/Users/me/docs-site', name: 'docs-site', branch: 'main', lastUsedAt: hoursAgo(2), archived: false },
+  {
+    path: '/Users/me/alpine-code',
+    name: 'alpine-code',
+    branch: 'main',
+    lastUsedAt: hoursAgo(0.2),
+    archived: false,
+    lastAgent: 'a-site',
+  },
+  {
+    path: '/Users/me/docs-site',
+    name: 'docs-site',
+    branch: 'main',
+    lastUsedAt: hoursAgo(2),
+    archived: false,
+    lastAgent: null,
+  },
   {
     path: '/Users/me/infra-terraform',
     name: 'infra-terraform',
     branch: null,
     lastUsedAt: hoursAgo(26),
     archived: false,
+    lastAgent: null,
   },
 ];
 
@@ -113,6 +128,7 @@ export function statefulScript(start: ScriptState): Script {
     branch: 'main',
     lastUsedAt: new Date().toISOString(),
     archived: false,
+    lastAgent: null,
   });
   return {
     results: {
@@ -266,7 +282,7 @@ export const firstRunScript = (chatgpt: ScriptState['chatgpt'] = 'connected') =>
 export const setUpScript = () =>
   mergeScripts(statefulScript({ connections: CONNECTED, projects: PROJECTS }), toolsScript(), memoryScript());
 
-/** Two earlier sessions, for a rail that is not empty. */
+/** Three earlier sessions, one of them at work, for a rail that is not empty. */
 export const SESSIONS = [
   sessionInfo({
     id: 's-old-1',
@@ -282,6 +298,7 @@ export const SESSIONS = [
       cost: 0.11,
     },
     contextUsed: 20_500,
+    agent: 'a-site',
   }),
   sessionInfo({
     id: 's-old-2',
@@ -289,6 +306,17 @@ export const SESSIONS = [
     cwd: '/Users/me/docs-site',
     createdAt: hoursAgo(30),
     updatedAt: hoursAgo(29),
+    agent: 'default',
+  }),
+  sessionInfo({
+    id: 's-old-3',
+    title: '결제 화면 문구 고치기',
+    createdAt: hoursAgo(1),
+    updatedAt: hoursAgo(0.05),
+    status: 'running',
+    activity: { kind: 'writing', toolName: null, since: hoursAgo(0.05) },
+    runStartedAt: hoursAgo(0.05),
+    agent: 'a-site',
   }),
 ];
 

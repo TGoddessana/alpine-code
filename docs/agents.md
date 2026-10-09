@@ -3,7 +3,8 @@
 An agent is a model, instructions and the tools it may use, with a name and a face. The user builds agents on one
 screen and puts one to work on a project, the way a new hire is put on a team. Agents replace profiles
 (`alpine_core/profiles.py`), the Settings › 도구 tab and the separate tool editor page. Decided one question at a time
-on 2026-10-09. Nothing here is implemented yet.
+on 2026-10-09 and built the same day. 스킬, MCP and 서브에이전트 are 준비 중: the screen shows them, nothing
+else yet.
 
 Why: people who are not developers do not know what a tool is, and they got stuck in the profile screen, whose
 precedence rule (project and model → project → model → default) explains nothing they care about. One agent per
@@ -122,21 +123,62 @@ None of them picks a configuration from where the user is working, which is what
     The dialog also links 지금 있는 에이전트를 복제할래요. Describing an agent in words and letting the model fill it
     in was considered and left for later.
 
-## What changes in the code
+## What was built
 
-To be planned before building; the places it touches:
+Core (`packages/core/src/alpine_core`):
 
-- Core: `profiles.py` becomes an agents store (name, description, model, instructions, tools; later skills, MCP
-  servers, subagents) with the migration of decision 11; projects remember their last agent. `Session` takes an
-  agent instead of a profile and can swap it, or its changed settings, between turns: today `_pick_profile` fixes
-  the profile when the session starts (`session.py`), and `SessionInfo.profile` stores its id. Instructions are added
-  to the system prompt with their source label (decision 14), next to the project's AGENTS.md. Agents also store
-  their character (look and colour).
-- Protocol and server: `profiles/*` becomes `agents/*`; the session gets a way to change its agent and an event for
-  the chat divider.
-- Desktop: a rail item and an agents feature; `features/settings/Tools.tsx`, `ToolEditor.tsx` and
-  `settings_.tools.$name.tsx` fold into it; the composer's `ProfileChip` becomes an agent chip with its own safety
-  chip next to it.
+- `agents.py`: `AgentConfig` (id, name, description, model, instructions, tools, look, colour) and `AgentList`, kept
+  in `~/.alpine-code/agents.json`. The default agent (`default`) always exists and comes first; it cannot be deleted.
+  A new agent gets a look and colour no other agent has (`free_character`). Deleting a user tool turns it off in
+  every agent (`forget_tools`).
+- The decision-11 migration runs the first time the list is read with no `agents.json`: each profile in
+  `profiles.json` becomes an agent with its id, name, model and tools, and a free character; the default profile
+  becomes the default agent with an empty name (the app shows 기본 에이전트). Each project keeps one of its profiles
+  as `last_agent` (the one with no model if several). `profiles.json` is left where it is, and `profiles.py` is gone.
+- `projects.py`: `Project.last_agent` and `ProjectList.set_agent`.
+- `prompt.py`: `build_system_prompt(cwd, memory, instructions)` labels each text by where it came from and says
+  nothing about which one wins (decision 14). The headers are `# Instructions from <path>` with "The project's
+  working rules, for whoever works in it." (for `~/.alpine-code/AGENTS.md`: "The user's own rules for every
+  project."), then `# Instructions for this agent` with "The role and way of working the user gave this agent."
+- `session.py`: `Session` takes `agents` and `agent`. A new session starts with that agent, else the project's
+  `last_agent`, else the default agent; a saved one reopens with its own agent. The agent brings its model (unless
+  `model` is given), its instructions and its tools, user tools included. `set_agent` switches between turns (not
+  during a run), records an `agent_switched` item and remembers the agent in the project. Before each message
+  `_refresh_agent` takes edits made since the last one: a deleted agent becomes the default agent; a change to tools,
+  instructions or model rebuilds the agent and, once the conversation has begun, adds an `agent_changed` item; name,
+  description and look only update what the session knows.
+- `items.py`: `AgentSwitched`, `AgentChanged`, and `AgentMessage.agent`, the id of the agent that wrote the answer.
+- `SessionInfo.agent` is the session's agent id; `agent_applied` (model, instructions, tools as last applied) is
+  saved with the session so that it reopens as it was and the next edit shows as a change. Core only: it is not
+  in the protocol's session info.
+
+Protocol (`packages/protocol`, version 2) and server (`apps/server`):
+
+- `agents/list`, `agents/save` (an empty id adds) and `agents/delete`; `session/setAgent` (`sessionId`, `agent`; error
+  `agent_not_found`, and an error while the session runs); `session/new` takes `agent`; `SessionInfo.agent`; the
+  items `agent_switched` and `agent_changed`; `agent` on `agent_message`. Tool methods take an agent id where they
+  used a profile id.
+- `alpine_server/agents.py` serves `agents/*` over `AgentList`; `sessions.py` gives sessions the agent list and the
+  toolbox, and handles `session/setAgent`.
+
+Desktop (`apps/desktop/src`):
+
+- A rail item 에이전트 and the route `/agents` (`?agent=<id>`, `?create`). Settings › 도구 and
+  `/settings/tools/$name` are gone, with `settings/Tools.tsx` and the old editor files.
+- `features/agents/`: the strip of agents, the header (character, name, description, 저장됨 and the working-now line),
+  the rows, the character picker, the 새 에이전트 dialog with its four starting points (`starts.ts`), and a toast with
+  되돌리기. `features/agents/library/` is the library: cards, drag and drop onto the agent, and the tool editor
+  folded in as a detail view with ← 라이브러리 (`code.tsx` is the old editor's code part). 스킬, MCP and 서브에이전트
+  are 준비 중 rows and disabled menu items.
+- `shared/components/agent/`: the drawn `Character` (12 looks in `looks.ts`, 8 colours; tokens `avatar-6` to
+  `avatar-8` in `packages/ui/src/tokens.css`), agent names and the words of the tools.
+- `shared/components/composer/`: `AgentChip` replaces `ProfileChip` and sits beside the safety chip (`ModeChip`);
+  `ModelPicker` is controlled now (`value`, `onChange`, `allowDefault`), used by the model row and the new-agent
+  dialog as well as the composer.
+- `features/session/Chat.tsx`: the `agent_switched` and `agent_changed` dividers, and the avatar and name on each
+  answer.
+
+The CLI has no agents: it runs the built-in tools only, as before.
 
 ## Open
 

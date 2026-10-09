@@ -22,12 +22,14 @@ finished items are stored; text deltas are sent live and never saved.
 | Item kind | Fields | Shown as |
 |---|---|---|
 | `user_message` | `text` | the user's bubble |
-| `agent_message` | `text` | the agent's prose |
+| `agent_message` | `text`, `agent` | the agent's prose; `agent` is the id of the agent that wrote it (`null` for answers from before agents) |
 | `tool_call` | `name`, `args`, `status`, `result`, `images` | a tool line or card; `id` is the model's call id; `images` is how many images the tool sent to the model (a count, not the images) |
 | `approval` | `callId`, `title`, `preview`, `previewKind`, `reason`, `remember`, `decision`, `feedback` | while active: a card in the chat where the call will be; when finished: nothing of its own, a denied call shows the feedback |
 | `notice` | `text`, `source` | a message the **model reads** that the user did not write (e.g. a hand-back after a reply with no tool call, or a memory: `memory_added` and `memory_removed` when the user approves or removes one while the session is open, `memory_check` when a memory's check failed; the app words these itself) |
 | `status_line` | `text` | a line only the user reads (e.g. a model fallback) |
 | `memory_review` | `source`, `count` | a line only the user reads: the harness made `count` suggestions about the memory at the end of the run (`source: missing_paths`); they wait on the memory page |
+| `agent_switched` | `agent`, `name`, `look`, `color` | a divider: the session went on with another agent from here |
+| `agent_changed` | `agent`, `name`, `look`, `color`, `added`, `removed`, `instructions`, `model` | a divider before the next answer: the agent was edited in a way the model sees (tools added or removed, instructions changed, `model` the new model or `null`) |
 | `compaction` | `beforeTokens`, `afterTokens` | a divider |
 | `run_stopped` | `reason`, `message` | why a run ended other than by answering: `interrupted`, `failed`, `limit`, `repeating`, `permission` |
 
@@ -58,7 +60,11 @@ JSON-RPC 2.0 over stdio, camelCase on the wire.
 | `session/answer` | `sessionId`, `requestId`, `decision`, `feedback?` | `accepted`: `false` if the approval was already answered |
 | `session/setMode` | `sessionId`, `mode` | `info`. Counts from the next tool call, also while running; an approval already waiting stays |
 | `session/setModel` | `sessionId`, `model` | `info`. Error if the session is running |
+| `session/setAgent` | `sessionId`, `agent` | `info`. Goes on with another agent from the next message ([agents.md](agents.md)). Error `agent_not_found`; error if the session is running |
 | `session/delete` | `sessionId` | `{}`; a running session is cancelled first |
+| `agents/list` | — | `agents`, the default agent first (`id`, `name`, `description`, `model`, `instructions`, `tools`, `look`, `color`) |
+| `agents/save` | `agent` | `agent` as saved; an empty `id` adds one, with a look and colour no other agent has |
+| `agents/delete` | `id` | `{}`; the default agent stays |
 
 `decision` is `allow`, `allow_always` or `deny`. `deny` skips the call and the run goes on: with `feedback` the model
 is told what to do instead, without it the model is told to carry on without that call. Stopping the run is
@@ -66,9 +72,13 @@ is told what to do instead, without it the model is told to carry on without tha
 does not send it.) There is no "edit and run": alpineagents has no such verdict, and the
 model can be told what to run instead.
 
+`session/new` takes an optional `agent`; without it the session starts with the project's last agent, else the default
+agent. A session has an agent, and `session/setAgent` switches it between turns. Edits to an agent apply from the next
+message of each session that uses it, announced by an `agent_changed` item.
+
 `session/setModel` switches the model from the next message on, and the conversation goes on: alpineagents 0.5 lets
 any model continue a State, and each adapter drops what another provider left (such as hidden reasoning). The session
-keeps its id, its items and the profile it started with, so its tools do not change under the conversation; the
+keeps its id, its items and its agent, so its tools do not change under the conversation; the
 default model does not change either. The chat shows no line for the switch; the composer's model chip shows the
 model now. A smaller context window is handled by the usual compaction before the next turn.
 
@@ -110,7 +120,7 @@ tell windows apart. A subscription filter can be added for remote transports wit
 
 `id`, `title`, `cwd`, `model`, `mode`, `status`, `createdAt`, `updatedAt`, `usage` (`inputTokens`, `outputTokens`,
 `cacheReadTokens`, `cacheWriteTokens`, `requests`, `cost`), `contextUsed`, `contextWindow`, `activity`, `runStartedAt`,
-`runUsage`.
+`runUsage`, `agent` (the id of the agent the session works as).
 
 `cost` is dollars, or `null` when the model has no known price. `contextUsed` is tokens as of the last model call and
 `contextWindow` the model's window in tokens (`null` if unknown). While a run goes, `runStartedAt` is its start and

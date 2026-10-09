@@ -185,7 +185,7 @@ const say = async (text: string) => {
 };
 
 /**
- * Boards for the session screen, without the rail and the right panel. The profile chip in the input bar is a link,
+ * Boards for the session screen, without the rail and the right panel. The agent chip in the input bar is a link,
  * so each story makes a router.
  */
 const meta = {

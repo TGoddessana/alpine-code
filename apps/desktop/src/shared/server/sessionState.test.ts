@@ -20,7 +20,7 @@ const start = (): SessionState =>
   });
 
 const at = (seq: number, event: SessionEvent): SessionEventParams => ({ sessionId: 's', seq, event });
-const message = { id: 'm1', kind: 'agent_message', text: '' } as const;
+const message = { id: 'm1', kind: 'agent_message', agent: null, text: '' } as const;
 
 function apply(state: SessionState, ...events: SessionEventParams[]): SessionState {
   return events.reduce((current, params) => {

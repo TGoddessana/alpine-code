@@ -2,7 +2,7 @@ import type { ProjectInfo, SessionInfo } from '@alpine/protocol';
 import { ContextMenu, Menu, PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import clsx from 'clsx';
-import { ChevronDown, ChevronRight, Ellipsis, FolderOpen, Settings, SquarePen } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, Ellipsis, FolderOpen, Settings, SquarePen } from 'lucide-react';
 import { useState } from 'react';
 
 import { useFormat, useMessages } from '@/shared/i18n';
@@ -52,6 +52,10 @@ export function Rail() {
           <span className="text-meta font-normal text-fg-faint">⌘N</span>
         </Link>
       )}
+      <Link to="/agents" className={item} activeProps={active}>
+        <Bot size={16} strokeWidth={1.5} className="text-fg-muted" aria-hidden="true" />
+        {t.agents}
+      </Link>
       <section aria-label={t.projects} className="flex flex-col gap-0.5">
         <div className="flex min-h-7 items-center gap-2 px-2 text-meta text-fg-muted">
           <span className="grow">{t.projects}</span>

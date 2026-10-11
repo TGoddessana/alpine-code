@@ -93,8 +93,11 @@ class SessionInfo:
     """UTC, ISO 8601: when the current run started, ``None`` when idle."""
     run_usage: UsageInfo | None = None
     """Usage since the current run started, ``None`` when idle."""
-    profile: str | None = None
-    """The id of the profile whose tools the session has; ``None`` when it was made without profiles."""
+    agent: str | None = None
+    """The id of the agent the session works with; ``None`` when it was made without agents."""
+    agent_applied: dict[str, Any] | None = None
+    """``{"model", "instructions", "tools"}`` of the agent as the session last applied it, to tell what an edit
+    changed. Core only, not on the wire."""
     last_seq: int = 0
     """The highest event ``seq`` emitted when the info was saved, so ``seq`` keeps growing across restarts. Not on the
     wire."""
@@ -118,7 +121,8 @@ class SessionInfo:
             else {"kind": self.activity.kind, "tool_name": self.activity.tool_name, "since": self.activity.since},
             "run_started_at": self.run_started_at,
             "run_usage": None if self.run_usage is None else _usage_to_dict(self.run_usage),
-            "profile": self.profile,
+            "agent": self.agent,
+            "agent_applied": self.agent_applied,
             "last_seq": self.last_seq,
         }
 
@@ -144,7 +148,8 @@ class SessionInfo:
             else Activity(activity["kind"], activity.get("tool_name"), activity.get("since", "")),
             run_started_at=data.get("run_started_at"),
             run_usage=None if run_usage is None else _usage_from_dict(run_usage),
-            profile=data.get("profile"),
+            agent=data.get("agent", data.get("profile")),
+            agent_applied=data.get("agent_applied"),
             last_seq=data.get("last_seq", 0),
         )
 

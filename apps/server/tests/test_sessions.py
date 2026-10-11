@@ -457,3 +457,153 @@ def test_the_harness_suggests_removing_a_memory_whose_path_is_gone(folder, monke
             assert listed == {"memories": [], "pending": []}
 
     run(scenario())
+
+
+def agent(**fields) -> dict:
+    return {
+        "id": "",
+        "name": "reviewer",
+        "description": "",
+        "model": None,
+        "instructions": "",
+        "tools": ["read", "glob", "grep"],
+        "look": "glasses",
+        "color": 3,
+    } | fields
+
+
+def recording_model(monkeypatch, *replies) -> list[str]:
+    """Like ``fake_model``, one script shared by every build, and the model of every build is kept."""
+    models: list[str] = []
+    shared = FakeModel(list(replies))
+
+    def make(settings):
+        models.append(settings.model)
+        return shared
+
+    monkeypatch.setattr(session_module, "make_model", make)
+    return models
+
+
+def test_a_new_session_works_as_the_agent_picked_and_with_its_model(folder, monkeypatch):
+    models = recording_model(monkeypatch, "hi")
+
+    async def scenario():
+        async with Client([]) as client:
+            saved = (await client.call("agents/save", agent=agent(model="x/special")))["result"]["agent"]
+            sid = await client.new(folder, agent=saved["id"])
+            assert models == ["x/special"]
+            info = client.events(sid, "info_changed")[0]["event"]["info"]
+            assert info["agent"] == saved["id"] and info["model"] == "x/special"
+            # An explicit model still wins over the agent's.
+            other = await client.new(folder, agent=saved["id"], model="x/chosen")
+            assert models[-1] == "x/chosen"
+            assert client.events(other, "info_changed")[0]["event"]["info"]["model"] == "x/chosen"
+
+    run(scenario())
+
+
+def test_a_new_session_without_an_agent_uses_the_one_the_project_used_last(folder, monkeypatch):
+    fake_model(monkeypatch, "hi")
+
+    async def scenario():
+        async with Client([]) as client:
+            saved = (await client.call("agents/save", agent=agent()))["result"]["agent"]
+            first = await client.new(folder)
+            assert client.events(first, "info_changed")[0]["event"]["info"]["agent"] == "default"
+            await client.call("session/setAgent", sessionId=first, agent=saved["id"])
+            await client.call("session/send", sessionId=first, text="hello")
+            await client.status(first, "idle")
+            second = await client.new(folder)
+            assert client.events(second, "info_changed")[0]["event"]["info"]["agent"] == saved["id"]
+            projects = (await client.call("projects/list"))["result"]["projects"]
+            assert [p["lastAgent"] for p in projects] == [saved["id"]]
+
+    run(scenario())
+
+
+def test_set_agent_switches_from_the_next_message_and_says_so(folder, monkeypatch):
+    models = recording_model(monkeypatch, "one", "two")
+
+    async def scenario():
+        async with Client([]) as client:
+            saved = (await client.call("agents/save", agent=agent(model="x/special")))["result"]["agent"]
+            sid = await client.new(folder)
+            await client.call("session/send", sessionId=sid, text="hi")
+            await client.status(sid, "idle")
+            info = (await client.call("session/setAgent", sessionId=sid, agent=saved["id"]))["result"]["info"]
+            assert info["agent"] == saved["id"] and info["model"] == "x/special"
+            assert models[-1] == "x/special"
+            switched = [
+                e["event"]["item"]
+                for e in client.events(sid, "item_completed")
+                if e["event"]["item"]["kind"] == "agent_switched"
+            ]
+            assert [(i["agent"], i["name"], i["look"], i["color"]) for i in switched] == [
+                (saved["id"], "reviewer", "glasses", 3)
+            ]
+            assert client.events(sid, "info_changed")[-1]["event"]["info"]["agent"] == saved["id"]
+            await client.call("session/send", sessionId=sid, text="again")
+            await client.status(sid, "idle")
+            messages = [
+                e["event"]["item"]
+                for e in client.events(sid, "item_completed")
+                if e["event"]["item"]["kind"] == "agent_message"
+            ]
+            assert [(m["text"], m["agent"]) for m in messages] == [("one", "default"), ("two", saved["id"])]
+
+    run(scenario())
+
+
+def test_set_agent_is_refused_while_running_and_for_an_unknown_agent(folder, monkeypatch):
+    fake_model(monkeypatch, tool_call("bash", command="echo 1"), "done")
+
+    async def scenario():
+        async with Client([]) as client:
+            saved = (await client.call("agents/save", agent=agent()))["result"]["agent"]
+            sid = await client.new(folder)
+            unknown = await client.call("session/setAgent", sessionId=sid, agent="nope")
+            assert unknown["error"]["data"]["reason"] == "agent_not_found"
+            await client.call("session/send", sessionId=sid, text="go")
+            request = await client.until(approval_id(client, sid))
+            busy = await client.call("session/setAgent", sessionId=sid, agent=saved["id"])
+            assert busy["error"]["code"] == -32002
+            await client.call("session/answer", sessionId=sid, requestId=request, decision="allow")
+            await client.status(sid, "idle")
+
+    run(scenario())
+
+
+def test_a_change_to_the_agent_is_announced_before_the_next_user_message(folder, monkeypatch):
+    recording_model(monkeypatch, "one", "two")
+
+    async def scenario():
+        async with Client([]) as client:
+            saved = (await client.call("agents/save", agent=agent()))["result"]["agent"]
+            sid = await client.new(folder, agent=saved["id"])
+            await client.call("session/send", sessionId=sid, text="first")
+            await client.status(sid, "idle")
+            await client.call("agents/save", agent=saved | {"tools": ["read", "glob"], "instructions": "Be brief."})
+            await client.call("session/send", sessionId=sid, text="second")
+            await client.status(sid, "idle")
+            await client.until(lambda out: len(client.events(sid, "item_completed")) >= 5)
+            kinds = [e["event"]["item"]["kind"] for e in client.events(sid, "item_completed")]
+            assert kinds == ["user_message", "agent_message", "agent_changed", "user_message", "agent_message"]
+            changed = [e["event"]["item"] for e in client.events(sid, "item_completed")][2]
+            assert changed["agent"] == saved["id"] and changed["removed"] == ["grep"] and changed["added"] == []
+            assert changed["instructions"] is True and changed["model"] is None
+
+    run(scenario())
+
+
+def test_info_on_the_wire_has_no_core_only_fields(folder, monkeypatch):
+    fake_model(monkeypatch, "hi")
+
+    async def scenario():
+        async with Client([]) as client:
+            sid = await client.new(folder)
+            info = client.events(sid, "info_changed")[0]["event"]["info"]
+            assert "agentApplied" not in info and "lastSeq" not in info and "agent_applied" not in info
+            assert "profile" not in info
+
+    run(scenario())

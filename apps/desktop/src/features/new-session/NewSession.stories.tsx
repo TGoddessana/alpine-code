@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 import { useState } from 'react';
 
-import { chatScript, PROJECTS, withRouterScript } from '@/shared/server';
+import { chatScript, PROJECTS } from '@/shared/server';
 
 import { NewSession } from './NewSession';
 
@@ -31,17 +31,17 @@ type Story = StoryObj<typeof meta>;
 export const Ready: Story = {};
 
 /**
- * The model picker with a router of 320 models: only each vendor's newest shows (the rest are switched off in
- * Settings › Model connection), and searching finds only the ones shown.
+ * Board 새 세션 (에이전트 고르기): the chip in the input bar shows the agent the project used last; it opens the
+ * agents with their model and what their tools let them do.
  */
-export const ManyModels: Story = {
-  parameters: { server: withRouterScript() },
+export const PickingAnAgent: Story = {
   play: async () => {
-    await userEvent.click(await screen.findByRole('combobox', { name: /새 세션 모델|New session model/ }));
-    await waitFor(() => expect(screen.getByRole('option', { name: 'qwen/model-40' })).toBeVisible());
-    expect(screen.queryByRole('option', { name: 'qwen/model-3' })).toBeNull();
-    await userEvent.type(screen.getByRole('combobox', { name: /모델 찾기|Find a model/ }), 'qwen/model-3');
-    await waitFor(() => expect(screen.getByText(/모델 목록 관리에서|Manage models/)).toBeVisible());
+    await userEvent.click(await screen.findByRole('button', { name: /에이전트:|Agent:/ }));
+    await waitFor(() => expect(screen.getByRole('menuitemradio', { name: /꼼꼼한 검토자/ })).toBeVisible());
+    expect(screen.getByRole('menuitemradio', { name: /홈페이지 담당/ })).toBeChecked();
+    expect(screen.getByText(/이 프로젝트에서 마지막으로 씀/)).toBeVisible();
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /꼼꼼한 검토자/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /에이전트: 꼼꼼한 검토자/ })).toBeVisible());
   },
 };
 

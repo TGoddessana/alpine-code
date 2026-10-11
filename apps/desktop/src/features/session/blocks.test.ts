@@ -15,7 +15,7 @@ const call = (id: string, over: Partial<ToolCallItem> = {}): ToolCallItem => ({
   images: 0,
   ...over,
 });
-const message = (id: string): Item => ({ id, kind: 'agent_message', text: 'hi' });
+const message = (id: string): Item => ({ id, kind: 'agent_message', agent: null, text: 'hi' });
 const approval = (id: string, callId: string, over: Partial<ApprovalItem> = {}): ApprovalItem => ({
   id,
   kind: 'approval',
@@ -48,6 +48,33 @@ describe('toBlocks', () => {
     const blocks = toBlocks([call('c1'), call('c2'), message('m1'), call('c3')], []);
     expect(blocks.map((b) => b.type)).toEqual(['tools', 'item', 'tools']);
     expect(blocks[0]).toMatchObject({ rows: [{ call: { id: 'c1' } }, { call: { id: 'c2' } }] });
+  });
+
+  it('splits tool calls at the agent dividers, which are plain items', () => {
+    const switched: Item = {
+      id: 'a1',
+      kind: 'agent_switched',
+      agent: 'a-review',
+      name: '검토자',
+      look: 'glasses',
+      color: 3,
+    };
+    const changed: Item = {
+      id: 'a2',
+      kind: 'agent_changed',
+      agent: 'a-site',
+      name: '홈페이지 담당',
+      look: 'hardhat',
+      color: 1,
+      added: ['fetch'],
+      removed: [],
+      instructions: false,
+      model: null,
+    };
+    const blocks = toBlocks([call('c1'), switched, call('c2'), changed, call('c3')], []);
+    expect(blocks.map((b) => b.type)).toEqual(['tools', 'item', 'tools', 'item', 'tools']);
+    expect(blocks[1]).toEqual({ type: 'item', item: switched });
+    expect(blocks[3]).toEqual({ type: 'item', item: changed });
   });
 
   it('draws a waiting approval where its call will be', () => {

@@ -3,6 +3,7 @@ import type {
   SessionInfo,
   SessionNewParams,
   SessionSendParams,
+  SessionSetAgentParams,
   SessionSetModelParams,
   SessionSetModeParams,
 } from '@alpine/protocol';
@@ -85,6 +86,16 @@ export function useSetSessionModel() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (params: SessionSetModelParams) => (await server.request('session/setModel', params)).info,
+    onSuccess: (info) => upsertSession(client, info),
+  });
+}
+
+/** Goes on with another agent from the next message on; the conversation goes on. Not while it runs. */
+export function useSetSessionAgent() {
+  const server = useServer();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: SessionSetAgentParams) => (await server.request('session/setAgent', params)).info,
     onSuccess: (info) => upsertSession(client, info),
   });
 }

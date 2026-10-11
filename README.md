@@ -82,8 +82,8 @@ agent will see, and **Try it** runs it before you save.
 </p>
 
 
-**Choose the tools for each job.** Tool profiles pick which tools are on for a project, a model, or both. Give a
-small local model a light set and a big project everything.
+**Build agents for each job.** An agent is a model, instructions and the tools it may use, with a name and a
+face. Build them on the 에이전트 screen, pick one per session in the composer, and switch whenever you like.
 
 **Tell it how your project works.** An `AGENTS.md` (or `CLAUDE.md`) file in the folder is read before every session,
 so you write your conventions down once.

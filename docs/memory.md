@@ -161,7 +161,7 @@ observed.
 1. **Done:** `alpine_core/memory/`: kinds, `MarkdownStore`, `IndexRecall`, `AgentProposes` (`propose_memory`) and
    the inbox, with a second implementation of each port in `tests/test_memory.py`. Not yet connected to sessions.
 2. **Done but the app:** `Memories` (one memory per project, shared by sessions and the server) puts the index into
-   `build_system_prompt`, `propose_memory` into every profile's tools, the memory folders into what `read` may open
+   `build_system_prompt`, `propose_memory` into every agent's tools, the memory folders into what `read` may open
    without asking, and approvals into open sessions as `notice` items. The protocol has `memory/*` and
    `memory/changed` ([session-protocol.md](session-protocol.md)). The interactive CLI suggests and recalls; `-p`
    has no memory, so benchmarks and scripts run the same each time. **The app:** a suggestion is a card under

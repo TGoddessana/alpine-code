@@ -343,6 +343,7 @@ def _project_info(project: Project) -> ProjectInfo:
         branch=current_branch(project.path),
         last_used_at=project.last_used_at,
         archived=project.archived,
+        last_agent=project.last_agent,
     )
 
 

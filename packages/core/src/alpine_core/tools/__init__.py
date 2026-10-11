@@ -28,5 +28,5 @@ def default_tools(workspace: Workspace) -> list:
     ]
 
 
-#: Names of the built-in tools: what a profile turns on unless told otherwise, and what a user tool may not take.
+#: Names of the built-in tools: what an agent turns on unless told otherwise, and what a user tool may not take.
 BUILTIN: tuple[str, ...] = tuple(collect_tools(default_tools(Workspace(Path()))))

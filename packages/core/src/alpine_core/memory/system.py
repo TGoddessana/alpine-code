@@ -45,7 +45,7 @@ class MemorySystem:
         return [*(t for p in self.proposers for t in p.tools(self.inbox)), *self.recall.tools()]
 
     def offered(self) -> list[Offered]:
-        """The tools as a ``ToolSource``: in every session that has the memory, whatever its profile."""
+        """The tools as a ``ToolSource``: in every session that has the memory, whatever its agent."""
         return [Offered(tool, "memory", optional=False) for tool in collect_tools(self.tools()).values()]
 
     def checks(self) -> CheckRunner:

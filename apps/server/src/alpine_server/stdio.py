@@ -29,6 +29,7 @@ from alpine_protocol import (
     SessionEventParams,
 )
 
+from .agents import HANDLERS as AGENT_HANDLERS
 from .chatgpt import ChatGPTSignIns
 from .memory import MemoryMethods
 from .methods import HANDLERS as METHOD_HANDLERS
@@ -44,7 +45,7 @@ INTERNAL_ERROR = -32603
 Write = Callable[[str], None]
 
 
-HANDLERS = {**METHOD_HANDLERS, **TOOL_HANDLERS}
+HANDLERS = {**METHOD_HANDLERS, **TOOL_HANDLERS, **AGENT_HANDLERS}
 
 
 class _Failure(Exception):

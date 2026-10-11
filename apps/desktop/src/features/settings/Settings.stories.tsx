@@ -67,9 +67,3 @@ export const ConnectionsWithRouter: Story = {
   args: { tab: 'connection' },
   parameters: { server: withRouterScript() },
 };
-
-/** Board Tools: profiles, the tools they turn on, a file changed outside the app and a broken one. */
-export const Tools: Story = {
-  args: { tab: 'tools', profile: 'p-shop', saved: 'fetch' },
-  parameters: { server: setUpScript() },
-};

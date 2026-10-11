@@ -282,7 +282,7 @@ cannot see images.
 
 Screenshots only were rejected: flows behind a click (sign-in, cart) could not be checked. Leaving it to MCP was
 rejected: this app's users would not wire it up themselves, and MCP is not built yet. Emulators and desktop apps come
-later through connected services (MCP) or the user's own tools; controlling the whole screen (computer use) was
+later through connected services (MCP) or the user's own tools (made and picked per agent in the library of the 에이전트 screen, [agents.md](agents.md) decisions 4 and 5); controlling the whole screen (computer use) was
 rejected as too broad.
 
 Secrets in any tool's output are masked on screen (`STRIPE_SECRET_KEY=••••`): values from `.env` files and common key

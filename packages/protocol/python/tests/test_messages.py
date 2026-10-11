@@ -27,7 +27,7 @@ def test_items_and_events_round_trip_by_kind_and_type():
             "requests": 1, "cost": None,
         },
         "contextUsed": 3, "contextWindow": None, "activity": None, "runStartedAt": None, "runUsage": None,
-        "profile": None,
+        "agent": None,
     }  # fmt: skip
     call = {"id": "c1", "kind": "tool_call", "name": "bash", "args": {"command": "ls"}, "status": "running"}
     snap = SessionOpenResult.model_validate(
@@ -56,3 +56,41 @@ def test_schema_has_session_types_and_notifications():
         "memory/changed": "MemoryChangedParams",
     }
     assert (SESSION_NOT_FOUND, SESSION_RUNNING) == (-32001, -32002)
+
+
+def test_agent_items_are_picked_by_kind_and_serialise_camel_case():
+    from pydantic import TypeAdapter
+
+    from alpine_protocol import AgentChangedItem, AgentSwitchedItem, Item
+
+    adapter = TypeAdapter(Item)
+    switched = adapter.validate_python(
+        {"id": "i1", "kind": "agent_switched", "agent": "a1", "name": "Writer", "look": "beret", "color": 4}
+    )
+    assert isinstance(switched, AgentSwitchedItem)
+    changed = adapter.validate_python(
+        {
+            "id": "i2", "kind": "agent_changed", "agent": "a1", "name": "Writer", "look": "beret", "color": 4,
+            "added": ["bash"], "removed": [], "instructions": True, "model": None,
+        }
+    )  # fmt: skip
+    assert isinstance(changed, AgentChangedItem)
+    dumped = changed.model_dump(by_alias=True, mode="json")
+    assert dumped["added"] == ["bash"] and dumped["instructions"] is True and dumped["kind"] == "agent_changed"
+
+
+def test_agent_info_rejects_a_colour_or_look_outside_the_set():
+    import pytest
+    from pydantic import ValidationError
+
+    from alpine_protocol import AgentInfo
+
+    base = {
+        "id": "", "name": "n", "description": "", "model": None, "instructions": "", "tools": [],
+        "look": "antenna", "color": 2,
+    }  # fmt: skip
+    assert AgentInfo.model_validate(base).color == 2
+    with pytest.raises(ValidationError):
+        AgentInfo.model_validate({**base, "color": 9})
+    with pytest.raises(ValidationError):
+        AgentInfo.model_validate({**base, "look": "crown"})

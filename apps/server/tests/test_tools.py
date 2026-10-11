@@ -32,19 +32,29 @@ def call(method: str, **params) -> dict:
     return json.loads(out.getvalue())
 
 
-def test_saving_a_tool_turns_it_on_in_the_profile_being_viewed(tmp_path):
-    profile = call(
-        "profiles/save", profile={"id": "", "name": "shop", "project": str(tmp_path), "model": None, "tools": ["read"]}
-    )["result"]["profile"]
-    saved = call("tools/save", name="fetch", source=SOURCE, enableIn=profile["id"])["result"]["file"]
+def agent(**fields) -> dict:
+    return {
+        "id": "",
+        "name": "shop",
+        "description": "",
+        "model": None,
+        "instructions": "",
+        "tools": ["read"],
+        "look": "antenna",
+        "color": 2,
+    } | fields
+
+
+def test_saving_a_tool_turns_it_on_in_the_agent_being_viewed(tmp_path):
+    shop = call("agents/save", agent=agent())["result"]["agent"]
+    saved = call("tools/save", name="fetch", source=SOURCE, enableIn=shop["id"])["result"]["file"]
     assert saved["status"] == "ready"
     assert saved["tools"][0]["ask"] == "ask"
-    profiles = call("profiles/list")["result"]["profiles"]
-    assert [(p["name"], p["tools"]) for p in profiles] == [
+    agents = call("agents/list")["result"]["agents"]
+    assert [(a["name"], a["tools"]) for a in agents] == [
         ("", ["read", "glob", "grep", "write", "edit", "bash"]),
         ("shop", ["read", "fetch"]),
     ]
-    assert call("profiles/resolve", cwd=str(tmp_path))["result"]["profile"]["id"] == profile["id"]
 
     listed = call("tools/list", cwd=str(tmp_path))["result"]
     assert [(t["tool"]["name"], t["origin"], t["optional"]) for t in listed["tools"]] == [
@@ -56,15 +66,36 @@ def test_saving_a_tool_turns_it_on_in_the_profile_being_viewed(tmp_path):
     assert [t["tool"]["name"] for t in call("tools/list")["result"]["tools"]][-2:] == ["propose_memory", "fetch"]
 
     call("tools/delete", name="fetch")
-    assert call("profiles/list")["result"]["profiles"][1]["tools"] == ["read"]
+    assert call("agents/list")["result"]["agents"][1]["tools"] == ["read"]
 
 
-def test_errors_carry_a_reason(tmp_path):
+def test_deleting_a_tool_forgets_it_in_every_agent():
+    first = call("agents/save", agent=agent(name="a"))["result"]["agent"]
+    second = call("agents/save", agent=agent(name="b", look="glasses", color=3))["result"]["agent"]
+    call("tools/save", name="fetch", source=SOURCE, enableIn=first["id"])
+    call("agents/save", agent=second | {"tools": ["fetch", "read"]})
+    call("tools/delete", name="fetch")
+    assert [a["tools"] for a in call("agents/list")["result"]["agents"][1:]] == [["read"], ["read"]]
+
+
+def test_the_default_agent_cannot_be_deleted():
+    assert call("agents/delete", id="default")["result"] == {}
+    assert [a["id"] for a in call("agents/list")["result"]["agents"]] == ["default"]
+
+
+def test_a_new_agent_gets_an_id_and_a_free_character():
+    first = call("agents/save", agent=agent(name="a", look="hardhat", color=1))["result"]["agent"]
+    second = call("agents/save", agent=agent(name="b", look="hardhat", color=1))["result"]["agent"]
+    assert first["id"] and second["id"] and first["id"] != second["id"]
+    assert (first["look"], first["color"]) == ("hardhat", 1)
+    assert (second["look"], second["color"]) != ("hardhat", 1)
+    assert call("agents/delete", id=first["id"])["result"] == {}
+    assert [a["id"] for a in call("agents/list")["result"]["agents"]] == ["default", second["id"]]
+
+
+def test_errors_carry_a_reason():
     bad = call("tools/save", name="Bad Name", source=SOURCE)
     assert bad["error"]["data"]["reason"] == "invalid_name"
-    call("profiles/save", profile={"id": "", "name": "a", "project": None, "model": "x/y", "tools": []})
-    clash = call("profiles/save", profile={"id": "", "name": "b", "project": None, "model": "x/y", "tools": []})
-    assert clash["error"]["data"]["reason"] == "profile_conflict"
 
 
 def test_check_and_test_run_unsaved_code():
@@ -72,3 +103,28 @@ def test_check_and_test_run_unsaved_code():
     assert [t["name"] for t in check["tools"]] == ["fetch"]
     result = call("tools/test", source=SOURCE, tool="fetch", args={"url": "https://example.com"})["result"]
     assert result["ok"] and result["output"] == "https://example.com"
+
+
+def test_deleting_a_broken_tool_file_forgets_its_tools():
+    shop = call("agents/save", agent=agent())["result"]["agent"]
+    call("tools/save", name="fetch", source=SOURCE, enableIn=shop["id"])
+    broken = SOURCE + "\nraise RuntimeError('boom')\n"
+    call("tools/save", name="fetch", source=broken)
+    assert call("tools/list")["result"]["files"][0]["status"] != "ready"
+    call("tools/delete", name="fetch")
+    assert call("agents/list")["result"]["agents"][1]["tools"] == ["read"]
+
+
+def test_concurrent_agent_saves_lose_nothing():
+    from concurrent.futures import ThreadPoolExecutor
+
+    from alpine_core import AgentConfig
+    from alpine_server.agents import agents as shared
+
+    def work(n: int) -> None:
+        for i in range(15):
+            shared().save(AgentConfig("", f"a{n}-{i}"))
+
+    with ThreadPoolExecutor(4) as pool:
+        list(pool.map(work, range(4)))
+    assert len(shared().list()) == 1 + 60

@@ -1,4 +1,4 @@
-import type { ProfileInfo, ToolsSaveParams, ToolsTestParams } from '@alpine/protocol';
+import type { ToolsSaveParams, ToolsTestParams } from '@alpine/protocol';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useServer } from './context';
@@ -34,7 +34,7 @@ export function useSaveTool() {
     mutationFn: (params: ToolsSaveParams) => server.request('tools/save', params),
     onSuccess: (_, params) => {
       void client.invalidateQueries({ queryKey: ['tools'] });
-      void client.invalidateQueries({ queryKey: ['profiles'] });
+      void client.invalidateQueries({ queryKey: ['agents'] });
       client.removeQueries({ queryKey: ['tools', 'source', params.name] });
     },
   });
@@ -57,7 +57,7 @@ export function useDeleteTool() {
     mutationFn: (name: string) => server.request('tools/delete', { name }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['tools'] });
-      void client.invalidateQueries({ queryKey: ['profiles'] });
+      void client.invalidateQueries({ queryKey: ['agents'] });
     },
   });
 }
@@ -77,38 +77,4 @@ export function useTestTool() {
 export function useDraftTool() {
   const server = useServer();
   return useMutation({ mutationFn: (description: string) => server.request('tools/draft', { description }) });
-}
-
-/** Every profile, the default one first. */
-export function useProfiles() {
-  const server = useServer();
-  return useQuery({ queryKey: ['profiles'], queryFn: () => server.request('profiles/list', {}), retry: false });
-}
-
-export function useSaveProfile() {
-  const server = useServer();
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: async (profile: ProfileInfo) => (await server.request('profiles/save', { profile })).profile,
-    onSuccess: () => client.invalidateQueries({ queryKey: ['profiles'] }),
-  });
-}
-
-export function useDeleteProfile() {
-  const server = useServer();
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => server.request('profiles/delete', { id }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ['profiles'] }),
-  });
-}
-
-/** The profile a new session in `cwd` with `model` would take. */
-export function useResolveProfile(cwd: string, model: string | null) {
-  const server = useServer();
-  return useQuery({
-    queryKey: ['profiles', 'resolve', cwd, model],
-    queryFn: async () => (await server.request('profiles/resolve', { cwd, model })).profile,
-    retry: false,
-  });
 }

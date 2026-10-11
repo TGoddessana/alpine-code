@@ -43,9 +43,10 @@ export const messages = defineMessages({
     apiKeyConnection: (provider: string) => `${provider} API 키`,
     localConnection: (address: string) => `로컬 서버 · ${address}`,
     compatibleConnection: (address: string) => `호환 서버 · ${address}`,
-    noKey: (env: string) => `키가 없어요 · ${env}를 설정하거나 바꾸기로 넣어 주세요`,
+    noKey: (env: string) => `키가 없어요 · ${env}를 설정하거나 연결 편집에서 넣어 주세요`,
     continueWithChatGPT: 'ChatGPT로 계속하기',
-    chatgptLead: '브라우저에서 로그인하고, Alpine Code가 ChatGPT 요금제를 쓰도록 허용해 주세요. 끝나면 여기로 돌아와요.',
+    chatgptLead:
+      '브라우저에서 로그인하고, Alpine Code가 ChatGPT 요금제를 쓰도록 허용해 주세요. 끝나면 여기로 돌아와요.',
     chatgptWaiting: '기다리는 중 · 브라우저에서 로그인',
     chatgptNoBrowser: '브라우저가 열리지 않았나요?',
     openAgain: '다시 열기',
@@ -116,7 +117,7 @@ export const messages = defineMessages({
     apiKeyConnection: (provider: string) => `${provider} API key`,
     localConnection: (address: string) => `Local server · ${address}`,
     compatibleConnection: (address: string) => `Compatible server · ${address}`,
-    noKey: (env: string) => `No key · set ${env} or add one with Change`,
+    noKey: (env: string) => `No key · set ${env} or add one with Edit connection`,
     continueWithChatGPT: 'Continue with ChatGPT',
     chatgptLead:
       'Sign in in your browser and allow Alpine Code to use your ChatGPT plan. You come back here when it is done.',

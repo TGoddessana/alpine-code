@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.14"
 
 [manifest]
@@ -23,7 +23,7 @@ dev = [
 
 [[package]]
 name = "alpine-code"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "apps/cli" }
 dependencies = [
     { name = "alpine-code-core" },
@@ -40,7 +40,7 @@ requires-dist = [
 
 [[package]]
 name = "alpine-code-core"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/core" }
 dependencies = [
     { name = "alpineagents" },
@@ -65,7 +65,7 @@ requires-dist = [
 
 [[package]]
 name = "alpine-code-protocol"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/protocol/python" }
 dependencies = [
     { name = "pydantic" },
@@ -76,7 +76,7 @@ requires-dist = [{ name = "pydantic", specifier = ">=2.13" }]
 
 [[package]]
 name = "alpine-code-server"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "apps/server" }
 dependencies = [
     { name = "alpine-code-core" },

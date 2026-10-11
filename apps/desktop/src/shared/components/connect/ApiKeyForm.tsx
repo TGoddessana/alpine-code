@@ -56,6 +56,7 @@ export function ApiKeyForm({
           ))}
         </NativeSelect>
         {provider && <Hint>{provider.billing === 'subscription' ? t.subscription : t.usage}</Hint>}
+        {providerId === 'anthropic' && <Hint>{t.claudeNote}</Hint>}
         <label htmlFor="connect-key">{t.key}</label>
         <Input
           id="connect-key"

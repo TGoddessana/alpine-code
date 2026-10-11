@@ -1,6 +1,6 @@
 [project]
 name = "alpine-code"
-version = "0.1.0"
+version = "0.1.1"
 description = "A terminal coding agent built on alpineagents"
 readme = "README.md"
 authors = [
@@ -10,7 +10,7 @@ requires-python = ">=3.14"
 license = "MIT"
 license-files = ["LICENSE"]
 dependencies = [
-    "alpine-code-core==0.1.0",  # released together; same version as this package
+    "alpine-code-core==0.1.1",  # released together; same version as this package
     "prompt-toolkit>=3.0.52",
     "rich>=14.0",
 ]

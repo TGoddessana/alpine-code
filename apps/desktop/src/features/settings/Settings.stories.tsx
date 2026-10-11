@@ -1,8 +1,15 @@
 import type { SettingsGetResult } from '@alpine/protocol';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, screen } from 'storybook/test';
+import { expect, screen, userEvent, within } from 'storybook/test';
 
-import { setUpScript, withRouterScript } from '@/shared/server';
+import {
+  CHATGPT_CONNECTION,
+  PROVIDERS,
+  firstRunScript,
+  setUpScript,
+  statefulScript,
+  withRouterScript,
+} from '@/shared/server';
 
 import { Settings } from './Settings';
 
@@ -38,7 +45,9 @@ export const GeneralAuto: Story = {
     },
   },
   play: async () => {
-    await expect(await screen.findByRole('button', { name: /확인 모델 바꾸기|Change the checking model/ })).toBeVisible();
+    await expect(
+      await screen.findByRole('button', { name: /확인 모델 바꾸기|Change the checking model/ }),
+    ).toBeVisible();
   },
 };
 
@@ -49,6 +58,7 @@ export const ServerUnavailable: Story = {
 
 /** Board Connection: open the 'Model connection' tab. */
 export const Connections: Story = {
+  args: { tab: 'connection' },
   parameters: { server: setUpScript() },
 };
 
@@ -57,8 +67,8 @@ export const ConnectionsReviewModel: Story = {
   args: { tab: 'connection' },
   parameters: { server: setUpScript() },
   play: async () => {
-    const picker = await screen.findByLabelText(/^(확인|Checks)$/);
-    await expect(picker).toHaveDisplayValue(/세션 모델과 같게|Same as the session's model/);
+    const picker = await screen.findByLabelText(/^(작업 승인 검토 모델|Action approval model)$/);
+    await expect(picker).toHaveDisplayValue(/대화에서 사용 중인 모델과 동일|Same as the chat's current model/);
   },
 };
 
@@ -66,4 +76,81 @@ export const ConnectionsReviewModel: Story = {
 export const ConnectionsWithRouter: Story = {
   args: { tab: 'connection' },
   parameters: { server: withRouterScript() },
+};
+
+/** The approved layout: a ChatGPT account and two compatible API servers. */
+export const ProviderOverview: Story = {
+  args: { tab: 'connection' },
+  parameters: {
+    server: statefulScript({
+      connections: {
+        providers: PROVIDERS,
+        defaultModel: 'router/deepseek-ai/deepseek-coder-6.7b-instruct',
+        connections: [
+          CHATGPT_CONNECTION,
+          { name: 'router', provider: null, baseUrl: 'https://openrouter.ai/api/v1', billing: 'none', hasKey: true },
+          {
+            name: 'nvidia',
+            provider: null,
+            baseUrl: 'https://integrate.api.nvidia.com/v1',
+            billing: 'none',
+            hasKey: true,
+          },
+        ],
+      },
+      projects: [],
+    }),
+  },
+};
+
+/** Adding a connection starts with the method chooser, then uses the existing form. */
+export const AddProvider: Story = {
+  args: { tab: 'connection' },
+  parameters: { server: firstRunScript() },
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /공급자 추가|Add provider/ }));
+    const dialog = await screen.findByRole('dialog');
+    await expect(within(dialog).getByRole('button', { name: /ChatGPT/ })).toBeVisible();
+    await expect(within(dialog).queryByText(/Copilot/)).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: /API 키|API key/ }));
+    await expect(await screen.findByLabelText(/^(키|API 키|Key|API key)$/)).toBeVisible();
+  },
+};
+
+/** Editing and deletion are secondary actions; deletion still requires confirmation. */
+export const ProviderActions: Story = {
+  args: { tab: 'connection' },
+  parameters: { server: setUpScript() },
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /Anthropic 더보기|More options for Anthropic/ }));
+    await expect(await screen.findByRole('menuitem', { name: /연결 편집|Edit connection/ })).toBeVisible();
+    await userEvent.click(screen.getByRole('menuitem', { name: /연결 삭제|Delete connection/ }));
+    const dialog = await screen.findByRole('alertdialog');
+    await expect(within(dialog).getByRole('button', { name: /취소|Cancel/ })).toBeVisible();
+  },
+};
+
+export const NoProviders: Story = {
+  args: { tab: 'connection' },
+  parameters: { server: firstRunScript() },
+};
+
+export const SignedOutProvider: Story = {
+  args: { tab: 'connection' },
+  parameters: {
+    server: statefulScript({
+      connections: {
+        providers: PROVIDERS,
+        defaultModel: 'chatgpt/gpt-6-astra',
+        connections: [
+          {
+            ...CHATGPT_CONNECTION,
+            hasKey: false,
+            account: { email: 'you@example.com', signedIn: false, planUsage: true },
+          },
+        ],
+      },
+      projects: [],
+    }),
+  },
 };

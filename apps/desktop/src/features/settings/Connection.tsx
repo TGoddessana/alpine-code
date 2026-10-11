@@ -1,5 +1,6 @@
 import type { ConnectionInfo, ConnectionsListResult } from '@alpine/protocol';
-import { Button, Dialog, LinkButton, NativeSelect } from '@alpine/ui/primitives';
+import { Button, Dialog, Menu, NativeSelect } from '@alpine/ui/primitives';
+import { ArrowUpRight, ChevronRight, Ellipsis, Info, KeyRound, MessagesSquare, Plus, Server } from 'lucide-react';
 import { useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import {
@@ -27,15 +28,27 @@ import { messages } from './messages';
 import { ModelsDialog } from './ModelsDialog';
 
 type Sheet =
+  | { kind: 'add' }
   | { kind: 'api-key'; provider?: string }
   | { kind: 'local'; address?: string }
   | { kind: 'chatgpt'; connection?: string; consent?: boolean }
   | null;
 
-const row =
-  'grid min-h-10 grid-cols-[200px_minmax(0,1fr)_auto] items-center gap-4 text-body not-first:border-t not-first:border-line-subtle';
+const fieldRow = 'grid items-center gap-3 py-5 sm:grid-cols-2 sm:gap-6 not-first:border-t not-first:border-line-subtle';
 
-/** Board Connection: what is connected, what can be added (the first run's list), and the default model. */
+/** A short provider name; addresses and account details are displayed separately. */
+function providerName(connection: ConnectionInfo, data: ConnectionsListResult) {
+  if (connection.account) return 'ChatGPT';
+  const provider = data.providers.find((item) => item.id === connection.provider);
+  if (provider) return provider.name;
+  try {
+    return new URL(connection.baseUrl ?? '').hostname;
+  } catch {
+    return connection.name;
+  }
+}
+
+/** Connected providers, the method chooser, and defaults for new chats. */
 export function ConnectionTab() {
   const t = useMessages(messages);
   const c = useMessages(connectMessages);
@@ -47,83 +60,151 @@ export function ConnectionTab() {
   if (!data) return null;
 
   return (
-    <div className="flex max-w-180 flex-col gap-8">
-      <Section title={t.connected}>
-        {data.connections.length === 0 ? (
-          <p className="flex min-h-10 items-center text-fg-muted">{t.noConnections}</p>
-        ) : (
-          data.connections.map((connection) => (
-            <div key={connection.name} className={row}>
-              <span className="truncate">{connectionLabel(connection, data.providers, c)}</span>
-              <Status connection={connection} data={data} />
-              {connection.account ? (
-                <ChatGPTActions
-                  connection={connection}
-                  onSignIn={(consent) => setSheet({ kind: 'chatgpt', connection: connection.name, consent })}
-                />
-              ) : (
-                <span className="inline-flex items-center gap-1">
-                  <LinkButton onClick={() => setChoosing(connection)}>{t.chooseModels}</LinkButton>
-                  <LinkButton
-                    onClick={() =>
-                      setSheet(
-                        connection.provider
-                          ? { kind: 'api-key', provider: connection.provider }
-                          : { kind: 'local', address: connection.baseUrl ?? undefined },
-                      )
-                    }
-                  >
-                    {t.change}
-                  </LinkButton>
-                  <LinkButton onClick={() => setRemoving(connection)}>{t.remove}</LinkButton>
-                </span>
-              )}
-            </div>
-          ))
-        )}
-      </Section>
-
-      <Section title={t.addConnection}>
-        <AddRow
-          label={c.chatgpt}
-          note={c.chatgptNote}
-          link={`${c.continueWithChatGPT} ›`}
-          onConnect={() => setSheet({ kind: 'chatgpt' })}
-        />
-        <AddRow label={c.copilot} note={c.soon} />
-        <AddRow label={c.apiKey} note={c.apiKeyNote} onConnect={() => setSheet({ kind: 'api-key' })} />
-        <AddRow label={c.local} note={c.localNote} onConnect={() => setSheet({ kind: 'local' })} />
-        <p className="pt-2 text-meta text-fg-muted">{c.claudeNote}</p>
-      </Section>
+    <div className="mx-auto flex w-full max-w-240 flex-col gap-8 pb-8">
+      <section aria-label={t.connected} className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-title font-semibold">{t.connected}</h2>
+            <p className="mt-1 text-body text-fg-muted">{t.connectionsLead}</p>
+          </div>
+          <Button variant="primary" onClick={() => setSheet({ kind: 'add' })}>
+            <Plus size={16} aria-hidden="true" />
+            {t.addConnection}
+          </Button>
+        </div>
+        <div className="rounded-xl border border-line-subtle bg-canvas-raised">
+          {data.connections.length === 0 ? (
+            <p className="px-5 py-8 text-center text-body text-fg-muted">{t.noConnections}</p>
+          ) : (
+            data.connections.map((connection) => {
+              const name = providerName(connection, data);
+              const Icon = connection.account ? MessagesSquare : connection.provider ? KeyRound : Server;
+              return (
+                <div
+                  key={connection.name}
+                  className="flex flex-wrap items-center gap-3 p-5 not-first:border-t not-first:border-line-subtle"
+                >
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-line-subtle bg-canvas">
+                    <Icon size={18} aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-body font-semibold wrap-anywhere">{name}</h3>
+                    {connection.account?.email && (
+                      <p className="text-meta text-fg-muted wrap-anywhere">{connection.account.email}</p>
+                    )}
+                    <Status connection={connection} data={data} />
+                  </div>
+                  <div className="ml-auto flex w-full max-w-full items-center gap-2 pl-13 sm:w-auto sm:pl-0">
+                    {connection.account ? (
+                      <ChatGPTActions
+                        connection={connection}
+                        onSignIn={(consent) => setSheet({ kind: 'chatgpt', connection: connection.name, consent })}
+                      />
+                    ) : (
+                      <>
+                        <Button onClick={() => setChoosing(connection)}>{t.chooseModels}</Button>
+                        <ActionsMenu label={t.connectionActions(name)}>
+                          <Menu.Item
+                            onClick={() =>
+                              setSheet(
+                                connection.provider
+                                  ? { kind: 'api-key', provider: connection.provider }
+                                  : { kind: 'local', address: connection.baseUrl ?? undefined },
+                              )
+                            }
+                          >
+                            {t.change}
+                          </Menu.Item>
+                          <Menu.Separator />
+                          <Menu.Item className="text-danger" onClick={() => setRemoving(connection)}>
+                            {t.remove}
+                          </Menu.Item>
+                        </ActionsMenu>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </section>
 
       {data.connections.length > 0 && (
-        <Section title={t.defaultModel}>
-          <div className={row}>
-            <label htmlFor="settings-default-model">{t.newSession}</label>
-            <DefaultModel id="settings-default-model" data={data} />
-            <span />
+        <section aria-label={t.defaultModel}>
+          <h2 className="text-title font-semibold">{t.defaultModel}</h2>
+          <p className="mt-1 text-body text-fg-muted">{t.defaultModelLead}</p>
+          <div className="mt-5 rounded-xl border border-line-subtle bg-canvas-raised px-5">
+            <div className={fieldRow}>
+              <label htmlFor="settings-default-model" className="text-body font-medium">
+                {t.newSession}
+              </label>
+              <DefaultModel id="settings-default-model" data={data} />
+            </div>
+            <div className={fieldRow}>
+              <div>
+                <label htmlFor="settings-review-model" className="text-body font-medium">
+                  {t.reviewModel}
+                </label>
+                <p className="mt-1 text-meta text-fg-muted">{t.reviewModelLead}</p>
+              </div>
+              <ReviewModel id="settings-review-model" data={data} />
+            </div>
           </div>
-          <div className={row}>
-            <label htmlFor="settings-review-model">{t.reviewModel}</label>
-            <ReviewModel id="settings-review-model" data={data} />
-            <span />
-          </div>
-          <p className="pt-2 text-meta text-fg-muted">{t.reviewModelLead}</p>
-        </Section>
+          <p className="mt-3 flex items-center gap-2 text-meta text-fg-muted">
+            <Info size={14} aria-hidden="true" />
+            {t.appliesToNewSessions}
+          </p>
+        </section>
       )}
 
       <Dialog.Root open={sheet !== null} onOpenChange={(open) => !open && setSheet(null)}>
         <Dialog.Popup>
+          {sheet?.kind === 'add' && (
+            <>
+              <div className="flex flex-col gap-2">
+                <Dialog.Title>{t.addConnection}</Dialog.Title>
+                <Dialog.Description>{t.addConnectionLead}</Dialog.Description>
+              </div>
+              <div className="flex flex-col gap-3">
+                <AddMethod
+                  icon={<MessagesSquare size={18} />}
+                  label={c.chatgpt}
+                  note={c.chatgptNote}
+                  onClick={() => setSheet({ kind: 'chatgpt' })}
+                />
+                <AddMethod
+                  icon={<KeyRound size={18} />}
+                  label={c.apiKey}
+                  note={c.apiKeyNote}
+                  onClick={() => setSheet({ kind: 'api-key' })}
+                />
+                <AddMethod
+                  icon={<Server size={18} />}
+                  label={c.local}
+                  note={c.localNote}
+                  onClick={() => setSheet({ kind: 'local' })}
+                />
+              </div>
+              <div className="flex justify-end">
+                <Dialog.Close render={<Button />}>{t.cancel}</Dialog.Close>
+              </div>
+            </>
+          )}
           {sheet?.kind === 'api-key' && (
-            <ApiKeyForm
-              providers={data.providers}
-              initialProvider={sheet.provider}
-              makeDefault={data.defaultModel === null}
-              onDone={() => setSheet(null)}
-            />
+            <>
+              <ApiKeyForm
+                onBack={() => setSheet({ kind: 'add' })}
+                providers={data.providers}
+                initialProvider={sheet.provider}
+                makeDefault={data.defaultModel === null}
+                onDone={() => setSheet(null)}
+              />
+            </>
           )}
           {sheet?.kind === 'chatgpt' && (
             <ChatGPTSignIn
+              onBack={() => setSheet({ kind: 'add' })}
               connection={sheet.connection}
               consent={sheet.consent}
               makeDefault={data.defaultModel === null}
@@ -133,6 +214,7 @@ export function ConnectionTab() {
           )}
           {sheet?.kind === 'local' && (
             <LocalServerForm
+              onBack={() => setSheet({ kind: 'add' })}
               initialAddress={sheet.address}
               makeDefault={data.defaultModel === null}
               onDone={() => setSheet(null)}
@@ -209,33 +291,45 @@ function RemoveDialog({
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function ActionsMenu({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-1">
-      <h2 className="text-lead">{title}</h2>
-      <div className="flex flex-col">{children}</div>
-    </section>
+    <Menu.Root>
+      <Menu.Trigger
+        aria-label={label}
+        className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-fg-muted hover:bg-hover"
+      >
+        <Ellipsis size={18} aria-hidden="true" />
+      </Menu.Trigger>
+      <Menu.Popup align="end">{children}</Menu.Popup>
+    </Menu.Root>
   );
 }
 
-function AddRow({
+function AddMethod({
+  icon,
   label,
   note,
-  link,
-  onConnect,
+  onClick,
 }: {
+  icon: ReactNode;
   label: string;
   note: string;
-  link?: string;
-  onConnect?: () => void;
+  onClick: () => void;
 }) {
-  const t = useMessages(messages);
   return (
-    <div className={row}>
-      <span className={onConnect ? undefined : 'text-fg-muted'}>{label}</span>
-      <span className="text-meta text-fg-muted">{note}</span>
-      {onConnect ? <LinkButton onClick={onConnect}>{link ?? t.connectLink}</LinkButton> : <span />}
-    </div>
+    <button
+      onClick={onClick}
+      className="flex w-full cursor-pointer items-center gap-3 rounded-lg border border-line-subtle p-4 text-left hover:bg-canvas-sunken"
+    >
+      <span aria-hidden="true" className="shrink-0 text-fg-muted">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-body font-medium">{label}</span>
+        <span className="mt-1 block text-meta text-fg-muted">{note}</span>
+      </span>
+      <ChevronRight size={16} aria-hidden="true" className="shrink-0 text-fg-muted" />
+    </button>
   );
 }
 
@@ -244,12 +338,16 @@ function Status({ connection, data }: { connection: ConnectionInfo; data: Connec
   const c = useMessages(connectMessages);
   if (connection.account) {
     const { signedIn, planUsage } = connection.account;
-    const text = !signedIn ? c.chatgptSignedOut : !planUsage ? c.chatgptPlanOff : c.chatgptUsageThere;
+    if (signedIn && planUsage) return null;
+    const text = !signedIn ? c.chatgptSignedOut : c.chatgptPlanOff;
     return <span className={signedIn ? 'text-meta text-fg-muted' : 'text-meta text-danger'}>{text}</span>;
   }
   const provider = data.providers.find((p) => p.id === connection.provider);
   if (provider && !connection.hasKey) return <span className="text-meta text-danger">{c.noKey(provider.keyEnv)}</span>;
-  if (!provider) return <span className="truncate font-mono text-meta text-fg-muted">{connection.baseUrl}</span>;
+  if (!provider)
+    return (
+      <span className="text-meta text-fg-muted wrap-anywhere">{connection.baseUrl?.replace(/^https?:\/\//, '')}</span>
+    );
   return (
     <span className="text-meta text-fg-muted">{provider.billing === 'subscription' ? c.subscription : c.usage}</span>
   );
@@ -309,15 +407,19 @@ function ModelSelect({
     value?.startsWith(`${connection}/`) ? value.slice(connection.length + 1) : null;
   const shown = data.connections.map((connection, i) => shownModels(lists[i]?.data, [keep(connection.name)]));
   const listed = new Set(data.connections.flatMap((connection, i) => shown[i]!.map((m) => `${connection.name}/${m}`)));
+  const fallbackConnection = data.connections.find((connection) => value?.startsWith(`${connection.name}/`));
+  const fallbackLabel = fallbackConnection
+    ? `${providerName(fallbackConnection, data)} · ${value?.slice(fallbackConnection.name.length + 1)}`
+    : value;
   return (
     <NativeSelect id={id} value={value ?? ''} onChange={(event) => onChange(event.target.value || null)}>
       {empty !== null && <option value="">{empty}</option>}
-      {value !== null && !listed.has(value) && <option>{value}</option>}
+      {value !== null && !listed.has(value) && <option value={value}>{fallbackLabel}</option>}
       {data.connections.map((connection, i) => (
         <optgroup key={connection.name} label={connectionLabel(connection, data.providers, c)}>
           {shown[i]!.map((model) => (
             <option key={model} value={`${connection.name}/${model}`}>
-              {model}
+              {providerName(connection, data)} · {model}
             </option>
           ))}
         </optgroup>
@@ -336,25 +438,37 @@ function ChatGPTActions({
 }) {
   const c = useMessages(connectMessages);
   const signOut = useChatGPTSignOut();
+  const t = useMessages(messages);
   const account = connection.account!;
-  if (!account.signedIn)
-    return (
-      <span className="inline-flex items-center gap-1">
-        {signOut.data?.revoked === false && (
-          <span className="text-meta text-fg-muted" role="status">
-            {c.signOutUnconfirmed}
-          </span>
-        )}
-        <LinkButton onClick={() => onSignIn(false)}>{c.signInAgain}</LinkButton>
-      </span>
-    );
-  if (!account.planUsage) return <LinkButton onClick={() => onSignIn(true)}>{c.allowAgain}</LinkButton>;
   return (
-    <span className="inline-flex items-center gap-1">
-      <LinkButton onClick={() => void openInBrowser(CHATGPT_USAGE_URL)}>{c.manageUsage}</LinkButton>
-      <LinkButton disabled={signOut.isPending} onClick={() => signOut.mutate(connection.name)}>
-        {c.signOut}
-      </LinkButton>
-    </span>
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {signOut.data?.revoked === false && !account.signedIn && (
+        <span className="text-meta text-fg-muted" role="status">
+          {c.signOutUnconfirmed}
+        </span>
+      )}
+      {!account.signedIn ? (
+        <Button onClick={() => onSignIn(false)}>{c.signInAgain}</Button>
+      ) : !account.planUsage ? (
+        <Button onClick={() => onSignIn(true)}>{c.allowAgain}</Button>
+      ) : (
+        <Button onClick={() => void openInBrowser(CHATGPT_USAGE_URL)}>
+          {t.viewUsage}
+          <ArrowUpRight size={14} aria-hidden="true" />
+        </Button>
+      )}
+      {account.signedIn && (
+        <ActionsMenu label={t.connectionActions('ChatGPT')}>
+          <Menu.Item disabled={signOut.isPending} onClick={() => signOut.mutate(connection.name)}>
+            {c.signOut}
+          </Menu.Item>
+        </ActionsMenu>
+      )}
+      {signOut.error && (
+        <p className="w-full text-meta text-danger" role="alert">
+          {signOut.error.message}
+        </p>
+      )}
+    </div>
   );
 }

@@ -1,0 +1,45 @@
+# Every pull request and every push to main runs the checks from CONTRIBUTING.md: the Python tests and lints, and
+# the TypeScript lint, types and tests, with the generated protocol files checked against their Python source.
+# `ruff format --check` is left out until the files it flags today are formatted.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv sync --locked
+      - run: uv run pytest
+      - run: uv run ruff check
+      - run: uv run lint-imports
+
+  typescript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The protocol check generates the JSON Schema from the Python messages, so it needs uv too.
+      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: uv sync --locked
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm protocol:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test

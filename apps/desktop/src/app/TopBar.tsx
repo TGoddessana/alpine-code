@@ -1,4 +1,4 @@
-import { useMatch, useRouter } from '@tanstack/react-router';
+import { Link, useMatch, useRouter } from '@tanstack/react-router';
 import { ArrowLeft, ArrowRight, GitBranch, PanelLeft } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 
@@ -80,6 +80,15 @@ function SessionPart({ sessionId }: { sessionId: string }) {
         )}
         {info && <StatusWord status={info.status} className="ml-1" />}
       </Drag>
+      {info && (
+        <Link
+          to="/board"
+          search={{ project: info.cwd, session: sessionId }}
+          className="mr-2 rounded-md px-2 py-1 text-body text-interactive hover:bg-hover"
+        >
+          {t.productMap}
+        </Link>
+      )}
       <PanelToggle open={open} files={result.files.length} onToggle={() => setOpen(!open)} />
     </>
   );

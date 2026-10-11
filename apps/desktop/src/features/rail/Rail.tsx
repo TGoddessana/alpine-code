@@ -113,6 +113,7 @@ function ProjectGroup({
   onDeleteSession: (session: SessionInfo) => void;
 }) {
   const [open, setOpen] = useState(true);
+  const t = useMessages(messages);
   return (
     <div className="flex flex-col gap-0.5">
       <ProjectRow
@@ -122,6 +123,16 @@ function ProjectGroup({
         onToggle={() => setOpen(!open)}
         onDelete={onDelete}
       />
+      {open && (
+        <Link
+          to="/board"
+          search={{ project: project.path }}
+          className="ml-6 rounded-md px-2 py-1.5 text-body text-interactive hover:bg-hover"
+          activeProps={active}
+        >
+          ↗ {t.productMap}
+        </Link>
+      )}
       {open && sessions.length > 0 && (
         <div className="ml-4.5 flex flex-col gap-0.5 border-l border-line pl-2">
           <ProjectSessions sessions={sessions} onDelete={onDeleteSession} />

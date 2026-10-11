@@ -4,6 +4,7 @@ import { defineMessages } from '@/shared/i18n';
 
 export const messages = defineMessages({
   ko: {
+    productMap: '제품 지도',
     label: '주 메뉴',
     newSession: '새 세션',
     agents: '에이전트',
@@ -34,6 +35,7 @@ export const messages = defineMessages({
     showLess: '접기',
   },
   en: {
+    productMap: 'Product map',
     label: 'Main menu',
     newSession: 'New session',
     agents: 'Agents',

@@ -5,6 +5,7 @@ import { memo, useMemo } from 'react';
 import { agentMessages, agentName, Character, toolLabel } from '@/shared/components/agent';
 import { Markdown } from '@/shared/components/markdown';
 import { useFormat, useMessages } from '@/shared/i18n';
+import { productMapMessage } from '@/shared/productMapMessage';
 import { openInBrowser } from '@/shared/platform';
 import { CHATGPT_USAGE_URL, useAgents, type Item } from '@/shared/server';
 
@@ -109,12 +110,22 @@ const ItemView = memo(function ItemView({
   const format = useFormat();
   const a = useMessages(agentMessages);
   switch (item.kind) {
-    case 'user_message':
+    case 'user_message': {
+      const map = productMapMessage(item.text);
       return (
-        <div className="flex justify-end">
-          <p className="max-w-140 rounded-2xl bg-hover px-4 py-2 text-reading whitespace-pre-wrap">{item.text}</p>
+        <div className="flex flex-col items-end gap-2">
+          <p className="max-w-140 rounded-2xl bg-hover px-4 py-2 text-reading whitespace-pre-wrap">
+            {map?.request ?? item.text}
+          </p>
+          {map && (
+            <details className="max-w-full text-meta text-fg-muted">
+              <summary className="cursor-pointer">{t.productMapContext}</summary>
+              <pre className="mt-2 whitespace-pre-wrap break-words">{map.context}</pre>
+            </details>
+          )}
         </div>
       );
+    }
     case 'agent_message':
       return (
         <AgentMessage text={item.text} agent={item.agent} streaming={active} header={header} remembered={remembered} />

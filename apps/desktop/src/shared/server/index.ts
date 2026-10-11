@@ -78,3 +78,5 @@ export {
   type SessionScriptOptions,
 } from './sessionScript';
 export { tauriConnection } from './tauri';
+export { useProductMap, usePrepareFlow } from './flow';
+export { EXAMPLE_MAP, flowScript } from './flowScript';

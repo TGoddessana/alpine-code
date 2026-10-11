@@ -397,7 +397,10 @@ export interface ErrorData {
     | 'agent_not_found'
     | 'model_failed'
     | 'not_found'
-    | 'memory_full';
+    | 'memory_full'
+    | 'flow_conflict'
+    | 'invalid_flow'
+    | 'invalid_flow_path';
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -409,6 +412,134 @@ export interface ErrorObject {
   data?: {
     [k: string]: unknown;
   };
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowCheck".
+ */
+export interface FlowCheck {
+  summary: string;
+  command: string;
+  result: 'passed' | 'failed' | 'blocked';
+  output: string;
+  sourceHashes?: {
+    [k: string]: string;
+  };
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowEdge".
+ */
+export interface FlowEdge {
+  source: string;
+  target: string;
+  label?: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowGetParams".
+ */
+export interface FlowGetParams {
+  cwd: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowGetResult".
+ */
+export interface FlowGetResult {
+  document: ProductMap;
+  revision: string;
+  previews?: {
+    [k: string]: string;
+  };
+  staleChecks?: string[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProductMap".
+ */
+export interface ProductMap {
+  version?: 1;
+  /**
+   * @maxItems 50
+   */
+  flows?: ProductFlow[];
+  /**
+   * @maxItems 300
+   */
+  nodes?: FlowNode[];
+  /**
+   * @maxItems 600
+   */
+  edges?: FlowEdge[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProductFlow".
+ */
+export interface ProductFlow {
+  id: string;
+  title: string;
+  /**
+   * @maxItems 100
+   */
+  nodeIds?: string[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowNode".
+ */
+export interface FlowNode {
+  id: string;
+  title: string;
+  description?: string;
+  kind?: 'screen' | 'api' | 'sdk' | 'process' | 'data';
+  phase?: 'planned' | 'building' | 'built';
+  issue?: string | null;
+  /**
+   * @maxItems 30
+   */
+  sources?: string[];
+  preview?: string | null;
+  example?: string;
+  sessionId?: string | null;
+  /**
+   * @maxItems 10
+   */
+  checks?:
+    | []
+    | [FlowCheck]
+    | [FlowCheck, FlowCheck]
+    | [FlowCheck, FlowCheck, FlowCheck]
+    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck]
+    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck]
+    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck]
+    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck]
+    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck]
+    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck]
+    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowPrepareParams".
+ */
+export interface FlowPrepareParams {
+  cwd: string;
+  revision: string;
+  action: 'discover' | 'extend' | 'change' | 'verify';
+  request?: string;
+  nodeId?: string | null;
+  flowId?: string | null;
+  sessionId: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowPrepareResult".
+ */
+export interface FlowPrepareResult {
+  board: FlowGetResult;
+  prompt: string;
+  nodeId?: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -1339,6 +1470,8 @@ export interface ToolsTestResult {
 
 export interface Methods {
   'initialize': { params: InitializeParams; result: InitializeResult };
+  'flow/get': { params: FlowGetParams; result: FlowGetResult };
+  'flow/prepare': { params: FlowPrepareParams; result: FlowPrepareResult };
   'connections/list': { params: ConnectionsListParams; result: ConnectionsListResult };
   'connections/models': { params: ConnectionsModelsParams; result: ConnectionsModelsResult };
   'connections/add': { params: ConnectionsAddParams; result: ConnectionsAddResult };

@@ -2,6 +2,7 @@ import { defineMessages } from '@/shared/i18n';
 
 export const messages = defineMessages({
   ko: {
+    productMap: '제품 지도',
     showSidebar: '사이드바 열기',
     hideSidebar: '사이드바 닫기',
     back: '뒤로',
@@ -10,6 +11,7 @@ export const messages = defineMessages({
     branch: '작업 갈래',
   },
   en: {
+    productMap: 'Product map',
     showSidebar: 'Show sidebar',
     hideSidebar: 'Hide sidebar',
     back: 'Back',

@@ -7,6 +7,14 @@
       "params": "InitializeParams",
       "result": "InitializeResult"
     },
+    "flow/get": {
+      "params": "FlowGetParams",
+      "result": "FlowGetResult"
+    },
+    "flow/prepare": {
+      "params": "FlowPrepareParams",
+      "result": "FlowPrepareResult"
+    },
     "connections/list": {
       "params": "ConnectionsListParams",
       "result": "ConnectionsListResult"
@@ -1195,7 +1203,10 @@
             "agent_not_found",
             "model_failed",
             "not_found",
-            "memory_full"
+            "memory_full",
+            "flow_conflict",
+            "invalid_flow",
+            "invalid_flow_path"
           ],
           "type": "string"
         }
@@ -1223,6 +1234,292 @@
         "message"
       ],
       "title": "ErrorObject",
+      "type": "object"
+    },
+    "FlowCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "command": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "result": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked"
+          ],
+          "type": "string"
+        },
+        "output": {
+          "maxLength": 8000,
+          "type": "string"
+        },
+        "sourceHashes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 40,
+          "type": "object"
+        }
+      },
+      "required": [
+        "summary",
+        "command",
+        "result",
+        "output"
+      ],
+      "title": "FlowCheck",
+      "type": "object"
+    },
+    "FlowEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "maxLength": 100,
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ],
+      "title": "FlowEdge",
+      "type": "object"
+    },
+    "FlowGetParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "title": "FlowGetParams",
+      "type": "object"
+    },
+    "FlowGetResult": {
+      "properties": {
+        "document": {
+          "$ref": "#/$defs/ProductMap"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "previews": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "staleChecks": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "document",
+        "revision"
+      ],
+      "title": "FlowGetResult",
+      "type": "object"
+    },
+    "FlowNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 4000,
+          "type": "string"
+        },
+        "kind": {
+          "default": "process",
+          "enum": [
+            "screen",
+            "api",
+            "sdk",
+            "process",
+            "data"
+          ],
+          "type": "string"
+        },
+        "phase": {
+          "default": "planned",
+          "enum": [
+            "planned",
+            "building",
+            "built"
+          ],
+          "type": "string"
+        },
+        "issue": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 30,
+          "type": "array"
+        },
+        "preview": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "example": {
+          "default": "",
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "sessionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/FlowCheck"
+          },
+          "maxItems": 10,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "FlowNode",
+      "type": "object"
+    },
+    "FlowPrepareParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "discover",
+            "extend",
+            "change",
+            "verify"
+          ],
+          "type": "string"
+        },
+        "request": {
+          "default": "",
+          "maxLength": 8000,
+          "type": "string"
+        },
+        "nodeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "flowId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "revision",
+        "action",
+        "sessionId"
+      ],
+      "title": "FlowPrepareParams",
+      "type": "object"
+    },
+    "FlowPrepareResult": {
+      "properties": {
+        "board": {
+          "$ref": "#/$defs/FlowGetResult"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "nodeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "board",
+        "prompt"
+      ],
+      "title": "FlowPrepareResult",
       "type": "object"
     },
     "GitInfo": {
@@ -1961,6 +2258,68 @@
         "similar"
       ],
       "title": "PackageInfo",
+      "type": "object"
+    },
+    "ProductFlow": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "nodeIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "ProductFlow",
+      "type": "object"
+    },
+    "ProductMap": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
+        },
+        "flows": {
+          "items": {
+            "$ref": "#/$defs/ProductFlow"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/FlowNode"
+          },
+          "maxItems": 300,
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/FlowEdge"
+          },
+          "maxItems": 600,
+          "type": "array"
+        }
+      },
+      "title": "ProductMap",
       "type": "object"
     },
     "ProjectInfo": {

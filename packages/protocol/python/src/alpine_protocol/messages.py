@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 
 #: Bumped on every change an older app or server cannot read.
@@ -82,6 +82,9 @@ class ErrorData(Message):
         "model_failed",
         "not_found",
         "memory_full",
+        "flow_conflict",
+        "invalid_flow",
+        "invalid_flow_path",
     ]
     """``auth``: the key is missing or rejected. ``unreachable``: no answer from the address. ``unsupported``: the
     server does not list its models, so the model name has to be typed. ``not_a_folder``: the path is not a folder.
@@ -1086,9 +1089,108 @@ class MemoryChangedParams(Message):
     cwd: str
 
 
+# Product map: a project-owned document, readable and editable by the coding agent.
+
+
+class FlowCheck(Message):
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(max_length=2000)
+    command: str = Field(max_length=2000)
+    result: Literal["passed", "failed", "blocked"]
+    output: str = Field(max_length=8000)
+    source_hashes: dict[str, str] = Field(default_factory=dict, max_length=40)
+    """SHA-256 of relevant source files when the check ran. Missing/mismatched hashes mean stale."""
+
+
+class FlowNode(Message):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$")
+    title: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=4000)
+    kind: Literal["screen", "api", "sdk", "process", "data"] = "process"
+    phase: Literal["planned", "building", "built"] = "planned"
+    issue: str | None = Field(default=None, max_length=2000)
+    sources: list[str] = Field(default_factory=list, max_length=30)
+    preview: str | None = None
+    """Optional project-relative PNG/JPEG/WebP screenshot. Never an external URL."""
+    example: str = Field(default="", max_length=2000)
+    session_id: str | None = None
+    checks: list[FlowCheck] = Field(default_factory=list, max_length=10)
+
+
+class FlowEdge(Message):
+    model_config = ConfigDict(extra="forbid")
+
+    source: str
+    target: str
+    label: str = Field(default="", max_length=100)
+
+
+class ProductFlow(Message):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$")
+    title: str = Field(min_length=1, max_length=120)
+    node_ids: list[str] = Field(default_factory=list, max_length=100)
+
+
+class ProductMap(Message):
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal[1] = 1
+    flows: list[ProductFlow] = Field(default_factory=list, max_length=50)
+    nodes: list[FlowNode] = Field(default_factory=list, max_length=300)
+    edges: list[FlowEdge] = Field(default_factory=list, max_length=600)
+
+    @model_validator(mode="after")
+    def references(self) -> ProductMap:
+        ids = {node.id for node in self.nodes}
+        if len(ids) != len(self.nodes) or len({f.id for f in self.flows}) != len(self.flows):
+            raise ValueError("Duplicate node or flow id")
+        if any(not set(f.node_ids) <= ids or len(set(f.node_ids)) != len(f.node_ids) for f in self.flows):
+            raise ValueError("Unknown or duplicate node in flow")
+        if any(e.source not in ids or e.target not in ids for e in self.edges):
+            raise ValueError("Unknown edge endpoint")
+        if len({(e.source, e.target) for e in self.edges}) != len(self.edges):
+            raise ValueError("Duplicate edge")
+        return self
+
+
+class FlowGetParams(Message):
+    cwd: str
+
+
+class FlowGetResult(Message):
+    document: ProductMap
+    revision: str
+    previews: dict[str, str] = Field(default_factory=dict)
+    stale_checks: list[str] = Field(default_factory=list)
+    """Node IDs whose recorded checks do not match the current source files."""
+
+
+class FlowPrepareParams(Message):
+    cwd: str
+    revision: str
+    action: Literal["discover", "extend", "change", "verify"]
+    request: str = Field(default="", max_length=8000)
+    node_id: str | None = None
+    flow_id: str | None = None
+    session_id: str
+
+
+class FlowPrepareResult(Message):
+    board: FlowGetResult
+    prompt: str
+    node_id: str | None = None
+
+
 #: Every method an app can call: name -> (params, result).
 METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "initialize": (InitializeParams, InitializeResult),
+    "flow/get": (FlowGetParams, FlowGetResult),
+    "flow/prepare": (FlowPrepareParams, FlowPrepareResult),
     "connections/list": (ConnectionsListParams, ConnectionsListResult),
     "connections/models": (ConnectionsModelsParams, ConnectionsModelsResult),
     "connections/add": (ConnectionsAddParams, ConnectionsAddResult),

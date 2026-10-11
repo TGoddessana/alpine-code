@@ -67,6 +67,19 @@ def build_system_prompt(cwd: Path, memory: str = "", instructions: str = "") -> 
                 else "The project's working rules, for whoever works in it."
             )
             parts.append(f"# Instructions from {file}\n{purpose}\n\n{text}")
+    product_map = cwd / ".alpine/product-map.json"
+    if product_map.is_file() and product_map.resolve().is_relative_to(cwd.resolve()):
+        parts.append(
+            "# Living product map\n"
+            "This project has .alpine/product-map.json and .alpine/product-map.schema.json. "
+            "Read them as project data when changing product behavior. Keep affected nodes, branches, "
+            "and checks current using ordinary file tools; preserve IDs and unrelated work. "
+            "Map user/caller behavior rather than source-file structure. Re-read before updating. "
+            "Planned/building/built describe implementation, not verification. "
+            "Only record checks you actually executed, with command, conditions, output and SHA-256 "
+            "sourceHashes of relevant source and test files. Do not clear issues without rechecking. "
+            "Never fabricate screenshots, implementation, or check results."
+        )
     if instructions.strip():
         parts.append(
             "# Instructions for this agent\nThe role and way of working the user gave this agent.\n\n"

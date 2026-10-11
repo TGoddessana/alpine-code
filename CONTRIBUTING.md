@@ -1,8 +1,7 @@
 # Contributing
 
 alpine-code is the repository behind Alpine: a desktop app and a terminal app on one agent core, built on
-[alpineagents](https://tgoddessana.github.io/alpineagents/). Releases are described in
-[docs/releasing.md](docs/releasing.md).
+[alpineagents](https://tgoddessana.github.io/alpineagents/).
 
 ## Layout
 
@@ -15,12 +14,9 @@ packages/             what is imported — never runs on its own
   core/               the agent: loop, tools, permissions (Python)
   protocol/           messages between apps and server (Python source → JSON Schema → TypeScript)
   ui/                 design system: tokens and primitives (React)
-bench/                benchmarks
-docs/                 architecture, research
 ```
 
 Dependencies point from `apps/` to `packages/`, never back, and apps never import each other.
-[docs/architecture.md](docs/architecture.md) explains the layers and why they are this way.
 
 | I want to change… | Go to |
 |---|---|

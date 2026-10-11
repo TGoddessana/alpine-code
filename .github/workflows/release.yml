@@ -2,7 +2,6 @@
 # release. Publishing that draft is what ships the app: the updater reads releases/latest/download/latest.json.
 # A pull request that touches the build only builds, signs and notarizes the app, uploaded as workflow artifacts.
 # Running it by hand with a tag builds the app at that tag again and uploads it to the tag's draft release.
-# Steps and secrets: docs/releasing.md.
 name: Release
 
 on:

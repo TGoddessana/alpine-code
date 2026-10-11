@@ -1,7 +1,6 @@
 # Alpine desktop
 
-The desktop app: React screens in `src/`, a Tauri (Rust) shell in `src-tauri/`. Layers and rules are in
-[docs/architecture.md](../../docs/architecture.md).
+The desktop app: React screens in `src/`, a Tauri (Rust) shell in `src-tauri/`.
 
 ```sh
 pnpm desktop      # from the repo root: the app, with the server run from source through uv

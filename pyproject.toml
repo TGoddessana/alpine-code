@@ -1,5 +1,5 @@
 # Python side of the alpine-code monorepo: a uv workspace with no package of its own.
-# TypeScript members live in pnpm-workspace.yaml. See docs/architecture.md for the layout.
+# TypeScript members live in pnpm-workspace.yaml. CONTRIBUTING.md shows the layout.
 
 [tool.uv.workspace]
 members = ["apps/cli", "apps/server", "packages/core", "packages/protocol/python"]

@@ -16,7 +16,6 @@ export default tseslint.config(
       '**/routeTree.gen.ts',
       'packages/protocol/typescript/src/generated.ts',
       '.venv/**',
-      'bench/**',
     ],
   },
   js.configs.recommended,

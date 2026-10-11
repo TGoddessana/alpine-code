@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/demo.gif" alt="Alpine Code at work: asked to make a bakery website's menu page fit on a phone, it reads two files, asks before editing the stylesheet and before running the build, then reports what changed. The work result panel fills in as it goes" width="900">
+  <img src="assets/images/demo.gif" alt="Alpine Code at work: asked to make a bakery website's menu page fit on a phone, it reads two files, asks before editing the stylesheet and before running the build, then reports what changed. The work result panel fills in as it goes" width="900">
 </p>
 
 Alpine Code is an open-source AI coding agent for your desktop and your terminal. Open a folder, say what you want,
@@ -42,7 +42,7 @@ It's built for two kinds of people at once:
 simply." "Check that it still runs." Not sure where to start? A new session suggests a few things to try.
 
 <p align="center">
-  <img src="docs/images/start.png" alt="A new session in the bakery-site folder: 'What shall we build?' with four suggestions, such as 'Make the screen look good on a phone'" width="800">
+  <img src="assets/images/start.png" alt="A new session in the bakery-site folder: 'What shall we build?' with four suggestions, such as 'Make the screen look good on a phone'" width="800">
 </p>
 
 **Nothing changes without your OK.** It reads freely inside the folder you opened. Before it changes a file or runs a
@@ -50,7 +50,7 @@ command, it shows you what it wants to do and waits: **Allow**, **Always allow**
 instead. A project that needs you is marked in the list, so you can leave it working and come back.
 
 <p align="center">
-  <img src="docs/images/approval.png" alt="Alpine Code asking before it edits menu.css: the change line by line, with Allow, Always allow and Skip, and 'Needs your OK' next to the session in the list" width="800">
+  <img src="assets/images/approval.png" alt="Alpine Code asking before it edits menu.css: the change line by line, with Allow, Always allow and Skip, and 'Needs your OK' next to the session in the list" width="800">
 </p>
 
 **You see everything it did.** The work result panel lists every file it changed, line by line, and every command it
@@ -61,8 +61,8 @@ memory meter to see how much of the conversation the model is keeping in mind, a
 
 <table>
   <tr>
-    <td width="50%" valign="top"><img src="docs/images/work-result.png" alt="The work result panel with menu.css opened: removed lines in red, added lines in green, and the build command it ran"></td>
-    <td width="50%" valign="top"><img src="docs/images/memory.png" alt="The memory popover: 12% of the model's memory used, explained in plain words, with tokens sent and received, requests and cost"></td>
+    <td width="50%" valign="top"><img src="assets/images/work-result.png" alt="The work result panel with menu.css opened: removed lines in red, added lines in green, and the build command it ran"></td>
+    <td width="50%" valign="top"><img src="assets/images/memory.png" alt="The memory popover: 12% of the model's memory used, explained in plain words, with tokens sent and received, requests and cost"></td>
   </tr>
   <tr>
     <td align="center">Every change, line by line</td>
@@ -78,7 +78,7 @@ installed for you, after asking for any it hasn't reviewed. Or describe the tool
 agent will see, and **Try it** runs it before you save.
 
 <p align="center">
-  <img src="docs/images/tool-editor.png" alt="The tool editor: a fetch tool written as one Python function with its dependencies declared at the top, and on the right what the agent sees: its name, description, parameters, when it asks, and a form to try it" width="800">
+  <img src="assets/images/tool-editor.png" alt="The tool editor: a fetch tool written as one Python function with its dependencies declared at the top, and on the right what the agent sees: its name, description, parameters, when it asks, and a form to try it" width="800">
 </p>
 
 
@@ -91,7 +91,7 @@ so you write your conventions down once.
 **Bring any model.** Besides the providers it knows, any server that speaks the OpenAI API works, local or hosted.
 
 **Build on the core.** The agent is its own Python package, `alpine-code-core`, with no UI in it. The desktop app
-talks to it over a JSON-RPC protocol ([docs/session-protocol.md](docs/session-protocol.md)), so another front end
+talks to it over a JSON-RPC protocol (`packages/protocol`), so another front end
 is one more client. [CONTRIBUTING.md](CONTRIBUTING.md) shows how the repository fits together.
 
 ## Get started
@@ -115,7 +115,7 @@ You can connect several and switch models in the middle of a conversation withou
 plans can't be used in other apps, so Claude models connect with an API key.
 
 <p align="center">
-  <img src="docs/images/connect-a-model.png" alt="The Connect a model dialog: Sign in with ChatGPT, API key, or a local or compatible server" width="560">
+  <img src="assets/images/connect-a-model.png" alt="The Connect a model dialog: Sign in with ChatGPT, API key, or a local or compatible server" width="560">
 </p>
 
 ## In the terminal

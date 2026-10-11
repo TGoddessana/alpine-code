@@ -1,4 +1,4 @@
-"""Use a ChatGPT Plus or Pro plan through OpenAI's Sign in with ChatGPT (docs/chatgpt-sign-in.md).
+"""Use a ChatGPT Plus or Pro plan through OpenAI's Sign in with ChatGPT.
 
 ``SignIn`` runs the browser sign-in, ``save_account`` keeps the result as a connection, ``ChatGPTTokens`` keeps
 its token fresh and ``ChatGPTModel`` runs a model on the plan.

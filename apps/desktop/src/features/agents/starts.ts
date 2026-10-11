@@ -5,7 +5,7 @@ import type { AgentsWords } from './messages';
 export type StartId = 'blank' | 'maker' | 'review' | 'writer';
 
 /**
- * The four ways a new agent can begin (docs/agents.md decision 15): a character and which built-in tools are on. User
+ * The four ways a new agent can begin: a character and which built-in tools are on. User
  * tools, skills, MCP and subagents differ per user or don't exist yet, so a start never includes them.
  */
 export const STARTS: readonly { id: StartId; look: string; color: number; tools: readonly string[] }[] = [

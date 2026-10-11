@@ -1,4 +1,4 @@
-"""Proposers of the harness: suggestions from what it observes, never from the model (docs/memory.md, Pruning)."""
+"""Proposers of the harness: suggestions from what it observes, never from the model."""
 
 from __future__ import annotations
 

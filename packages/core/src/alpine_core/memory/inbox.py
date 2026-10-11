@@ -1,6 +1,6 @@
 """The inbox: every suggestion goes through it, whoever proposed it, and only what the user approves is kept.
 
-Its rules are fixed (docs/memory.md); everything around it is a port:
+Its rules are fixed; everything around it is a port:
 
 - A suggestion close to a pending one joins it, adding its evidence. A suggestion to remove a memory joins a pending
   one for the same memory.
@@ -30,7 +30,7 @@ from .model import KINDS, Check, Evidence, Guard, Kind, Memory, Scope, Suggestio
 from .rules import check_form, guard_form
 from .store import MemoryStore
 
-#: Most memories per scope to start with (docs/memory.md, Pruning).
+#: Most memories per scope to start with.
 CAP = 30
 
 

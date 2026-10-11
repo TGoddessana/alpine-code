@@ -111,7 +111,7 @@ class Session:
     its checks and guards apply, and memories approved through ``memories`` reach it as notices; the memory's tools
     come from ``tools``, as ``memories.of(folder)``.
 
-    The conversation is also kept as items (``docs/session-protocol.md``): ``on_item_event(session_id, seq,
+    The conversation is also kept as items: ``on_item_event(session_id, seq,
     event)`` gets every item event, and ``snapshot()`` returns the items so far. With ``storage``, the session is
     saved as it goes (finished items and info in the log, the conversation in the store) and ``Session.resume``
     opens it again. ``id`` is the id it is saved under. All of this runs on the event loop's thread.
@@ -460,7 +460,7 @@ class Session:
         self._touch()
 
     def _refresh_agent(self) -> None:
-        """Takes the agent's edits since the last message (decision 10 of ``docs/agents.md``). A deleted agent is
+        """Takes the agent's edits since the last message. A deleted agent is
         replaced by the default agent. Edits the model never sees (name, description, look) only update what the
         session knows; changed tools, instructions or model rebuild the agent, and once the conversation has begun
         an ``agent_changed`` item says what changed, ahead of the user's message."""

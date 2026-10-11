@@ -1,4 +1,4 @@
-"""Checks and guards: what a memory makes the harness do while the agent works (docs/memory.md, Following).
+"""Checks and guards: what a memory makes the harness do while the agent works.
 
 Both judge only what the harness observed (``Facts``: the commands that ran and the files that changed), never what
 the model says. Both are ports: ``CheckRunner`` and ``GuardMatcher``, with ``FormChecks`` and ``PatternGuards`` as

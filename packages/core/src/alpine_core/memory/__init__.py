@@ -1,4 +1,4 @@
-"""Memory: what the agent learns about a project and its user across sessions (docs/memory.md).
+"""Memory: what the agent learns about a project and its user across sessions.
 
 The parts are ports, each with one default, put together by ``memory_system``:
 

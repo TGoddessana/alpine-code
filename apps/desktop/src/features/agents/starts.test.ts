@@ -6,7 +6,7 @@ import { STARTS, startText } from './starts';
 const start = (id: (typeof STARTS)[number]['id']) => STARTS.find((s) => s.id === id)!;
 const text = (id: (typeof STARTS)[number]['id']) => startText(id, agentsMessages.ko);
 
-describe('starts (docs/agents.md decision 15)', () => {
+describe('starts', () => {
   it('has the four starting points', () => {
     expect(STARTS.map((s) => s.id)).toEqual(['blank', 'maker', 'review', 'writer']);
   });

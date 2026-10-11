@@ -239,8 +239,8 @@ class SettingsSetReviewModelResult(Message):
     review_model: str | None
 
 
-# ChatGPT: a connection that signs in with the user's ChatGPT account and runs on their plan
-# (docs/chatgpt-sign-in.md). The browser does the signing in; the server waits for it and announces the end with
+# ChatGPT: a connection that signs in with the user's ChatGPT account and runs on their plan.
+# The browser does the signing in; the server waits for it and announces the end with
 # chatgpt/signInFinished.
 
 
@@ -593,11 +593,11 @@ class AgentsDeleteResult(Message):
     pass
 
 
-# Sessions: see docs/session-protocol.md
+# Sessions
 
 Mode = Literal["default", "accept_edits", "auto", "yolo"]
 """The core's permission modes: ask before edits and commands, ask before commands only, let a reviewer model
-decide what ``accept_edits`` would ask (docs/auto-mode.md), or never ask."""
+decide what ``accept_edits`` would ask, or never ask."""
 
 SessionStatus = Literal["idle", "running", "waiting", "failed"]
 """``waiting``: an approval is active. ``failed``: the last run failed; until the next message."""
@@ -975,7 +975,7 @@ class SessionEventParams(Message):
     event: SessionEvent
 
 
-# Memory (docs/memory.md)
+# Memory
 
 MemoryScope = Literal["team", "project_me", "me"]
 
@@ -990,7 +990,7 @@ class MemoryEvidence(Message):
 
 
 class MemoryCheck(Message):
-    """What the harness checks while the agent works, in the forms of docs/memory.md (English, for the model)."""
+    """What the harness checks while the agent works, in the forms memory rules take (English, for the model)."""
 
     when: str
     expect: str

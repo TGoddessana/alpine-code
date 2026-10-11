@@ -1540,7 +1540,7 @@
       "type": "object"
     },
     "MemoryCheck": {
-      "description": "What the harness checks while the agent works, in the forms of docs/memory.md (English, for the model).",
+      "description": "What the harness checks while the agent works, in the forms memory rules take (English, for the model).",
       "properties": {
         "when": {
           "type": "string"

@@ -1,4 +1,4 @@
-"""Auto mode's reviewer: decides in the user's place about the calls the rules would ask about (``docs/auto-mode.md``).
+"""Auto mode's reviewer: decides in the user's place about the calls the rules would ask about.
 
 The parts are separate so each can be replaced:
 

@@ -1,6 +1,6 @@
 """The conversation as items, and the item events a frontend or the server sends.
 
-A conversation is a list of items (see ``docs/session-protocol.md``). ``ItemRecorder`` turns the core's ``Event``
+A conversation is a list of items. ``ItemRecorder`` turns the core's ``Event``
 objects, plus explicit calls for user messages and approvals, into item events; it numbers them with a per-session
 ``seq`` that only grows and keeps the finished and the active items so a snapshot can be built at any moment.
 Items and item events are frozen dataclasses; ``item_to_dict`` and friends turn them into plain JSON data with

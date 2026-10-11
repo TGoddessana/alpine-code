@@ -3,7 +3,7 @@
 ``build_permissions`` builds the list alpineagents asks about every call: deny permissions first (memory checks
 that refuse a command until something else ran), then ``AllowByPolicy`` for what the mode and the conversation's
 "don't ask again" answers allow, then ``DecideByApprover``, which asks the frontend's ``Approver`` about the rest,
-or in ``auto`` mode a ``Reviewer`` first (``docs/auto-mode.md``).
+or in ``auto`` mode a ``Reviewer`` first.
 """
 
 from __future__ import annotations

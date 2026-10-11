@@ -55,7 +55,7 @@ function Remove({ label, onClick }: { label: string; onClick: () => void }) {
 }
 
 /**
- * Board 에이전트 화면, the rows (docs/agents.md decision 6): 모델, 지침, 기본 도구, 사용자 정의 도구 and the three
+ * Board 에이전트 화면, the rows: 모델, 지침, 기본 도구, 사용자 정의 도구 and the three
  * that are 준비 중. `onChange` saves the agent; `onAdd` and `onRemove` save a tool change and tell about it.
  */
 export function AgentRows({

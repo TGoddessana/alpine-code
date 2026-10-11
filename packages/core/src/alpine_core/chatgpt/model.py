@@ -1,7 +1,7 @@
 """A Model that runs on the user's ChatGPT plan: OpenAI's Responses API with the signed-in account's token.
 
 What this route requires (developers.openai.com/siwc/token-sharing-open-source/preview-limitations, and what the
-spike found, docs/chatgpt-sign-in.md):
+spike found):
 
 - ``store: false`` and ``stream: true``; the whole conversation goes in ``input`` every time.
 - The system prompt goes in ``instructions``. No ``temperature``, ``max_output_tokens`` and similar fields.

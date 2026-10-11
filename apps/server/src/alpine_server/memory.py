@@ -1,4 +1,4 @@
-"""The ``memory/*`` methods: a project's memories and the suggestions waiting for the user (docs/memory.md).
+"""The ``memory/*`` methods: a project's memories and the suggestions waiting for the user.
 
 Approving runs on the event loop, where the sessions live, because approving tells the running sessions. A change
 can come from any thread (the agent suggests from a tool's thread), so ``memory/changed`` is sent from the loop.

@@ -690,7 +690,7 @@ export interface MemoryEvidence {
   quote: string;
 }
 /**
- * What the harness checks while the agent works, in the forms of docs/memory.md (English, for the model).
+ * What the harness checks while the agent works, in the forms memory rules take (English, for the model).
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "MemoryCheck".

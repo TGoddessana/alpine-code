@@ -1,4 +1,4 @@
-"""What a memory is: its kind, its scope, and the suggestion it starts as (docs/memory.md)."""
+"""What a memory is: its kind, its scope, and the suggestion it starts as."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Auto mode (docs/auto-mode.md): one test per decision, with a fake reviewer, then the model reviewer's input."""
+"""Auto mode: one test per decision, with a fake reviewer, then the model reviewer's input."""
 
 import asyncio
 from pathlib import Path

@@ -3,7 +3,7 @@
 The user builds agents on one screen and puts one to work on a project, the way a new hire is put on a team. A
 session starts with the agent the user picked, else the one its project used last, else the default agent, which
 always exists. Safety belongs to the session and memory to the project, so an agent holds neither. Nothing picks an
-agent by project or model. See ``docs/agents.md``.
+agent by project or model.
 
 Kept in ``~/.alpine-code/agents.json``. Tool names cover built-in and user tools alike. Profiles from before agents
 (``profiles.json``) become agents the first time the list is read; that file is left where it is.
@@ -176,7 +176,7 @@ class AgentList:
         return _default_first(agents)
 
     def _migrate(self) -> list[AgentConfig]:
-        """Turns ``profiles.json`` into agents (decision 11 of ``docs/agents.md``), once. Without it, the default."""
+        """Turns ``profiles.json`` into agents, once. Without it, the default."""
         try:
             data = json.loads((self._home / "profiles.json").read_text("utf-8"))
         except (OSError, ValueError):

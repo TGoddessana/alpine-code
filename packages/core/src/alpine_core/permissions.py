@@ -4,7 +4,7 @@ A tool's kind comes from its hints for the call (see ``kind_of``): ``read`` for 
 ``edit`` for tools that change local files, ``exec`` for everything else.
 
 Rules, in order (``yolo`` skips all of them; ``auto`` follows them as ``accept_edits`` does, and a reviewer model
-answers in the user's place what they would ask, see ``docs/auto-mode.md``):
+answers in the user's place what they would ask):
 
 1. File tools (read, glob, grep, write, edit) on a path outside the working directory ask. "Don't ask again"
    remembers that directory for reading or for editing.

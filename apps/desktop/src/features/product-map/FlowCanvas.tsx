@@ -18,7 +18,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useMessages } from '@/shared/i18n';
 
 import { messages } from './messages';
-import { CARD_HEIGHT, CARD_WIDTH, layoutFlow, nodeState } from './model';
+import { CARD_HEIGHT, CARD_WIDTH, conditionResults, layoutFlow, nodeState } from './model';
 
 const icons = { screen: Image, sdk: Code2, api: Code2, process: Workflow, data: FileCode };
 
@@ -179,6 +179,8 @@ export function FlowCanvas({
                       </svg>
                       {graph.nodes.map(({ node, x, y }) => {
                         const state = nodeState(node, sessions);
+                        const results = conditionResults(node, board.staleConditions?.[node.id]);
+                        const attention = results.find((item) => item.status === 'failed' || item.status === 'recheck');
                         const Icon = icons[node.kind ?? 'process'];
                         const shared = (document.flows ?? []).filter((f) => f.nodeIds?.includes(node.id)).length;
                         return (
@@ -237,6 +239,23 @@ export function FlowCanvas({
                               >
                                 {t[state]}
                               </div>
+                              <div className="truncate text-meta text-fg-muted">
+                                {results.length
+                                  ? t.coverage(
+                                      results.filter((item) => item.status === 'passed').length,
+                                      results.length,
+                                    )
+                                  : t.noPromises}
+                              </div>
+                              {attention && (
+                                <div
+                                  className="truncate text-meta text-attention"
+                                  title={attention.condition.expectation}
+                                >
+                                  {attention.status === 'failed' ? t.conditionFailed : t.recheck} ·{' '}
+                                  {attention.condition.expectation}
+                                </div>
+                              )}
                             </div>
                           </button>
                         );

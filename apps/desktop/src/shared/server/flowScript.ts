@@ -52,13 +52,34 @@ export const EXAMPLE_MAP: ProductMap = {
       description: '주문 금액을 결제합니다.',
       issue: '쿠폰을 적용하면 결제 금액이 갱신되지 않아요.',
       example: 'POST /payments\nexpected: 8100\nactual: 9000',
+      conditions: [
+        { id: 'normal', expectation: '쿠폰이 없으면 주문 금액 그대로 결제한다.' },
+        { id: 'coupon', expectation: '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.' },
+        { id: 'expired', expectation: '만료된 쿠폰은 거절하고 원래 금액을 유지한다.' },
+        { id: 'retry', expectation: '결제를 다시 요청해도 중복 청구하지 않는다.' },
+      ],
       checks: [
+        ...[
+          ['normal', '쿠폰이 없으면 주문 금액 그대로 결제한다.'],
+          ['expired', '만료된 쿠폰은 거절하고 원래 금액을 유지한다.'],
+          ['retry', '결제를 다시 요청해도 중복 청구하지 않는다.'],
+        ].map(([id, expectation]) => ({
+          conditionId: id!,
+          expectation: expectation!,
+          summary: '예제 실행 기록',
+          command: `pnpm test payments -- ${id}`,
+          result: 'passed' as const,
+          output: '1 passed (example)',
+          sourceHashes: { 'src/payments.ts': 'example-baseline' },
+        })),
         {
+          conditionId: 'coupon',
+          expectation: '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.',
           summary: '10% 쿠폰 주문',
           command: 'pnpm test coupon',
           result: 'failed',
           output: 'Expected 8100, received 9000',
-          sourceHashes: {},
+          sourceHashes: { 'src/payments.ts': 'example-baseline' },
         },
       ],
     },
@@ -99,7 +120,8 @@ export function flowScript(initial: ProductMap = EXAMPLE_MAP): Script {
         document: structuredClone(initial),
         revision: 'demo-0',
         previews: {},
-        staleChecks: ['payment'],
+        staleChecks: [],
+        staleConditions: {},
       });
     return boards.get(cwd)!;
   };

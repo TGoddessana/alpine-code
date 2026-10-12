@@ -14,6 +14,7 @@ import {
   useSessions,
 } from '@/shared/server';
 
+import { Conditions } from './Conditions';
 import { ExecutionEvidence } from './ExecutionEvidence';
 import { FlowCanvas } from './FlowCanvas';
 import { messages } from './messages';
@@ -251,6 +252,17 @@ export function ProductMap({
                   <Button disabled={busy || nodeRunning} onClick={() => void start('verify')}>
                     {t.verify}
                   </Button>
+                  {!node.conditions?.length && (
+                    <Button
+                      disabled={busy || nodeRunning}
+                      onClick={() => {
+                        setText(t.defineRequest(node.title));
+                        setForm('change');
+                      }}
+                    >
+                      {t.definePromises}
+                    </Button>
+                  )}
                   {node.sessionId && (
                     <Button
                       onClick={() => {
@@ -317,27 +329,40 @@ export function ProductMap({
                     </pre>
                   )}
                   <ExecutionEvidence sessionId={node.sessionId ?? null} cwd={cwd} />
-                  <h3 className="mb-2 text-lead font-semibold">{t.checks}</h3>
-                  <p className="mb-3 text-meta text-fg-muted">{t.reportNote}</p>
-                  {data?.staleChecks?.includes(node.id) && (
-                    <p className="mb-3 rounded-md bg-canvas-sunken p-2 text-meta text-attention">{t.stale}</p>
+                  <Conditions node={node} staleIds={data?.staleConditions?.[node.id]} />
+                  {!!node.checks?.some((check) => !check.conditionId) && (
+                    <>
+                      <h3 className="mt-5 mb-2 text-lead font-semibold">{t.checks}</h3>
+                      <p className="mb-3 text-meta text-fg-muted">{t.reportNote}</p>
+                      {data?.staleChecks?.includes(node.id) && (
+                        <p className="mb-3 rounded-md bg-canvas-sunken p-2 text-meta text-attention">{t.stale}</p>
+                      )}
+                      {!node.checks?.filter((check) => !check.conditionId).length && (
+                        <p className="text-body text-fg-muted">{t.unchecked}</p>
+                      )}
+                      {node.checks
+                        ?.filter((check) => !check.conditionId)
+                        .map((check, index) => (
+                          <details key={index} className="mb-3 rounded-lg border border-line p-3">
+                            <summary className="cursor-pointer text-body">
+                              <span className={check.result === 'failed' ? 'text-danger' : 'text-fg-muted'}>
+                                {check.result === 'passed'
+                                  ? t.passed
+                                  : check.result === 'failed'
+                                    ? t.failedCheck
+                                    : t.blocked}
+                              </span>{' '}
+                              · {check.summary}
+                            </summary>
+                            <pre className="mt-3 overflow-x-auto font-mono text-meta whitespace-pre-wrap">
+                              {check.command}
+                              {'\n\n'}
+                              {check.output}
+                            </pre>
+                          </details>
+                        ))}
+                    </>
                   )}
-                  {!node.checks?.length && <p className="text-body text-fg-muted">{t.unchecked}</p>}
-                  {node.checks?.map((check, index) => (
-                    <details key={index} className="mb-3 rounded-lg border border-line p-3">
-                      <summary className="cursor-pointer text-body">
-                        <span className={check.result === 'failed' ? 'text-danger' : 'text-fg-muted'}>
-                          {check.result === 'passed' ? t.passed : check.result === 'failed' ? t.failedCheck : t.blocked}
-                        </span>{' '}
-                        · {check.summary}
-                      </summary>
-                      <pre className="mt-3 overflow-x-auto font-mono text-meta whitespace-pre-wrap">
-                        {check.command}
-                        {'\n\n'}
-                        {check.output}
-                      </pre>
-                    </details>
-                  ))}
                   {!!node.sources?.length && (
                     <details className="mt-5">
                       <summary className="cursor-pointer text-meta text-fg-muted">{t.sources}</summary>

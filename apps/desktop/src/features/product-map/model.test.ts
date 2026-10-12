@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { sessionInfo } from '@/shared/server';
 
-import { CARD_HEIGHT, CARD_WIDTH, layoutFlow, nodeState } from './model';
+import { CARD_HEIGHT, CARD_WIDTH, conditionResults, layoutFlow, nodeState } from './model';
 
 const nodes: FlowNode[] = ['start', 'member', 'guest', 'pay'].map((id) => ({ id, title: id, phase: 'built' }));
 const flow = { id: 'order', title: 'Order', nodeIds: nodes.map((n) => n.id) };
@@ -59,4 +59,52 @@ it('never equates a finished conversation with a passed feature', () => {
     nodeState({ ...node, checks: [{ command: 'test', output: 'failed', result: 'failed', summary: 'order' }] }, []),
   ).toBe('issue');
   expect(nodeState({ ...node, phase: 'planned' }, [])).toBe('planned');
+});
+
+it('counts only linked current conditions, preserving unchecked and blocked outcomes', () => {
+  const node: FlowNode = {
+    id: 'sdk',
+    title: 'Upload',
+    conditions: [
+      { id: 'ok', expectation: 'Returns an ID' },
+      { id: 'cancel', expectation: 'Stops transmission' },
+      { id: 'retry', expectation: 'Does not duplicate' },
+      { id: 'offline', expectation: 'Reports offline' },
+    ],
+    checks: [
+      {
+        conditionId: 'ok',
+        expectation: 'Returns an ID',
+        summary: '',
+        command: 'test',
+        output: '',
+        result: 'passed',
+        sourceHashes: { 'sdk.ts': 'hash' },
+      },
+      {
+        conditionId: 'retry',
+        expectation: 'Old requirement',
+        summary: '',
+        command: 'test',
+        output: '',
+        result: 'passed',
+        sourceHashes: { 'sdk.ts': 'hash' },
+      },
+      {
+        conditionId: 'offline',
+        expectation: 'Reports offline',
+        summary: '',
+        command: 'test',
+        output: '',
+        result: 'blocked',
+        sourceHashes: { 'sdk.ts': 'hash' },
+      },
+      { summary: 'build', command: 'build', output: '', result: 'passed' },
+    ],
+  };
+  expect(conditionResults(node).map((item) => item.status)).toEqual(['passed', 'unconfirmed', 'recheck', 'blocked']);
+  expect(conditionResults(node, ['ok'])[0]?.status).toBe('recheck');
+  expect(
+    conditionResults({ id: 'legacy', title: 'Legacy', checks: node.checks?.filter((c) => !c.conditionId) }),
+  ).toEqual([]);
 });

@@ -1239,6 +1239,22 @@
     "FlowCheck": {
       "additionalProperties": false,
       "properties": {
+        "conditionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expectation": {
+          "default": "",
+          "maxLength": 2000,
+          "type": "string"
+        },
         "summary": {
           "maxLength": 2000,
           "type": "string"
@@ -1274,6 +1290,28 @@
         "output"
       ],
       "title": "FlowCheck",
+      "type": "object"
+    },
+    "FlowCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "type": "string"
+        },
+        "expectation": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "expectation"
+      ],
+      "title": "FlowCondition",
       "type": "object"
     },
     "FlowEdge": {
@@ -1321,6 +1359,15 @@
         "previews": {
           "additionalProperties": {
             "type": "string"
+          },
+          "type": "object"
+        },
+        "staleConditions": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "type": "object"
         },
@@ -1423,11 +1470,18 @@
           ],
           "default": null
         },
+        "conditions": {
+          "items": {
+            "$ref": "#/$defs/FlowCondition"
+          },
+          "maxItems": 40,
+          "type": "array"
+        },
         "checks": {
           "items": {
             "$ref": "#/$defs/FlowCheck"
           },
-          "maxItems": 10,
+          "maxItems": 40,
           "type": "array"
         }
       },

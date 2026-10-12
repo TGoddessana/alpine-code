@@ -1,7 +1,7 @@
 import type { FlowNode, ProductFlow, ProductMap, SessionInfo } from '@alpine/protocol';
 
 export const CARD_WIDTH = 232;
-export const CARD_HEIGHT = 190;
+export const CARD_HEIGHT = 225;
 const COLUMN = 310;
 const ROW = 250;
 
@@ -89,4 +89,21 @@ export function layoutFlow(flow: ProductFlow, document: ProductMap) {
     width: Math.max(600, ...placed.map((n) => n.x + CARD_WIDTH + 35)),
     height: Math.max(300, ...placed.map((n) => n.y + CARD_HEIGHT + 35)),
   };
+}
+
+export function conditionResults(node: FlowNode, staleIds: string[] = []) {
+  return (node.conditions ?? []).map((condition) => {
+    const check = node.checks?.find((item) => item.conditionId === condition.id);
+    const stale =
+      !!check &&
+      (staleIds.includes(condition.id) ||
+        check.expectation !== condition.expectation ||
+        !Object.keys(check.sourceHashes ?? {}).length);
+    const status: 'passed' | 'failed' | 'blocked' | 'recheck' | 'unconfirmed' = !check
+      ? 'unconfirmed'
+      : stale
+        ? 'recheck'
+        : check.result;
+    return { condition, check, status };
+  });
 }

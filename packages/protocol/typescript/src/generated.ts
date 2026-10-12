@@ -418,6 +418,8 @@ export interface ErrorObject {
  * via the `definition` "FlowCheck".
  */
 export interface FlowCheck {
+  conditionId?: string | null;
+  expectation?: string;
   summary: string;
   command: string;
   result: 'passed' | 'failed' | 'blocked';
@@ -425,6 +427,14 @@ export interface FlowCheck {
   sourceHashes?: {
     [k: string]: string;
   };
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowCondition".
+ */
+export interface FlowCondition {
+  id: string;
+  expectation: string;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -451,6 +461,9 @@ export interface FlowGetResult {
   revision: string;
   previews?: {
     [k: string]: string;
+  };
+  staleConditions?: {
+    [k: string]: string[];
   };
   staleChecks?: string[];
 }
@@ -504,20 +517,13 @@ export interface FlowNode {
   example?: string;
   sessionId?: string | null;
   /**
-   * @maxItems 10
+   * @maxItems 40
    */
-  checks?:
-    | []
-    | [FlowCheck]
-    | [FlowCheck, FlowCheck]
-    | [FlowCheck, FlowCheck, FlowCheck]
-    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck]
-    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck]
-    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck]
-    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck]
-    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck]
-    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck]
-    | [FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck, FlowCheck];
+  conditions?: FlowCondition[];
+  /**
+   * @maxItems 40
+   */
+  checks?: FlowCheck[];
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema

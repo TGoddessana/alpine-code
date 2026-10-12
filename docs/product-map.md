@@ -87,3 +87,17 @@ The terminal type on the pytest command is for the existing Rich terminal wrappi
 unchanged base checkout under `TERM=dumb`. New tests cover graph references, branch/merge/cycle layout, shared
 features, source changes, path escapes, corrupt files, stale writes, real server/tool discovery, readable task
 context, branch creation, and retrying failed sends without duplicate branches.
+
+## Feature conditions
+
+A feature represents an independently meaningful user/caller outcome. Each node can define `conditions`
+with a stable `id` and an `expectation` describing a circumstance and its expected observable result.
+The canvas shows passed conditions out of all defined conditions. The inspector lists every condition,
+including unchecked, blocked, failed, and needing recheck, with expandable execution evidence.
+Use **확인 조건 정리하기** on older features to draft a request for the agent to define conditions.
+
+Checks link via `conditionId` and copy the condition's exact `expectation` at execution time. One current
+check is allowed per condition. Missing or changed source baselines, or changed expectation text, require
+rechecking and never count as a current pass. Unlinked legacy reports remain visible separately and do
+not count toward condition coverage. Existing version 1 maps continue to load without a migration.
+Conditions reflect requirements; inferred or uncertain business rules must not be presented as agreed promises.

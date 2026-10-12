@@ -55,6 +55,7 @@ from .messages import (
     ErrorData,
     ErrorObject,
     FlowCheck,
+    FlowCondition,
     FlowEdge,
     FlowGetParams,
     FlowGetResult,
@@ -174,6 +175,7 @@ from .messages import (
 
 __all__ = [
     "FlowCheck",
+    "FlowCondition",
     "FlowNode",
     "FlowEdge",
     "ProductFlow",

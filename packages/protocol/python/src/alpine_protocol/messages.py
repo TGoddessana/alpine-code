@@ -1092,9 +1092,20 @@ class MemoryChangedParams(Message):
 # Product map: a project-owned document, readable and editable by the coding agent.
 
 
+class FlowCondition(Message):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$")
+    expectation: str = Field(min_length=1, max_length=2000)
+    """Observable outcome under a specific condition, written for the user/caller."""
+
+
 class FlowCheck(Message):
     model_config = ConfigDict(extra="forbid")
 
+    condition_id: str | None = None
+    expectation: str = Field(default="", max_length=2000)
+    """Snapshot of the linked condition at execution time; edits require rechecking."""
     summary: str = Field(max_length=2000)
     command: str = Field(max_length=2000)
     result: Literal["passed", "failed", "blocked"]
@@ -1117,7 +1128,18 @@ class FlowNode(Message):
     """Optional project-relative PNG/JPEG/WebP screenshot. Never an external URL."""
     example: str = Field(default="", max_length=2000)
     session_id: str | None = None
-    checks: list[FlowCheck] = Field(default_factory=list, max_length=10)
+    conditions: list[FlowCondition] = Field(default_factory=list, max_length=40)
+    checks: list[FlowCheck] = Field(default_factory=list, max_length=40)
+
+    @model_validator(mode="after")
+    def condition_references(self) -> FlowNode:
+        ids = {condition.id for condition in self.conditions}
+        linked = [check.condition_id for check in self.checks if check.condition_id is not None]
+        if len(ids) != len(self.conditions):
+            raise ValueError("Duplicate condition id")
+        if not set(linked) <= ids or len(set(linked)) != len(linked):
+            raise ValueError("Unknown or duplicate condition check")
+        return self
 
 
 class FlowEdge(Message):
@@ -1166,6 +1188,8 @@ class FlowGetResult(Message):
     document: ProductMap
     revision: str
     previews: dict[str, str] = Field(default_factory=dict)
+    stale_conditions: dict[str, list[str]] = Field(default_factory=dict)
+    """Condition IDs per node with changed expectations or stale source evidence."""
     stale_checks: list[str] = Field(default_factory=list)
     """Node IDs whose recorded checks do not match the current source files."""
 

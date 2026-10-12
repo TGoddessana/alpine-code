@@ -99,7 +99,8 @@ describe('living product map', () => {
     fireEvent.click(nodes[0]!);
     const inspector = screen.getByRole('complementary', { name: '결제' });
     expect(within(inspector).getByText(/2개 흐름에서 사용/)).toBeTruthy();
-    expect(within(inspector).getByText(/검사 이후 코드가 바뀌었/)).toBeTruthy();
+    expect(within(inspector).getByText('확인 조건 4개 중 3개 통과')).toBeTruthy();
+    expect(within(inspector).getByText('10% 쿠폰을 적용하면 할인된 금액으로 결제한다.')).toBeTruthy();
     expect(within(inspector).getByText('실패 보고')).toBeTruthy();
   });
   it('keeps an unreadable document from triggering discovery writes', async () => {

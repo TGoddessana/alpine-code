@@ -190,3 +190,69 @@ def test_bad_flow_selection_preserves_document(tmp_path):
     with pytest.raises(MethodError):
         prepare_flow(params(tmp_path, flowId="sdk"))
     assert (tmp_path / DOCUMENT).read_bytes() == before
+
+
+def test_condition_evidence_invalidates_individually_and_on_requirement_change(tmp_path):
+    source = tmp_path / "sdk.py"
+    source.write_text("original")
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    node = {
+        "id": "sdk",
+        "title": "Upload",
+        "conditions": [
+            {"id": "success", "expectation": "Returns ID"},
+            {"id": "cancel", "expectation": "Stops transmission"},
+        ],
+        "checks": [
+            {
+                "conditionId": "success",
+                "expectation": "Returns ID",
+                "summary": "success",
+                "command": "pytest",
+                "result": "passed",
+                "output": "ok",
+                "sourceHashes": {"sdk.py": digest},
+            },
+            {
+                "conditionId": "cancel",
+                "expectation": "Old condition",
+                "summary": "cancel",
+                "command": "pytest",
+                "result": "passed",
+                "output": "ok",
+                "sourceHashes": {"sdk.py": digest},
+            },
+        ],
+    }
+    write_map(tmp_path, nodes=[node], flows=[], edges=[])
+    result = get_flow(FlowGetParams(cwd=str(tmp_path)))
+    assert result.stale_conditions == {"sdk": ["cancel"]}
+    source.write_text("changed")
+    assert get_flow(FlowGetParams(cwd=str(tmp_path))).stale_conditions == {"sdk": ["success", "cancel"]}
+
+
+@pytest.mark.parametrize(
+    "conditions,linked",
+    [
+        ([{"id": "one", "expectation": "Works"}] * 2, []),
+        ([], ["unknown"]),
+        ([{"id": "one", "expectation": "Works"}], ["one", "one"]),
+    ],
+)
+def test_rejects_ambiguous_condition_evidence(conditions, linked):
+    with pytest.raises(ValidationError):
+        ProductMap.model_validate(
+            {
+                "nodes": [
+                    {
+                        "id": "n",
+                        "title": "N",
+                        "conditions": conditions,
+                        "checks": [
+                            {"conditionId": cid, "summary": "", "command": "", "result": "passed", "output": ""}
+                            for cid in linked
+                        ],
+                    }
+                ]
+            }
+        )

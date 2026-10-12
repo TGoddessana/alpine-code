@@ -9,7 +9,6 @@ alpine-code is the repository behind Alpine: a desktop app and a terminal app on
 apps/                 what runs — one folder per program
   cli/                terminal app (Python) — published as `alpine-code`, command `alpine`
   server/             runs the core for an app over stdio (Python) — the desktop app starts it
-  website/            static homepage, getting-started guide and brand downloads
   desktop/            desktop app (Tauri: React screens in src/, Rust shell in src-tauri/)
 packages/             what is imported — never runs on its own
   core/               the agent: loop, tools, permissions (Python)
@@ -52,6 +51,6 @@ pnpm protocol:check        # generated protocol files are up to date
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs these checks, except Storybook and the app, on every
 pull request and every push to main.
 
-## Brand and website
+## Brand
 
-Brand masters live in `assets/brand/source`. Use `pnpm brand:build` to export icons, wordmarks and the CLI sprite, then `pnpm website:build` for the static website. See [the brand guide](assets/brand/README.md) and [website guide](apps/website/README.md).
+Brand masters live in `assets/brand/source`. Use `pnpm brand:build` to export icons, wordmarks and the CLI sprite. See [the brand guide](assets/brand/README.md). The multilingual website is maintained independently in [alpinecode.app](https://github.com/TGoddessana/alpinecode.app); it carries its own snapshot of exported brand assets and has no build dependency on this repository.

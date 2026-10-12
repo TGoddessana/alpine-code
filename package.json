@@ -12,8 +12,7 @@
     "format": "prettier --write .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "brand:build": "node scripts/export-brand.mjs",
-    "website:build": "node scripts/build-website.mjs"
+    "brand:build": "node scripts/export-brand.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

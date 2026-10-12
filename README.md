@@ -146,4 +146,4 @@ or start with [CONTRIBUTING.md](CONTRIBUTING.md). Alpine Code is built on
 ## Brand
 
 The snow hare’s bent ear, blue collar and horizontal wrench are shared by the app, terminal and website.
-Find the [brand assets and usage guide](assets/brand/README.md), or work on the [website and getting-started guide](apps/website/README.md).
+Find the [brand assets and usage guide](assets/brand/README.md), or work on the independent [website and getting-started guide repository](https://github.com/TGoddessana/alpinecode.app).

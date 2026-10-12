@@ -46,7 +46,6 @@ Use Pretendard for product / Korean web text, a system sans-serif fallback, and 
 ```sh
 pnpm install
 pnpm brand:build
-pnpm website:build
 ```
 
 Exports use Sharp for PNG sizing / layout and Tauri's icon exporter for platform formats. The large PNGs are the approved raster artwork; no AI call happens during builds. Do not regenerate the mascot separately for each surface. Accessory geometry is in the desktop `Character` component and the same PNG supplies every character's body. The persisted `antenna` look means the plain snow hare for backwards compatibility.
@@ -57,4 +56,4 @@ A 16 px favicon can only suggest the necklace; use at least 48 px when recogniti
 
 The repository README consumes these files directly. GitHub's repository social-preview setting is separate: upload `social-preview.png` under **Settings → General → Social preview** after the change is merged. A personal GitHub profile avatar is not part of this product's branding and should remain unchanged.
 
-The website sources live in `apps/website`. `alpinecode.app` is a proposed domain; it has not been registered or connected by this work. Do not set it as a canonical URL until ownership and hosting are configured.
+The website sources live in the separate [alpinecode.app repository](https://github.com/TGoddessana/alpinecode.app), with Korean (`/ko/`) and English (`/en/`) routes. Copy approved exports into that repository’s `public/brand` when branding changes. `alpinecode.app` is a proposed domain; it has not been registered or connected by this work. Do not set it as a canonical URL until ownership and hosting are configured.

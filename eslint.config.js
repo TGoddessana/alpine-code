@@ -32,10 +32,6 @@ export default tseslint.config(
     files: ['**/*.{js,mjs}'],
     languageOptions: { globals: globals.node },
   },
-  {
-    files: ['apps/website/src/**/*.js'],
-    languageOptions: { globals: globals.browser },
-  },
 
   // Desktop app layers: app assembles features; features never import each other; shared imports neither.
   {

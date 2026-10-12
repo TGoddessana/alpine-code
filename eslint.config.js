@@ -16,10 +16,12 @@ export default tseslint.config(
       '**/routeTree.gen.ts',
       'packages/protocol/typescript/src/generated.ts',
       '.venv/**',
+      '.claude/**',
     ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  { languageOptions: { parserOptions: { tsconfigRootDir: import.meta.dirname } } },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: { globals: globals.browser },

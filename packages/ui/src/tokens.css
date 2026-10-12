@@ -17,6 +17,13 @@
   --color-transparent: transparent;
   --color-current: currentColor;
 
+  /* Fixed snow-hare palette. Agent colours belong to accessories and backgrounds. */
+  --color-brand-snow: #fdfeff;
+  --color-brand-glacier: #eaf1f7;
+  --color-brand-blue: #2c5a7a;
+  --color-brand-ink: #1a222a;
+  --color-brand-nose: #ffafaf;
+
   /* Text */
   --color-fg: #1a222a;
   --color-fg-muted: #53616f; /* meta, hints, secondary lines */

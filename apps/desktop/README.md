@@ -1,3 +1,5 @@
+<p><img src="../../assets/brand/wordmark.png" alt="Alpine Code" width="280"></p>
+
 # Alpine desktop
 
 The desktop app: React screens in `src/`, a Tauri (Rust) shell in `src-tauri/`.

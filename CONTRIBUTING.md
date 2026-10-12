@@ -50,3 +50,7 @@ pnpm protocol:check        # generated protocol files are up to date
 
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs these checks, except Storybook and the app, on every
 pull request and every push to main.
+
+## Brand
+
+Brand masters live in `assets/brand/source`. Use `pnpm brand:build` to export icons, wordmarks and the CLI sprite. See [the brand guide](assets/brand/README.md). The multilingual website is maintained independently in [alpinecode.app](https://github.com/TGoddessana/alpinecode.app); it carries its own snapshot of exported brand assets and has no build dependency on this repository.

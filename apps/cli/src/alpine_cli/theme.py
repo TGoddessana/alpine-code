@@ -3,27 +3,13 @@
 from rich.text import Text
 from rich.theme import Theme
 
+from .brand import HARE, PIXELS  # noqa: F401 — public exports used by the banner
+
 BULLET = "◆"
 RESULT = "└"
 PROMPT = "›"
 PEAK = "▲"
 MODE = "»"
-
-#: The banner mascot, a snow hare with black ear tips, as pixels. Two pixel rows make one line of text.
-HARE = (
-    "..KK...KK..",
-    "..WW...WW..",
-    "..WW...WW..",
-    "..WW...WW..",
-    ".WWWWWWWWW.",
-    "WWWWWWWWWWW",
-    "WWWEWWWEWWW",
-    "WWWWWPWWWWW",
-    ".WWWWWWWWW.",
-    "...WWWWW...",
-)
-PIXELS = {"W": "#eeeeee", "K": "#767676", "E": "#1c1c1c", "P": "#ffafaf"}
-
 
 def pixel_art(rows: tuple[str, ...], colors: dict[str, str]) -> list[Text]:
     """Draws pixel rows with half blocks: the top pixel is the foreground of ▀, the bottom one its background."""

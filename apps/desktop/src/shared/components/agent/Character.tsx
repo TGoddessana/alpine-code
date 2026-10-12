@@ -5,12 +5,10 @@ import { useMessages } from '@/shared/i18n';
 import { CHARACTER_CLASS, FALLBACK_COLOR, LOOKS, type Look } from './looks';
 import { agentMessages } from './messages';
 
-const round = { strokeLinecap: 'round' } as const;
-
 /**
- * An agent's drawn character: a rounded face, two eyes and a smile, wearing one of twelve looks (boards 캐릭터 그림
- * and 캐릭터 모음). The ink is `currentColor`, so the colour class on the svg sets every line; an unknown look draws
- * as the antenna and an unknown colour as blue.
+ * One white snow hare for every agent. The approved PNG supplies the face, asymmetric
+ * ears and right-facing wrench; pixel accessories and a coloured backing distinguish agents.
+ * Keep the persisted `antenna` ID as the plain hare so existing agents need no migration.
  */
 export function Character({
   look,
@@ -28,135 +26,110 @@ export function Character({
   const t = useMessages(agentMessages);
   const kind: Look = (LOOKS as readonly string[]).includes(look) ? (look as Look) : 'antenna';
   const paint = CHARACTER_CLASS[color] ?? CHARACTER_CLASS[FALLBACK_COLOR]!;
-  const { face, faceStroke } = paint;
   return (
     <svg
-      viewBox="0 0 120 120"
+      viewBox="0 0 100 100"
       width={size}
       height={size}
-      // A character with an empty `label` is decoration: the words next to it already say who it is.
       {...(label === ''
-        ? { 'aria-hidden': true }
+        ? { 'aria-hidden': true as const }
         : { role: 'img', 'aria-label': label ?? t.characterLabel(t[`look_${kind}`]) })}
       className={clsx('shrink-0', paint.ink, className)}
     >
-      <ellipse cx="60" cy="111" rx="32" ry="4" fill="currentColor" opacity="0.14" />
-      {(kind === 'antenna' || kind === 'glasses' || kind === 'bowtie') && (
-        <g>
-          <line x1="60" y1="36" x2="60" y2="20" stroke="currentColor" strokeWidth="3" {...round} />
-          <circle cx="60" cy="16" r="5.5" fill="currentColor" />
-        </g>
-      )}
-      {kind === 'sprout' && (
-        <g>
-          <line x1="60" y1="36" x2="60" y2="21" stroke="currentColor" strokeWidth="3" {...round} />
-          <path d="M60 24 C50 13 39 17 41 24 C47 29 55 28 60 24 Z" fill="currentColor" />
-          <path d="M60 22 C68 9 81 11 79 19 C73 26 65 25 60 22 Z" fill="currentColor" />
-        </g>
-      )}
-      {kind === 'headphones' && (
-        <path d="M22 62 C20 18, 100 18, 98 62" fill="none" stroke="currentColor" strokeWidth="4" {...round} />
-      )}
-      <rect x="22" y="34" width="76" height="70" rx="32" className={face} stroke="currentColor" strokeWidth="3" />
-      {kind === 'headphones' && (
-        <g>
-          <rect x="14" y="52" width="13" height="24" rx="6" fill="currentColor" />
-          <rect x="93" y="52" width="13" height="24" rx="6" fill="currentColor" />
-        </g>
-      )}
-      <circle cx="46" cy="64" r="5" fill="currentColor" />
-      <circle cx="74" cy="64" r="5" fill="currentColor" />
-      <path d="M51 79 Q60 86 69 79" fill="none" stroke="currentColor" strokeWidth="3" {...round} />
-      {kind !== 'bowtie' && (
-        <path
-          d="M48 97 L55 89 L60 94 L64 90 L72 97"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.4"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          opacity="0.7"
-        />
-      )}
-      {kind === 'bowtie' && (
-        <g>
-          <path d="M60 93 L47 86 L47 100 Z" fill="currentColor" />
-          <path d="M60 93 L73 86 L73 100 Z" fill="currentColor" />
-          <circle cx="60" cy="93" r="3.5" fill="currentColor" />
-        </g>
-      )}
-      {kind === 'hardhat' && (
-        <g>
-          <path d="M26 44 C 28 18, 92 18, 94 44 Z" fill="currentColor" />
-          <rect x="18" y="41" width="84" height="7" rx="3.5" fill="currentColor" />
-          <line x1="60" y1="22" x2="60" y2="41" className={faceStroke} strokeWidth="3" {...round} />
-        </g>
-      )}
-      {kind === 'glasses' && (
-        <g>
-          <circle cx="46" cy="64" r="11" fill="none" stroke="currentColor" strokeWidth="3" />
-          <circle cx="74" cy="64" r="11" fill="none" stroke="currentColor" strokeWidth="3" />
-          <line x1="57" y1="64" x2="63" y2="64" stroke="currentColor" strokeWidth="3" />
-        </g>
-      )}
-      {kind === 'beret' && (
-        <g>
-          <path d="M24 42 C 26 24, 82 20, 92 36 C 96 44, 40 48, 24 42 Z" fill="currentColor" />
-          <circle cx="60" cy="25" r="3.5" fill="currentColor" />
-        </g>
-      )}
-      {kind === 'cap' && (
-        <g>
-          <path d="M27 46 C 29 22, 91 22, 93 46 Z" fill="currentColor" />
-          <path d="M88 42 L110 45 L108 50 L88 49 Z" fill="currentColor" />
-          <circle cx="60" cy="25" r="3" className={face} />
-        </g>
-      )}
-      {kind === 'chef' && (
-        <g>
-          <path
-            d="M36 42 L36 26 C26 22 29 7 42 11 C46 1 74 1 78 11 C91 7 94 22 84 26 L84 42 Z"
-            className="fill-canvas-raised"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinejoin="round"
-          />
-          <rect
-            x="36"
-            y="36"
-            width="48"
-            height="8"
-            className="fill-canvas-raised"
-            stroke="currentColor"
-            strokeWidth="2.5"
-          />
-        </g>
-      )}
-      {kind === 'ribbon' && (
-        <g>
-          <path d="M80 36 L67 27 L67 45 Z" fill="currentColor" />
-          <path d="M80 36 L93 27 L93 45 Z" fill="currentColor" />
-          <circle cx="80" cy="36" r="4" fill="currentColor" />
-        </g>
-      )}
-      {kind === 'beanie' && (
-        <g>
-          <path d="M26 46 C 26 15, 94 15, 94 46 Z" fill="currentColor" />
-          <rect x="22" y="41" width="76" height="10" rx="4" fill="currentColor" />
-          <line x1="40" y1="43" x2="40" y2="49" className={faceStroke} strokeWidth="2" />
-          <line x1="60" y1="43" x2="60" y2="49" className={faceStroke} strokeWidth="2" />
-          <line x1="80" y1="43" x2="80" y2="49" className={faceStroke} strokeWidth="2" />
-          <circle cx="60" cy="14" r="6" fill="currentColor" />
-        </g>
-      )}
-      {kind === 'grad' && (
-        <g>
-          <rect x="40" y="28" width="40" height="13" fill="currentColor" />
-          <path d="M60 12 L101 26 L60 40 L19 26 Z" fill="currentColor" />
-          <line x1="97" y1="27" x2="97" y2="44" stroke="currentColor" strokeWidth="2" />
-          <circle cx="97" cy="46" r="3" fill="currentColor" />
-        </g>
-      )}
+      <rect x="3" y="3" width="94" height="94" rx="18" className={paint.face} />
+      <image href="/brand/hare.png" x="0" y="0" width="100" height="100" style={{ imageRendering: 'pixelated' }} />
+      <g shapeRendering="crispEdges" fill="currentColor" stroke="currentColor" strokeWidth="1">
+        <Accessory look={kind} />
+      </g>
     </svg>
   );
+}
+
+/** Accessories sit below the ear tips and above the collar; the brand stays visible. */
+function Accessory({ look }: { look: Look }) {
+  switch (look) {
+    case 'antenna':
+      return null;
+    case 'hardhat':
+      return (
+        <>
+          <path d="M34 44V41H37V38H43V36H55V38H62V41H65V44Z" />
+          <path d="M31 44H68V47H31Z" />
+          <path d="M47 38H51V44H47Z" className="fill-brand-snow" stroke="none" />
+        </>
+      );
+    case 'glasses':
+      return (
+        <>
+          <path d="M32 48H45V57H32ZM52 48H65V57H52ZM45 51H52M29 50H32M65 50H68" fill="none" strokeWidth="2" />
+        </>
+      );
+    case 'beret':
+      return (
+        <>
+          <path d="M32 43V40H37V38H51V36H62V38H67V42H62V45H36V43Z" />
+          <path d="M51 34H54V38H51Z" />
+        </>
+      );
+    case 'headphones':
+      return (
+        <>
+          <path d="M29 54V43H32V40H67V43H70V54" fill="none" strokeWidth="3" />
+          <path d="M27 51H32V62H27ZM67 51H72V62H67Z" />
+        </>
+      );
+    case 'cap':
+      return (
+        <>
+          <path d="M34 43V39H39V37H57V39H63V43H72V46H33V43Z" />
+          <path d="M47 39H51V43H47Z" className="fill-brand-snow" stroke="none" />
+        </>
+      );
+    case 'chef':
+      return (
+        <>
+          <path d="M35 44V37H32V32H38V29H46V27H53V29H60V32H66V37H62V44Z" className="fill-brand-snow" strokeWidth="2" />
+          <path d="M35 41H62V45H35Z" />
+        </>
+      );
+    case 'sprout':
+      return (
+        <>
+          <path d="M49 42V34M49 37L41 32M49 35L57 30" fill="none" strokeWidth="2" />
+          <path d="M36 29H43V32H46V35H40V33H36ZM52 29H56V26H63V31H58V33H52Z" />
+        </>
+      );
+    case 'ribbon':
+      return (
+        <>
+          <path d="M60 34L52 29V39ZM60 34L68 29V39Z" />
+          <rect x="58" y="32" width="4" height="4" />
+        </>
+      );
+    case 'beanie':
+      return (
+        <>
+          <path d="M34 42V38H38V35H44V33H55V35H61V38H65V42Z" />
+          <path d="M32 42H67V46H32Z" />
+          <path d="M46 28H53V33H46Z" />
+          <path d="M40 43V45M49 43V45M59 43V45" className="stroke-brand-snow" />
+        </>
+      );
+    // At the ear base rather than the neck so the signature wrench is never covered.
+    case 'bowtie':
+      return (
+        <>
+          <path d="M42 42L34 37V47ZM42 42L50 37V47Z" />
+          <rect x="40" y="40" width="4" height="4" />
+        </>
+      );
+    case 'grad':
+      return (
+        <>
+          <path d="M31 38L49 32L68 38L49 44Z" />
+          <path d="M38 41V46H60V41M66 39V49" fill="none" strokeWidth="2" />
+          <rect x="64" y="48" width="4" height="4" />
+        </>
+      );
+  }
 }

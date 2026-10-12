@@ -1,3 +1,5 @@
+<p><img src="https://raw.githubusercontent.com/TGoddessana/alpine-code/main/assets/brand/wordmark.png" alt="Alpine Code" width="280"></p>
+
 # alpine-code-core
 
 The UI-agnostic agent core (`alpine_core`): agent loop, tools, permissions, prompt, config. Every app drives it; it

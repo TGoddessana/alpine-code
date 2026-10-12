@@ -11,7 +11,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "brand:build": "node scripts/export-brand.mjs",
+    "website:build": "node scripts/build-website.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -22,6 +24,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^16.5.0",
     "prettier": "^3.9.9",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.0"

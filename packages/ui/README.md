@@ -1,3 +1,5 @@
+<p><img src="../../assets/brand/wordmark.png" alt="Alpine Code" width="280"></p>
+
 # @alpine/ui
 
 The design system: what can change when the look changes, and nothing that knows about alpine.

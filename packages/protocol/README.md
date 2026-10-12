@@ -1,3 +1,5 @@
+<p><img src="../../assets/brand/wordmark.png" alt="Alpine Code" width="280"></p>
+
 # protocol
 
 Messages between alpine-code apps and `apps/server`: JSON-RPC 2.0, one JSON object per line, over stdio.

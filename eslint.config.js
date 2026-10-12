@@ -16,10 +16,12 @@ export default tseslint.config(
       '**/routeTree.gen.ts',
       'packages/protocol/typescript/src/generated.ts',
       '.venv/**',
+      '.claude/**',
     ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  { languageOptions: { parserOptions: { tsconfigRootDir: import.meta.dirname } } },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: { globals: globals.browser },
@@ -29,6 +31,10 @@ export default tseslint.config(
   {
     files: ['**/*.{js,mjs}'],
     languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['apps/website/src/**/*.js'],
+    languageOptions: { globals: globals.browser },
   },
 
   // Desktop app layers: app assembles features; features never import each other; shared imports neither.

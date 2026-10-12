@@ -2,8 +2,10 @@ import type { ProjectInfo, SessionInfo } from '@alpine/protocol';
 import { ContextMenu, Menu, PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import clsx from 'clsx';
-import { Bot, ChevronDown, ChevronRight, Ellipsis, FolderOpen, Settings, SquarePen } from 'lucide-react';
+import { ChevronDown, ChevronRight, Ellipsis, FolderOpen, Settings, SquarePen } from 'lucide-react';
 import { useState } from 'react';
+
+import { BrandMark } from '@/shared/components/brand';
 
 import { useFormat, useMessages } from '@/shared/i18n';
 import { revealInFinder, useOpenFolder } from '@/shared/platform';
@@ -53,7 +55,7 @@ export function Rail() {
         </Link>
       )}
       <Link to="/agents" className={item} activeProps={active}>
-        <Bot size={16} strokeWidth={1.5} className="text-fg-muted" aria-hidden="true" />
+        <BrandMark size={22} />
         {t.agents}
       </Link>
       <section aria-label={t.projects} className="flex flex-col gap-0.5">

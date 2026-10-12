@@ -2,6 +2,8 @@ import type { ProjectInfo } from '@alpine/protocol';
 import { Button, Menu } from '@alpine/ui/primitives';
 import { useRef, useState } from 'react';
 
+import { BrandMark } from '@/shared/components/brand';
+
 import { AgentChip, Composer, type Mode } from '@/shared/components/composer';
 import { GitBar } from '@/shared/components/git';
 import { useMessages } from '@/shared/i18n';
@@ -81,6 +83,7 @@ export function NewSession({
       <div className="min-h-0 grow" />
       <div className="mx-auto flex w-full max-w-160 flex-col items-center gap-6 px-6 pb-8">
         <div className="flex flex-col items-center gap-2 text-center">
+          <BrandMark size={64} />
           <h1 className="text-display font-semibold">{t.heading}</h1>
           <p className="text-body text-fg-muted">{t.lead(project.name)}</p>
         </div>

@@ -53,10 +53,10 @@ def environment(cwd: Path) -> str:
     )
 
 
-def build_system_prompt(cwd: Path, memory: str = "", instructions: str = "") -> str:
+def build_system_prompt(cwd: Path, memory: str = "", instructions: str = "", skills: str = "") -> str:
     """``instructions`` are the agent's own, labelled as such next to the project's files; no sentence says which one
-    wins, the model judges a conflict. ``memory`` is the memory's block for the prompt
-    (``MemorySystem.system_block``), last because it changes most."""
+    wins, the model judges a conflict. ``skills`` is the list of skills (``skills.catalog``). ``memory`` is the
+    memory's block for the prompt (``MemorySystem.system_block``), last because it changes most."""
     parts = [base_instructions().strip(), f"# Environment\n{environment(cwd)}"]
     for file in instruction_files(cwd):
         text = file.read_text(encoding="utf-8", errors="replace").strip()
@@ -90,6 +90,8 @@ def build_system_prompt(cwd: Path, memory: str = "", instructions: str = "") -> 
             "# Instructions for this agent\nThe role and way of working the user gave this agent.\n\n"
             + instructions.strip()
         )
+    if skills.strip():
+        parts.append(skills.strip())
     if memory.strip():
         parts.append(memory.strip())
     return "\n\n".join(parts) + "\n"

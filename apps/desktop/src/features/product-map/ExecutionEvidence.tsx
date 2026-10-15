@@ -11,8 +11,8 @@ export function ExecutionEvidence({ sessionId, cwd }: { sessionId: string | null
   const calls = session.data.items.filter((item) => item.kind === 'tool_call' && item.name === 'bash');
   if (!calls.length) return null;
   return (
-    <details className="mt-4 border-t border-line pt-3">
-      <summary className="cursor-pointer text-meta text-fg-muted">{t.inspect}</summary>
+    <details>
+      <summary className="cursor-pointer">{t.inspect}</summary>
       {calls.map(
         (item) =>
           item.kind === 'tool_call' && (

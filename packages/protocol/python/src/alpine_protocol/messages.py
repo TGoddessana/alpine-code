@@ -7,6 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
+from pydantic.json_schema import SkipJsonSchema
 
 #: Bumped on every change an older app or server cannot read.
 PROTOCOL_VERSION = 2
@@ -85,6 +86,10 @@ class ErrorData(Message):
         "flow_conflict",
         "invalid_flow",
         "invalid_flow_path",
+        "map_read_only",
+        "reason_required",
+        "replay_changed",
+        "flow_busy",
     ]
     """``auth``: the key is missing or rejected. ``unreachable``: no answer from the address. ``unsupported``: the
     server does not list its models, so the model name has to be typed. ``not_a_folder``: the path is not a folder.
@@ -94,7 +99,9 @@ lowercase letters, digits and ``_``. ``package_not_approved``: a tool needs a pa
 ``install_failed``: a package did not install. ``name_taken``: a tool name is already used. ``agent_not_found``:
 no agent has the id. ``model_failed``: the model call behind a draft failed.
 ``not_found``: the memory suggestion was already approved or declined. ``memory_full``: the scope filled up since the
-suggestion was made; the message says how full."""
+suggestion was made; the message says how full. ``map_read_only``: the product map was written by a newer
+Alpine, so this one does not write it. ``reason_required``: 안 고침 needs a one-line reason.
+``replay_changed``: the re-run command changed after the user saw it."""
 
 
 # Model connections: where models come from. Keys are write-only; the app never reads one back.
@@ -1092,6 +1099,11 @@ class MemoryChangedParams(Message):
 # Product map: a project-owned document, readable and editable by the coding agent.
 
 
+# Layout (docs/map-upkeep.md, decision 7): `.alpine/map/map.json` (MapFile), `features/<id>.json` (FeatureFile),
+# `flows/<id>.json` (FlowFile) are written by the agent. `.alpine/map/state/` is written only by Alpine. The server
+# assembles them into one ProductMap for the app.
+
+
 class FlowCondition(Message):
     model_config = ConfigDict(extra="forbid")
 
@@ -1100,9 +1112,84 @@ class FlowCondition(Message):
     """Observable outcome under a specific condition, written for the user/caller."""
 
 
+class ObservationSource(Message):
+    """Where an observation came from, so Alpine can compare it with its own records. The agent writes this; the
+    server never trusts it without checking."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["tool_call", "file", "surface_action", "surface_capture"]
+    session_id: str | None = Field(default=None, max_length=100)
+    """Session that holds the tool call, action or capture; for ``file``, the session that made or changed it."""
+    ref: str = Field(default="", max_length=500)
+    """Tool call id, project-relative file path, or surface action/capture id. For ``tool_call`` it may be empty:
+    the server then looks for the excerpt in every tool call of that session."""
+
+
+class Observation(Message):
+    """One thing the agent saw while checking a promise, in words a non-developer can read."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(min_length=1, max_length=300)
+    """Plain sentence: what this shows, e.g. "환불 계산 결과: 180,000원"."""
+    show: Literal["text", "image", "video", "table", "diff", "request", "link"] = "text"
+    """Rendering hint, not a closed list of evidence kinds."""
+    source: ObservationSource | None = None
+    """None: the agent's own words, shown as such."""
+    excerpt: str = Field(default="", max_length=4000)
+    """Verbatim text the agent read from the source; it must appear there."""
+    expected: str = Field(default="", max_length=500)
+    actual: str = Field(default="", max_length=500)
+
+
+class ObservationProvenance(Message):
+    """The server's label for one observation, computed on every read. The agent never writes it."""
+
+    label: Literal["verified", "captured", "read", "mismatch", "agent"]
+    """verified: Alpine이 확인함 (in the output of something the agent ran). captured: Alpine이 직접 찍음. read: the
+    words are in a file the agent read or searched, so they show what the code says, not what it did (AI가 코드를 읽고
+    판단함). mismatch: 기록과 다름. agent: AI 설명."""
+    reason: Literal[
+        "",
+        "call_not_found",
+        "excerpt_missing",
+        "no_excerpt",
+        "session_not_found",
+        "other_project",
+        "file_missing",
+        "file_changed",
+        "surface_not_found",
+        "outside_session",
+        "alpine_record",
+    ] = ""
+    """Why it is a mismatch; empty otherwise."""
+    matched: str = ""
+    """The tool call id whose recorded result held the excerpt, when verified."""
+    elsewhere: bool = False
+    """The label was computed on another computer and is shown as recorded there; this one cannot compare it."""
+
+
+class FlowReplay(Message):
+    """How Alpine can re-run a check without a model (decision 5). The agent leaves it out for checks with side
+    effects such as real payments or mail."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    command: str = Field(min_length=1, max_length=2000)
+    cwd: str = Field(default=".", max_length=500)
+    """Project-relative folder to run in."""
+    expect: list[str] = Field(default_factory=list, max_length=20)
+    """Text that must appear again in the output. Empty: the excerpts Alpine verified from the original check.
+    Leave out volatile text such as durations or timestamps."""
+
+
 class FlowCheck(Message):
     model_config = ConfigDict(extra="forbid")
 
+    id: str = Field(default="", max_length=100)
+    """The agent gives every run a new id, so an identical re-run still counts as new. Empty: Alpine uses a hash of
+    the check."""
     condition_id: str | None = None
     expectation: str = Field(default="", max_length=2000)
     """Snapshot of the linked condition at execution time; edits require rechecking."""
@@ -1110,29 +1197,52 @@ class FlowCheck(Message):
     command: str = Field(max_length=2000)
     result: Literal["passed", "failed", "blocked"]
     output: str = Field(max_length=8000)
-    source_hashes: dict[str, str] = Field(default_factory=dict, max_length=40)
-    """SHA-256 of relevant source files when the check ran. Missing/mismatched hashes mean stale."""
+    depends_on: list[str] = Field(default_factory=list, max_length=200)
+    """Project-relative files this result depends on (sources and tests). Alpine records their hashes."""
+    plain: str = Field(default="", max_length=1000)
+    """One plain sentence of the result in the user's language, for people who do not read command output."""
+    screenshot: str | None = None
+    """Optional project-relative PNG/JPEG/WebP screenshot taken during the check. Never an external URL."""
+    steps: list[str] = Field(default_factory=list, max_length=20)
+    """What was tried, in order (해본 것)."""
+    observations: list[Observation] = Field(default_factory=list, max_length=20)
+    limits: list[str] = Field(default_factory=list, max_length=20)
+    """What could not be checked (확인 못 한 것)."""
+    environment: str = Field(default="", max_length=200)
+    """Where it was checked, e.g. "로컬 개발 서버 · 토스 테스트 결제"."""
+    replay: FlowReplay | None = None
 
 
-class FlowNode(Message):
+class FeatureFile(Message):
+    """``.alpine/map/features/<id>.json``: one card, written by the agent."""
+
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$")
     title: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=4000)
     kind: Literal["screen", "api", "sdk", "process", "data"] = "process"
+    tags: list[Annotated[str, Field(min_length=1, max_length=40)]] = Field(default_factory=list, max_length=50)
+    """A few short words for finding the card: the product part or topic it belongs to (결제, 관리자). The agent's
+    choice; there is no fixed list."""
+    area: SkipJsonSchema[str | None] = Field(default=None, exclude=True)
+    """Maps made before 2026-10-13 grouped cards into areas: read as a tag, never written."""
     phase: Literal["planned", "building", "built"] = "planned"
-    issue: str | None = Field(default=None, max_length=2000)
-    sources: list[str] = Field(default_factory=list, max_length=30)
+    sources: list[str] = Field(default_factory=list, max_length=100)
     preview: str | None = None
     """Optional project-relative PNG/JPEG/WebP screenshot. Never an external URL."""
+    preview_at: str | None = Field(default=None, max_length=40)
+    """ISO 8601 UTC time the preview screenshot was taken."""
     example: str = Field(default="", max_length=2000)
-    session_id: str | None = None
-    conditions: list[FlowCondition] = Field(default_factory=list, max_length=40)
-    checks: list[FlowCheck] = Field(default_factory=list, max_length=40)
+    how_to_try: str = Field(default="", max_length=1000)
+    """What a person needs to try this card themselves (a test account, keys, seed data, a command, a running
+    server), in plain words. Written by the agent; the user may rewrite it in the app."""
+    conditions: list[FlowCondition] = Field(default_factory=list, max_length=60)
+    checks: list[FlowCheck] = Field(default_factory=list, max_length=60)
+    """One current check per condition; the server keeps the history of results."""
 
     @model_validator(mode="after")
-    def condition_references(self) -> FlowNode:
+    def condition_references(self) -> FeatureFile:
         ids = {condition.id for condition in self.conditions}
         linked = [check.condition_id for check in self.checks if check.condition_id is not None]
         if len(ids) != len(self.conditions):
@@ -1140,6 +1250,19 @@ class FlowNode(Message):
         if not set(linked) <= ids or len(set(linked)) != len(linked):
             raise ValueError("Unknown or duplicate condition check")
         return self
+
+
+class FlowNode(FeatureFile):
+    """A card as the app sees it: the agent's file plus the user's decisions and the session link Alpine keeps."""
+
+    priority: Literal["must", "should", "later"] | None = None
+    """The user's call on importance. Set only through ``flow/set``; the agent never sets it."""
+    scope: Literal["now", "next", "out"] | None = None
+    """The user's call on timing (this round, next, not doing). Set only through ``flow/set``."""
+    decision: str = Field(default="", max_length=500)
+    """One-line decision memo written by the user."""
+    session_id: str | None = None
+    """The session last started on this card from the app."""
 
 
 class FlowEdge(Message):
@@ -1155,53 +1278,338 @@ class ProductFlow(Message):
 
     id: str = Field(min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$")
     title: str = Field(min_length=1, max_length=120)
-    node_ids: list[str] = Field(default_factory=list, max_length=100)
+    description: str = Field(default="", max_length=300)
+    """One plain sentence of what the journey must let someone do, e.g. "회원이 이용권이 없을 때 수업을 고르면
+    결제하고 바로 예약할 수 있어야 한다." Shown under the flow's title."""
+    trigger: str = Field(default="", max_length=200)
+    """Who starts this journey and what they do first, shown as the flow's start."""
+    node_ids: list[str] = Field(default_factory=list, max_length=200)
+    """The journey's steps: card ids, or ``flow:<flow id>`` for a step that calls another flow (the ways to one result
+    gathered in their own flow, e.g. connecting a model). Edges use the same ids."""
+    edges: list[FlowEdge] = Field(default_factory=list, max_length=400)
+    """This journey's own transitions. The same two cards may be joined differently in another flow (another door),
+    so a flow is drawn with these, not with the map's merged ``edges``."""
+
+
+class FlowFile(ProductFlow):
+    """``.alpine/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent."""
+
+
+class MapFile(Message):
+    """``.alpine/map/map.json``, written by the agent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    format_version: Literal[1] = 1
+    """Readers newer than this convert it; older readers show the map read-only."""
+    areas: SkipJsonSchema[list[dict[str, Any]]] = Field(default_factory=list, exclude=True)
+    """Maps made before 2026-10-13 listed areas here: read (their titles become tags of old cards), never written."""
+    exclude: list[str] = Field(default_factory=list, max_length=200)
+    """Glob patterns (gitignore style) of files unrelated to the map, e.g. "**/*.lock". The agent's call."""
+    proposed_include: SkipJsonSchema[list[str]] = Field(default_factory=list, exclude=True)
+    """No longer used: maps made before 2026-10-13 may carry it, and it is read and ignored, never written."""
+
+
+class MapProblem(Message):
+    """Something in the map files Alpine could not use. The rest of the map still shows."""
+
+    file: str
+    """Project-relative path of the file."""
+    message: str
 
 
 class ProductMap(Message):
+    """The assembled map the app shows."""
+
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1] = 1
-    flows: list[ProductFlow] = Field(default_factory=list, max_length=50)
-    nodes: list[FlowNode] = Field(default_factory=list, max_length=300)
-    edges: list[FlowEdge] = Field(default_factory=list, max_length=600)
-
-    @model_validator(mode="after")
-    def references(self) -> ProductMap:
-        ids = {node.id for node in self.nodes}
-        if len(ids) != len(self.nodes) or len({f.id for f in self.flows}) != len(self.flows):
-            raise ValueError("Duplicate node or flow id")
-        if any(not set(f.node_ids) <= ids or len(set(f.node_ids)) != len(f.node_ids) for f in self.flows):
-            raise ValueError("Unknown or duplicate node in flow")
-        if any(e.source not in ids or e.target not in ids for e in self.edges):
-            raise ValueError("Unknown edge endpoint")
-        if len({(e.source, e.target) for e in self.edges}) != len(self.edges):
-            raise ValueError("Duplicate edge")
-        return self
+    flows: list[ProductFlow] = Field(default_factory=list)
+    nodes: list[FlowNode] = Field(default_factory=list)
+    edges: list[FlowEdge] = Field(default_factory=list)
 
 
 class FlowGetParams(Message):
     cwd: str
+    since: str | None = None
+    """The ``etag`` the app already shows. When nothing changed the result has ``unchanged`` set and nothing
+    else filled in."""
+
+
+class FlowChange(Message):
+    """One recorded change to the map, kept by the server next to the document."""
+
+    at: str
+    node_id: str
+    title: str
+    kind: Literal[
+        "added",
+        "removed",
+        "phase",
+        "check_passed",
+        "check_failed",
+        "check_blocked",
+        "promise_added",
+        "promise_changed",
+        "promise_confirmed",
+        "issue_later",
+        "issue_wontfix",
+        "issue_reopened",
+        "exclude_changed",
+        "replay_same",
+        "replay_different",
+    ]
+    detail: str = ""
+
+
+class CheckStamp(Message):
+    """Facts Alpine recorded about one check run (decisions 1 and 2)."""
+
+    at: str
+    """When the check was written (ISO 8601 UTC)."""
+    session_id: str | None = None
+    """The session that wrote it, when Alpine could tell."""
+    first_seen: bool = False
+    """No session wrote it: ``at`` is when Alpine first saw it, not when it ran."""
+    witness: Literal["mine", "other", "mismatch"] = "mine"
+    """mine: this computer recorded it. other: recorded on another computer, cannot be compared here.
+    mismatch: this computer recorded something different (the shared file was edited)."""
+    uncertain: bool = False
+    """Some files it depends on changed between the run and the moment Alpine recorded it."""
+
+
+class ReplayState(Message):
+    key: str = ""
+    """Identifies the exact command and folder; the app sends it back when the user approves."""
+    approved: bool = False
+    """The user allowed this exact command and folder to run without a model on this computer."""
+    running: bool = False
+    at: str | None = None
+    """When it last ran."""
+    same: bool | None = None
+    """True: the same result as the check. False: different. None: never ran."""
+    output: str = ""
+    """The tail of the last run's output."""
+
+
+IssueState = Literal["", "open", "resolved", "regressed", "maybe_fixed", "later", "wontfix", "question"]
+
+
+class PromiseState(Message):
+    """Everything Alpine computed about one promise."""
+
+    status: Literal["passed", "failed", "blocked", "recheck", "unconfirmed"]
+    issue: IssueState = ""
+    """open: the latest check failed. resolved: a pass came after a failure. regressed: a resolved promise failed
+    again. maybe_fixed: an open (or later) issue's files changed since. later / wontfix: the user's choice.
+    question: an AI-inferred promise failed ("이게 맞는 규칙인가요?")."""
+    origin: Literal["inferred", "confirmed", "plan"] = "inferred"
+    reason: str = ""
+    """The user's reason for wontfix."""
+    since: str | None = None
+    """When the current issue state began."""
+    stamp: CheckStamp | None = None
+    changed: list[str] = Field(default_factory=list)
+    """Files the current check depends on that changed since it ran."""
+    replay: ReplayState | None = None
+    reworded: bool = False
+    """The user wrote or confirmed this promise, then its text changed outside the app: "AI가 내가 정한 걸 바꿨어요".
+    ``mine`` holds the user's text when Alpine kept it, so the app can offer to restore it (``flow/review``)."""
+    mine: str = ""
+    """The user's own text of this promise, when it differs from the current one."""
+    written: bool = False
+    """The user wrote this promise's text in the app (``flow/edit``), rather than confirming the agent's."""
+    decided_elsewhere: bool = False
+    """The confirmation or the user's 나중에 보기 / 안 고침 was recorded on another computer and cannot be compared
+    here."""
+
+
+class RemovedPromise(Message):
+    id: str
+    text: str
+
+
+class NodeState(Message):
+    status: Literal["failed", "question", "recheck", "unconfirmed", "passed", "none"]
+    """Worst first. question: only AI-inferred promises failed."""
+    passed: int = 0
+    total: int = 0
+    promises: dict[str, PromiseState] = Field(default_factory=dict)
+    changed: bool = False
+    """Files of this card changed since its checks ran: 바뀜 · 확인 필요."""
+    missing: list[str] = Field(default_factory=list)
+    """Files the card points to that no longer exist."""
+    unread: list[str] = Field(default_factory=list)
+    """Sources the Alpine sessions that wrote this card never opened (read, searched or edited). Empty when the card
+    was last written outside Alpine, since then nothing is known."""
+    overridden: dict[str, str] = Field(default_factory=dict)
+    """Card sentences the user wrote in the app (``title``, ``howToTry``) whose text changed since: field -> the
+    user's text."""
+    removed_promises: list[RemovedPromise] = Field(default_factory=list)
+    """Promises the user wrote or confirmed that are no longer in the card."""
+
+
+class RemovedCard(Message):
+    """A card the user made decisions on (wrote, confirmed or planned) that is no longer in the map."""
+
+    id: str
+    title: str
+
+
+class MapReview(Message):
+    """What a "지도 고치기" session changed, waiting for the user to accept it or put the map back (decision 16)."""
+
+    session_id: str
+    at: str
+    """When the session started."""
+    added: list[str] = Field(default_factory=list)
+    """Titles of new cards."""
+    removed: list[str] = Field(default_factory=list)
+    """Titles of cards that are gone."""
+    changed: list[str] = Field(default_factory=list)
+    """Titles (current) of cards whose title, promises or flows changed."""
+
+
+class MapCoverage(Message):
+    """Changes the map does not cover (decision 3)."""
+
+    git: bool = False
+    """False: the project is not a git repository, so uncovered changes cannot be known."""
+    uncovered: list[str] = Field(default_factory=list)
+    """Changed files inside the scope that no card covers, at most 200."""
+    uncovered_count: int = 0
+    out_of_scope: int = 0
+    excluded: int = 0
+    """Changed files hidden by ``exclude``."""
+    since: str | None = None
+    """The commit changes are counted from."""
+
+
+class MapSchedule(Message):
+    """The optional scheduled 지도 점검 (decision 6), kept on this computer."""
+
+    enabled: bool = False
+    limit: int = Field(default=20, ge=1, le=500)
+    last_run: str | None = None
 
 
 class FlowGetResult(Message):
-    document: ProductMap
     revision: str
+    """Hash of the map files and Alpine's state files. ``flow/prepare`` refuses a stale one."""
+    etag: str = ""
+    """Changes whenever anything in this result changes; the app sends it back as ``since``."""
+    unchanged: bool = False
+    document: ProductMap = Field(default_factory=ProductMap)
+    exists: bool = False
+    """A map exists in the project (new layout)."""
+    read_only: bool = False
+    """The map was written by a newer Alpine; this one shows it without writing."""
     previews: dict[str, str] = Field(default_factory=dict)
-    stale_conditions: dict[str, list[str]] = Field(default_factory=dict)
-    """Condition IDs per node with changed expectations or stale source evidence."""
-    stale_checks: list[str] = Field(default_factory=list)
-    """Node IDs whose recorded checks do not match the current source files."""
+    changes: list[FlowChange] = Field(default_factory=list)
+    """Recent changes, newest first, at most 200."""
+    states: dict[str, NodeState] = Field(default_factory=dict)
+    provenance: dict[str, list[ObservationProvenance]] = Field(default_factory=dict)
+    """Labels for each shown check's observations, in order, keyed ``<nodeId>/<conditionId>``."""
+    coverage: MapCoverage = Field(default_factory=MapCoverage)
+    include: list[str] = Field(default_factory=list)
+    """The user's scope: project-relative folders the map covers. Empty: the whole project."""
+    exclude: list[str] = Field(default_factory=list)
+    problems: list[MapProblem] = Field(default_factory=list)
+    schedule: MapSchedule = Field(default_factory=MapSchedule)
+    removed_cards: list[RemovedCard] = Field(default_factory=list)
+    review: MapReview | None = None
+    """A finished "지도 고치기" session whose changes the user has not accepted or undone yet."""
+
+
+class FlowNodeParams(Message):
+    cwd: str
+    node_id: str
+
+
+class FlowNodeResult(Message):
+    """Images for one card's checks, loaded when it opens."""
+
+    check_screenshots: dict[str, str] = Field(default_factory=dict)
+    """Data URLs keyed ``<conditionId>``."""
+    observation_images: dict[str, str] = Field(default_factory=dict)
+    """Data URLs for image observations from project files, keyed ``<conditionId>/<index>``."""
 
 
 class FlowPrepareParams(Message):
     cwd: str
     revision: str
-    action: Literal["discover", "extend", "change", "verify"]
+    action: Literal["discover", "extend", "change", "verify", "sync", "reshape"]
+    """reshape: change the map's cards and flows as the user asks (split, merge, rename, move, remove), never the
+    product's code. Alpine keeps the map as it was, so the user can accept the result or put it back."""
     request: str = Field(default="", max_length=8000)
     node_id: str | None = None
     flow_id: str | None = None
+    node_ids: list[str] = Field(default_factory=list, max_length=500)
+    """For ``verify``: a batch of cards to recheck (확인 필요 N개 확인하기)."""
     session_id: str
+
+
+class FlowSetParams(Message):
+    """One of the user's own decisions. Only Alpine writes them, into its own state files."""
+
+    cwd: str
+    node_id: str
+    field: Literal["priority", "scope", "decision"]
+    value: str | None = None
+
+
+class FlowPromiseParams(Message):
+    cwd: str
+    node_id: str
+    condition_id: str
+    action: Literal["confirm", "unconfirm", "later", "wontfix", "reopen", "approve_replay", "revoke_replay"]
+    reason: str = Field(default="", max_length=500)
+    key: str = Field(default="", max_length=100)
+    """For approve_replay: the ``ReplayState.key`` the user saw; a different current command is refused."""
+
+
+class FlowEditParams(Message):
+    """The user rewrites one sentence of a card in the app. Alpine writes it into the card file and records it as the
+    user's own (decision 16). An empty ``value`` removes a promise or clears ``how_to_try``."""
+
+    cwd: str
+    node_id: str
+    field: Literal["title", "how_to_try", "promise"]
+    condition_id: str | None = None
+    """For ``promise``: the promise to rewrite. None adds a new promise."""
+    value: str = Field(default="", max_length=2000)
+
+
+class FlowReviewParams(Message):
+    """The user's answer to a change of something they decided, or to a "지도 고치기" session's result."""
+
+    cwd: str
+    target: Literal["promise", "field", "card", "map"]
+    action: Literal["accept", "restore"]
+    """accept: keep the map as it is now and take it as the user's. restore: put the user's version back."""
+    node_id: str | None = None
+    condition_id: str | None = None
+    """For ``promise``."""
+    field: Literal["title", "how_to_try"] | None = None
+    """For ``field``."""
+
+
+class FlowScopeParams(Message):
+    cwd: str
+    include: list[str] = Field(default_factory=list, max_length=100)
+
+
+class FlowDeleteParams(Message):
+    """Deletes the project's map: every file under ``.alpine/map/`` and this computer's records of it."""
+
+    cwd: str
+
+
+class FlowScheduleParams(Message):
+    cwd: str
+    enabled: bool
+    limit: int = Field(default=20, ge=1, le=500)
+    ran: bool = False
+    """True: the app just started a scheduled run; record it as the last run."""
 
 
 class FlowPrepareResult(Message):
@@ -1215,6 +1623,14 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "initialize": (InitializeParams, InitializeResult),
     "flow/get": (FlowGetParams, FlowGetResult),
     "flow/prepare": (FlowPrepareParams, FlowPrepareResult),
+    "flow/set": (FlowSetParams, FlowGetResult),
+    "flow/node": (FlowNodeParams, FlowNodeResult),
+    "flow/promise": (FlowPromiseParams, FlowGetResult),
+    "flow/edit": (FlowEditParams, FlowGetResult),
+    "flow/review": (FlowReviewParams, FlowGetResult),
+    "flow/scope": (FlowScopeParams, FlowGetResult),
+    "flow/schedule": (FlowScheduleParams, FlowGetResult),
+    "flow/delete": (FlowDeleteParams, FlowGetResult),
     "connections/list": (ConnectionsListParams, ConnectionsListResult),
     "connections/models": (ConnectionsModelsParams, ConnectionsModelsResult),
     "connections/add": (ConnectionsAddParams, ConnectionsAddResult),

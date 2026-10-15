@@ -15,6 +15,38 @@
       "params": "FlowPrepareParams",
       "result": "FlowPrepareResult"
     },
+    "flow/set": {
+      "params": "FlowSetParams",
+      "result": "FlowGetResult"
+    },
+    "flow/node": {
+      "params": "FlowNodeParams",
+      "result": "FlowNodeResult"
+    },
+    "flow/promise": {
+      "params": "FlowPromiseParams",
+      "result": "FlowGetResult"
+    },
+    "flow/edit": {
+      "params": "FlowEditParams",
+      "result": "FlowGetResult"
+    },
+    "flow/review": {
+      "params": "FlowReviewParams",
+      "result": "FlowGetResult"
+    },
+    "flow/scope": {
+      "params": "FlowScopeParams",
+      "result": "FlowGetResult"
+    },
+    "flow/schedule": {
+      "params": "FlowScheduleParams",
+      "result": "FlowGetResult"
+    },
+    "flow/delete": {
+      "params": "FlowDeleteParams",
+      "result": "FlowGetResult"
+    },
     "connections/list": {
       "params": "ConnectionsListParams",
       "result": "ConnectionsListResult"
@@ -822,6 +854,47 @@
       "title": "ChatGPTSignOutResult",
       "type": "object"
     },
+    "CheckStamp": {
+      "description": "Facts Alpine recorded about one check run (decisions 1 and 2).",
+      "properties": {
+        "at": {
+          "type": "string"
+        },
+        "sessionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "firstSeen": {
+          "default": false,
+          "type": "boolean"
+        },
+        "witness": {
+          "default": "mine",
+          "enum": [
+            "mine",
+            "other",
+            "mismatch"
+          ],
+          "type": "string"
+        },
+        "uncertain": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "at"
+      ],
+      "title": "CheckStamp",
+      "type": "object"
+    },
     "CompactionItem": {
       "properties": {
         "id": {
@@ -1206,7 +1279,11 @@
             "memory_full",
             "flow_conflict",
             "invalid_flow",
-            "invalid_flow_path"
+            "invalid_flow_path",
+            "map_read_only",
+            "reason_required",
+            "replay_changed",
+            "flow_busy"
           ],
           "type": "string"
         }
@@ -1236,9 +1313,171 @@
       "title": "ErrorObject",
       "type": "object"
     },
+    "FeatureFile": {
+      "additionalProperties": false,
+      "description": "``.alpine/map/features/<id>.json``: one card, written by the agent.",
+      "properties": {
+        "id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 4000,
+          "type": "string"
+        },
+        "kind": {
+          "default": "process",
+          "enum": [
+            "screen",
+            "api",
+            "sdk",
+            "process",
+            "data"
+          ],
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "phase": {
+          "default": "planned",
+          "enum": [
+            "planned",
+            "building",
+            "built"
+          ],
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "preview": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "previewAt": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "example": {
+          "default": "",
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "howToTry": {
+          "default": "",
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "conditions": {
+          "items": {
+            "$ref": "#/$defs/FlowCondition"
+          },
+          "maxItems": 60,
+          "type": "array"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/FlowCheck"
+          },
+          "maxItems": 60,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "FeatureFile",
+      "type": "object"
+    },
+    "FlowChange": {
+      "description": "One recorded change to the map, kept by the server next to the document.",
+      "properties": {
+        "at": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "added",
+            "removed",
+            "phase",
+            "check_passed",
+            "check_failed",
+            "check_blocked",
+            "promise_added",
+            "promise_changed",
+            "promise_confirmed",
+            "issue_later",
+            "issue_wontfix",
+            "issue_reopened",
+            "exclude_changed",
+            "replay_same",
+            "replay_different"
+          ],
+          "type": "string"
+        },
+        "detail": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "at",
+        "nodeId",
+        "title",
+        "kind"
+      ],
+      "title": "FlowChange",
+      "type": "object"
+    },
     "FlowCheck": {
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "default": "",
+          "maxLength": 100,
+          "type": "string"
+        },
         "conditionId": {
           "anyOf": [
             {
@@ -1275,12 +1514,65 @@
           "maxLength": 8000,
           "type": "string"
         },
-        "sourceHashes": {
-          "additionalProperties": {
+        "dependsOn": {
+          "items": {
             "type": "string"
           },
-          "maxProperties": 40,
-          "type": "object"
+          "maxItems": 200,
+          "type": "array"
+        },
+        "plain": {
+          "default": "",
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "screenshot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "steps": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/$defs/Observation"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "limits": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "environment": {
+          "default": "",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "replay": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowReplay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1314,6 +1606,19 @@
       "title": "FlowCondition",
       "type": "object"
     },
+    "FlowDeleteParams": {
+      "description": "Deletes the project's map: every file under ``.alpine/map/`` and this computer's records of it.",
+      "properties": {
+        "cwd": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "title": "FlowDeleteParams",
+      "type": "object"
+    },
     "FlowEdge": {
       "additionalProperties": false,
       "properties": {
@@ -1336,10 +1641,110 @@
       "title": "FlowEdge",
       "type": "object"
     },
+    "FlowEditParams": {
+      "description": "The user rewrites one sentence of a card in the app. Alpine writes it into the card file and records it as the\nuser's own (decision 16). An empty ``value`` removes a promise or clears ``how_to_try``.",
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "field": {
+          "enum": [
+            "title",
+            "how_to_try",
+            "promise"
+          ],
+          "type": "string"
+        },
+        "conditionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "value": {
+          "default": "",
+          "maxLength": 2000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "nodeId",
+        "field"
+      ],
+      "title": "FlowEditParams",
+      "type": "object"
+    },
+    "FlowFile": {
+      "additionalProperties": false,
+      "description": "``.alpine/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent.",
+      "properties": {
+        "id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 300,
+          "type": "string"
+        },
+        "trigger": {
+          "default": "",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "nodeIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 200,
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/FlowEdge"
+          },
+          "maxItems": 400,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "FlowFile",
+      "type": "object"
+    },
     "FlowGetParams": {
       "properties": {
         "cwd": {
           "type": "string"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1350,11 +1755,27 @@
     },
     "FlowGetResult": {
       "properties": {
+        "revision": {
+          "type": "string"
+        },
+        "etag": {
+          "default": "",
+          "type": "string"
+        },
+        "unchanged": {
+          "default": false,
+          "type": "boolean"
+        },
         "document": {
           "$ref": "#/$defs/ProductMap"
         },
-        "revision": {
-          "type": "string"
+        "exists": {
+          "default": false,
+          "type": "boolean"
+        },
+        "readOnly": {
+          "default": false,
+          "type": "boolean"
         },
         "previews": {
           "additionalProperties": {
@@ -1362,24 +1783,70 @@
           },
           "type": "object"
         },
-        "staleConditions": {
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/FlowChange"
+          },
+          "type": "array"
+        },
+        "states": {
+          "additionalProperties": {
+            "$ref": "#/$defs/NodeState"
+          },
+          "type": "object"
+        },
+        "provenance": {
           "additionalProperties": {
             "items": {
-              "type": "string"
+              "$ref": "#/$defs/ObservationProvenance"
             },
             "type": "array"
           },
           "type": "object"
         },
-        "staleChecks": {
+        "coverage": {
+          "$ref": "#/$defs/MapCoverage"
+        },
+        "include": {
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "exclude": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "problems": {
+          "items": {
+            "$ref": "#/$defs/MapProblem"
+          },
+          "type": "array"
+        },
+        "schedule": {
+          "$ref": "#/$defs/MapSchedule"
+        },
+        "removedCards": {
+          "items": {
+            "$ref": "#/$defs/RemovedCard"
+          },
+          "type": "array"
+        },
+        "review": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MapReview"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
-        "document",
         "revision"
       ],
       "title": "FlowGetResult",
@@ -1387,6 +1854,7 @@
     },
     "FlowNode": {
       "additionalProperties": false,
+      "description": "A card as the app sees it: the agent's file plus the user's decisions and the session link Alpine keeps.",
       "properties": {
         "id": {
           "maxLength": 100,
@@ -1415,6 +1883,15 @@
           ],
           "type": "string"
         },
+        "tags": {
+          "items": {
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
         "phase": {
           "default": "planned",
           "enum": [
@@ -1424,23 +1901,11 @@
           ],
           "type": "string"
         },
-        "issue": {
-          "anyOf": [
-            {
-              "maxLength": 2000,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
         "sources": {
           "items": {
             "type": "string"
           },
-          "maxItems": 30,
+          "maxItems": 100,
           "type": "array"
         },
         "preview": {
@@ -1454,9 +1919,77 @@
           ],
           "default": null
         },
+        "previewAt": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "example": {
           "default": "",
           "maxLength": 2000,
+          "type": "string"
+        },
+        "howToTry": {
+          "default": "",
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "conditions": {
+          "items": {
+            "$ref": "#/$defs/FlowCondition"
+          },
+          "maxItems": 60,
+          "type": "array"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/FlowCheck"
+          },
+          "maxItems": 60,
+          "type": "array"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "enum": [
+                "must",
+                "should",
+                "later"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "enum": [
+                "now",
+                "next",
+                "out"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "decision": {
+          "default": "",
+          "maxLength": 500,
           "type": "string"
         },
         "sessionId": {
@@ -1469,20 +2002,6 @@
             }
           ],
           "default": null
-        },
-        "conditions": {
-          "items": {
-            "$ref": "#/$defs/FlowCondition"
-          },
-          "maxItems": 40,
-          "type": "array"
-        },
-        "checks": {
-          "items": {
-            "$ref": "#/$defs/FlowCheck"
-          },
-          "maxItems": 40,
-          "type": "array"
         }
       },
       "required": [
@@ -1490,6 +2009,41 @@
         "title"
       ],
       "title": "FlowNode",
+      "type": "object"
+    },
+    "FlowNodeParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "nodeId"
+      ],
+      "title": "FlowNodeParams",
+      "type": "object"
+    },
+    "FlowNodeResult": {
+      "description": "Images for one card's checks, loaded when it opens.",
+      "properties": {
+        "checkScreenshots": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "observationImages": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "title": "FlowNodeResult",
       "type": "object"
     },
     "FlowPrepareParams": {
@@ -1505,7 +2059,9 @@
             "discover",
             "extend",
             "change",
-            "verify"
+            "verify",
+            "sync",
+            "reshape"
           ],
           "type": "string"
         },
@@ -1535,6 +2091,13 @@
             }
           ],
           "default": null
+        },
+        "nodeIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 500,
+          "type": "array"
         },
         "sessionId": {
           "type": "string"
@@ -1574,6 +2137,227 @@
         "prompt"
       ],
       "title": "FlowPrepareResult",
+      "type": "object"
+    },
+    "FlowPromiseParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "conditionId": {
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "confirm",
+            "unconfirm",
+            "later",
+            "wontfix",
+            "reopen",
+            "approve_replay",
+            "revoke_replay"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "maxLength": 500,
+          "type": "string"
+        },
+        "key": {
+          "default": "",
+          "maxLength": 100,
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "nodeId",
+        "conditionId",
+        "action"
+      ],
+      "title": "FlowPromiseParams",
+      "type": "object"
+    },
+    "FlowReplay": {
+      "additionalProperties": false,
+      "description": "How Alpine can re-run a check without a model (decision 5). The agent leaves it out for checks with side\neffects such as real payments or mail.",
+      "properties": {
+        "command": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cwd": {
+          "default": ".",
+          "maxLength": 500,
+          "type": "string"
+        },
+        "expect": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "title": "FlowReplay",
+      "type": "object"
+    },
+    "FlowReviewParams": {
+      "description": "The user's answer to a change of something they decided, or to a \"지도 고치기\" session's result.",
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "target": {
+          "enum": [
+            "promise",
+            "field",
+            "card",
+            "map"
+          ],
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "accept",
+            "restore"
+          ],
+          "type": "string"
+        },
+        "nodeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "conditionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "field": {
+          "anyOf": [
+            {
+              "enum": [
+                "title",
+                "how_to_try"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "cwd",
+        "target",
+        "action"
+      ],
+      "title": "FlowReviewParams",
+      "type": "object"
+    },
+    "FlowScheduleParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 20,
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ran": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "cwd",
+        "enabled"
+      ],
+      "title": "FlowScheduleParams",
+      "type": "object"
+    },
+    "FlowScopeParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "include": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "type": "array"
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "title": "FlowScopeParams",
+      "type": "object"
+    },
+    "FlowSetParams": {
+      "description": "One of the user's own decisions. Only Alpine writes them, into its own state files.",
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "field": {
+          "enum": [
+            "priority",
+            "scope",
+            "decision"
+          ],
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "cwd",
+        "nodeId",
+        "field"
+      ],
+      "title": "FlowSetParams",
       "type": "object"
     },
     "GitInfo": {
@@ -1847,6 +2631,146 @@
         "item"
       ],
       "title": "ItemStartedEvent",
+      "type": "object"
+    },
+    "MapCoverage": {
+      "description": "Changes the map does not cover (decision 3).",
+      "properties": {
+        "git": {
+          "default": false,
+          "type": "boolean"
+        },
+        "uncovered": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "uncoveredCount": {
+          "default": 0,
+          "type": "integer"
+        },
+        "outOfScope": {
+          "default": 0,
+          "type": "integer"
+        },
+        "excluded": {
+          "default": 0,
+          "type": "integer"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "MapCoverage",
+      "type": "object"
+    },
+    "MapFile": {
+      "additionalProperties": false,
+      "description": "``.alpine/map/map.json``, written by the agent.",
+      "properties": {
+        "formatVersion": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
+        },
+        "exclude": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 200,
+          "type": "array"
+        }
+      },
+      "title": "MapFile",
+      "type": "object"
+    },
+    "MapProblem": {
+      "description": "Something in the map files Alpine could not use. The rest of the map still shows.",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "file",
+        "message"
+      ],
+      "title": "MapProblem",
+      "type": "object"
+    },
+    "MapReview": {
+      "description": "What a \"지도 고치기\" session changed, waiting for the user to accept it or put the map back (decision 16).",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "at": {
+          "type": "string"
+        },
+        "added": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "removed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "changed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "sessionId",
+        "at"
+      ],
+      "title": "MapReview",
+      "type": "object"
+    },
+    "MapSchedule": {
+      "description": "The optional scheduled 지도 점검 (decision 6), kept on this computer.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 20,
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "lastRun": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "MapSchedule",
       "type": "object"
     },
     "MemoryApproveParams": {
@@ -2219,6 +3143,68 @@
       "title": "MemorySuggestionInfo",
       "type": "object"
     },
+    "NodeState": {
+      "properties": {
+        "status": {
+          "enum": [
+            "failed",
+            "question",
+            "recheck",
+            "unconfirmed",
+            "passed",
+            "none"
+          ],
+          "type": "string"
+        },
+        "passed": {
+          "default": 0,
+          "type": "integer"
+        },
+        "total": {
+          "default": 0,
+          "type": "integer"
+        },
+        "promises": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PromiseState"
+          },
+          "type": "object"
+        },
+        "changed": {
+          "default": false,
+          "type": "boolean"
+        },
+        "missing": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "unread": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "overridden": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "removedPromises": {
+          "items": {
+            "$ref": "#/$defs/RemovedPromise"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "NodeState",
+      "type": "object"
+    },
     "NoticeItem": {
       "description": "A message the model reads that the user did not write.",
       "properties": {
@@ -2244,6 +3230,143 @@
         "source"
       ],
       "title": "NoticeItem",
+      "type": "object"
+    },
+    "Observation": {
+      "additionalProperties": false,
+      "description": "One thing the agent saw while checking a promise, in words a non-developer can read.",
+      "properties": {
+        "label": {
+          "maxLength": 300,
+          "minLength": 1,
+          "type": "string"
+        },
+        "show": {
+          "default": "text",
+          "enum": [
+            "text",
+            "image",
+            "video",
+            "table",
+            "diff",
+            "request",
+            "link"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObservationSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "excerpt": {
+          "default": "",
+          "maxLength": 4000,
+          "type": "string"
+        },
+        "expected": {
+          "default": "",
+          "maxLength": 500,
+          "type": "string"
+        },
+        "actual": {
+          "default": "",
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "Observation",
+      "type": "object"
+    },
+    "ObservationProvenance": {
+      "description": "The server's label for one observation, computed on every read. The agent never writes it.",
+      "properties": {
+        "label": {
+          "enum": [
+            "verified",
+            "captured",
+            "read",
+            "mismatch",
+            "agent"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "enum": [
+            "",
+            "call_not_found",
+            "excerpt_missing",
+            "no_excerpt",
+            "session_not_found",
+            "other_project",
+            "file_missing",
+            "file_changed",
+            "surface_not_found",
+            "outside_session",
+            "alpine_record"
+          ],
+          "type": "string"
+        },
+        "matched": {
+          "default": "",
+          "type": "string"
+        },
+        "elsewhere": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "ObservationProvenance",
+      "type": "object"
+    },
+    "ObservationSource": {
+      "additionalProperties": false,
+      "description": "Where an observation came from, so Alpine can compare it with its own records. The agent writes this; the\nserver never trusts it without checking.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "tool_call",
+            "file",
+            "surface_action",
+            "surface_capture"
+          ],
+          "type": "string"
+        },
+        "sessionId": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "ref": {
+          "default": "",
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "ObservationSource",
       "type": "object"
     },
     "OfferedTool": {
@@ -2328,11 +3451,28 @@
           "minLength": 1,
           "type": "string"
         },
+        "description": {
+          "default": "",
+          "maxLength": 300,
+          "type": "string"
+        },
+        "trigger": {
+          "default": "",
+          "maxLength": 200,
+          "type": "string"
+        },
         "nodeIds": {
           "items": {
             "type": "string"
           },
-          "maxItems": 100,
+          "maxItems": 200,
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/FlowEdge"
+          },
+          "maxItems": 400,
           "type": "array"
         }
       },
@@ -2345,31 +3485,24 @@
     },
     "ProductMap": {
       "additionalProperties": false,
+      "description": "The assembled map the app shows.",
       "properties": {
-        "version": {
-          "const": 1,
-          "default": 1,
-          "type": "integer"
-        },
         "flows": {
           "items": {
             "$ref": "#/$defs/ProductFlow"
           },
-          "maxItems": 50,
           "type": "array"
         },
         "nodes": {
           "items": {
             "$ref": "#/$defs/FlowNode"
           },
-          "maxItems": 300,
           "type": "array"
         },
         "edges": {
           "items": {
             "$ref": "#/$defs/FlowEdge"
           },
-          "maxItems": 600,
           "type": "array"
         }
       },
@@ -2567,6 +3700,108 @@
       "title": "ProjectsOpenResult",
       "type": "object"
     },
+    "PromiseState": {
+      "description": "Everything Alpine computed about one promise.",
+      "properties": {
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked",
+            "recheck",
+            "unconfirmed"
+          ],
+          "type": "string"
+        },
+        "issue": {
+          "default": "",
+          "enum": [
+            "",
+            "open",
+            "resolved",
+            "regressed",
+            "maybe_fixed",
+            "later",
+            "wontfix",
+            "question"
+          ],
+          "type": "string"
+        },
+        "origin": {
+          "default": "inferred",
+          "enum": [
+            "inferred",
+            "confirmed",
+            "plan"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "type": "string"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stamp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CheckStamp"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "changed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "replay": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReplayState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reworded": {
+          "default": false,
+          "type": "boolean"
+        },
+        "mine": {
+          "default": "",
+          "type": "string"
+        },
+        "written": {
+          "default": false,
+          "type": "boolean"
+        },
+        "decidedElsewhere": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "PromiseState",
+      "type": "object"
+    },
     "ProviderInfo": {
       "properties": {
         "id": {
@@ -2626,6 +3861,83 @@
         "checks"
       ],
       "title": "PullRequestInfo",
+      "type": "object"
+    },
+    "RemovedCard": {
+      "description": "A card the user made decisions on (wrote, confirmed or planned) that is no longer in the map.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "RemovedCard",
+      "type": "object"
+    },
+    "RemovedPromise": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "title": "RemovedPromise",
+      "type": "object"
+    },
+    "ReplayState": {
+      "properties": {
+        "key": {
+          "default": "",
+          "type": "string"
+        },
+        "approved": {
+          "default": false,
+          "type": "boolean"
+        },
+        "running": {
+          "default": false,
+          "type": "boolean"
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "same": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "title": "ReplayState",
       "type": "object"
     },
     "Request": {

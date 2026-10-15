@@ -4,6 +4,9 @@ import { defineMessages } from '@/shared/i18n';
 
 export const messages = defineMessages({
   ko: {
+    pageMap: '지도',
+    pageMemory: '기억',
+    projectPages: (name: string) => `${name} 화면`,
     label: '주 메뉴',
     newSession: '새 세션',
     agents: '에이전트',
@@ -12,7 +15,6 @@ export const messages = defineMessages({
     settings: '설정',
     projectMenu: (name: string) => `${name} 메뉴`,
     revealInFinder: 'Finder에서 열기',
-    openMemory: '기억 열기',
     archive: '보관',
     delete: '삭제…',
     deleteTitle: (name: string) => `${josa(name, '을/를')} 삭제할까요?`,
@@ -34,6 +36,9 @@ export const messages = defineMessages({
     showLess: '접기',
   },
   en: {
+    pageMap: 'Map',
+    pageMemory: 'Memory',
+    projectPages: (name: string) => `${name} pages`,
     label: 'Main menu',
     newSession: 'New session',
     agents: 'Agents',
@@ -42,7 +47,6 @@ export const messages = defineMessages({
     settings: 'Settings',
     projectMenu: (name: string) => `${name} menu`,
     revealInFinder: 'Show in Finder',
-    openMemory: 'Open memory',
     archive: 'Archive',
     delete: 'Delete…',
     deleteTitle: (name: string) => `Delete ${name}?`,

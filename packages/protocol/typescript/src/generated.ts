@@ -246,6 +246,19 @@ export interface ChatGPTSignOutResult {
   revoked: boolean;
 }
 /**
+ * Facts Alpine recorded about one check run (decisions 1 and 2).
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CheckStamp".
+ */
+export interface CheckStamp {
+  at: string;
+  sessionId?: string | null;
+  firstSeen?: boolean;
+  witness?: 'mine' | 'other' | 'mismatch';
+  uncertain?: boolean;
+}
+/**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "CompactionItem".
  */
@@ -397,7 +410,14 @@ export interface ErrorData {
     | 'agent_not_found'
     | 'model_failed'
     | 'not_found'
-    | 'memory_full';
+    | 'memory_full'
+    | 'flow_conflict'
+    | 'invalid_flow'
+    | 'invalid_flow_path'
+    | 'map_read_only'
+    | 'reason_required'
+    | 'replay_changed'
+    | 'flow_busy';
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -409,6 +429,1154 @@ export interface ErrorObject {
   data?: {
     [k: string]: unknown;
   };
+}
+/**
+ * ``.alpine/map/features/<id>.json``: one card, written by the agent.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FeatureFile".
+ */
+export interface FeatureFile {
+  id: string;
+  title: string;
+  description?: string;
+  kind?: 'screen' | 'api' | 'sdk' | 'process' | 'data';
+  /**
+   * @maxItems 50
+   */
+  tags?: string[];
+  phase?: 'planned' | 'building' | 'built';
+  /**
+   * @maxItems 100
+   */
+  sources?: string[];
+  preview?: string | null;
+  previewAt?: string | null;
+  example?: string;
+  howToTry?: string;
+  /**
+   * @maxItems 60
+   */
+  conditions?: FlowCondition[];
+  /**
+   * @maxItems 60
+   */
+  checks?: FlowCheck[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowCondition".
+ */
+export interface FlowCondition {
+  id: string;
+  expectation: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowCheck".
+ */
+export interface FlowCheck {
+  id?: string;
+  conditionId?: string | null;
+  expectation?: string;
+  summary: string;
+  command: string;
+  result: 'passed' | 'failed' | 'blocked';
+  output: string;
+  /**
+   * @maxItems 200
+   */
+  dependsOn?: string[];
+  plain?: string;
+  screenshot?: string | null;
+  /**
+   * @maxItems 20
+   */
+  steps?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+  /**
+   * @maxItems 20
+   */
+  observations?:
+    | []
+    | [Observation]
+    | [Observation, Observation]
+    | [Observation, Observation, Observation]
+    | [Observation, Observation, Observation, Observation]
+    | [Observation, Observation, Observation, Observation, Observation]
+    | [Observation, Observation, Observation, Observation, Observation, Observation]
+    | [Observation, Observation, Observation, Observation, Observation, Observation, Observation]
+    | [Observation, Observation, Observation, Observation, Observation, Observation, Observation, Observation]
+    | [
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation
+      ]
+    | [
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation
+      ]
+    | [
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation
+      ]
+    | [
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation
+      ]
+    | [
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation
+      ]
+    | [
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation
+      ]
+    | [
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation
+      ]
+    | [
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation
+      ]
+    | [
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation
+      ]
+    | [
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation
+      ]
+    | [
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation
+      ]
+    | [
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation,
+        Observation
+      ];
+  /**
+   * @maxItems 20
+   */
+  limits?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+  environment?: string;
+  replay?: FlowReplay | null;
+}
+/**
+ * One thing the agent saw while checking a promise, in words a non-developer can read.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "Observation".
+ */
+export interface Observation {
+  label: string;
+  show?: 'text' | 'image' | 'video' | 'table' | 'diff' | 'request' | 'link';
+  source?: ObservationSource | null;
+  excerpt?: string;
+  expected?: string;
+  actual?: string;
+}
+/**
+ * Where an observation came from, so Alpine can compare it with its own records. The agent writes this; the
+ * server never trusts it without checking.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ObservationSource".
+ */
+export interface ObservationSource {
+  kind: 'tool_call' | 'file' | 'surface_action' | 'surface_capture';
+  sessionId?: string | null;
+  ref?: string;
+}
+/**
+ * How Alpine can re-run a check without a model (decision 5). The agent leaves it out for checks with side
+ * effects such as real payments or mail.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowReplay".
+ */
+export interface FlowReplay {
+  command: string;
+  cwd?: string;
+  /**
+   * @maxItems 20
+   */
+  expect?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+}
+/**
+ * One recorded change to the map, kept by the server next to the document.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowChange".
+ */
+export interface FlowChange {
+  at: string;
+  nodeId: string;
+  title: string;
+  kind:
+    | 'added'
+    | 'removed'
+    | 'phase'
+    | 'check_passed'
+    | 'check_failed'
+    | 'check_blocked'
+    | 'promise_added'
+    | 'promise_changed'
+    | 'promise_confirmed'
+    | 'issue_later'
+    | 'issue_wontfix'
+    | 'issue_reopened'
+    | 'exclude_changed'
+    | 'replay_same'
+    | 'replay_different';
+  detail?: string;
+}
+/**
+ * Deletes the project's map: every file under ``.alpine/map/`` and this computer's records of it.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowDeleteParams".
+ */
+export interface FlowDeleteParams {
+  cwd: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowEdge".
+ */
+export interface FlowEdge {
+  source: string;
+  target: string;
+  label?: string;
+}
+/**
+ * The user rewrites one sentence of a card in the app. Alpine writes it into the card file and records it as the
+ * user's own (decision 16). An empty ``value`` removes a promise or clears ``how_to_try``.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowEditParams".
+ */
+export interface FlowEditParams {
+  cwd: string;
+  nodeId: string;
+  field: 'title' | 'how_to_try' | 'promise';
+  conditionId?: string | null;
+  value?: string;
+}
+/**
+ * ``.alpine/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowFile".
+ */
+export interface FlowFile {
+  id: string;
+  title: string;
+  description?: string;
+  trigger?: string;
+  /**
+   * @maxItems 200
+   */
+  nodeIds?: string[];
+  /**
+   * @maxItems 400
+   */
+  edges?: FlowEdge[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowGetParams".
+ */
+export interface FlowGetParams {
+  cwd: string;
+  since?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowGetResult".
+ */
+export interface FlowGetResult {
+  revision: string;
+  etag?: string;
+  unchanged?: boolean;
+  document?: ProductMap;
+  exists?: boolean;
+  readOnly?: boolean;
+  previews?: {
+    [k: string]: string;
+  };
+  changes?: FlowChange[];
+  states?: {
+    [k: string]: NodeState;
+  };
+  provenance?: {
+    [k: string]: ObservationProvenance[];
+  };
+  coverage?: MapCoverage;
+  include?: string[];
+  exclude?: string[];
+  problems?: MapProblem[];
+  schedule?: MapSchedule;
+  removedCards?: RemovedCard[];
+  review?: MapReview | null;
+}
+/**
+ * The assembled map the app shows.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProductMap".
+ */
+export interface ProductMap {
+  flows?: ProductFlow[];
+  nodes?: FlowNode[];
+  edges?: FlowEdge[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProductFlow".
+ */
+export interface ProductFlow {
+  id: string;
+  title: string;
+  description?: string;
+  trigger?: string;
+  /**
+   * @maxItems 200
+   */
+  nodeIds?: string[];
+  /**
+   * @maxItems 400
+   */
+  edges?: FlowEdge[];
+}
+/**
+ * A card as the app sees it: the agent's file plus the user's decisions and the session link Alpine keeps.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowNode".
+ */
+export interface FlowNode {
+  id: string;
+  title: string;
+  description?: string;
+  kind?: 'screen' | 'api' | 'sdk' | 'process' | 'data';
+  /**
+   * @maxItems 50
+   */
+  tags?: string[];
+  phase?: 'planned' | 'building' | 'built';
+  /**
+   * @maxItems 100
+   */
+  sources?: string[];
+  preview?: string | null;
+  previewAt?: string | null;
+  example?: string;
+  howToTry?: string;
+  /**
+   * @maxItems 60
+   */
+  conditions?: FlowCondition[];
+  /**
+   * @maxItems 60
+   */
+  checks?: FlowCheck[];
+  priority?: ('must' | 'should' | 'later') | null;
+  scope?: ('now' | 'next' | 'out') | null;
+  decision?: string;
+  sessionId?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "NodeState".
+ */
+export interface NodeState {
+  status: 'failed' | 'question' | 'recheck' | 'unconfirmed' | 'passed' | 'none';
+  passed?: number;
+  total?: number;
+  promises?: {
+    [k: string]: PromiseState;
+  };
+  changed?: boolean;
+  missing?: string[];
+  unread?: string[];
+  overridden?: {
+    [k: string]: string;
+  };
+  removedPromises?: RemovedPromise[];
+}
+/**
+ * Everything Alpine computed about one promise.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PromiseState".
+ */
+export interface PromiseState {
+  status: 'passed' | 'failed' | 'blocked' | 'recheck' | 'unconfirmed';
+  issue?: '' | 'open' | 'resolved' | 'regressed' | 'maybe_fixed' | 'later' | 'wontfix' | 'question';
+  origin?: 'inferred' | 'confirmed' | 'plan';
+  reason?: string;
+  since?: string | null;
+  stamp?: CheckStamp | null;
+  changed?: string[];
+  replay?: ReplayState | null;
+  reworded?: boolean;
+  mine?: string;
+  written?: boolean;
+  decidedElsewhere?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ReplayState".
+ */
+export interface ReplayState {
+  key?: string;
+  approved?: boolean;
+  running?: boolean;
+  at?: string | null;
+  same?: boolean | null;
+  output?: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "RemovedPromise".
+ */
+export interface RemovedPromise {
+  id: string;
+  text: string;
+}
+/**
+ * The server's label for one observation, computed on every read. The agent never writes it.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ObservationProvenance".
+ */
+export interface ObservationProvenance {
+  label: 'verified' | 'captured' | 'read' | 'mismatch' | 'agent';
+  reason?:
+    | ''
+    | 'call_not_found'
+    | 'excerpt_missing'
+    | 'no_excerpt'
+    | 'session_not_found'
+    | 'other_project'
+    | 'file_missing'
+    | 'file_changed'
+    | 'surface_not_found'
+    | 'outside_session'
+    | 'alpine_record';
+  matched?: string;
+  elsewhere?: boolean;
+}
+/**
+ * Changes the map does not cover (decision 3).
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MapCoverage".
+ */
+export interface MapCoverage {
+  git?: boolean;
+  uncovered?: string[];
+  uncoveredCount?: number;
+  outOfScope?: number;
+  excluded?: number;
+  since?: string | null;
+}
+/**
+ * Something in the map files Alpine could not use. The rest of the map still shows.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MapProblem".
+ */
+export interface MapProblem {
+  file: string;
+  message: string;
+}
+/**
+ * The optional scheduled 지도 점검 (decision 6), kept on this computer.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MapSchedule".
+ */
+export interface MapSchedule {
+  enabled?: boolean;
+  limit?: number;
+  lastRun?: string | null;
+}
+/**
+ * A card the user made decisions on (wrote, confirmed or planned) that is no longer in the map.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "RemovedCard".
+ */
+export interface RemovedCard {
+  id: string;
+  title: string;
+}
+/**
+ * What a "지도 고치기" session changed, waiting for the user to accept it or put the map back (decision 16).
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MapReview".
+ */
+export interface MapReview {
+  sessionId: string;
+  at: string;
+  added?: string[];
+  removed?: string[];
+  changed?: string[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowNodeParams".
+ */
+export interface FlowNodeParams {
+  cwd: string;
+  nodeId: string;
+}
+/**
+ * Images for one card's checks, loaded when it opens.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowNodeResult".
+ */
+export interface FlowNodeResult {
+  checkScreenshots?: {
+    [k: string]: string;
+  };
+  observationImages?: {
+    [k: string]: string;
+  };
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowPrepareParams".
+ */
+export interface FlowPrepareParams {
+  cwd: string;
+  revision: string;
+  action: 'discover' | 'extend' | 'change' | 'verify' | 'sync' | 'reshape';
+  request?: string;
+  nodeId?: string | null;
+  flowId?: string | null;
+  /**
+   * @maxItems 500
+   */
+  nodeIds?: string[];
+  sessionId: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowPrepareResult".
+ */
+export interface FlowPrepareResult {
+  board: FlowGetResult;
+  prompt: string;
+  nodeId?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowPromiseParams".
+ */
+export interface FlowPromiseParams {
+  cwd: string;
+  nodeId: string;
+  conditionId: string;
+  action: 'confirm' | 'unconfirm' | 'later' | 'wontfix' | 'reopen' | 'approve_replay' | 'revoke_replay';
+  reason?: string;
+  key?: string;
+}
+/**
+ * The user's answer to a change of something they decided, or to a "지도 고치기" session's result.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowReviewParams".
+ */
+export interface FlowReviewParams {
+  cwd: string;
+  target: 'promise' | 'field' | 'card' | 'map';
+  action: 'accept' | 'restore';
+  nodeId?: string | null;
+  conditionId?: string | null;
+  field?: ('title' | 'how_to_try') | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowScheduleParams".
+ */
+export interface FlowScheduleParams {
+  cwd: string;
+  enabled: boolean;
+  limit?: number;
+  ran?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowScopeParams".
+ */
+export interface FlowScopeParams {
+  cwd: string;
+  /**
+   * @maxItems 100
+   */
+  include?: string[];
+}
+/**
+ * One of the user's own decisions. Only Alpine writes them, into its own state files.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowSetParams".
+ */
+export interface FlowSetParams {
+  cwd: string;
+  nodeId: string;
+  field: 'priority' | 'scope' | 'decision';
+  value?: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -646,6 +1814,19 @@ export interface ItemStartedEvent {
     | RunStoppedItem
     | AgentSwitchedItem
     | AgentChangedItem;
+}
+/**
+ * ``.alpine/map/map.json``, written by the agent.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "MapFile".
+ */
+export interface MapFile {
+  formatVersion?: 1;
+  /**
+   * @maxItems 200
+   */
+  exclude?: string[];
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -1339,6 +2520,16 @@ export interface ToolsTestResult {
 
 export interface Methods {
   'initialize': { params: InitializeParams; result: InitializeResult };
+  'flow/get': { params: FlowGetParams; result: FlowGetResult };
+  'flow/prepare': { params: FlowPrepareParams; result: FlowPrepareResult };
+  'flow/set': { params: FlowSetParams; result: FlowGetResult };
+  'flow/node': { params: FlowNodeParams; result: FlowNodeResult };
+  'flow/promise': { params: FlowPromiseParams; result: FlowGetResult };
+  'flow/edit': { params: FlowEditParams; result: FlowGetResult };
+  'flow/review': { params: FlowReviewParams; result: FlowGetResult };
+  'flow/scope': { params: FlowScopeParams; result: FlowGetResult };
+  'flow/schedule': { params: FlowScheduleParams; result: FlowGetResult };
+  'flow/delete': { params: FlowDeleteParams; result: FlowGetResult };
   'connections/list': { params: ConnectionsListParams; result: ConnectionsListResult };
   'connections/models': { params: ConnectionsModelsParams; result: ConnectionsModelsResult };
   'connections/add': { params: ConnectionsAddParams; result: ConnectionsAddResult };

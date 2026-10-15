@@ -24,22 +24,28 @@ VERSION = "15.2.0"
 #: (system, machine) -> (release target, sha256 of the archive). Checksums from the release's .sha256 files.
 _ASSETS: dict[tuple[str, str], tuple[str, str]] = {
     ("Darwin", "arm64"): (
-        "aarch64-apple-darwin.tar.gz", "3750b2e93f37e0c692657da574d7019a101c0084da05a790c83fd335bad973e4"
+        "aarch64-apple-darwin.tar.gz",
+        "3750b2e93f37e0c692657da574d7019a101c0084da05a790c83fd335bad973e4",
     ),
     ("Darwin", "x86_64"): (
-        "x86_64-apple-darwin.tar.gz", "af7825fcc69a2afc7a7aea55fc9af90e26421d8f20fe59df32e233c0b8a231c1"
+        "x86_64-apple-darwin.tar.gz",
+        "af7825fcc69a2afc7a7aea55fc9af90e26421d8f20fe59df32e233c0b8a231c1",
     ),
     ("Linux", "aarch64"): (
-        "aarch64-unknown-linux-musl.tar.gz", "800b1e7206afe799dfb5a6901f23147cfaabe0e52210538100f61e86e1740915"
+        "aarch64-unknown-linux-musl.tar.gz",
+        "800b1e7206afe799dfb5a6901f23147cfaabe0e52210538100f61e86e1740915",
     ),
     ("Linux", "x86_64"): (
-        "x86_64-unknown-linux-musl.tar.gz", "33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c"
+        "x86_64-unknown-linux-musl.tar.gz",
+        "33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c",
     ),
     ("Windows", "AMD64"): (
-        "x86_64-pc-windows-msvc.zip", "71b2fef860abe467217a538ff31de02f5258807c0129f771846f87bd029aafc5"
+        "x86_64-pc-windows-msvc.zip",
+        "71b2fef860abe467217a538ff31de02f5258807c0129f771846f87bd029aafc5",
     ),
     ("Windows", "ARM64"): (
-        "aarch64-pc-windows-msvc.zip", "e4abca10c3a64ebea742667dd7009449d49403db5460dd6873e389fa2945360f"
+        "aarch64-pc-windows-msvc.zip",
+        "e4abca10c3a64ebea742667dd7009449d49403db5460dd6873e389fa2945360f",
     ),
 }
 

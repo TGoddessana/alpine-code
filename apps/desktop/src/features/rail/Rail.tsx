@@ -2,7 +2,7 @@ import type { ProjectInfo, SessionInfo } from '@alpine/protocol';
 import { ContextMenu, Menu, PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import clsx from 'clsx';
-import { ChevronDown, ChevronRight, Ellipsis, FolderOpen, Settings, SquarePen } from 'lucide-react';
+import { BookMarked, ChevronDown, ChevronRight, Ellipsis, FolderOpen, Map, Settings, SquarePen } from 'lucide-react';
 import { useState } from 'react';
 
 import { BrandMark } from '@/shared/components/brand';
@@ -20,6 +20,12 @@ import { SessionRow } from './SessionRow';
 const item =
   'flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-body text-fg hover:bg-hover';
 const active = { className: 'bg-hover font-medium' };
+
+/** A project's pages, in the order of the row under its name. A new page is one more entry. */
+const PAGES = [
+  { to: '/board', icon: Map, label: 'pageMap' },
+  { to: '/memory', icon: BookMarked, label: 'pageMemory' },
+] as const;
 
 /** Sessions shown under a project before "show more". */
 const SESSIONS_SHOWN = 5;
@@ -115,6 +121,7 @@ function ProjectGroup({
   onDeleteSession: (session: SessionInfo) => void;
 }) {
   const [open, setOpen] = useState(true);
+  const t = useMessages(messages);
   return (
     <div className="flex flex-col gap-0.5">
       <ProjectRow
@@ -124,6 +131,22 @@ function ProjectGroup({
         onToggle={() => setOpen(!open)}
         onDelete={onDelete}
       />
+      {open && (
+        <nav aria-label={t.projectPages(project.name)} className="ml-6 flex items-center gap-0.5">
+          {PAGES.map(({ to, icon: Icon, label }) => (
+            <Link
+              key={to}
+              to={to}
+              search={{ project: project.path }}
+              className="inline-flex min-h-7 items-center gap-1 rounded-md px-2 text-meta text-fg-muted hover:bg-hover hover:text-fg"
+              activeProps={active}
+            >
+              <Icon size={14} strokeWidth={1.5} aria-hidden="true" />
+              {t[label]}
+            </Link>
+          ))}
+        </nav>
+      )}
       {open && sessions.length > 0 && (
         <div className="ml-4.5 flex flex-col gap-0.5 border-l border-line pl-2">
           <ProjectSessions sessions={sessions} onDelete={onDeleteSession} />
@@ -193,9 +216,6 @@ function ProjectRow({
         {t.newSession}
       </Menu.Item>
       <Menu.Item onClick={() => void revealInFinder(project.path)}>{t.revealInFinder}</Menu.Item>
-      <Menu.Item onClick={() => void navigate({ to: '/memory', search: { project: project.path } })}>
-        {t.openMemory}
-      </Menu.Item>
       <Menu.Separator />
       <Menu.Item onClick={() => archive.mutate(project.path)}>{t.archive}</Menu.Item>
       <Menu.Separator />

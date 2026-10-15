@@ -1,7 +1,6 @@
 import type { ToolCallItem } from '@alpine/protocol';
-import { PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
 import clsx from 'clsx';
-import { FileText, Terminal, X } from 'lucide-react';
+import { FileText, Terminal } from 'lucide-react';
 import { useState } from 'react';
 
 import { Lines } from '@/shared/components/output';
@@ -11,62 +10,42 @@ import { messages } from './messages';
 import type { ChangedFile, RanCommand, WorkResult as Result } from './results';
 
 /**
- * What the work changed and ran, beside the conversation: the changed files (a click shows what changed), then the
- * commands. A part with nothing in it is left out, so an empty panel says one line instead of a list of "none". It
- * shows only while I keep it open (see `PanelToggle`), and switching what it shows never changes its width: only
- * dragging its edge does.
+ * What the work changed and ran, as the dock's work result tab: the changed files (a click shows what changed), then
+ * the commands. A part with nothing in it is left out, so an empty tab says one line instead of a list of "none". With
+ * no result (no work connected to this page) it says so in one line. The dock supplies the frame, header and width.
  */
-export function WorkResult({ result, onClose }: { result: Result; onClose: () => void }) {
+export function WorkResult({ result }: { result: Result | null }) {
   const t = useMessages(messages);
   const format = useFormat();
-  const width = usePanelWidth({ storageKey: 'alpine.work-result.width', initial: 360, min: 280, max: 900 });
+  if (!result) return <p className="text-body text-fg-muted">{t.notConnected}</p>;
   const { files, commands } = result;
 
   return (
-    <aside
-      aria-label={t.title}
-      style={{ width: width.width }}
-      // Shrinks first when the window gets narrow, so the conversation keeps its room.
-      className="relative flex min-w-70 shrink-[1000] flex-col border-l border-line bg-canvas"
-    >
-      <PanelResizer panel={width} edge="left" label={t.resize} />
-      <header className="flex min-h-14 shrink-0 items-center gap-2 pr-3 pl-5">
-        <h2 className="grow text-lead">{t.title}</h2>
-        <button
-          type="button"
-          aria-label={t.close}
-          onClick={onClose}
-          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted hover:bg-hover hover:text-fg"
-        >
-          <X size={16} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-      </header>
-      <div className="flex min-h-0 grow flex-col gap-6 overflow-y-auto px-5 pb-5">
-        {files.length === 0 && commands.length === 0 && <p className="text-body text-fg-muted">{t.nothingYet}</p>}
-        {files.length > 0 && (
-          <section aria-label={t.files} className="flex flex-col gap-1">
-            <h3 className="flex min-h-7 items-center gap-1.5 text-lead">
-              {t.files}
-              <span className="text-meta text-fg-muted">{format.number(files.length)}</span>
-            </h3>
-            {files.map((file) => (
-              <FileRow key={file.path} file={file} />
-            ))}
-          </section>
-        )}
-        {commands.length > 0 && (
-          <section aria-label={t.commands} className="flex flex-col gap-1">
-            <h3 className="flex min-h-7 items-center gap-1.5 text-lead">
-              {t.commands}
-              <span className="text-meta text-fg-muted">{format.number(commands.length)}</span>
-            </h3>
-            {commands.map((command) => (
-              <CommandRow key={command.id} command={command} />
-            ))}
-          </section>
-        )}
-      </div>
-    </aside>
+    <div className="flex flex-col gap-6">
+      {files.length === 0 && commands.length === 0 && <p className="text-body text-fg-muted">{t.nothingYet}</p>}
+      {files.length > 0 && (
+        <section aria-label={t.files} className="flex flex-col gap-1">
+          <h3 className="flex min-h-7 items-center gap-1.5 text-lead">
+            {t.files}
+            <span className="text-meta text-fg-muted">{format.number(files.length)}</span>
+          </h3>
+          {files.map((file) => (
+            <FileRow key={file.path} file={file} />
+          ))}
+        </section>
+      )}
+      {commands.length > 0 && (
+        <section aria-label={t.commands} className="flex flex-col gap-1">
+          <h3 className="flex min-h-7 items-center gap-1.5 text-lead">
+            {t.commands}
+            <span className="text-meta text-fg-muted">{format.number(commands.length)}</span>
+          </h3>
+          {commands.map((command) => (
+            <CommandRow key={command.id} command={command} />
+          ))}
+        </section>
+      )}
+    </div>
   );
 }
 

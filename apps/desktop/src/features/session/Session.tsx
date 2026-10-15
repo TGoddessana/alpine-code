@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { useEffect, useRef } from 'react';
 
 import { AgentChip, Composer } from '@/shared/components/composer';
@@ -31,7 +32,11 @@ const FOLLOW_PX = 80;
  * already waiting stays). While the run goes on the send button is a stop button. While a call waits, what I write in the input skips
  * it and tells the agent what to do instead. Project, branch and state are in the top bar.
  */
-export function Session({ sessionId }: { sessionId: string }) {
+/**
+ * `compact`: shown in the dock beside another page (the product map), so it fits the dock's width instead of keeping
+ * the width of a page of its own.
+ */
+export function Session({ sessionId, compact = false }: { sessionId: string; compact?: boolean }) {
   const t = useMessages(messages);
   const session = useSession(sessionId);
   const send = useSendMessage();
@@ -61,7 +66,13 @@ export function Session({ sessionId }: { sessionId: string }) {
     const missing =
       state?.deleted || (session.error instanceof ServerError && session.error.code === SESSION_NOT_FOUND);
     return (
-      <main aria-label={t.conversation} className="flex min-w-120 grow flex-col items-center justify-center bg-canvas">
+      <main
+        aria-label={t.conversation}
+        className={clsx(
+          'flex min-h-0 grow flex-col items-center justify-center bg-canvas',
+          compact ? 'min-w-0' : 'min-w-120',
+        )}
+      >
         {(missing || session.isError) && (
           <p role="status" className="text-body text-fg-muted">
             {missing ? t.notFound : t.loadFailed}
@@ -86,7 +97,10 @@ export function Session({ sessionId }: { sessionId: string }) {
           : t.agentFailed;
 
   return (
-    <main aria-label={title} className="flex min-w-120 grow flex-col bg-canvas">
+    <main
+      aria-label={title}
+      className={clsx('flex min-h-0 grow flex-col bg-canvas', compact ? 'min-w-0' : 'min-w-120')}
+    >
       <div
         ref={scroller}
         onScroll={(event) => {
@@ -95,12 +109,15 @@ export function Session({ sessionId }: { sessionId: string }) {
         }}
         className="min-h-0 grow overflow-y-auto"
       >
-        <div ref={content} className="mx-auto flex w-full max-w-175 flex-col gap-4 px-6 py-6">
+        <div
+          ref={content}
+          className={clsx('mx-auto flex w-full max-w-175 flex-col gap-4 py-6', compact ? 'px-4' : 'px-6')}
+        >
           <Chat sessionId={sessionId} cwd={info.cwd} items={state.items} activeIds={state.activeIds} />
           {running && <ProgressLine info={info} />}
         </div>
       </div>
-      <div className="mx-auto flex w-full max-w-175 flex-col gap-2 px-6 pt-3 pb-6">
+      <div className={clsx('mx-auto flex w-full max-w-175 flex-col gap-2 pt-3 pb-6', compact ? 'px-4' : 'px-6')}>
         {setAgent.isError && (
           <p role="alert" className="px-1 text-meta text-fg-muted">
             {agentFailed}

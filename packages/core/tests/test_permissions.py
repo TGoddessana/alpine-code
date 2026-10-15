@@ -80,7 +80,12 @@ def plain(path: str) -> str:
 def test_kinds_come_from_hints(tmp_path):
     tools = tool_map(Workspace(tmp_path))
     assert {name: kind_of(tools[name]) for name in tools} == {
-        "read": "read", "glob": "read", "grep": "read", "write": "edit", "edit": "edit", "bash": "exec",
+        "read": "read",
+        "glob": "read",
+        "grep": "read",
+        "write": "edit",
+        "edit": "edit",
+        "bash": "exec",
     }
     assert kind_of(lookup) == "read"
     assert kind_of(fetch) == "exec"  # read-only, but it reaches the network
@@ -113,8 +118,11 @@ def test_reading_inside_is_allowed_but_secrets_ask(policy):
 
 def test_outside_the_workspace_asks_and_remembers_the_directory(policy, tmp_path):
     outside = str(tmp_path / "outside/notes.txt")
-    for name, args in [("read", {"path": outside}), ("grep", {"pattern": "x", "path": "../outside"}),
-                       ("read", {"path": "~/.ssh/id_rsa"})]:
+    for name, args in [
+        ("read", {"path": outside}),
+        ("grep", {"pattern": "x", "path": "../outside"}),
+        ("read", {"path": "~/.ssh/id_rsa"}),
+    ]:
         verdict = evaluate(policy, name, args)
         assert not verdict.allowed and verdict.reason == "outside the working directory"
     verdict = evaluate(policy, "read", {"path": outside})
@@ -152,8 +160,9 @@ def test_bash_remembers_command_prefixes(policy):
     assert evaluate(policy, "bash", {"command": "git status 2>/dev/null"}).allowed
 
 
-@pytest.mark.parametrize("command", ["python -c 'import os'", "sudo make", "echo x | xargs rm", "$CMD", "bash -c 'ls'",
-                                     "uv run python x.py"])
+@pytest.mark.parametrize(
+    "command", ["python -c 'import os'", "sudo make", "echo x | xargs rm", "$CMD", "bash -c 'ls'", "uv run python x.py"]
+)
 def test_bash_never_remembers_commands_that_can_run_anything(policy, command):
     verdict = evaluate(policy, "bash", {"command": command})
     assert not verdict.allowed and verdict.grant is None and verdict.remember is None
@@ -168,8 +177,15 @@ def test_analysis_sees_nested_commands():
 def test_bash_paths_outside_the_workspace_ask(policy, tmp_path):
     policy.remember(evaluate(policy, "bash", {"command": "cat a.txt"}).grant)
     assert evaluate(policy, "bash", {"command": "cat src/a.py"}).allowed
-    for command in ["cat ~/.ssh/id_rsa", "cat /etc/hosts", "cat ../outside/notes.txt", "cat < ~/.ssh/id_rsa",
-                    "cat --file=/etc/hosts", "cat ../*", "cat a && cd .. && cat project/x"]:
+    for command in [
+        "cat ~/.ssh/id_rsa",
+        "cat /etc/hosts",
+        "cat ../outside/notes.txt",
+        "cat < ~/.ssh/id_rsa",
+        "cat --file=/etc/hosts",
+        "cat ../*",
+        "cat a && cd .. && cat project/x",
+    ]:
         verdict = evaluate(policy, "bash", {"command": command})
         assert not verdict.allowed, command
         assert "outside the working directory" in verdict.reason, command
@@ -184,8 +200,12 @@ def test_bash_cd_is_followed(policy):
 
 def test_bash_paths_known_only_at_run_time_ask_every_time(policy):
     policy.remember(evaluate(policy, "bash", {"command": "cat a"}).grant)
-    for command in ["cat $HOME/.ssh/id_rsa", 'cat "$DIR/x"', 'cd "$(git rev-parse --show-toplevel)" && cat x',
-                    "cd - && cat x"]:
+    for command in [
+        "cat $HOME/.ssh/id_rsa",
+        'cat "$DIR/x"',
+        'cd "$(git rev-parse --show-toplevel)" && cat x',
+        "cd - && cat x",
+    ]:
         verdict = evaluate(policy, "bash", {"command": command})
         assert not verdict.allowed and verdict.grant is None, command
         assert "only known when it runs" in verdict.reason, command
@@ -207,8 +227,16 @@ def test_bash_secret_files_ask(policy):
     assert evaluate(policy, "bash", {"command": "cat .env.example"}).allowed
 
 
-@pytest.mark.parametrize("command", ["git clone https://github.com/a/b", "git log origin/main", "ls 2>/dev/null",
-                                     "awk -F/ '{print $1/2}' f", "echo hi 2>&1"])
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git clone https://github.com/a/b",
+        "git log origin/main",
+        "ls 2>/dev/null",
+        "awk -F/ '{print $1/2}' f",
+        "echo hi 2>&1",
+    ],
+)
 def test_bash_things_that_look_like_paths_but_stay_inside(policy, command):
     assert evaluate(policy, "bash", {"command": command}).reason is None
 

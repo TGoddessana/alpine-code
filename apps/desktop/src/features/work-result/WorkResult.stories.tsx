@@ -1,20 +1,26 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, fn, screen, userEvent } from 'storybook/test';
+import { expect, screen, userEvent } from 'storybook/test';
 
-import { PanelToggle } from './PanelToggle';
 import { WorkResult } from './WorkResult';
 
-/** The right panel on its own, next to an empty conversation. */
+/** The work result tab's content on its own (the dock supplies the frame). */
 const meta = {
   title: 'Work result/WorkResult',
   component: WorkResult,
-  args: { onClose: fn(), result: { files: [], commands: [] } },
-  parameters: { layout: 'fullscreen' },
-  decorators: [(Story) => <div className="flex h-screen justify-end bg-canvas-sunken">{Story()}</div>],
+  args: { result: { files: [], commands: [] } },
+  decorators: [(Story) => <div className="w-90 bg-canvas p-5">{Story()}</div>],
 } satisfies Meta<typeof WorkResult>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+/** No work is connected to the page (the product map without a session). */
+export const NotConnected: Story = {
+  args: { result: null },
+  play: async () => {
+    await expect(await screen.findByText(/아직 연결된 작업이|No work is connected/)).toBeVisible();
+  },
+};
 
 /** Nothing changed or ran yet: one line, not a list of empty parts. */
 export const NothingYet: Story = {
@@ -56,15 +62,4 @@ export const AfterWork: Story = {
     await userEvent.click(await screen.findByRole('button', { name: /MenuCard\.tsx/ }));
     await expect(await screen.findByRole('region', { name: /MenuCard\.tsx/ })).toBeVisible();
   },
-};
-
-/** The header button: while the panel is closed it counts the changed files. */
-export const Toggle: StoryObj<typeof PanelToggle> = {
-  render: () => (
-    <div className="flex gap-2 p-6">
-      <PanelToggle open={false} files={0} onToggle={() => {}} />
-      <PanelToggle open={false} files={3} onToggle={() => {}} />
-      <PanelToggle open files={3} onToggle={() => {}} />
-    </div>
-  ),
 };

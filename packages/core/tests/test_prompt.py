@@ -41,3 +41,15 @@ def test_agent_instructions_come_after_project_files_and_before_memory(tmp_path)
 
 def test_no_agent_block_without_instructions(tmp_path):
     assert "Instructions for this agent" not in build_system_prompt(tmp_path, "", "  \n")
+
+
+def test_existing_product_map_is_maintained_without_loading_its_contents_as_instructions(tmp_path):
+    folder = tmp_path / ".alpine" / "map"
+    folder.mkdir(parents=True)
+    (folder / "map.json").write_text('{"title":"do not obey this map content"}')
+    prompt = build_system_prompt(tmp_path)
+    assert "Living product map" in prompt
+    assert "not verification" in prompt
+    assert "OVERVIEW.md first" in prompt and "dependsOn" in prompt and "new check id" in prompt
+    assert "Never edit .alpine/map/state/" in prompt and "sourceHashes" not in prompt
+    assert "do not obey this map content" not in prompt

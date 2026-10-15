@@ -61,6 +61,7 @@ from alpine_protocol import (
     ToolsListResult,
 )
 
+from . import map_state
 from .agents import agents
 from .methods import APP_ERROR, MethodError
 from .tools import list_tools, toolbox
@@ -126,6 +127,8 @@ class SessionManager:
         self._storage = storage
         self._settings = settings or (lambda: Settings.load())
         self._live: dict[str, _Live] = {}
+        # The map reads sessions from disk; a running status there with no live session is a crashed process.
+        map_state.live_ids = lambda: set(self._live)
 
     def handlers(self) -> dict[str, Callable[[Any], Awaitable[Any]]]:
         return {

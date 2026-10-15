@@ -607,3 +607,44 @@ def test_info_on_the_wire_has_no_core_only_fields(folder, monkeypatch):
             assert "profile" not in info
 
     run(scenario())
+
+
+def test_product_map_discovery_uses_the_real_session_tools_and_survives_reopen(folder, monkeypatch):
+    card = {
+        "id": "hello",
+        "title": "Say hello",
+        "kind": "sdk",
+        "phase": "built",
+        "sources": ["hello.py"],
+        "example": "hello() -> 'Hello'",
+    }
+    (folder / "hello.py").write_text("def hello(): return 'Hello'\n")
+    fake_model(
+        monkeypatch, tool_call("write", path=".alpine/map/features/hello.json", content=json.dumps(card)), "Mapped."
+    )
+
+    async def scenario():
+        async with Client([]) as client:
+            sid = await client.new(folder, mode="accept_edits")
+            board = (await client.call("flow/get", cwd=str(folder)))["result"]
+            prepared = (
+                await client.call(
+                    "flow/prepare",
+                    cwd=str(folder),
+                    revision=board["revision"],
+                    action="discover",
+                    request="Map existing features",
+                    sessionId=sid,
+                )
+            )["result"]
+            assert "<alpine-product-map-context>" in prepared["prompt"]
+            await client.call("session/send", sessionId=sid, text=prepared["prompt"])
+            await client.status(sid, "idle")
+            result = (await client.call("flow/get", cwd=str(folder)))["result"]
+            assert result["document"]["nodes"][0]["title"] == "Say hello"
+            assert result["document"]["nodes"][0]["checks"] == []  # implementation is not verification
+            opened = (await client.call("session/open", sessionId=sid))["result"]
+            assert opened["info"]["title"] == "Map existing features"
+            assert any(i["kind"] == "tool_call" and i["name"] == "write" for i in opened["items"])
+
+    run(scenario())

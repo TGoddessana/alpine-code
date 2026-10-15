@@ -1,15 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useMemo } from 'react';
 
+import { DockLayout } from '@/features/dock/Dock';
 import { Session } from '@/features/session/Session';
-import { useWorkResultOpen } from '@/features/work-result/PanelToggle';
-import { workResult } from '@/features/work-result/results';
-import { WorkResult } from '@/features/work-result/WorkResult';
-import { useSession } from '@/shared/server';
+import { useWorkResultTab } from '@/features/work-result/useWorkResultTab';
 
 /**
- * A session exists: the chat with the input at the bottom. The work result panel is closed until I open it from
- * the top bar, where its button counts the changed files meanwhile.
+ * A session exists: the chat with the input at the bottom, and the right dock beside it. The dock is closed until I
+ * open it from the top bar, where its button counts the changed files meanwhile.
  */
 export const Route = createFileRoute('/session/$sessionId')({
   component: SessionRoute,
@@ -17,14 +14,10 @@ export const Route = createFileRoute('/session/$sessionId')({
 
 function SessionRoute() {
   const { sessionId } = Route.useParams();
-  const session = useSession(sessionId);
-  const [open, setOpen] = useWorkResultOpen();
-  const items = session.data?.items;
-  const result = useMemo(() => workResult(items ?? []), [items]);
+  const resultTab = useWorkResultTab(sessionId);
   return (
-    <>
+    <DockLayout scope={`session:${sessionId}`} tabs={[resultTab]}>
       <Session key={sessionId} sessionId={sessionId} />
-      {open && <WorkResult result={result} onClose={() => setOpen(false)} />}
-    </>
+    </DockLayout>
   );
 }

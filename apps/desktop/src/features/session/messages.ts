@@ -4,6 +4,7 @@ import { defineMessages } from '@/shared/i18n';
 
 export const messages = defineMessages({
   ko: {
+    productMapContext: '작업에 연결된 지도 정보',
     untitled: '제목 없는 세션',
     conversation: '대화',
     notFound: '이 세션을 찾을 수 없어요. 지워졌을 수 있어요',
@@ -120,6 +121,7 @@ export const messages = defineMessages({
     tokenTip: '토큰은 AI가 글을 세는 단위예요. 한글은 한 글자에 1~2토큰쯤 돼요.',
   },
   en: {
+    productMapContext: 'Map context attached to this task',
     untitled: 'Untitled session',
     conversation: 'Conversation',
     notFound: "We can't find this session. It may have been deleted",

@@ -301,6 +301,22 @@ def test_request_body_follows_the_plan_route():
     ]
 
 
+def test_one_conversation_keeps_one_cache_identity():
+    # As the official Codex client: the session-id header routes the cache, prompt_cache_key carries the same id.
+    model = ChatGPTModel("gpt-5.5", tokens=None)
+    first = model._request_body(Request(system="Be brief.", messages=(Message.user("hi"),)))
+    later = model._request_body(Request(system="Other.", messages=(Message.user("hi"), Message.user("more"))))
+    assert first["prompt_cache_key"] == later["prompt_cache_key"] == model.session_id
+    assert model._headers() == {
+        "session-id": model.session_id,
+        "thread-id": model.session_id,
+        "x-client-request-id": model.session_id,
+    }
+    assert ChatGPTModel("gpt-5.5", tokens=None).session_id != model.session_id
+    named = ChatGPTModel("gpt-5.5", tokens=None, session_id="s1")
+    assert named._request_body(Request(system=None, messages=(Message.user("hi"),)))["prompt_cache_key"] == "s1"
+
+
 def test_images_the_user_attached_are_sent_with_the_text():
     model = ChatGPTModel("gpt-5.5", tokens=None)
     image = Image(b"png", "image/png")

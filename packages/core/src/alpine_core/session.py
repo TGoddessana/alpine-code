@@ -828,6 +828,8 @@ def _now() -> str:
 
 def _title(text: str) -> str:
     """The first user message on one line, shortened."""
+    if text.endswith("\n</alpine-product-map-context>"):
+        text = text.split("\n\n<alpine-product-map-context>\n", 1)[0]
     line = " ".join(text.split())
     return line if len(line) <= TITLE_LENGTH else line[: TITLE_LENGTH - 1].rstrip() + "…"
 

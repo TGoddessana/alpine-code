@@ -33,7 +33,7 @@ function useRailOpen(): [boolean, () => void] {
 
 /**
  * The window: a top bar across the top, and under it the rail (where) beside a floating card holding the rest. Routes
- * fill the card: the centre (what happened) and, for a session, the work result panel (what changed and ran) on its right.
+ * fill the card: the centre (what happened) and, for a session or the product map, the right dock (work result, later surfaces) on its right.
  */
 export const Route = createRootRoute({
   component: Root,

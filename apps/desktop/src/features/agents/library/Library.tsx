@@ -5,16 +5,20 @@ import { Plus } from 'lucide-react';
 
 import { agentMessages, agentName } from '@/shared/components/agent';
 import { useFormat, useMessages } from '@/shared/i18n';
-import { useTools } from '@/shared/server';
+import { useSkills, useTools } from '@/shared/server';
 
 import { cards, type Card } from './cards';
 import { libraryMessages } from './messages';
+import { NewSkill } from './NewSkill';
 import { NewTool } from './NewTool';
+import { SkillDetail } from './SkillDetail';
+import { MineCards, Skills } from './Skills';
+import { librarySkillMessages } from './skillMessages';
 import { statusLine } from './status';
 import { ToolDetail } from './ToolDetail';
-import type { DraggedTool, LibraryTab, LibraryView } from './types';
+import type { DraggedTool, LibraryTab, LibraryView, SkillActions } from './types';
 
-export type { DraggedTool, LibraryTab, LibraryView };
+export type { DraggedTool, LibraryTab, LibraryView, SkillActions };
 
 const TABS: LibraryTab[] = ['all', 'tool', 'skill', 'mcp', 'sub'];
 
@@ -32,6 +36,7 @@ export function Library({
   onRemove,
   onCreated,
   onDragChange,
+  skillActions,
 }: {
   agent: AgentInfo;
   agents: AgentInfo[];
@@ -41,6 +46,7 @@ export function Library({
   onRemove: (tools: string[], label: string) => void;
   onCreated: (tools: string[], label: string) => void;
   onDragChange: (item: DraggedTool | null) => void;
+  skillActions: SkillActions;
 }) {
   const t = useMessages(libraryMessages);
   return (
@@ -57,6 +63,7 @@ export function Library({
           onAdd={onAdd}
           onRemove={onRemove}
           onDragChange={onDragChange}
+          skillActions={skillActions}
         />
       )}
       {view.kind === 'tool' && (
@@ -72,6 +79,17 @@ export function Library({
         />
       )}
       {view.kind === 'new-tool' && <NewTool agent={agent} onViewChange={onViewChange} onCreated={onCreated} />}
+      {view.kind === 'skill' && (
+        <SkillDetail
+          key={view.name}
+          agent={agent}
+          agents={agents}
+          name={view.name}
+          onViewChange={onViewChange}
+          actions={skillActions}
+        />
+      )}
+      {view.kind === 'new-skill' && <NewSkill onViewChange={onViewChange} actions={skillActions} />}
     </aside>
   );
 }
@@ -84,6 +102,7 @@ function List({
   onAdd,
   onRemove,
   onDragChange,
+  skillActions,
 }: {
   agent: AgentInfo;
   agents: AgentInfo[];
@@ -92,13 +111,21 @@ function List({
   onAdd: (tools: string[], label: string) => void;
   onRemove: (tools: string[], label: string) => void;
   onDragChange: (item: DraggedTool | null) => void;
+  skillActions: SkillActions;
 }) {
   const t = useMessages(libraryMessages);
+  const ts = useMessages(librarySkillMessages);
   const a = useMessages(agentMessages);
   const tools = useTools().data;
+  const skills = useSkills().data?.skills ?? [];
   if (!tools) return null;
   const all = cards(tools, agent, agents, (x) => agentName(x, a));
-  const soon = tab === 'skill' || tab === 'mcp' || tab === 'sub' ? tab : null;
+  const soon = tab === 'mcp' || tab === 'sub' ? tab : null;
+  const counts: Partial<Record<LibraryTab, number>> = {
+    all: all.length + skills.length,
+    tool: all.length,
+    skill: skills.length,
+  };
   const label = { all: t.tabAll, tool: t.tabTool, skill: t.tabSkill, mcp: t.tabMcp, sub: t.tabSub };
   const newTool = () => onViewChange({ kind: 'new-tool' });
 
@@ -108,7 +135,7 @@ function List({
         <div className="flex items-center gap-2">
           <div className="grow">
             <h2 className="text-title">{t.title}</h2>
-            <span className="text-meta text-fg-faint">{t.note}</span>
+            {tab !== 'skill' && <span className="text-meta text-fg-faint">{t.note}</span>}
           </div>
           <Menu.Root>
             <Menu.Trigger render={<Button />}>
@@ -119,8 +146,8 @@ function List({
               <Menu.Item onClick={newTool}>
                 <MenuText title={t.createTool} note={t.createToolNote} />
               </Menu.Item>
-              <Menu.Item disabled>
-                <MenuText title={t.writeSkill} note={t.writeSkillNote} tag={t.soon} />
+              <Menu.Item onClick={() => onViewChange({ kind: 'new-skill' })}>
+                <MenuText title={t.writeSkill} note={t.writeSkillNote} />
               </Menu.Item>
               <Menu.Item disabled>
                 <MenuText title={t.connectMcp} note={t.connectMcpNote} tag={t.soon} />
@@ -141,13 +168,15 @@ function List({
               )}
             >
               {label[id]}
-              {(id === 'all' || id === 'tool') && <span className="ml-1 text-fg-faint">{all.length}</span>}
+              {counts[id] !== undefined && <span className="ml-1 text-fg-faint">{counts[id]}</span>}
             </button>
           ))}
         </div>
       </div>
       {soon ? (
         <Soon tab={soon} />
+      ) : tab === 'skill' ? (
+        <Skills agent={agent} onViewChange={onViewChange} actions={skillActions} />
       ) : (
         <div className="flex flex-col gap-3 px-5 pb-6">
           {all.length === 0 && <p className="text-body text-fg-muted">{t.empty}</p>}
@@ -172,6 +201,12 @@ function List({
               />
             ))}
           </div>
+          {tab === 'all' && skills.length > 0 && (
+            <div className="flex flex-col gap-2 pt-2">
+              <h3 className="text-body font-medium">{ts.mine}</h3>
+              <MineCards skills={skills} agent={agent} onViewChange={onViewChange} actions={skillActions} />
+            </div>
+          )}
         </div>
       )}
     </>
@@ -190,10 +225,9 @@ function MenuText({ title, note, tag }: { title: string; note: string; tag?: str
   );
 }
 
-function Soon({ tab }: { tab: 'skill' | 'mcp' | 'sub' }) {
+function Soon({ tab }: { tab: 'mcp' | 'sub' }) {
   const t = useMessages(libraryMessages);
   const words = {
-    skill: [t.skillSoonTitle, t.skillSoonBody],
     mcp: [t.mcpSoonTitle, t.mcpSoonBody],
     sub: [t.subSoonTitle, t.subSoonBody],
   }[tab];

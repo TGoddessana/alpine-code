@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { FirstRun } from '@/features/first-run/FirstRun';
 import { Rail } from '@/features/rail/Rail';
 
+import { DroppedSkillsDialog } from '../DroppedSkills';
 import { TopBar } from '../TopBar';
 import { useFolderOpening } from '../useFolderOpening';
 
@@ -40,7 +41,7 @@ export const Route = createRootRoute({
 });
 
 function Root() {
-  useFolderOpening();
+  const [dropped, closeDropped] = useFolderOpening();
   const [railOpen, toggleRail] = useRailOpen();
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-canvas-sunken">
@@ -52,6 +53,7 @@ function Root() {
         </div>
       </div>
       <FirstRun />
+      <DroppedSkillsDialog outcome={dropped} onClose={closeDropped} />
     </div>
   );
 }

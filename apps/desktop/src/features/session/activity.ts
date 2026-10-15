@@ -11,6 +11,7 @@ export type ActivityWord =
   | 'editing'
   | 'running'
   | 'remembering'
+  | 'skill'
   | 'tool'
   | 'reviewing'
   | 'approval'
@@ -38,6 +39,7 @@ export function activityWord(activity: Pick<Activity, 'kind' | 'toolName'> | nul
           edit: 'editing',
           run: 'running',
           memory: 'remembering',
+          skill: 'skill',
           other: 'tool',
         } as const
       )[toolKind(activity.toolName ?? '')];

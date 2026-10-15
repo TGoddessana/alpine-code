@@ -106,9 +106,7 @@ def search(params: SkillsSearchParams) -> SkillsSearchResult:
         hits = search_skills(params.query)
     except SkillError as e:
         raise MethodError(APP_ERROR, str(e), e.reason) from e
-    return SkillsSearchResult(
-        hits=[SkillHit(name=h.name, source=h.source, id=h.id, installs=h.installs) for h in hits]
-    )
+    return SkillsSearchResult(hits=[SkillHit(name=h.name, source=h.source, id=h.id, installs=h.installs) for h in hits])
 
 
 def skill_info(skill: Skill) -> SkillInfo:

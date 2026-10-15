@@ -1,9 +1,9 @@
 import { Link, useMatch, useRouter } from '@tanstack/react-router';
 import { ArrowLeft, ArrowRight, GitBranch, PanelLeft } from 'lucide-react';
-import { useMemo, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
-import { PanelToggle, useWorkResultOpen } from '@/features/work-result/PanelToggle';
-import { workResult } from '@/features/work-result/results';
+import { DockToggle } from '@/features/dock/Dock';
+import { useWorkResult } from '@/features/work-result/useWorkResult';
 import { StatusWord } from '@/shared/components/status';
 import { useMessages } from '@/shared/i18n';
 import { useProjectGit, useProjects, useSession } from '@/shared/server';
@@ -15,13 +15,15 @@ const iconButton =
 
 /**
  * The one line over the whole window: room for the traffic lights, the sidebar button, back and forward, then for a
- * session where it runs (project, branch) and its state, and at the far end the work result button. The bar and its
+ * session where it runs (project, branch) and its state (on the product map, the project), and at the far end the dock button. The bar and its
  * empty parts drag the window; the buttons never do.
  */
 export function TopBar({ railOpen, onToggleRail }: { railOpen: boolean; onToggleRail: () => void }) {
   const t = useMessages(messages);
   const router = useRouter();
   const match = useMatch({ from: '/session/$sessionId', shouldThrow: false });
+  const board = useMatch({ from: '/board', shouldThrow: false });
+  const memory = useMatch({ from: '/memory', shouldThrow: false });
   return (
     <div data-tauri-drag-region className="flex h-11.5 shrink-0 items-center gap-1 bg-canvas-sunken pr-3 pl-20">
       <button
@@ -41,6 +43,10 @@ export function TopBar({ railOpen, onToggleRail }: { railOpen: boolean; onToggle
       </button>
       {match ? (
         <SessionPart sessionId={match.params.sessionId} />
+      ) : board ? (
+        <BoardPart project={board.search.project} sessionId={board.search.session ?? null} />
+      ) : memory ? (
+        <ProjectPages project={memory.search.project} current="memory" />
       ) : (
         <span data-tauri-drag-region className="grow self-stretch" />
       )}
@@ -48,16 +54,14 @@ export function TopBar({ railOpen, onToggleRail }: { railOpen: boolean; onToggle
   );
 }
 
-/** Project, branch and state of the open session, and the work result button at the end. */
+/** Project, branch and state of the open session, and the dock button at the end. */
 function SessionPart({ sessionId }: { sessionId: string }) {
   const t = useMessages(messages);
   const session = useSession(sessionId);
   const projects = useProjects();
   const info = session.data && !session.data.deleted ? session.data.info : undefined;
   const git = useProjectGit(info?.cwd ?? '');
-  const [open, setOpen] = useWorkResultOpen();
-  const items = session.data?.items;
-  const result = useMemo(() => workResult(items ?? []), [items]);
+  const result = useWorkResult(sessionId);
   const project = info && (projects.data?.projects.find((p) => p.path === info.cwd)?.name ?? info.cwd.split('/').pop());
   const branch = info && git.data?.git ? (git.data.git.branch ?? t.noBranch) : null;
 
@@ -89,8 +93,64 @@ function SessionPart({ sessionId }: { sessionId: string }) {
           {t.productMap}
         </Link>
       )}
-      <PanelToggle open={open} files={result.files.length} onToggle={() => setOpen(!open)} />
+      <DockToggle files={result?.files.length} />
     </>
+  );
+}
+
+/** The project of the product map, and the dock button counting the changed files of the attached session. */
+function BoardPart({ project, sessionId }: { project?: string; sessionId: string | null }) {
+  const projects = useProjects();
+  const result = useWorkResult(sessionId, project);
+  const listed = projects.data?.projects.find((p) => p.path === project);
+  const name = project && (listed?.name ?? project.split('/').pop());
+  // The board renders no dock for a project that is missing or archived, so the toggle would open nothing.
+  const shown = !!listed && !listed.archived;
+  return (
+    <>
+      <Drag className="ml-3 gap-2">
+        {name && (
+          <span className="truncate text-body font-medium" title={project}>
+            {name}
+          </span>
+        )}
+        {shown && <PageTabs project={project} current="map" />}
+      </Drag>
+      {shown && <DockToggle files={result?.files.length} />}
+    </>
+  );
+}
+
+/** The project name and its page tabs, on a page with no dock (the memory). */
+function ProjectPages({ project, current }: { project?: string; current: 'map' | 'memory' }) {
+  const projects = useProjects();
+  const listed = projects.data?.projects.find((p) => p.path === project);
+  const name = project && (listed?.name ?? project.split('/').pop());
+  return (
+    <Drag className="ml-3 gap-2">
+      {name && (
+        <span className="truncate text-body font-medium" title={project}>
+          {name}
+        </span>
+      )}
+      {!!listed && !listed.archived && <PageTabs project={project} current={current} />}
+    </Drag>
+  );
+}
+
+/** Map | Memory of one project. They navigate, so they are links (the current one aria-current), not tabs. */
+function PageTabs({ project, current }: { project?: string; current: 'map' | 'memory' }) {
+  const t = useMessages(messages);
+  const tab = 'rounded-md px-2 py-0.5 text-meta text-fg-muted hover:text-fg aria-[current=page]:bg-canvas-raised aria-[current=page]:font-medium aria-[current=page]:text-fg aria-[current=page]:shadow-sm';
+  return (
+    <nav aria-label={t.pages} className="ml-1 flex shrink-0 items-center gap-0.5 rounded-lg bg-hover p-0.5">
+      <Link to="/board" search={{ project }} className={tab} aria-current={current === 'map' ? 'page' : undefined}>
+        {t.pageMap}
+      </Link>
+      <Link to="/memory" search={{ project }} className={tab} aria-current={current === 'memory' ? 'page' : undefined}>
+        {t.pageMemory}
+      </Link>
+    </nav>
   );
 }
 

@@ -129,34 +129,36 @@ export function Composer({
           }}
           className="max-h-60 min-h-11 w-full resize-none bg-transparent text-reading text-fg outline-none placeholder:text-fg-muted disabled:text-fg-muted"
         />
-        <div className="-ml-2 flex items-center gap-1">
+        {/* Wraps in a narrow column (the dock): the send button and its neighbours move down together, on the right. */}
+        <div className="-ml-2 flex flex-wrap items-center gap-1">
           {agent}
           {mode && <ModeChip mode={mode.value} onChange={mode.onChange} disabled={locked} />}
-          <span className="grow" />
-          {bar}
-          {running && !(answer && text.trim()) ? (
-            <button
-              type="button"
-              onClick={onStop}
-              aria-label={t.stop}
-              aria-keyshortcuts="Escape"
-              title={t.stopTitle}
-              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full bg-interactive text-on-fill hover:bg-interactive-hover"
-            >
-              <Square size={14} strokeWidth={1.5} fill="currentColor" aria-hidden="true" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={locked || pending || !text.trim()}
-              onClick={() => void send()}
-              aria-label={t.send}
-              title={t.send}
-              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full bg-interactive text-on-fill enabled:hover:bg-interactive-hover disabled:cursor-default disabled:opacity-40"
-            >
-              <ArrowUp size={18} strokeWidth={1.5} aria-hidden="true" />
-            </button>
-          )}
+          <span className="ml-auto flex items-center gap-1">
+            {bar}
+            {running && !(answer && text.trim()) ? (
+              <button
+                type="button"
+                onClick={onStop}
+                aria-label={t.stop}
+                aria-keyshortcuts="Escape"
+                title={t.stopTitle}
+                className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full bg-interactive text-on-fill hover:bg-interactive-hover"
+              >
+                <Square size={14} strokeWidth={1.5} fill="currentColor" aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={locked || pending || !text.trim()}
+                onClick={() => void send()}
+                aria-label={t.send}
+                title={t.send}
+                className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full bg-interactive text-on-fill enabled:hover:bg-interactive-hover disabled:cursor-default disabled:opacity-40"
+              >
+                <ArrowUp size={18} strokeWidth={1.5} aria-hidden="true" />
+              </button>
+            )}
+          </span>
         </div>
       </div>
       {(error || (running && !answer)) && (

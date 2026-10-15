@@ -9,6 +9,9 @@ export const messages = defineMessages({
     forward: '앞으로',
     noBranch: '작업 갈래 없음',
     branch: '작업 갈래',
+    pages: '프로젝트 화면',
+    pageMap: '지도',
+    pageMemory: '기억',
   },
   en: {
     productMap: 'Product map',
@@ -18,5 +21,8 @@ export const messages = defineMessages({
     forward: 'Forward',
     noBranch: 'No branch',
     branch: 'Branch',
+    pages: 'Project pages',
+    pageMap: 'Map',
+    pageMemory: 'Memory',
   },
 });

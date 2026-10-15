@@ -1,0 +1,189 @@
+import type { ApprovalItem, ToolCallItem } from '@alpine/protocol';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { useDockOpen } from '@/features/dock/state';
+import { LocaleProvider } from '@/shared/i18n';
+import {
+  EXAMPLE_MAP,
+  flowScript,
+  mergeScripts,
+  PROJECTS,
+  scriptedConnection,
+  type Script,
+  ServerProvider,
+  sessionInfo,
+  sessionScript,
+  setUpScript,
+} from '@/shared/server';
+
+import { routeTree } from './routeTree.gen';
+
+const cwd = '/Users/me/alpine-code';
+const edit: ToolCallItem = {
+  id: 'e1',
+  kind: 'tool_call',
+  name: 'edit',
+  args: { path: 'src/Cart.tsx' },
+  status: 'done',
+  result: null,
+  images: 0,
+};
+const approval: ApprovalItem = {
+  id: 'e1a',
+  kind: 'approval',
+  callId: 'e1',
+  title: 'Edit src/Cart.tsx',
+  preview: '@@ -1 +1 @@\n-x\n+y\n',
+  previewKind: 'diff',
+  reason: null,
+  remember: null,
+  decision: 'allow',
+  feedback: null,
+  review: null,
+  reviewError: null,
+  tool: 'edit',
+  args: { path: 'src/Cart.tsx' },
+};
+
+/** `extra` answers after the defaults, so a test can change one result (e.g. an archived project). */
+function mount(path: string, extra: Script = {}) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const connection = scriptedConnection(
+    mergeScripts(
+      setUpScript(),
+      sessionScript({
+        sessions: [
+          { info: sessionInfo({ id: 'work', cwd, title: '장바구니 고치기' }), items: [approval, edit] },
+          { info: sessionInfo({ id: 'elsewhere', cwd: '/Users/me/docs-site' }), items: [approval, edit] },
+        ],
+      }),
+      flowScript(() => EXAMPLE_MAP),
+      extra,
+    ),
+  );
+  const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [path] }) });
+  render(
+    <QueryClientProvider client={client}>
+      <ServerProvider connection={connection}>
+        <LocaleProvider locale="ko">
+          <RouterProvider router={router} />
+        </LocaleProvider>
+      </ServerProvider>
+    </QueryClientProvider>,
+  );
+}
+
+const board = (session?: string) => `/board?project=${encodeURIComponent(cwd)}${session ? `&session=${session}` : ''}`;
+const toggle = () => screen.findByRole('button', { name: '오른쪽 창 닫기', pressed: true });
+/** The dock's open state is shared across a test file: set it for each test (it is remembered, as in the app). */
+function setDock(value: boolean) {
+  const { result, unmount } = renderHook(() => useDockOpen());
+  act(() => result.current[1](value));
+  unmount();
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  localStorage.setItem('alpine.rail.open', 'false');
+  setDock(false);
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
+  Element.prototype.scrollIntoView = vi.fn();
+});
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  localStorage.clear();
+});
+
+describe('right dock on the routes', () => {
+  it('opens from the top bar on a session and shows its work result', async () => {
+    mount('/session/work');
+    fireEvent.click(await screen.findByRole('button', { name: '오른쪽 창 열기, 바뀐 파일 1개' }));
+    const dock = await screen.findByRole('complementary', { name: '오른쪽 창' });
+    expect(within(dock).getByRole('tab', { name: '작업 결과', selected: true })).toBeTruthy();
+    expect(await within(dock).findByRole('button', { name: /Cart\.tsx/ })).toBeTruthy();
+    fireEvent.click(await toggle());
+    await waitFor(() => expect(screen.queryByRole('complementary', { name: '오른쪽 창' })).toBeNull());
+  });
+
+  it('opens on the product map with the attached session, and the top bar shows the project and the count', async () => {
+    mount(board('work'));
+    expect(await screen.findByText('alpine-code', { selector: 'span' })).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: '오른쪽 창 열기, 바뀐 파일 1개' }));
+    const dock = await screen.findByRole('complementary', { name: '오른쪽 창' });
+    // The map's session sits in the dock: its conversation first, then what it changed.
+    expect(within(dock).getByRole('tab', { name: '작업 내용' }).getAttribute('aria-selected')).toBe('true');
+    fireEvent.click(within(dock).getByRole('tab', { name: '작업 결과' }));
+    expect(await within(dock).findByRole('button', { name: /Cart\.tsx/ })).toBeTruthy();
+  });
+
+  it('says plainly that no work is connected when the product map has no session', async () => {
+    mount(board());
+    fireEvent.click(await screen.findByRole('button', { name: '오른쪽 창 열기' }));
+    const dock = await screen.findByRole('complementary', { name: '오른쪽 창' });
+    expect(within(dock).getByText('아직 연결된 작업이 없어요')).toBeTruthy();
+  });
+
+  it('does not show the work of a session from another project on the map', async () => {
+    mount(board('elsewhere'));
+    fireEvent.click(await screen.findByRole('button', { name: '오른쪽 창 열기' }));
+    const dock = await screen.findByRole('complementary', { name: '오른쪽 창' });
+    expect(within(dock).getByText('아직 연결된 작업이 없어요')).toBeTruthy();
+  });
+
+  it('remembers that it is open, and 크게 보기 hides the map until it is shrunk', async () => {
+    setDock(true);
+    mount(board());
+    const dock = await screen.findByRole('complementary', { name: '오른쪽 창' });
+    const map = await screen.findByRole('main', { hidden: true });
+    expect(map.parentElement!.className).not.toContain('hidden');
+    fireEvent.click(within(dock).getByRole('button', { name: '크게 보기' }));
+    expect(map.parentElement!.className).toContain('hidden');
+    fireEvent.click(within(dock).getByRole('button', { name: '작게 보기' }));
+    expect(map.parentElement!.className).not.toContain('hidden');
+  });
+
+  it('shows no dock button for a project that is not listed', async () => {
+    mount('/board?project=' + encodeURIComponent('/Users/me/gone'));
+    expect(await screen.findByText('/Users/me/gone')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /오른쪽 창/ })).toBeNull();
+  });
+
+  it('shows no dock button for an archived project, which the board renders without a dock', async () => {
+    const archived = PROJECTS.map((p) => (p.path === cwd ? { ...p, archived: true } : p));
+    mount(board('work'), { results: { 'projects/list': { projects: archived, cloneParent: '/Users/me' } } });
+    expect(await screen.findByText(cwd)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /오른쪽 창/ })).toBeNull();
+  });
+
+  it.each([
+    [700, true],
+    [1400, false],
+  ])('with the map area %ipx wide, an open feature panel overlays the dock: %s', async (width, overlaid) => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private callback: (entries: unknown[]) => void) {}
+        observe() {
+          this.callback([{ contentRect: { width } }]);
+        }
+        disconnect() {}
+      },
+    );
+    setDock(true);
+    mount(board());
+    fireEvent.click(await screen.findByRole('button', { name: /장바구니/ }));
+    const panel = await screen.findByRole('complementary', { name: /장바구니/ });
+    expect(panel.parentElement!.hasAttribute('data-overlay')).toBe(overlaid);
+    expect(screen.getByRole('complementary', { name: '오른쪽 창' })).toBeTruthy();
+  });
+});

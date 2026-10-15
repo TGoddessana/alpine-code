@@ -21,10 +21,7 @@ function SettingsRoute() {
   const navigate = useNavigate();
   return (
     <main className="flex min-w-120 grow flex-col bg-canvas">
-      <Settings
-        tab={tab}
-        onChange={(search) => void navigate({ to: '/settings', search, replace: true })}
-      />
+      <Settings tab={tab} onChange={(search) => void navigate({ to: '/settings', search, replace: true })} />
     </main>
   );
 }

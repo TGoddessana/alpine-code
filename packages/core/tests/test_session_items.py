@@ -243,7 +243,6 @@ def test_set_mode_updates_info_and_delete_removes_everything(tmp_path, monkeypat
     delete_session(storage, session.id)  # again: nothing happens
 
 
-
 def test_switching_the_model_keeps_the_conversation(tmp_path, monkeypatch):
     storage = file_storage()
     models = {"a/one": FakeModel(["first"], name="one"), "b/two": FakeModel(["second"], name="two")}
@@ -267,6 +266,7 @@ def test_switching_the_model_keeps_the_conversation(tmp_path, monkeypatch):
     assert kinds(session) == ["user_message", "agent_message", "user_message", "agent_message"]
     resumed = Session.resume(storage, session_id, Settings(model="a/one"), approver=SyncApprover())
     assert resumed.info.model == "b/two"
+
 
 def _activities(log):
     """The distinct consecutive (kind, tool) pairs the info_changed events showed."""

@@ -23,8 +23,12 @@ __all__ = ["BUILTIN", "Workspace", "default_tools", "preview_edit"]
 
 def default_tools(workspace: Workspace) -> list:
     return [
-        Read(workspace), Glob(workspace), Grep(workspace),
-        Write(workspace), Edit(workspace), Bash(workspace),
+        Read(workspace),
+        Glob(workspace),
+        Grep(workspace),
+        Write(workspace),
+        Edit(workspace),
+        Bash(workspace),
     ]
 
 

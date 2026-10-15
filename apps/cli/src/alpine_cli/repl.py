@@ -232,7 +232,7 @@ class Repl:
                     HTML(f"<b>{PROMPT}</b> "),
                     prompt_continuation=" " * (len(PROMPT) + 1),
                     show_frame=True,
-                    placeholder=HTML('<placeholder>Ask anything, or type / for commands</placeholder>'),
+                    placeholder=HTML("<placeholder>Ask anything, or type / for commands</placeholder>"),
                 )
             except KeyboardInterrupt:
                 if armed:

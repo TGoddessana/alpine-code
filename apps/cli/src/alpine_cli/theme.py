@@ -41,6 +41,7 @@ def pixel_art(rows: tuple[str, ...], colors: dict[str, str]) -> list[Text]:
         lines.append(line)
     return lines
 
+
 THEME = Theme(
     {
         "accent": "bold #5fafd7",

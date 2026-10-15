@@ -44,9 +44,11 @@ class CliApprover:
         if answer == "stop":
             return Decision("deny", stop=True)
         if answer == "deny":
-            feedback = PromptSession(style=self._style).prompt(
-                HTML("<ansigray>  What should it do instead? (Enter to stop) </ansigray>")
-            ).strip()
+            feedback = (
+                PromptSession(style=self._style)
+                .prompt(HTML("<ansigray>  What should it do instead? (Enter to stop) </ansigray>"))
+                .strip()
+            )
             return Decision("deny", feedback) if feedback else Decision("deny", stop=True)
         return Decision(answer)
 

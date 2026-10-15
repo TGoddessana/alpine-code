@@ -30,8 +30,8 @@ class OAuthTokens(Protocol):
     def set_oauth(self, name: str, record: dict[str, Any]) -> None: ...
 
     def locked(self) -> Iterator[None]:
-        """A context manager held across read, refresh and write. It must also keep other processes out: the CLI
-        and the app refresh the same rotating token, and the second one to use it loses the sign-in."""
+        """A context manager held across read, refresh and write. It must also keep other processes out: they
+        refresh the same rotating token, and the second one to use it loses the sign-in."""
         ...
 
 

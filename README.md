@@ -9,8 +9,6 @@
 <p align="center">
   <a href="https://github.com/TGoddessana/alpine-code/releases/latest"><b>Download for Mac</b></a>
   &nbsp;·&nbsp;
-  <a href="#in-the-terminal">Terminal version</a>
-  &nbsp;·&nbsp;
   <a href="LICENSE">MIT license</a>
 </p>
 
@@ -18,8 +16,8 @@
   <img src="assets/images/demo.gif" alt="Alpine Code at work: asked to make a bakery website's menu page fit on a phone, it reads two files, asks before editing the stylesheet and before running the build, then reports what changed. The work result panel fills in as it goes" width="900">
 </p>
 
-Alpine Code is an open-source AI coding agent for your desktop and your terminal. Open a folder, say what you want,
-and it reads the files, makes the changes and checks that they work.
+Alpine Code is an open-source AI coding agent for your desktop. Open a folder, say what you want, and it reads the
+files, makes the changes and checks that they work.
 
 It's built for two kinds of people at once:
 
@@ -29,8 +27,7 @@ It's built for two kinds of people at once:
 
 ## Open source
 
-- **MIT licensed.** The agent, the desktop app and the terminal app are all in this repository. Read it, fork it,
-  change it.
+- **MIT licensed.** The agent and the desktop app are both in this repository. Read it, fork it, change it.
 - **Any model.** Use your ChatGPT plan, an API key, or a model running on your own machine. Nothing ties you to one
   provider.
 - **No account, no server of ours.** What you ask goes straight from your computer to the model you connected, and
@@ -124,19 +121,6 @@ plans can't be used in other apps, so Claude models connect with an API key.
   <img src="assets/images/connect-a-model.png" alt="The Connect a model dialog: Sign in with ChatGPT, API key, or a local or compatible server" width="560">
 </p>
 
-## In the terminal
-
-The same agent runs in a terminal. With [uv](https://docs.astral.sh/uv/):
-
-```sh
-uv tool install alpine-code
-alpine                                    # interactive
-git diff | alpine -p "review this diff"   # print the answer and exit, for scripts and CI
-```
-
-Keys, commands, permissions and settings are in the [terminal guide](apps/cli/README.md). The terminal and the
-desktop app share their model connections.
-
 ## Contributing
 
 Bug reports, ideas and pull requests are welcome: [open an issue](https://github.com/TGoddessana/alpine-code/issues)
@@ -145,5 +129,5 @@ or start with [CONTRIBUTING.md](CONTRIBUTING.md). Alpine Code is built on
 
 ## Brand
 
-The snow hare’s bent ear, blue collar and horizontal wrench are shared by the app, terminal and website.
+The snow hare’s bent ear, blue collar and horizontal wrench are shared by the app and the website.
 Find the [brand assets and usage guide](assets/brand/README.md), or work on the independent [website and getting-started guide repository](https://github.com/TGoddessana/alpinecode.app).

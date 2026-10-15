@@ -7,7 +7,7 @@ or core submodules directly.
 
 from .agents import DEFAULT_ID as DEFAULT_AGENT
 from .agents import LOOKS, AgentConfig, AgentList, free_character
-from .approval import ApprovalRequest, Approver, AsyncApprover, BlockingApprover, Decision, blocked_reason
+from .approval import ApprovalRequest, Approver, AsyncApprover, BlockingApprover, Decision
 from .catalog import hidden_models, load_catalog
 from .config import (
     ConfigError,
@@ -132,7 +132,6 @@ __all__ = [
     "set_default_mode",
     "set_default_model",
     "set_review_model",
-    "blocked_reason",
     "show_model",
     "hidden_models",
     "load_catalog",

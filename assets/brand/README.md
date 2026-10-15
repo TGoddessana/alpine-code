@@ -2,7 +2,7 @@
 
 ![Alpine Code](wordmark.png)
 
-One snow hare across the desktop app, CLI, website and documentation. The selected design is the final centered icon with a horizontal wrench whose open head points to the **viewer’s right**.
+One snow hare across the desktop app, website and documentation. The selected design is the final centered icon with a horizontal wrench whose open head points to the **viewer’s right**.
 
 ## Recognisable features
 
@@ -25,7 +25,6 @@ One snow hare across the desktop app, CLI, website and documentation. The select
 | `hare.png` | Transparent 1024 px character |
 | `wordmark.png`, `wordmark-light.png` | Transparent horizontal lockups for light / dark surfaces |
 | `social-preview.png` | 1280 × 640 GitHub social preview / website sharing image |
-| `terminal.json`, `terminal-hare.png` | Hand-tuned compact CLI adaptation, 19 × 20 pixels |
 | `agent-collection.png` | Rendered catalogue of all agent looks and colours |
 | `source/prompts.md` | Image-generation provenance and extraction prompts |
 
@@ -39,7 +38,7 @@ One snow hare across the desktop app, CLI, website and documentation. The select
 | Charcoal | `#1A222A` |
 | Nose pink | `#FFAFAF` |
 
-Use Pretendard for product / Korean web text, a system sans-serif fallback, and monospace only for code. The exported English wordmark uses the bundled Pretendard Bold font. The raster master contains shading; these are the semantic UI colours, not a claim that every image pixel is one of these five colours. CLI ink and blue are lightened to remain visible on dark terminals.
+Use Pretendard for product / Korean web text, a system sans-serif fallback, and monospace only for code. The exported English wordmark uses the bundled Pretendard Bold font. The raster master contains shading; these are the semantic UI colours, not a claim that every image pixel is one of these five colours.
 
 ## Rebuild
 

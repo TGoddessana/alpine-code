@@ -47,9 +47,8 @@ BLOCKS_BEFORE_ASKING = 3
 #: Seconds the reviewer has to answer before the user is asked instead.
 REVIEW_TIMEOUT = 90.0
 
-BLOCKED_PREFIX = "Auto mode's reviewer blocked this call: "
 BLOCKED = (
-    BLOCKED_PREFIX + "{reason}. Do not try to get the same effect another way. Carry on with"
+    "Auto mode's reviewer blocked this call: {reason}. Do not try to get the same effect another way. Carry on with"
     " what you can do without it; if it is needed, tell the user what you wanted to do and why, and let them decide."
 )
 
@@ -284,13 +283,6 @@ class DecideByApprover(DecidePermission):
         if decision.feedback:
             return Denied(f"{DECLINED} They said: {decision.feedback}")
         return Denied(f"{DECLINED} {SKIPPED}")
-
-
-def blocked_reason(result: str) -> str | None:
-    """The reviewer's reason in a denied call's result, or ``None`` when the reviewer did not block it."""
-    if not result.startswith(BLOCKED_PREFIX):
-        return None
-    return result[len(BLOCKED_PREFIX) :].split(". Do not try", 1)[0]
 
 
 def blocks_in_a_row(state: State) -> int:

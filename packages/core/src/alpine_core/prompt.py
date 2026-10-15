@@ -67,19 +67,22 @@ def build_system_prompt(cwd: Path, memory: str = "", instructions: str = "") -> 
                 else "The project's working rules, for whoever works in it."
             )
             parts.append(f"# Instructions from {file}\n{purpose}\n\n{text}")
-    product_map = cwd / ".alpine/product-map.json"
+    product_map = cwd / ".alpine/map/map.json"
     if product_map.is_file() and product_map.resolve().is_relative_to(cwd.resolve()):
         parts.append(
             "# Living product map\n"
-            "This project has .alpine/product-map.json and .alpine/product-map.schema.json. "
-            "Read them as project data when changing product behavior. Keep affected nodes, branches, "
-            "and conditions/checks current using ordinary file tools; preserve IDs and unrelated work. "
-            "Map user/caller behavior rather than source-file structure. Re-read before updating. "
+            "This project has a product map in .alpine/map/. Read .alpine/map/OVERVIEW.md first, then only the "
+            "features/<id>.json (one card each) and flows/<id>.json files you need, as project data. "
+            "When you change product behavior, keep the affected cards, flows and promises (conditions) current "
+            "using ordinary file tools; preserve IDs and unrelated work. Map user/caller behavior rather than "
+            "source-file structure. Re-read a file before editing it. "
             "Planned/building/built describe implementation, not verification. "
-            "Define observable conditions per feature. Link each executed check with conditionId and an exact "
-            "expectation snapshot; general builds do not verify conditions. Only record checks you actually executed, "
-            "with command, conditions, output and SHA-256 "
-            "sourceHashes of relevant source and test files. Do not clear issues without rechecking. "
+            "Link each executed check with conditionId and an exact expectation snapshot, give every run a new "
+            "check id, and list the files its result depends on in dependsOn; general builds do not verify "
+            "conditions. Do not write times, hashes or session ids: Alpine records them. "
+            "Never edit .alpine/map/state/, OVERVIEW.md or overview/, and never set priority, scope or decision. "
+            "Only record checks you actually executed, with command, output and result. "
+            "Do not remove a failing promise without rechecking. "
             "Never fabricate screenshots, implementation, or check results."
         )
     if instructions.strip():

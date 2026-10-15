@@ -9,6 +9,10 @@ spike found):
 - Reasoning carries to the next request as the ``reasoning`` item with its ``encrypted_content``, kept here as a
   ``RawBlock`` and sent back without ``id`` or ``status`` (nothing is stored on OpenAI's side).
 - Errors never switch to another way of paying: a used-up plan stops the run.
+- Cache affinity as the official Codex client sends it (openai/codex ``codex-rs/core/src/client.rs``: "ChatGPT
+  derives cache affinity from the Responses session-id header"): one id per model object, that is per conversation,
+  in the ``session-id``, ``thread-id`` and ``x-client-request-id`` headers and as ``prompt_cache_key``. On GPT-5.6
+  and later the key alone does not route requests (OpenAI's prompt caching guide); the header does.
 
 The generic part (Responses API, a token that is looked up per request) is meant to move into alpineagents.
 """
@@ -20,6 +24,7 @@ import json
 import time
 import urllib.error
 import urllib.request
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any
@@ -100,6 +105,8 @@ class ChatGPTModel(Model):
         context_window: Overrides the catalog's size.
         reasoning_effort: ``"low"``, ``"medium"``, ``"high"``... ``None`` leaves the model's default.
         timeout: Request timeout in seconds.
+        session_id: The conversation's id for cache affinity; a new one by default (Alpine makes one model per
+            session).
     """
 
     provider = "chatgpt"
@@ -112,8 +119,10 @@ class ChatGPTModel(Model):
         context_window: int | None = None,
         reasoning_effort: str | None = None,
         timeout: float | None = None,
+        session_id: str | None = None,
     ) -> None:
         self.name = name
+        self.session_id = session_id or uuid.uuid4().hex
         self.tokens = tokens
         self.reasoning_effort = reasoning_effort
         self.timeout = timeout
@@ -146,7 +155,7 @@ class ChatGPTModel(Model):
             client = openai.OpenAI(api_key=token, base_url=RESOURCE, max_retries=0, timeout=self.timeout)
             collected = _Collected(on_text)
             try:
-                with client.responses.create(**body) as stream:
+                with client.responses.create(**body, extra_headers=self._headers()) as stream:
                     for event in stream:
                         collected.add(event)
                 return self._to_reply(collected)
@@ -170,7 +179,7 @@ class ChatGPTModel(Model):
             client = openai.AsyncOpenAI(api_key=token, base_url=RESOURCE, max_retries=0, timeout=self.timeout)
             collected = _Collected(on_text)
             try:
-                async with await client.responses.create(**body) as stream:
+                async with await client.responses.create(**body, extra_headers=self._headers()) as stream:
                     async for event in stream:
                         collected.add(event)
                 return self._to_reply(collected)
@@ -260,7 +269,12 @@ class ChatGPTModel(Model):
                 body["tool_choice"] = "none"
         if self.reasoning_effort:
             body["reasoning"] = {"effort": self.reasoning_effort}
+        body["prompt_cache_key"] = self.session_id
         return body
+
+    def _headers(self) -> dict[str, str]:
+        """The conversation's identity, which ChatGPT uses to send its requests where their prefix is cached."""
+        return {"session-id": self.session_id, "thread-id": self.session_id, "x-client-request-id": self.session_id}
 
     def _to_input(self, request: Request) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []

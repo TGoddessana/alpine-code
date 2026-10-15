@@ -118,8 +118,7 @@ export function useSetDefaultModel() {
   });
 }
 
-/** What new sessions start with besides the model: the permission mode (shared with the terminal) and the model auto
- * mode's reviewer uses. */
+/** What new sessions start with besides the model: the permission mode and the model auto mode's reviewer uses. */
 export function useSettings() {
   const server = useServer();
   return useQuery({ queryKey: ['settings'], queryFn: () => server.request('settings/get', {}), retry: false });

@@ -1,6 +1,8 @@
 import { Button, Dialog, OptionList } from '@alpine/ui/primitives';
 import { useState } from 'react';
 
+import { BrandMark } from '@/shared/components/brand';
+
 import {
   ApiKeyForm,
   ChatGPTSignIn,
@@ -61,6 +63,7 @@ function MethodStep({ onNext }: { onNext: (step: Step) => void }) {
   return (
     <>
       <div className="flex flex-col gap-2">
+        <BrandMark size={64} />
         <Dialog.Title>{t.title}</Dialog.Title>
         <Dialog.Description>{t.lead}</Dialog.Description>
       </div>

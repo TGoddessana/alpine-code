@@ -2,17 +2,15 @@
 # TypeScript members live in pnpm-workspace.yaml. CONTRIBUTING.md shows the layout.
 
 [tool.uv.workspace]
-members = ["apps/cli", "apps/server", "packages/core", "packages/protocol/python"]
+members = ["apps/server", "packages/core", "packages/protocol/python"]
 
 [tool.uv.sources]
-alpine-code = { workspace = true }
 alpine-code-core = { workspace = true }
 alpine-code-protocol = { workspace = true }
 alpine-code-server = { workspace = true }
 
 [dependency-groups]
 dev = [
-    "alpine-code",
     "alpine-code-core",
     "alpine-code-protocol",
     "alpine-code-server",
@@ -22,7 +20,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["apps/cli/tests", "apps/server/tests", "packages/core/tests", "packages/protocol/python/tests"]
+testpaths = ["apps/server/tests", "packages/core/tests", "packages/protocol/python/tests"]
 addopts = ["--import-mode=importlib"]
 
 [tool.ruff]
@@ -32,26 +30,21 @@ line-length = 120
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["alpine_cli", "alpine_core", "alpine_protocol", "alpine_server"]
+known-first-party = ["alpine_core", "alpine_protocol", "alpine_server"]
 
-# Dependencies point one way: apps -> packages, never back, and apps never import each other.
+# Dependencies point one way: apps -> packages, never back.
 [tool.importlinter]
-root_packages = ["alpine_cli", "alpine_core", "alpine_protocol", "alpine_server"]
+root_packages = ["alpine_core", "alpine_protocol", "alpine_server"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "core is UI-agnostic"
 type = "forbidden"
 source_modules = ["alpine_core"]
-forbidden_modules = ["alpine_cli", "alpine_server", "alpine_protocol", "rich", "prompt_toolkit"]
+forbidden_modules = ["alpine_server", "alpine_protocol"]
 
 [[tool.importlinter.contracts]]
 name = "protocol stands alone"
 type = "forbidden"
 source_modules = ["alpine_protocol"]
-forbidden_modules = ["alpine_core", "alpine_cli", "alpine_server"]
-
-[[tool.importlinter.contracts]]
-name = "apps do not import each other"
-type = "independence"
-modules = ["alpine_cli", "alpine_server"]
+forbidden_modules = ["alpine_core", "alpine_server"]

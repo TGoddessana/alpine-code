@@ -1,3 +1,5 @@
+<p><img src="https://raw.githubusercontent.com/TGoddessana/alpine-code/main/assets/brand/wordmark.png" alt="Alpine Code" width="280"></p>
+
 # alpine-code-core
 
 The UI-agnostic agent core (`alpine_core`): agent loop, tools, permissions, prompt, config. Every app drives it; it
@@ -16,5 +18,5 @@ src/alpine_core/
 ```
 
 A frontend gives `Session` two things — an `on_event` callback and an `Approver` — and calls `send(text)`. It
-imports only from `alpine_core`, never from alpineagents or core submodules. The core may not import any app, the
-protocol, `rich` or `prompt_toolkit`; `uv run lint-imports` checks this.
+imports only from `alpine_core`, never from alpineagents or core submodules. The core may not import any app or the
+protocol; `uv run lint-imports` checks this.

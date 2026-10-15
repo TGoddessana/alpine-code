@@ -1,7 +1,6 @@
 """The folders the user works in, for the app's rail. Sessions of a project are found by their folder.
 
-A folder is added when the app opens it, or when a session in it sends its first message (so the CLI's folders show
-up too, but not every folder the CLI was merely started in).
+A folder is added when the app opens it, or when a session in it sends its first message.
 """
 
 from __future__ import annotations

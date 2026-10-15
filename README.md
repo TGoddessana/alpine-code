@@ -1,4 +1,6 @@
-<h1 align="center">Alpine Code</h1>
+<p align="center">
+  <img src="assets/brand/wordmark.png" alt="Alpine Code — the snow hare with a wrench necklace" width="480">
+</p>
 
 <p align="center">
   <b>An open-source coding agent that's easy for people who don't code,<br>and open all the way down to its tools for people who do.</b>
@@ -7,8 +9,6 @@
 <p align="center">
   <a href="https://github.com/TGoddessana/alpine-code/releases/latest"><b>Download for Mac</b></a>
   &nbsp;·&nbsp;
-  <a href="#in-the-terminal">Terminal version</a>
-  &nbsp;·&nbsp;
   <a href="LICENSE">MIT license</a>
 </p>
 
@@ -16,8 +16,8 @@
   <img src="assets/images/demo.gif" alt="Alpine Code at work: asked to make a bakery website's menu page fit on a phone, it reads two files, asks before editing the stylesheet and before running the build, then reports what changed. The work result panel fills in as it goes" width="900">
 </p>
 
-Alpine Code is an open-source AI coding agent for your desktop and your terminal. Open a folder, say what you want,
-and it reads the files, makes the changes and checks that they work.
+Alpine Code is an open-source AI coding agent for your desktop. Open a folder, say what you want, and it reads the
+files, makes the changes and checks that they work.
 
 It's built for two kinds of people at once:
 
@@ -27,8 +27,7 @@ It's built for two kinds of people at once:
 
 ## Open source
 
-- **MIT licensed.** The agent, the desktop app and the terminal app are all in this repository. Read it, fork it,
-  change it.
+- **MIT licensed.** The agent and the desktop app are both in this repository. Read it, fork it, change it.
 - **Any model.** Use your ChatGPT plan, an API key, or a model running on your own machine. Nothing ties you to one
   provider.
 - **No account, no server of ours.** What you ask goes straight from your computer to the model you connected, and
@@ -42,7 +41,7 @@ It's built for two kinds of people at once:
 simply." "Check that it still runs." Not sure where to start? A new session suggests a few things to try.
 
 <p align="center">
-  <img src="assets/images/start.png" alt="A new session in the bakery-site folder: 'What shall we build?' with four suggestions, such as 'Make the screen look good on a phone'" width="800">
+  <img src="assets/images/start.png" alt="A new session in the alpine-code folder, with the Alpine snow hare, four starting suggestions and an agent picker" width="800">
 </p>
 
 **Nothing changes without your OK.** It reads freely inside the folder you opened. Before it changes a file or runs a
@@ -83,7 +82,11 @@ agent will see, and **Try it** runs it before you save.
 
 
 **Build agents for each job.** An agent is a model, instructions and the tools it may use, with a name and a
-face. Build them on the 에이전트 screen, pick one per session in the composer, and switch whenever you like.
+face. Every agent is the same Alpine snow hare, with its own accessories and background colour. Build them on the Agents screen, pick one per session in the composer, and switch whenever you like.
+
+<p align="center">
+  <img src="assets/images/agents.png" alt="Create an agent: the same snow hare appears as a blank agent, a builder, a reviewer and a writer" width="800">
+</p>
 
 **Tell it how your project works.** An `AGENTS.md` (or `CLAUDE.md`) file in the folder is read before every session,
 so you write your conventions down once.
@@ -118,21 +121,13 @@ plans can't be used in other apps, so Claude models connect with an API key.
   <img src="assets/images/connect-a-model.png" alt="The Connect a model dialog: Sign in with ChatGPT, API key, or a local or compatible server" width="560">
 </p>
 
-## In the terminal
-
-The same agent runs in a terminal. With [uv](https://docs.astral.sh/uv/):
-
-```sh
-uv tool install alpine-code
-alpine                                    # interactive
-git diff | alpine -p "review this diff"   # print the answer and exit, for scripts and CI
-```
-
-Keys, commands, permissions and settings are in the [terminal guide](apps/cli/README.md). The terminal and the
-desktop app share their model connections.
-
 ## Contributing
 
 Bug reports, ideas and pull requests are welcome: [open an issue](https://github.com/TGoddessana/alpine-code/issues)
 or start with [CONTRIBUTING.md](CONTRIBUTING.md). Alpine Code is built on
 [alpineagents](https://tgoddessana.github.io/alpineagents/) and released under the [MIT license](LICENSE).
+
+## Brand
+
+The snow hare’s bent ear, blue collar and horizontal wrench are shared by the app and the website.
+Find the [brand assets and usage guide](assets/brand/README.md), or work on the independent [website and getting-started guide repository](https://github.com/TGoddessana/alpinecode.app).

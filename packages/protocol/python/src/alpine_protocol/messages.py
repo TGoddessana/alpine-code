@@ -227,7 +227,7 @@ class SettingsGetParams(Message):
 
 class SettingsGetResult(Message):
     mode: Mode
-    """The permission mode new sessions start with (config.toml ``mode``, shared with the terminal)."""
+    """The permission mode new sessions start with (config.toml ``mode``)."""
     review_model: str | None = None
     """``<connection>/<model>`` of auto mode's reviewer in new sessions; ``None``: each session's own model."""
 
@@ -682,7 +682,7 @@ class AgentMessageItem(ItemModel):
     kind: Literal["agent_message"] = "agent_message"
     text: str
     agent: str | None = None
-    """The id of the agent that wrote it; ``None`` for answers from before agents or from the CLI."""
+    """The id of the agent that wrote it; ``None`` for older answers written without one."""
 
 
 class ToolCallItem(ItemModel):

@@ -1,13 +1,12 @@
 # Contributing
 
-alpine-code is the repository behind Alpine: a desktop app and a terminal app on one agent core, built on
+alpine-code is the repository behind Alpine: a desktop app on an agent core, built on
 [alpineagents](https://tgoddessana.github.io/alpineagents/).
 
 ## Layout
 
 ```
 apps/                 what runs — one folder per program
-  cli/                terminal app (Python) — published as `alpine-code`, command `alpine`
   server/             runs the core for an app over stdio (Python) — the desktop app starts it
   desktop/            desktop app (Tauri: React screens in src/, Rust shell in src-tauri/)
 packages/             what is imported — never runs on its own
@@ -24,7 +23,6 @@ Dependencies point from `apps/` to `packages/`, never back, and apps never impor
 | a message between desktop and server | `packages/protocol/python`, then `pnpm protocol:generate` |
 | a desktop screen | `apps/desktop/src/features/<feature>` |
 | colours, type, spacing | `packages/ui/src/tokens.css` |
-| the terminal UI | `apps/cli` |
 
 ## Develop
 
@@ -33,11 +31,10 @@ Needs [uv](https://docs.astral.sh/uv/), Node 24 with pnpm, and Rust (for the des
 ```sh
 uv sync && pnpm install
 
-# Python: core, cli, server, protocol
+# Python: core, server, protocol
 uv run pytest
 uv run lint-imports        # layer boundaries
 uv run ruff check
-uv run --env-file .env alpine
 
 # TypeScript: desktop, ui, protocol types
 pnpm lint                  # includes layer boundaries and token-only styling
@@ -50,3 +47,7 @@ pnpm protocol:check        # generated protocol files are up to date
 
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs these checks, except Storybook and the app, on every
 pull request and every push to main.
+
+## Brand
+
+Brand masters live in `assets/brand/source`. Use `pnpm brand:build` to export icons and wordmarks. See [the brand guide](assets/brand/README.md). The multilingual website is maintained independently in [alpinecode.app](https://github.com/TGoddessana/alpinecode.app); it carries its own snapshot of exported brand assets and has no build dependency on this repository.

@@ -1,6 +1,7 @@
 import { Button } from '@alpine/ui/primitives';
-import { Folder } from 'lucide-react';
 import { useState } from 'react';
+
+import { BrandMark } from '@/shared/components/brand';
 
 import { Composer } from '@/shared/components/composer';
 import { useMessages } from '@/shared/i18n';
@@ -18,7 +19,7 @@ export function NoProject({ onProjectChange }: { onProjectChange?: (path: string
     <main aria-label={t.start} className="flex min-w-120 grow flex-col bg-canvas">
       <section aria-labelledby="np-title" className="flex min-h-0 grow flex-col items-center justify-center px-6 pt-4">
         <div className="flex w-full max-w-100 flex-col gap-4">
-          <Folder size={18} strokeWidth={1.5} aria-hidden="true" className="text-fg-muted" />
+          <BrandMark size={80} />
           <div className="flex flex-col gap-2">
             <h2 id="np-title" className="text-lead">
               {t.whichFolder}

@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, copyFile, mkdtemp, rm, readdir } from 'node:fs/promises';
+import { mkdir, writeFile, copyFile, mkdtemp, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -83,7 +83,6 @@ await sharp({ create: { width: 1280, height: 640, channels: 4, background: '#eaf
     },
     { input: await label('Alpine Code', 84, '#1a222a', true), left: 88, top: 155 },
     { input: await label('An open-source AI coding agent.', 29, '#2c5a7a'), left: 92, top: 285 },
-    { input: await label('Your desktop. Your terminal. Your tools.', 25, '#53616f'), left: 92, top: 340 },
     { input: await label('github.com/TGoddessana/alpine-code', 20, '#53616f'), left: 92, top: 480 },
   ])
   .png()
@@ -104,26 +103,3 @@ const manifest = {
 };
 await writeFile(join(brand, 'site.webmanifest'), JSON.stringify(manifest, null, 2) + '\n');
 console.log(`Brand exports written to ${resolve(brand)}`);
-
-// Terminal pixels are deliberately hand-tuned for a 19-column, 10-line banner.
-const terminal = JSON.parse(await readFile(join(brand, 'terminal.json'), 'utf8'));
-if (
-  terminal.rows.length % 2 ||
-  terminal.rows.some(
-    (row) => row.length !== terminal.rows[0].length || [...row].some((c) => c !== '.' && !terminal.colors[c]),
-  )
-) {
-  throw new Error('Terminal artwork must have even-height, equal-width rows and known colours.');
-}
-const python = `"""Generated from assets/brand/terminal.json by pnpm brand:build."""\n\nHARE = (\n${terminal.rows.map((row) => `    "${row}",`).join('\n')}\n)\nPIXELS = ${JSON.stringify(terminal.colors)}\n`;
-await writeFile(join(root, 'apps/cli/src/alpine_cli/brand.py'), python);
-const pixels = terminal.rows
-  .flatMap((row, y) =>
-    [...row].flatMap((c, x) =>
-      c === '.' ? [] : [`<rect x="${x * 12}" y="${y * 12}" width="12" height="12" fill="${terminal.colors[c]}"/>`],
-    ),
-  )
-  .join('');
-await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="228" height="240">${pixels}</svg>`))
-  .png()
-  .toFile(join(brand, 'terminal-hare.png'));

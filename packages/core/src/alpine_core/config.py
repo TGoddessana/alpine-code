@@ -226,7 +226,7 @@ def set_default_model(model: str) -> None:
 
 @_locked
 def set_default_mode(mode: Mode) -> None:
-    """The permission mode new sessions start with, in the desktop app and in the terminal."""
+    """The permission mode new sessions start with."""
     doc = _edit()
     doc["mode"] = mode.value
     _save(doc)

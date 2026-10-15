@@ -1,5 +1,5 @@
-# Pushing a tag vX.Y.Z publishes the CLI to PyPI and builds the signed, notarized macOS app into a draft GitHub
-# release. Publishing that draft is what ships the app: the updater reads releases/latest/download/latest.json.
+# Pushing a tag vX.Y.Z builds the signed, notarized macOS app into a draft GitHub release. Publishing that draft is
+# what ships the app: the updater reads releases/latest/download/latest.json.
 # A pull request that touches the build only builds, signs and notarizes the app, uploaded as workflow artifacts.
 # Running it by hand with a tag builds the app at that tag again and uploads it to the tag's draft release.
 name: Release
@@ -33,42 +33,14 @@ jobs:
           import json, sys, tomllib
           want = sys.argv[1]
           found = {p: tomllib.load(open(p, "rb"))["project"]["version"] for p in [
-              "apps/cli/pyproject.toml", "apps/server/pyproject.toml",
-              "packages/core/pyproject.toml", "packages/protocol/python/pyproject.toml"]}
+              "apps/server/pyproject.toml", "packages/core/pyproject.toml", "packages/protocol/python/pyproject.toml"]}
           found["apps/desktop/src-tauri/tauri.conf.json"] = json.load(open("apps/desktop/src-tauri/tauri.conf.json"))["version"]
           found["apps/desktop/src-tauri/Cargo.toml"] = tomllib.load(open("apps/desktop/src-tauri/Cargo.toml", "rb"))["package"]["version"]
-          cli = tomllib.load(open("apps/cli/pyproject.toml", "rb"))["project"]["dependencies"]
-          found["alpine-code-core pin in apps/cli"] = next(d for d in cli if d.startswith("alpine-code-core")).split("==")[-1]
           wrong = {p: v for p, v in found.items() if v != want}
           for p, v in wrong.items():
               print(f"::error::{p} is {v}, the tag says {want}")
           sys.exit(1 if wrong else 0)
           EOF
-
-  # One environment per package: PyPI takes one pending publisher per (repository, workflow, environment).
-  pypi-core:
-    needs: version
-    runs-on: ubuntu-latest
-    environment: pypi-core
-    permissions:
-      id-token: write # trusted publishing
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
-      - run: uv build --package alpine-code-core --out-dir dist
-      - run: uv publish --trusted-publishing always dist/*
-
-  pypi:
-    needs: pypi-core # the CLI pins this exact core
-    runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
-      - run: uv build --package alpine-code --out-dir dist
-      - run: uv publish --trusted-publishing always dist/*
 
   draft:
     needs: version

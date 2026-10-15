@@ -31,8 +31,8 @@ class PlanUsageOff(ChatGPTError, AuthError):
 class ChatGPTTokens:
     """The access token for connection ``name``, refreshed five minutes before it runs out.
 
-    A refresh happens under the store's lock and re-reads the store first, so when the CLI and the app both find
-    the token due, only one of them spends the rotating refresh token and the other picks up its result.
+    A refresh happens under the store's lock and re-reads the store first, so when two processes both find the
+    token due, only one of them spends the rotating refresh token and the other picks up its result.
     """
 
     def __init__(self, store: OAuthTokens, name: str, post: PostForm = post_form) -> None:

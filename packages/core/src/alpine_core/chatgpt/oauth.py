@@ -112,8 +112,8 @@ def verify_id_token(id_token: str, client_id: str, nonce: str) -> dict[str, Any]
 
 
 def host_id(home: Path) -> str:
-    """This computer's ``ext_agent_host_id``: made once and kept in ``<home>/host_id``. The CLI and the app share
-    it, since they run on the same host. An identifier, not a secret."""
+    """This computer's ``ext_agent_host_id``: made once and kept in ``<home>/host_id``, so every run on this host
+    shares it. An identifier, not a secret."""
     path = home / "host_id"
     try:
         value = path.read_text(encoding="utf-8").strip()

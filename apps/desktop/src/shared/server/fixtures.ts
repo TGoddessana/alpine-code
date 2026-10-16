@@ -123,6 +123,8 @@ export function statefulScript(start: ScriptState): Script {
   const cloneTimers = new Map<string, ReturnType<typeof setInterval>>();
   /** Apple's developer tools: missing for `nogit` addresses until the installer "finishes", a moment after it opens. */
   let gitTools: 'ready' | 'missing' | 'installing' = 'missing';
+  let gitHubLogin: string | null = null;
+  const gitHubSignIns = new Map<string, ReturnType<typeof setTimeout>>();
   const signIns = new Map<string, ReturnType<typeof setTimeout>>();
   /** Models shown or hidden by hand, by connection: `connections/showModel`. */
   const chosen = new Map<string, Map<string, boolean>>();
@@ -330,6 +332,40 @@ export function statefulScript(start: ScriptState): Script {
           context.emit({ method: 'projects/cloneChanged', params: { clone: { ...clone, state: 'cancelled' } } });
         return {};
       },
+      'github/status': () => ({
+        available: true,
+        account: gitHubLogin ? { login: gitHubLogin } : null,
+        accessUrl: 'https://github.com/settings/connections/applications/Iv1.example',
+      }),
+      'github/signIn': (_params, context) => {
+        const attemptId = `gh-${gitHubSignIns.size + 1}`;
+        gitHubSignIns.set(
+          attemptId,
+          setTimeout(() => {
+            gitHubSignIns.delete(attemptId);
+            gitHubLogin = 'you';
+            context.emit({
+              method: 'github/signInFinished',
+              params: { attemptId, result: 'connected', account: { login: 'you' }, message: null },
+            });
+          }, 2500),
+        );
+        return { attemptId, userCode: 'WDJB-MJHT', verificationUri: 'https://github.com/login/device' };
+      },
+      'github/cancelSignIn': ({ attemptId }, context) => {
+        clearTimeout(gitHubSignIns.get(attemptId));
+        gitHubSignIns.delete(attemptId);
+        context.emit({ method: 'github/signInFinished', params: { attemptId, result: 'cancelled' } });
+        return {};
+      },
+      'github/signOut': () => {
+        gitHubLogin = null;
+        return {};
+      },
+      'github/repos': () => {
+        if (!gitHubLogin) throw new ServerError(-32000, 'Not signed in to GitHub', { reason: 'auth' });
+        return { repositories: GITHUB_REPOS };
+      },
       'projects/gitTools': () => ({ ready: gitTools === 'ready', installable: true }),
       'projects/installGitTools': () => {
         gitTools = 'installing';
@@ -339,6 +375,25 @@ export function statefulScript(start: ScriptState): Script {
     },
   };
 }
+
+const ago = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+
+/** What a GitHub sign-in sees in the scripted server: a company's repositories and the user's own. */
+const GITHUB_REPOS = [
+  ['acme-corp/booking-web', true, 0.2, '예약 웹사이트'],
+  ['acme-corp/admin', true, 2, '사내 관리자 화면'],
+  ['acme-corp/design-system', true, 6, null],
+  ['you/blog', false, 9, '개인 블로그'],
+  ['acme-corp/landing', true, 21, null],
+  ['you/dotfiles', false, 40, null],
+  ['acme-corp/legacy-api', true, 200, null],
+].map(([fullName, isPrivate, days, description]) => ({
+  fullName: fullName as string,
+  cloneUrl: `https://github.com/${fullName as string}.git`,
+  private: isPrivate as boolean,
+  pushedAt: ago(days as number),
+  description: description as string | null,
+}));
 
 /** A first run: nothing connected, no projects. */
 export const firstRunScript = (chatgpt: ScriptState['chatgpt'] = 'connected') =>

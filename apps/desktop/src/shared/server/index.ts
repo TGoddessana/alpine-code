@@ -27,6 +27,7 @@ export {
   type SessionEvent,
   type SessionState,
 } from './sessionState';
+export { useGitHub, useGitHubRepos, useGitHubSignIn, useGitHubSignOut, type GitHubSignInState } from './github';
 export {
   useCancelClone,
   useCloneProject,

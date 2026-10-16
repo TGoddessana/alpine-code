@@ -4,8 +4,17 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useMessages } from '@/shared/i18n';
 import { openInBrowser } from '@/shared/platform';
-import { ServerError, useCancelClone, useCloneProject, useGitTools, useInstallGitTools } from '@/shared/server';
+import {
+  ServerError,
+  useCancelClone,
+  useCloneProject,
+  useGitHub,
+  useGitHubRepos,
+  useGitTools,
+  useInstallGitTools,
+} from '@/shared/server';
 
+import { GitHubPicker } from './GitHubPicker';
 import { messages } from './messages';
 
 /**
@@ -79,13 +88,21 @@ export function CloneForm({
   const withSignIn = clone.variables?.username !== undefined;
   const ready = address.trim() !== '' && (!signingIn || (username.trim() !== '' && password !== ''));
 
-  const submit = () => {
-    if (!ready || clone.isPending) return;
+  const signedInToGitHub = !!useGitHub().data?.account;
+  const repos = useGitHubRepos(signedInToGitHub).data?.repositories;
+  // Words typed to search the list (not an address): Enter gets the first repository that matches.
+  const firstMatch = /[/:@]/.test(address.trim())
+    ? undefined
+    : repos?.find((r) => r.fullName.toLowerCase().includes(address.trim().toLowerCase()));
+
+  /** Gets `target` (what is typed, or a repository picked from the list). */
+  const submit = (target = address) => {
+    if (!target.trim() || (target === address && !ready) || clone.isPending) return;
     const id = crypto.randomUUID();
     attempt.current = id;
     const signIn = signingIn ? { username: username.trim(), password } : {};
     clone.mutate(
-      { id, address: address.trim(), ...signIn },
+      { id, address: target.trim(), ...signIn },
       {
         onSuccess: (result) => {
           if (attempt.current !== id) return;
@@ -171,7 +188,10 @@ export function CloneForm({
         className="flex flex-col gap-3"
         onSubmit={(event) => {
           event.preventDefault();
-          submit();
+          if (firstMatch && address.trim()) {
+            setAddress(firstMatch.cloneUrl);
+            submit(firstMatch.cloneUrl);
+          } else submit();
         }}
       >
         <label htmlFor="clone-address" className="sr-only">
@@ -181,7 +201,7 @@ export function CloneForm({
           id="clone-address"
           autoFocus
           spellCheck={false}
-          placeholder={t.addressPlaceholder}
+          placeholder={signedInToGitHub ? t.searchPlaceholder : t.addressPlaceholder}
           value={address}
           onValueChange={(next) => {
             setAddress(next);
@@ -220,6 +240,16 @@ export function CloneForm({
               onValueChange={setPassword}
             />
           </div>
+        )}
+        {!signingIn && (
+          <GitHubPicker
+            filter={address}
+            disabled={clone.isPending}
+            onPick={(picked) => {
+              setAddress(picked);
+              submit(picked);
+            }}
+          />
         )}
         <div className="flex justify-end gap-2 pt-2">
           <Dialog.Close render={<Button type="button" />}>{t.cancel}</Dialog.Close>

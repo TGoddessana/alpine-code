@@ -656,3 +656,60 @@ export const DeletedAgent: Story = {
     await expect(await screen.findByRole('button', { name: '에이전트: 기본 에이전트' })).toBeVisible();
   },
 };
+
+/**
+ * Skills in a conversation: a message that starts with `/weekly-report` shows the skill as a chip (it went along), and
+ * the agent loading a skill by itself counts as '스킬 1개 사용' in the tool line.
+ */
+export const SkillsUsed: Story = {
+  parameters: {
+    server: withAgents([
+      { id: 'k1', kind: 'user_message', text: '/weekly-report 이번 주 것도 정리해 줘' },
+      {
+        id: 'k2',
+        kind: 'agent_message',
+        agent: 'a-site',
+        text: '지난 7일 동안 바뀐 내용을 모아 기능, 고친 문제, 할 일로 나눠 정리했어요.\n\n| 구분 | 내용 |\n|---|---|\n| 기능 | 메뉴 사진 3장 추가 |\n| 고친 문제 | 휴대폰에서 버튼이 잘리던 것 |\n| 할 일 | 예약 페이지 만들기 |',
+      },
+      { id: 'k3', kind: 'user_message', text: '예약 페이지 화면 좀 예쁘게 만들어 줘' },
+      {
+        id: 'k4',
+        kind: 'tool_call',
+        name: 'skill',
+        args: { name: 'frontend-design' },
+        status: 'done',
+        result: '<skill_content name="frontend-design">…</skill_content>',
+        images: 0,
+      },
+      {
+        id: 'k5',
+        kind: 'tool_call',
+        name: 'read',
+        args: { path: 'src/pages/reservation.tsx' },
+        status: 'done',
+        result: '  1\texport default function Reservation() {',
+        images: 0,
+      },
+      {
+        id: 'k6',
+        kind: 'agent_message',
+        agent: 'a-site',
+        text: '화면 디자인 감각 스킬을 따라, 빵집 분위기에 맞는 따뜻한 색과 큰 사진 위주로 예약 화면을 다시 짰어요.',
+      },
+    ]),
+  },
+  play: async () => {
+    await expect(await screen.findByText('weekly-report')).toBeVisible();
+    await expect(await screen.findByRole('button', { name: /스킬 1개 사용/ })).toBeVisible();
+  },
+};
+
+/** Typing `/` lists the skills; Enter puts the one picked at the start of the message. */
+export const SlashSkills: Story = {
+  parameters: { server: withAgents(websiteItems) },
+  play: async () => {
+    await userEvent.type(await screen.findByLabelText(/^(메시지|Message)$/), '/');
+    await expect(await screen.findByRole('listbox')).toBeVisible();
+    await expect(screen.getByRole('option', { name: /weekly-report/ })).toBeVisible();
+  },
+};

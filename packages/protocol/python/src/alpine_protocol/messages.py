@@ -90,8 +90,22 @@ class ErrorData(Message):
         "reason_required",
         "replay_changed",
         "flow_busy",
+        "unknown_source",
+        "offline",
+        "too_big",
+        "bad_archive",
+        "no_skills",
+        "not_a_skill",
+        "bad_name",
+        "not_owned",
+        "invalid",
     ]
-    """``auth``: the key is missing or rejected. ``unreachable``: no answer from the address. ``unsupported``: the
+    """Skills: ``unknown_source`` (not a link, path or ``owner/repo``), ``offline`` (the source cannot be reached),
+    ``too_big``, ``bad_archive`` (a damaged or unsafe archive), ``no_skills`` (nothing there, or not the one named),
+    ``not_a_skill``, ``bad_name``, ``not_owned`` (another app's skill, which Alpine does not change),
+    ``invalid`` (a SKILL.md without front matter and a description).
+
+    ``auth``: the key is missing or rejected. ``unreachable``: no answer from the address. ``unsupported``: the
     server does not list its models, so the model name has to be typed. ``not_a_folder``: the path is not a folder.
     ``invalid_config``: config.toml cannot be read; the message says where. ``exists``: the clone's folder is already
     there. ``clone_failed``: git could not clone; the message is git's. ``invalid_name``: a tool file name is not
@@ -576,6 +590,8 @@ class AgentInfo(Message):
     look: AgentLook
     color: int = Field(ge=1, le=8)
     """One of eight colours of the character."""
+    skills_off: list[str] = Field(default_factory=list)
+    """Skills the agent does not use; it has every other skill the user has."""
 
 
 class AgentsListParams(Message):
@@ -601,6 +617,113 @@ class AgentsDeleteParams(Message):
 
 class AgentsDeleteResult(Message):
     pass
+
+
+# Skills: folders with a SKILL.md (agentskills.io) that teach the agent a task
+
+SkillOrigin = Literal["project", "alpine", "agents", "claude", "codex"]
+"""``alpine``: installed or made in Alpine, which may change and delete it. ``agents``, ``claude``, ``codex``: kept by
+another app in ``~/.agents/skills``, ``~/.claude/skills`` or ``~/.codex/skills``, used where it is. ``project``: in
+the project's own ``.agents/skills``, ``.alpine/skills`` or ``.claude/skills``."""
+
+
+class SkillInfo(Message):
+    name: str
+    description: str
+    origin: SkillOrigin
+    source: str | None
+    """Where Alpine installed it from: a link, ``owner/repo/skill`` or a file."""
+    folder: str
+    has_scripts: bool
+    """It brings code the agent may run."""
+    notes: list[str]
+    """What is off about its file, though it loads."""
+
+
+class SkillCandidate(Message):
+    """A skill found at a source, not installed yet."""
+
+    name: str
+    description: str
+    has_scripts: bool
+    installed: bool
+    """A skill with this name is in the library already; adding it again replaces Alpine's copy."""
+
+
+class SkillsListParams(Message):
+    cwd: str | None = None
+    """A project folder, to include its own skills."""
+
+
+class SkillsListResult(Message):
+    skills: list[SkillInfo]
+    folder: str
+    """Where Alpine keeps the skills it installs."""
+
+
+class SkillsAddParams(Message):
+    source: str
+    """A GitHub or skills.sh link, an ``npx skills add`` line, ``owner/repo[/skill]``, a link to a zip or a
+    ``SKILL.md``, or a path on this computer."""
+    names: list[str] | None = None
+    """The skills to add from a source that has several; all of them when the source has one or names it."""
+
+
+class SkillsAddResult(Message):
+    source: str
+    added: list[SkillInfo]
+    choices: list[SkillCandidate]
+    """When the source has several skills and ``names`` was not given: what it has, and nothing is added."""
+
+
+class SkillsGetParams(Message):
+    name: str
+    cwd: str | None = None
+
+
+class SkillsGetResult(Message):
+    skill: SkillInfo
+    text: str
+    """The whole SKILL.md."""
+    files: list[str]
+    """Its other files, relative to its folder."""
+
+
+class SkillsSaveParams(Message):
+    name: str
+    text: str
+    """The whole SKILL.md."""
+    new: bool = False
+
+
+class SkillsSaveResult(Message):
+    skill: SkillInfo
+
+
+class SkillsRemoveParams(Message):
+    name: str
+
+
+class SkillsRemoveResult(Message):
+    pass
+
+
+class SkillHit(Message):
+    name: str
+    source: str
+    """``owner/repo``."""
+    id: str
+    """What ``skills/add`` takes."""
+    installs: int
+
+
+class SkillsSearchParams(Message):
+    query: str
+
+
+class SkillsSearchResult(Message):
+    hits: list[SkillHit]
+    """From skills.sh, the most installed first."""
 
 
 # Sessions
@@ -1678,6 +1801,12 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "agents/list": (AgentsListParams, AgentsListResult),
     "agents/save": (AgentsSaveParams, AgentsSaveResult),
     "agents/delete": (AgentsDeleteParams, AgentsDeleteResult),
+    "skills/list": (SkillsListParams, SkillsListResult),
+    "skills/add": (SkillsAddParams, SkillsAddResult),
+    "skills/get": (SkillsGetParams, SkillsGetResult),
+    "skills/save": (SkillsSaveParams, SkillsSaveResult),
+    "skills/remove": (SkillsRemoveParams, SkillsRemoveResult),
+    "skills/search": (SkillsSearchParams, SkillsSearchResult),
     "memory/list": (MemoryListParams, MemoryListResult),
     "memory/approve": (MemoryApproveParams, MemoryApproveResult),
     "memory/reject": (MemoryRejectParams, MemoryRejectResult),

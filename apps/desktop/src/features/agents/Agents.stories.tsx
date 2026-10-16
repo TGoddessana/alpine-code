@@ -7,14 +7,15 @@ import { chatScript } from '@/shared/server';
 
 import { Agents } from './Agents';
 
-function Example({ start, creating = false }: { start?: string; creating?: boolean }) {
-  const [search, setSearch] = useState<{ agent?: string; create?: true }>({
+function Example({ start, creating = false, library }: { start?: string; creating?: boolean; library?: 'skill' }) {
+  const [search, setSearch] = useState<{ agent?: string; create?: true; library?: 'skill' }>({
+    ...(library ? { library } : {}),
     ...(start ? { agent: start } : {}),
     ...(creating ? { create: true as const } : {}),
   });
   return (
     <main className="flex h-screen min-w-120 grow flex-col overflow-hidden bg-canvas">
-      <Agents agentId={search.agent} creating={!!search.create} onChange={setSearch} />
+      <Agents agentId={search.agent} creating={!!search.create} library={search.library} onChange={setSearch} />
     </main>
   );
 }
@@ -94,5 +95,26 @@ export const RemoveTool: Story = {
     await userEvent.click(await screen.findByRole('button', { name: /파일 읽기 빼기|Remove 파일 읽기/ }));
     await expect(await screen.findByText(/파일 읽기를 홈페이지 담당에서 뺐어요|Removed 파일 읽기/)).toBeVisible();
     await expect(screen.getByRole('button', { name: /되돌리기|Undo/ })).toBeVisible();
+  },
+};
+
+/**
+ * Skills on the agent: every skill the user has is on unless the agent turned it off, so the row lists them all; the
+ * library opens on its skill tab, as '스킬 더 찾기' in the composer opens it.
+ */
+export const Skills: Story = {
+  args: { start: 'a-site', library: 'skill' },
+  play: async () => {
+    await expect(await screen.findByRole('button', { name: '화면 디자인 감각' })).toBeVisible();
+    await expect(await screen.findByText('추천')).toBeVisible();
+  },
+};
+
+/** Adding a recommended skill: one press, and the toast says every agent has it from the next message. */
+export const AddingASkill: Story = {
+  args: { start: 'a-site', library: 'skill' },
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: '인터넷에 올리기 추가' }));
+    await expect(await screen.findByText(/인터넷에 올리기를 추가했어요/)).toBeVisible();
   },
 };

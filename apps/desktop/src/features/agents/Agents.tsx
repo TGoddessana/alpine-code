@@ -3,17 +3,17 @@ import { useCallback, useEffect, useState, type DragEvent } from 'react';
 
 import { Character, agentMessages, agentName } from '@/shared/components/agent';
 import { useMessages } from '@/shared/i18n';
-import { useAgents, useSaveAgent } from '@/shared/server';
+import { useAgents, useRemoveSkill, useSaveAgent } from '@/shared/server';
 
 import { AgentHeader, WorkingLine } from './AgentHeader';
 import { AgentRows } from './AgentRows';
 import { AgentStrip } from './AgentStrip';
-import { Library, type DraggedTool, type LibraryView } from './library';
+import { Library, type DraggedTool, type LibraryTab, type LibraryView, type SkillActions } from './library';
 import { agentsMessages } from './messages';
 import { NewAgentDialog } from './NewAgentDialog';
 import { Toast } from './Toast';
 
-type Search = { agent?: string; create?: true };
+type Search = { agent?: string; create?: true; library?: 'skill' };
 
 const SAVED_MS = 2500;
 const FLASH_MS = 1500;
@@ -26,10 +26,13 @@ const FLASH_MS = 1500;
 export function Agents({
   agentId,
   creating,
+  library,
   onChange,
 }: {
   agentId?: string;
   creating: boolean;
+  /** The library tab to open with, e.g. 스킬 when the composer's '스킬 더 찾기' brought me here. */
+  library?: 'skill';
   onChange: (search: Search) => void;
 }) {
   const agents = useAgents().data?.agents;
@@ -46,7 +49,7 @@ export function Agents({
         onSelect={select}
         onNew={() => onChange({ ...(agent.id !== 'default' ? { agent: agent.id } : {}), create: true })}
       />
-      <Editor key={agent.id} agent={agent} agents={agents} onSelect={select} />
+      <Editor key={agent.id} agent={agent} agents={agents} tab={library ?? 'all'} onSelect={select} />
       <NewAgentDialog open={creating} onClose={() => onChange(agentId ? { agent: agentId } : {})} onCreated={select} />
     </>
   );
@@ -55,24 +58,27 @@ export function Agents({
 interface ToastState {
   id: number;
   text: string;
-  /** The tools before the change, for 되돌리기. */
-  previous: string[];
+  /** What 되돌리기 does. */
+  undo: () => void;
 }
 
 /** The agent being edited. Keyed by the agent, so the library view and every flash start fresh with another one. */
 function Editor({
   agent,
   agents,
+  tab,
   onSelect,
 }: {
   agent: AgentInfo;
   agents: AgentInfo[];
+  tab: LibraryTab;
   onSelect: (id: string) => void;
 }) {
   const t = useMessages(agentsMessages);
   const a = useMessages(agentMessages);
   const save = useSaveAgent();
-  const [view, setView] = useState<LibraryView>({ kind: 'list', tab: 'all' });
+  const removeSkill = useRemoveSkill();
+  const [view, setView] = useState<LibraryView>({ kind: 'list', tab });
   const [dragging, setDragging] = useState<DraggedTool | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -108,7 +114,8 @@ function Editor({
 
   const change = async (tools: string[], text: string, lit: string | null) => {
     if (!(await persist({ ...agent, tools }))) return;
-    setToast({ id: Date.now(), text, previous: agent.tools });
+    const previous = agent.tools;
+    setToast({ id: Date.now(), text, undo: () => void persist({ ...agent, tools: previous }) });
     setFlash(lit);
   };
   const add = (tools: string[], label: string) => {
@@ -123,13 +130,47 @@ function Editor({
     );
   // The server already turned the new tools on; only the telling is left.
   const created = (tools: string[], label: string) => {
-    setToast({ id: Date.now(), text: t.toastAdded(label, name), previous: agent.tools });
+    const previous = agent.tools;
+    setToast({
+      id: Date.now(),
+      text: t.toastAdded(label, name),
+      undo: () => void persist({ ...agent, tools: previous }),
+    });
     setFlash(tools[0] ?? null);
     setSavedAt(Date.now());
   };
   const undo = () => {
-    if (toast) void persist({ ...agent, tools: toast.previous });
+    toast?.undo();
     setToast(null);
+  };
+
+  // Skills: every agent has each one unless it turned it off, so on and off change `skillsOff`.
+  const off = agent.skillsOff ?? [];
+  const skillActions: SkillActions = {
+    onToggle: async (skill, on, label) => {
+      const next = on ? off.filter((x) => x !== skill) : [...off, skill];
+      if (!(await persist({ ...agent, skillsOff: next }))) return;
+      setToast({
+        id: Date.now(),
+        text: on ? t.skillToastOn(label, name) : t.skillToastOff(label, name),
+        undo: () => void persist({ ...agent, skillsOff: off }),
+      });
+      setFlash(on ? skill : null);
+    },
+    onInstalled: async (skills, fresh, label) => {
+      // Getting a skill again that this agent had turned off means wanting it here.
+      if (skills.some((x) => off.includes(x)))
+        await persist({ ...agent, skillsOff: off.filter((x) => !skills.includes(x)) });
+      setToast({
+        id: Date.now(),
+        text: t.skillToastAdded(label),
+        undo: () => {
+          fresh.forEach((x) => removeSkill.mutate(x));
+          if (skills.some((x) => off.includes(x))) void persist({ ...agent, skillsOff: off });
+        },
+      });
+      setFlash(skills[0] ?? null);
+    },
   };
 
   const over = (event: DragEvent) => {
@@ -162,6 +203,8 @@ function Editor({
             onOpenTool={(file, tool) => setView({ kind: 'tool', file, tool })}
             onBrowse={(tab) => setView({ kind: 'list', tab })}
             onNewTool={() => setView({ kind: 'new-tool' })}
+            onOpenSkill={(skill) => setView({ kind: 'skill', name: skill })}
+            skillActions={skillActions}
           />
         </section>
         {dragging && (
@@ -181,6 +224,7 @@ function Editor({
           onRemove={remove}
           onCreated={created}
           onDragChange={setDragging}
+          skillActions={skillActions}
         />
       </div>
       {toast && <Toast id={toast.id} agent={agent} text={toast.text} onUndo={undo} onDismiss={dismiss} />}

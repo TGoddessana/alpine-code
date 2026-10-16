@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { useEffect, useRef } from 'react';
 
-import { AgentChip, Composer } from '@/shared/components/composer';
+import { AgentChip, Composer, useSlashSkills } from '@/shared/components/composer';
 import { useMessages } from '@/shared/i18n';
 import {
   activeApproval,
@@ -49,6 +49,7 @@ export function Session({ sessionId, compact = false }: { sessionId: string; com
   const following = useRef(true);
   const state = session.data;
   const shown = Boolean(state && !state.deleted);
+  const slash = useSlashSkills(state?.info.cwd);
 
   // Follow the end of the chat as it grows, unless the reader scrolled up. The chat's height is watched rather than
   // the items, because a reply keeps growing on screen after its text arrived (it is let out at an even pace).
@@ -125,6 +126,7 @@ export function Session({ sessionId, compact = false }: { sessionId: string; com
         )}
         <Composer
           running={running}
+          slash={slash}
           answer={
             approval
               ? {

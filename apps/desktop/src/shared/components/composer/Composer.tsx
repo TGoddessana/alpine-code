@@ -7,6 +7,7 @@ import { SESSION_RUNNING, ServerError, useConnections } from '@/shared/server';
 
 import { messages } from './messages';
 import { ModeChip, nextMode, type Mode } from './ModeChip';
+import { SlashMenu, matchSkills, slashQuery, type SlashSkill } from './SlashMenu';
 
 /**
  * The input, the same on every screen: a box of a few lines with its bar underneath: on the left the `agent` chip
@@ -18,6 +19,9 @@ import { ModeChip, nextMode, type Mode } from './ModeChip';
  * sends nothing, unless the run waits for an `answer`: then what I write goes to `answer.onSend`, and the button
  * sends while there is text. Esc stops the run too, from anywhere on the screen, unless a dialog, menu or list is
  * open (Esc closes that first). `prefill` puts text in the box and focuses it (not sent) each time its `key` changes. With no model connected, sending asks to connect one instead.
+ *
+ * With `slash`, typing `/` at the start lists the skills: ↑↓ move, Enter or Tab picks (the message then starts with
+ * `/<name> `, which sends the skill along), Esc closes the list.
  */
 export function Composer({
   locked = false,
@@ -29,6 +33,7 @@ export function Composer({
   answer,
   prefill,
   mode,
+  slash,
 }: {
   locked?: boolean;
   running?: boolean;
@@ -44,6 +49,8 @@ export function Composer({
   prefill?: { text: string; key: number };
   /** The permission mode, shown and changed from the bar. */
   mode?: { value: Mode; onChange: (mode: Mode) => void };
+  /** The skills `/` lists, and where to find more (`useSlashSkills`). */
+  slash?: { skills: SlashSkill[]; onFind: () => void };
 }) {
   const t = useMessages(messages);
   const [text, setText] = useState('');
@@ -51,6 +58,16 @@ export function Composer({
   const [error, setError] = useState<string | null>(null);
   const sending = useRef(false);
   const input = useRef<HTMLTextAreaElement>(null);
+  const [active, setActive] = useState(0);
+  const [closedAt, setClosedAt] = useState<string | null>(null);
+  const query = slash && !answer ? slashQuery(text) : null;
+  const matches = query !== null && slash ? matchSkills(slash.skills, query) : [];
+  const menuOpen = query !== null && closedAt !== text;
+  const pick = (skill: SlashSkill) => {
+    setText(`/${skill.name} `);
+    setActive(0);
+    input.current?.focus();
+  };
   // A new `prefill.key` refills the box (set while drawing, so there is no frame with the old text), then focuses.
   const [seenKey, setSeenKey] = useState(prefill?.key);
   const filled = prefill && prefill.key !== seenKey;
@@ -103,7 +120,10 @@ export function Composer({
   };
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="relative flex flex-col gap-1">
+      {menuOpen && slash && (
+        <SlashMenu skills={matches} active={Math.min(active, matches.length - 1)} onPick={pick} onFind={slash.onFind} />
+      )}
       <div className="flex flex-col gap-1 rounded-2xl border border-line bg-canvas-raised pt-3 pr-3 pb-2 pl-4">
         <label htmlFor="composer" className="sr-only">
           {t.message}
@@ -115,8 +135,28 @@ export function Composer({
           disabled={locked}
           value={text}
           placeholder={answer?.placeholder ?? t.placeholder}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => {
+            setText(event.target.value);
+            setActive(0);
+          }}
+          aria-expanded={slash ? menuOpen : undefined}
           onKeyDown={(event) => {
+            if (menuOpen && !event.nativeEvent.isComposing) {
+              const last = matches.length - 1;
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                const step = event.key === 'ArrowDown' ? 1 : -1;
+                return setActive((i) => (Math.min(i, last) + step + matches.length) % Math.max(matches.length, 1));
+              }
+              if ((event.key === 'Enter' || event.key === 'Tab') && !event.shiftKey && matches.length > 0) {
+                event.preventDefault();
+                return pick(matches[Math.min(active, last)]!);
+              }
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                return setClosedAt(text);
+              }
+            }
             // Enter sends, Shift+Enter breaks the line, and Enter while composing Hangul only commits the syllable.
             if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault();

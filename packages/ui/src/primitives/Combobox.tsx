@@ -18,7 +18,7 @@ interface PopupProps {
 function Popup({ side = 'bottom', align = 'start', className, children }: PopupProps) {
   return (
     <BaseCombobox.Portal>
-      <BaseCombobox.Positioner side={side} align={align} sideOffset={4} className="outline-none">
+      <BaseCombobox.Positioner side={side} align={align} sideOffset={4} className="z-50 outline-none">
         <BaseCombobox.Popup
           className={clsx(
             'flex min-w-50 flex-col rounded-lg border border-line bg-canvas-raised p-1 text-fg shadow-overlay outline-none',

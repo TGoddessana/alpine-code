@@ -17,8 +17,8 @@ function Popup({
 }: WithClass<typeof BaseDialog.Popup> & { size?: keyof typeof widths }) {
   return (
     <BaseDialog.Portal>
-      <BaseDialog.Backdrop className="fixed inset-0 bg-scrim" />
-      <BaseDialog.Viewport className="fixed inset-0 flex items-center justify-center p-6">
+      <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-scrim" />
+      <BaseDialog.Viewport className="fixed inset-0 z-50 flex items-center justify-center p-6">
         <BaseDialog.Popup
           className={clsx(
             'flex max-w-full flex-col gap-4 rounded-xl border border-line bg-canvas-raised p-6 text-fg shadow-overlay',

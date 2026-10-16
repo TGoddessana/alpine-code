@@ -160,7 +160,7 @@ describe('right dock on the routes', () => {
 
   it('shows no dock button for an archived project, which the board renders without a dock', async () => {
     const archived = PROJECTS.map((p) => (p.path === cwd ? { ...p, archived: true } : p));
-    mount(board('work'), { results: { 'projects/list': { projects: archived, cloneParent: '/Users/me' } } });
+    mount(board('work'), { results: { 'projects/list': { projects: archived, clones: [] } } });
     expect(await screen.findByText(cwd)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /오른쪽 창/ })).toBeNull();
   });

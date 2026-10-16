@@ -73,6 +73,7 @@ class ErrorData(Message):
         "other",
         "not_a_folder",
         "invalid_config",
+        "exists",
         "clone_failed",
         "no_access",
         "no_git_tools",
@@ -109,10 +110,10 @@ class ErrorData(Message):
 
     ``auth``: the key is missing or rejected. ``unreachable``: no answer from the address. ``unsupported``: the
     server does not list its models, so the model name has to be typed. ``not_a_folder``: the path is not a folder.
-    ``invalid_config``: config.toml cannot be read; the message says where. ``no_access``: git found no repository
-    there that this computer may see (a wrong address, or a sign-in needed; hosts answer both the same way).
-    ``no_git_tools``: git is not installed (on macOS, Apple's command line developer tools).
-    ``clone_failed``: git could not clone otherwise; the message is git's. ``invalid_name``: a tool file name is not
+    ``invalid_config``: config.toml cannot be read; the message says where. ``exists``: a skill with that name is
+    already there. ``no_access``: git found no repository there that this computer may see (a wrong address, or a
+    sign-in needed; hosts answer both the same way). ``no_git_tools``: git is not installed (on macOS, Apple's command
+    line developer tools). ``clone_failed``: git could not clone otherwise; the message is git's. ``invalid_name``: a tool file name is not
 lowercase letters, digits and ``_``. ``package_not_approved``: a tool needs a package nobody approved.
 ``install_failed``: a package did not install. ``name_taken``: a tool name is already used. ``agent_not_found``:
 no agent has the id. ``model_failed``: the model call behind a draft failed.

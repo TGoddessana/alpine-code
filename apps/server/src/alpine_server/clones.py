@@ -90,7 +90,8 @@ class Clones:
         if not await asyncio.to_thread(git_tools_ready):
             raise MethodError(APP_ERROR, "git is not installed", "no_git_tools")
         parent = _settings().clone_folder
-        taken = [Path(info.path) for info in self._infos.values()]
+        # A failed clone's folder was removed, so trying it again may use the same one.
+        taken = [Path(info.path) for info in self._infos.values() if info.state == "receiving"]
         known = await asyncio.to_thread(lambda: [p.path for p in ProjectList.default().list()])
         folder, existing = await asyncio.to_thread(place, address, parent, known, taken)
         if existing:

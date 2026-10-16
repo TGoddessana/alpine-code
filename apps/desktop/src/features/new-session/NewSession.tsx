@@ -1,4 +1,4 @@
-import type { ProjectInfo } from '@alpine/protocol';
+import type { CloneInfo, ProjectInfo } from '@alpine/protocol';
 import { Button, Menu } from '@alpine/ui/primitives';
 import { useRef, useState } from 'react';
 
@@ -6,14 +6,15 @@ import { BrandMark } from '@/shared/components/brand';
 
 import { AgentChip, Composer, useSlashSkills, type Mode } from '@/shared/components/composer';
 import { GitBar } from '@/shared/components/git';
+import { CloneDialog, ProjectAddItems, projectAddMessages } from '@/shared/components/project-add';
 import { useMessages } from '@/shared/i18n';
 import { useOpenFolder } from '@/shared/platform';
-import { useAgents, useConnections, useNewSession, useSendMessage, useSettings } from '@/shared/server';
+import { useAgents, useCancelClone, useConnections, useNewSession, useSendMessage, useSettings } from '@/shared/server';
 
-import { CloneDialog } from './CloneDialog';
 import { ExampleCards } from './ExampleCards';
 import { ImportList } from './ImportList';
 import { messages } from './messages';
+import { Receiving } from './Receiving';
 
 const DEFAULT_AGENT = 'default';
 
@@ -26,23 +27,33 @@ const DEFAULT_AGENT = 'default';
  * with the new session's id so the app can show it. The agent is the one picked in its chip for this project, else
  * `agent` (from the address), else the one the project used last, else the default agent. The session starts in the
  * default permission mode (Settings › General) unless one is picked in the chip, which counts for this session only.
+ *
+ * While the project is still being received (`clone`), the centre shows how far it got and the input takes text but
+ * does not send; when it arrives the screen is the usual one, with the text still there.
  */
 export function NewSession({
   projects,
   project,
   agent,
+  clone,
   onProjectChange,
   onStarted,
 }: {
   projects: ProjectInfo[];
   project: ProjectInfo;
+  /** The project's clone, while it is on its way or after it failed. */
+  clone?: CloneInfo;
   /** The agent to start with, unless one is picked here for this project. */
   agent?: string;
-  onProjectChange: (path: string) => void;
+  /** `null`: no project picked (back to the most recent one). */
+  onProjectChange: (path: string | null) => void;
   onStarted: (sessionId: string) => void;
 }) {
   const slash = useSlashSkills(project.path);
   const t = useMessages(messages);
+  const added = useMessages(projectAddMessages);
+  const cancelClone = useCancelClone();
+  const [retrying, setRetrying] = useState<string | null>(null);
   const defaultModel = useConnections().data?.defaultModel;
   const newSession = useNewSession();
   const sendMessage = useSendMessage();
@@ -85,13 +96,24 @@ export function NewSession({
     <main aria-label={t.newSession} className="flex min-w-120 grow flex-col bg-canvas">
       <div className="min-h-0 grow" />
       <div className="mx-auto flex w-full max-w-160 flex-col items-center gap-6 px-6 pb-8">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <BrandMark size={64} />
-          <h1 className="text-display font-semibold">{t.heading}</h1>
-          <p className="text-body text-fg-muted">{t.lead(project.name)}</p>
-        </div>
-        <ExampleCards onPick={(text) => setPrefill((last) => ({ text, key: last.key + 1 }))} />
-        <ImportList cwd={project.path} onOpen={onStarted} />
+        {clone ? (
+          <Receiving
+            clone={clone}
+            onCancel={() => cancelClone.mutate(clone.id, { onSuccess: () => onProjectChange(null) })}
+            onDismiss={() => cancelClone.mutate(clone.id, { onSuccess: () => onProjectChange(null) })}
+            onRetry={() => setRetrying(clone.address)}
+          />
+        ) : (
+          <>
+            <div className="flex flex-col items-center gap-2 text-center">
+              <BrandMark size={64} />
+              <h1 className="text-display font-semibold">{t.heading}</h1>
+              <p className="text-body text-fg-muted">{t.lead(project.name)}</p>
+            </div>
+            <ExampleCards onPick={(text) => setPrefill((last) => ({ text, key: last.key + 1 }))} />
+            <ImportList cwd={project.path} onOpen={onStarted} />
+          </>
+        )}
       </div>
       <div className="mx-auto flex w-full max-w-202 flex-col gap-2 px-6 pt-3 pb-6">
         <div className="flex min-w-0 items-center gap-3">
@@ -109,16 +131,14 @@ export function NewSession({
                 ))}
               </Menu.RadioGroup>
               <Menu.Separator />
-              <Menu.Item onClick={openFolder}>
-                <span className="grow">{t.openFolderItem}</span>
-                <span className="text-meta text-fg-muted">⌘O</span>
-              </Menu.Item>
-              <Menu.Item onClick={() => setCloning(true)}>{t.cloneItem}</Menu.Item>
+              <ProjectAddItems onGet={() => setCloning(true)} onOpen={openFolder} />
             </Menu.Popup>
           </Menu.Root>
-          <GitBar path={project.path} />
+          {!clone && <GitBar path={project.path} />}
         </div>
         <Composer
+          locked={clone?.state === 'failed'}
+          waiting={clone?.state === 'receiving' ? added.waitToSend : undefined}
           onSend={start}
           slash={slash}
           prefill={prefill}
@@ -134,7 +154,17 @@ export function NewSession({
           }
         />
       </div>
-      <CloneDialog open={cloning} onOpenChange={setCloning} onCloned={onProjectChange} />
+      <CloneDialog open={cloning} onOpenChange={setCloning} onDone={onProjectChange} />
+      <CloneDialog
+        open={retrying !== null}
+        address={retrying ?? undefined}
+        onOpenChange={(open) => !open && setRetrying(null)}
+        onDone={(path) => {
+          setRetrying(null);
+          if (clone) cancelClone.mutate(clone.id); // the failed one makes way for the new try
+          onProjectChange(path);
+        }}
+      />
     </main>
   );
 }

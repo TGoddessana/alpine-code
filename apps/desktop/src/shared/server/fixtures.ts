@@ -1,4 +1,5 @@
 import type {
+  CloneInfo,
   ConnectionInfo,
   ConnectionsListResult,
   ProjectInfo,
@@ -111,11 +112,17 @@ interface ScriptState {
 
 /**
  * A server that remembers what the app does to it. Keys starting with `sk-` pass, others are rejected; local
- * addresses answer, others do not; clones of `owner/fails` fail.
+ * addresses answer, others do not. Clones: an address with `fails` is not found, one with `private` needs a sign-in,
+ * one with `nogit` first needs Apple's developer tools, one with `breaks` stops half way; the rest arrive in about
+ * three seconds, announcing their progress.
  */
 export function statefulScript(start: ScriptState): Script {
   let { connections, projects } = start;
-  let settings: SettingsGetResult = { mode: 'default', reviewModel: null };
+  let settings: SettingsGetResult = { mode: 'default', reviewModel: null, cloneFolder: '/Users/me/AlpineCode' };
+  let clones: CloneInfo[] = [];
+  const cloneTimers = new Map<string, ReturnType<typeof setInterval>>();
+  /** Apple's developer tools: missing for `nogit` addresses until the installer "finishes", a moment after it opens. */
+  let gitTools: 'ready' | 'missing' | 'installing' = 'missing';
   const signIns = new Map<string, ReturnType<typeof setTimeout>>();
   /** Models shown or hidden by hand, by connection: `connections/showModel`. */
   const chosen = new Map<string, Map<string, boolean>>();
@@ -233,9 +240,13 @@ export function statefulScript(start: ScriptState): Script {
         settings = { ...settings, reviewModel };
         return { reviewModel };
       },
+      'settings/setCloneFolder': ({ cloneFolder }) => {
+        settings = { ...settings, cloneFolder: cloneFolder ?? '/Users/me/AlpineCode' };
+        return { cloneFolder: settings.cloneFolder };
+      },
       'projects/list': () => ({
         projects: projects.map((p) => ({ ...p, lastAgent: start.agents?.lastAgent.get(p.path) ?? p.lastAgent })),
-        cloneParent: '/Users/me',
+        clones,
       }),
       'projects/open': ({ path }) => {
         const opened = project(path);
@@ -262,19 +273,68 @@ export function statefulScript(start: ScriptState): Script {
         projects = projects.filter((p) => p.path !== path);
         return {};
       },
-      'projects/clone': ({ address, parent }) => {
-        if (address.includes('fails'))
-          throw new ServerError(-32000, "fatal: repository 'https://github.com/owner/fails.git/' not found", {
-            reason: 'clone_failed',
+      'projects/clone': ({ id, address, username }, context) => {
+        if (address.includes('nogit') && gitTools !== 'ready')
+          throw new ServerError(-32000, 'git is not installed', { reason: 'no_git_tools' });
+        if (address.includes('fails') || (address.includes('private') && !username))
+          throw new ServerError(-32000, "fatal: could not read Username for 'https://github.com'", {
+            reason: 'no_access',
           });
-        const opened = project(
-          `${parent}/${address
+        const name =
+          address
             .split('/')
             .pop()
-            ?.replace(/\.git$/, '')}`,
-        );
-        projects = [opened, ...projects];
-        return { project: opened };
+            ?.replace(/\.git$/, '') ?? 'repository';
+        const path = `${settings.cloneFolder}/${name}`;
+        const known = projects.find((p) => p.path === path);
+        if (known) return { project: known, existing: true };
+        const clone: CloneInfo = { id, address, name, path, state: 'receiving', percent: 0 };
+        clones = [...clones, clone];
+        const changed = (next: CloneInfo, project: ProjectInfo | null = null) => {
+          clones =
+            next.state === 'receiving' || next.state === 'failed'
+              ? clones.map((c) => (c.id === id ? next : c))
+              : clones.filter((c) => c.id !== id);
+          context.emit({ method: 'projects/cloneChanged', params: { clone: next, project } });
+        };
+        let percent = 0;
+        const timer = setInterval(() => {
+          percent += 7;
+          if (address.includes('breaks') && percent > 40) {
+            clearInterval(timer);
+            cloneTimers.delete(id);
+            return changed({
+              ...clone,
+              percent: 42,
+              state: 'failed',
+              reason: 'unreachable',
+              message: 'fatal: early EOF',
+            });
+          }
+          if (percent < 100) return changed({ ...clone, percent, received: percent * 1_200_000 });
+          clearInterval(timer);
+          cloneTimers.delete(id);
+          const opened = project(path);
+          projects = [opened, ...projects];
+          changed({ ...clone, percent: 100, state: 'done' }, opened);
+        }, 200);
+        cloneTimers.set(id, timer);
+        return { clone, existing: false };
+      },
+      'projects/cancelClone': ({ id }, context) => {
+        clearInterval(cloneTimers.get(id));
+        cloneTimers.delete(id);
+        const clone = clones.find((c) => c.id === id);
+        clones = clones.filter((c) => c.id !== id);
+        if (clone)
+          context.emit({ method: 'projects/cloneChanged', params: { clone: { ...clone, state: 'cancelled' } } });
+        return {};
+      },
+      'projects/gitTools': () => ({ ready: gitTools === 'ready', installable: true }),
+      'projects/installGitTools': () => {
+        gitTools = 'installing';
+        setTimeout(() => (gitTools = 'ready'), 4000);
+        return {};
       },
     },
   };

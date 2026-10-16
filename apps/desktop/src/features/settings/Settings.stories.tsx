@@ -27,7 +27,7 @@ export const General: Story = {
     server: {
       results: {
         initialize: { protocolVersion: 1, server: { name: 'alpine-code-server', version: '0.1.0' } },
-        'settings/get': { mode: 'default', reviewModel: null },
+        'settings/get': { mode: 'default', reviewModel: null, cloneFolder: '/Users/me/AlpineCode' },
         'settings/setMode': ({ mode }: SettingsGetResult) => ({ mode }),
       },
     },
@@ -40,7 +40,7 @@ export const GeneralAuto: Story = {
     server: {
       results: {
         initialize: { protocolVersion: 1, server: { name: 'alpine-code-server', version: '0.1.0' } },
-        'settings/get': { mode: 'auto', reviewModel: null },
+        'settings/get': { mode: 'auto', reviewModel: null, cloneFolder: '/Users/me/AlpineCode' },
       },
     },
   },

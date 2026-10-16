@@ -28,9 +28,16 @@ export {
   type SessionState,
 } from './sessionState';
 export {
+  useCancelClone,
+  useCloneProject,
+  useCloneUpdates,
+  useGitTools,
+  useInstallGitTools,
+  useSetCloneFolder,
+} from './clones';
+export {
   useAddConnection,
   useArchiveProject,
-  useCloneProject,
   useConnectionModels,
   useConnections,
   useDeleteProject,

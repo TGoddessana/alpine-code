@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 
 import { FirstRun } from '@/features/first-run/FirstRun';
 import { Rail } from '@/features/rail/Rail';
+import { useCloneUpdates } from '@/shared/server';
 
 import { DroppedSkillsDialog } from '../DroppedSkills';
 import { TopBar } from '../TopBar';
@@ -43,6 +44,7 @@ export const Route = createRootRoute({
 function Root() {
   const [dropped, closeDropped] = useFolderOpening();
   const [railOpen, toggleRail] = useRailOpen();
+  useCloneUpdates();
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-canvas-sunken">
       <TopBar railOpen={railOpen} onToggleRail={toggleRail} />

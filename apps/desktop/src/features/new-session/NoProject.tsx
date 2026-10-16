@@ -4,15 +4,16 @@ import { useState } from 'react';
 import { BrandMark } from '@/shared/components/brand';
 
 import { Composer } from '@/shared/components/composer';
+import { CloneDialog, projectAddMessages } from '@/shared/components/project-add';
 import { useMessages } from '@/shared/i18n';
 import { useOpenFolder } from '@/shared/platform';
 
-import { CloneDialog } from './CloneDialog';
 import { messages } from './messages';
 
-/** A new session with no project yet: the centre asks for a folder, and the input waits where it will be. */
+/** A new session with no project yet: the centre offers the two ways in, and the input waits where it will be. */
 export function NoProject({ onProjectChange }: { onProjectChange?: (path: string) => void }) {
   const t = useMessages(messages);
+  const added = useMessages(projectAddMessages);
   const openFolder = useOpenFolder(onProjectChange);
   const [cloning, setCloning] = useState(false);
   return (
@@ -22,22 +23,20 @@ export function NoProject({ onProjectChange }: { onProjectChange?: (path: string
           <BrandMark size={80} />
           <div className="flex flex-col gap-2">
             <h2 id="np-title" className="text-lead">
-              {t.whichFolder}
+              {t.whichProject}
             </h2>
             <p className="text-body text-fg-muted">{t.dropHint}</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="primary" onClick={openFolder}>
-              {t.openFolder}
-            </Button>
-            <Button onClick={() => setCloning(true)}>{t.clone}</Button>
+          <div className="flex flex-col items-start gap-2">
+            <Button onClick={() => setCloning(true)}>{added.getProjectButton}</Button>
+            <Button onClick={openFolder}>{added.openProjectButton} · ⌘O</Button>
           </div>
         </div>
       </section>
       <div className="mx-auto w-full max-w-202 px-6 pt-3 pb-6">
         <Composer locked />
       </div>
-      <CloneDialog open={cloning} onOpenChange={setCloning} onCloned={(path) => onProjectChange?.(path)} />
+      <CloneDialog open={cloning} onOpenChange={setCloning} onDone={(path) => onProjectChange?.(path)} />
     </main>
   );
 }

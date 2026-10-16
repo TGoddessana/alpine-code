@@ -1,11 +1,12 @@
-import type { ProjectInfo, SessionInfo } from '@alpine/protocol';
+import type { CloneInfo, ProjectInfo, SessionInfo } from '@alpine/protocol';
 import { ContextMenu, Menu, PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import clsx from 'clsx';
-import { BookMarked, ChevronDown, ChevronRight, Ellipsis, FolderOpen, Map, Settings, SquarePen } from 'lucide-react';
+import { BookMarked, ChevronDown, ChevronRight, Ellipsis, Map, Plus, Settings, SquarePen } from 'lucide-react';
 import { useState } from 'react';
 
 import { BrandMark } from '@/shared/components/brand';
+import { CloneDialog, ProgressBar, ProjectAddItems, projectAddMessages } from '@/shared/components/project-add';
 
 import { useFormat, useMessages } from '@/shared/i18n';
 import { revealInFinder, useOpenFolder } from '@/shared/platform';
@@ -35,8 +36,12 @@ export function Rail() {
   const t = useMessages(messages);
   const projects = useProjects();
   const navigate = useNavigate();
-  const openFolder = useOpenFolder((path) => void navigate({ to: '/', search: { project: path } }));
+  const show = (path: string) => void navigate({ to: '/', search: { project: path } });
+  const openFolder = useOpenFolder(show);
+  const added = useMessages(projectAddMessages);
+  const [cloning, setCloning] = useState(false);
   const shown = projects.data?.projects.filter((project) => !project.archived) ?? [];
+  const clones = projects.data?.clones ?? [];
   const none = projects.isSuccess && shown.length === 0;
   const width = usePanelWidth({ storageKey: 'alpine.rail.width', initial: 260, min: 200, max: 360 });
   const [deleting, setDeleting] = useState<ProjectInfo | null>(null);
@@ -67,33 +72,31 @@ export function Rail() {
       <section aria-label={t.projects} className="flex flex-col gap-0.5">
         <div className="flex min-h-7 items-center gap-2 px-2 text-meta text-fg-muted">
           <span className="grow">{t.projects}</span>
-          <button
-            type="button"
-            onClick={openFolder}
-            aria-label={`${t.openFolder} · ⌘O`}
-            title={`${t.openFolder} · ⌘O`}
-            className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-fg-muted hover:bg-hover"
-          >
-            <FolderOpen size={16} strokeWidth={1.5} aria-hidden="true" />
-          </button>
+          <Menu.Root>
+            <Menu.Trigger
+              aria-label={added.addProject}
+              title={added.addProject}
+              className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-fg-muted hover:bg-hover data-popup-open:bg-hover"
+            >
+              <Plus size={16} strokeWidth={1.5} aria-hidden="true" />
+            </Menu.Trigger>
+            <Menu.Popup aria-label={added.addProject} className="w-64">
+              <ProjectAddItems onGet={() => setCloning(true)} onOpen={openFolder} />
+            </Menu.Popup>
+          </Menu.Root>
         </div>
-        {none ? (
-          <button type="button" className={item} onClick={openFolder}>
-            <FolderOpen size={16} strokeWidth={1.5} className="text-fg-muted" aria-hidden="true" />
-            <span className="grow">{t.openFolder}</span>
-            <span className="text-meta text-fg-muted">⌘O</span>
-          </button>
-        ) : (
-          shown.map((project) => (
-            <ProjectGroup
-              key={project.path}
-              project={project}
-              sessions={sessions.filter((session) => session.cwd === project.path)}
-              onDelete={setDeleting}
-              onDeleteSession={setDeletingSession}
-            />
-          ))
-        )}
+        {[...clones].reverse().map((clone) => (
+          <CloneRow key={clone.id} clone={clone} />
+        ))}
+        {shown.map((project) => (
+          <ProjectGroup
+            key={project.path}
+            project={project}
+            sessions={sessions.filter((session) => session.cwd === project.path)}
+            onDelete={setDeleting}
+            onDeleteSession={setDeletingSession}
+          />
+        ))}
       </section>
       <div className="grow" />
       <div className="flex flex-col gap-0.5 border-t border-line pt-3">
@@ -102,9 +105,42 @@ export function Rail() {
           {t.settings}
         </Link>
       </div>
+      <CloneDialog open={cloning} onOpenChange={setCloning} onDone={show} />
       <DeleteProjectDialog project={deleting} onClose={() => setDeleting(null)} />
       <DeleteSessionDialog session={deletingSession} onClose={() => setDeletingSession(null)} />
     </nav>
+  );
+}
+
+/** A project on its way: how far it got, or that it did not arrive. Opens its new session screen, which says more. */
+function CloneRow({ clone }: { clone: CloneInfo }) {
+  const added = useMessages(projectAddMessages);
+  const chosen = useSearch({ strict: false, select: (search: { project?: string }) => search.project });
+  const failed = clone.state === 'failed';
+  return (
+    <Link
+      to="/"
+      search={{ project: clone.path }}
+      title={clone.address}
+      className={clsx(item, 'flex-col items-stretch gap-1 py-1.5 pl-7', chosen === clone.path && 'bg-hover')}
+    >
+      <span className="flex items-center gap-2">
+        <span
+          className={clsx(
+            'inline-flex size-5 shrink-0 items-center justify-center rounded-md text-meta font-medium',
+            AVATAR_CLASS[avatarSlot(clone.path)],
+          )}
+          aria-hidden="true"
+        >
+          {avatarLetters(clone.name)}
+        </span>
+        <span className="min-w-0 grow truncate font-medium">{clone.name}</span>
+        <span className={clsx('text-meta whitespace-nowrap', failed ? 'text-danger' : 'text-fg-faint')}>
+          {failed ? added.notReceivedShort : `${clone.percent}%`}
+        </span>
+      </span>
+      {!failed && <ProgressBar percent={clone.percent} className="ml-7" />}
+    </Link>
   );
 }
 

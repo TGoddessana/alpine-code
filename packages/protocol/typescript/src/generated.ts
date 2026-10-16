@@ -419,6 +419,7 @@ export interface ErrorData {
     | 'other'
     | 'not_a_folder'
     | 'invalid_config'
+    | 'exists'
     | 'clone_failed'
     | 'no_access'
     | 'no_git_tools'

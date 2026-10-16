@@ -81,6 +81,7 @@ from .items import (
     item_to_dict,
 )
 from .memory import Evidence, Memories, Memory, MemoryNotes, Refused, Scope, Suggestion
+from .migrate import migrate_projects
 from .models import ModelListError, chatgpt_tokens, list_models
 from .permissions import Mode
 from .projects import Project, ProjectList
@@ -153,6 +154,7 @@ __all__ = [
     "Settings",
     "ConfigError",
     "home_dir",
+    "migrate_projects",
     "ExternalSession",
     "ImportSource",
     "SOURCE_NAMES",

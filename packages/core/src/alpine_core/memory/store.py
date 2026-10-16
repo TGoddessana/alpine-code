@@ -57,7 +57,7 @@ def scope_folders(project: Path, home: Path | None = None) -> dict[Scope, Path]:
     """Team memory is in the repository; the user's own memory never is, so it cannot be committed by mistake."""
     home = home or home_dir()
     return {
-        "team": project / ".alpine" / "memory",
+        "team": project / ".alpine-code" / "memory",
         "project_me": home / "projects" / project_key(project) / "memory",
         "me": home / "memory",
     }

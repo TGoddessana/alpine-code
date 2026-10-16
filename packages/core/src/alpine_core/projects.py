@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .home import home_dir
 from .memory.model import project_key
+from .migrate import migrate_project
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,8 @@ class ProjectList:
         projects = self._read()
         now = datetime.now(UTC)
         known = projects.get(folder)
+        if not known:  # the ones already listed were moved when the server started
+            migrate_project(folder, self.file.parent)
         project = replace(known, last_used_at=now, archived=False) if known else Project(folder, now, now)
         projects[folder] = project
         self._write(projects)
@@ -83,8 +86,9 @@ class ProjectList:
     def delete(self, folder: Path) -> None:
         """Forgets the folder. Never touches the folder itself; opening it again starts it afresh.
 
-        The user's own memory of the project and its suggestions (``<home>/projects/<project>/``) go with it. Team
-        memory is in the folder (``.alpine/memory``), so it stays, and so do the sessions, until the core can tell
+        What this computer keeps about the project (``<home>/projects/<project>/``: the user's own memory, its
+        suggestions, the product map's local records) goes with it. Team
+        memory is in the folder (``.alpine-code/memory``), so it stays, and so do the sessions, until the core can tell
         a project's sessions apart from the rest.
         """
         folder = folder.expanduser().resolve()

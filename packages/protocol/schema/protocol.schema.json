@@ -1521,7 +1521,7 @@
     },
     "FeatureFile": {
       "additionalProperties": false,
-      "description": "``.alpine/map/features/<id>.json``: one card, written by the agent.",
+      "description": "``.alpine-code/map/features/<id>.json``: one card, written by the agent.",
       "properties": {
         "id": {
           "maxLength": 100,
@@ -1813,7 +1813,7 @@
       "type": "object"
     },
     "FlowDeleteParams": {
-      "description": "Deletes the project's map: every file under ``.alpine/map/`` and this computer's records of it.",
+      "description": "Deletes the project's map: every file under ``.alpine-code/map/`` and this computer's records of it.",
       "properties": {
         "cwd": {
           "type": "string"
@@ -1891,7 +1891,7 @@
     },
     "FlowFile": {
       "additionalProperties": false,
-      "description": "``.alpine/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent.",
+      "description": "``.alpine-code/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent.",
       "properties": {
         "id": {
           "maxLength": 100,
@@ -3123,7 +3123,7 @@
     },
     "MapFile": {
       "additionalProperties": false,
-      "description": "``.alpine/map/map.json``, written by the agent.",
+      "description": "``.alpine-code/map/map.json``, written by the agent.",
       "properties": {
         "formatVersion": {
           "const": 1,

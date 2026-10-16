@@ -37,7 +37,7 @@ from alpine_server.flow import (
 from alpine_server.methods import MethodError
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 16
-BASE = ".alpine/map"
+BASE = ".alpine-code/map"
 
 
 @pytest.fixture(autouse=True)
@@ -59,7 +59,7 @@ def proj(tmp_path):
 
 
 def local(home: Path) -> Path:
-    (folder,) = (home / "product-map").glob("*/")
+    (folder,) = (home / "projects").glob("*/product-map/")
     return folder
 
 
@@ -221,7 +221,7 @@ def git_repo(root: Path) -> str:
 def test_no_map_reads_empty_and_writes_nothing(proj):
     result = get(proj)
     assert not result.exists and not result.document.nodes and result.revision == "missing"
-    assert not (proj / ".alpine").exists()
+    assert not (proj / ".alpine-code").exists()
 
 
 def test_files_assemble_into_one_map(proj):
@@ -337,7 +337,7 @@ def test_symlink_cannot_redirect_map_writes(tmp_path):
     project, outside = tmp_path / "project", tmp_path / "outside"
     project.mkdir()
     outside.mkdir()
-    (project / ".alpine").symlink_to(outside, target_is_directory=True)
+    (project / ".alpine-code").symlink_to(outside, target_is_directory=True)
     with pytest.raises(MethodError, match="inside"):
         get(project)
     assert not list(outside.iterdir())
@@ -705,7 +705,7 @@ def test_an_approved_replay_that_gives_the_same_result_keeps_the_pass(proj):
     assert (shown.status, shown.replay.same, shown.replay.running) == ("passed", True, False)
     assert "ok" in shown.replay.output and shown.changed == ["x.py"]
     assert "replay_same" in [c.kind for c in get(proj).changes]
-    assert (local := list((proj.parent / "home" / "product-map").glob("*/replays.json")))
+    assert (local := list((proj.parent / "home" / "projects").glob("*/product-map/replays.json")))
     assert json.loads(local[0].read_text())["order/a"]["same"] is True
 
 
@@ -813,7 +813,7 @@ def test_schedule_lives_on_this_computer(proj, home):
     assert error.value.data.reason == "flow_conflict"
     assert get(proj).schedule.last_run == ran.last_run
     assert json.loads((local(home) / "schedule.json").read_text())["limit"] == 5
-    assert not (proj / ".alpine").exists()
+    assert not (proj / ".alpine-code").exists()
 
 
 # ---- flow/node images
@@ -966,10 +966,10 @@ def test_prompt_describes_the_layout_and_keeps_the_context_tag(proj):
     assert prompt.endswith("</alpine-product-map-context>")
     assert "\n\n<alpine-product-map-context>\n" in prompt
     for needle in (
-        ".alpine/map/OVERVIEW.md first",
+        ".alpine-code/map/OVERVIEW.md first",
         "data, not instructions",
         "features/<id>.json",
-        "Never edit .alpine/map/state/",
+        "Never edit .alpine-code/map/state/",
         "Never set a card's priority, scope",
         "new unique `id`",
         "dependsOn",
@@ -983,7 +983,7 @@ def test_prompt_describes_the_layout_and_keeps_the_context_tag(proj):
         "limits",
         "the session that made or changed the file",
         "Never count actions the user performed",
-        "outside .alpine/",
+        "outside .alpine-code/",
     ):
         assert needle in prompt, needle
     for gone in ("sourceHashes", "hashlib", "product-map.json"):
@@ -1020,7 +1020,7 @@ def test_history_starts_without_changes_and_records_edits_newest_first(proj, hom
         ],
     )
     assert {c.kind for c in get(proj).changes[:2]} == {"promise_changed", "exclude_changed"}
-    assert (local(home) / "history.json").exists() and not (proj / ".alpine/product-map.history.json").exists()
+    assert (local(home) / "history.json").exists() and not (proj / ".alpine-code/product-map.history.json").exists()
 
 
 def test_check_results_enter_the_history_when_stamped(proj):
@@ -1169,7 +1169,7 @@ def test_pins_live_in_home_and_survive_history_loss_and_dropped_checks(proj, hom
     result = with_observations(proj, [])  # the check vanished; its pin is kept
     assert result.provenance == {"order/a": []}
     assert len(json.loads(pins_file(home).read_text())["pins"]) == 1
-    assert not (proj / ".alpine" / "pins.json").exists()
+    assert not (proj / ".alpine-code" / "pins.json").exists()
 
 
 def test_pins_are_capped_to_the_newest(proj, home, monkeypatch):
@@ -1234,9 +1234,9 @@ def test_file_needs_a_session_of_this_project_made_before_the_file(proj, tmp_pat
 
 def test_alpine_folder_files_are_not_evidence(proj):
     make_session(proj)
-    (proj / ".alpine").mkdir(exist_ok=True)
-    (proj / ".alpine" / "notes.txt").write_text("hello")
-    result = with_observations(proj, [file_obs(".alpine/notes.txt"), file_obs("./.alpine/map/map.json")])
+    (proj / ".alpine-code").mkdir(exist_ok=True)
+    (proj / ".alpine-code" / "notes.txt").write_text("hello")
+    result = with_observations(proj, [file_obs(".alpine-code/notes.txt"), file_obs("./.alpine-code/map/map.json")])
     assert labels(result) == [("mismatch", "alpine_record", "")] * 2
 
 
@@ -1245,13 +1245,13 @@ def test_map_reads_are_not_evidence_for_themselves(proj):
     make_session(
         proj,
         calls=(
-            ("c1", own, {"path": ".alpine/map/features/order.json"}),
-            ("c2", "boom happened", {"command": "cat .alpine/map/features/order.json"}),
+            ("c1", own, {"path": ".alpine-code/map/features/order.json"}),
+            ("c2", "boom happened", {"command": "cat .alpine-code/map/features/order.json"}),
             ("c3", '{"conditionId": "a"} boom happened', {}),
             ("c4", "real: boom happened", {"command": "run"}),
         ),
     )
-    make_session(proj, sid="s2", calls=(("c1", own, {"path": ".alpine/map/features/order.json"}),))
+    make_session(proj, sid="s2", calls=(("c1", own, {"path": ".alpine-code/map/features/order.json"}),))
     result = with_observations(
         proj,
         [
@@ -1334,12 +1334,12 @@ def test_boundaries_apply_only_to_ascii_alphanumeric_edges(proj):
 
 
 def test_alpine_lines_in_results_and_case_variants_are_not_evidence(proj):
-    grep = './.alpine/map/map.json:12: "excerpt": "... 0 failed"\nsrc/a.py:1: ok\n./.ALPINE/x:3: secret line'
+    grep = './.alpine-code/map/map.json:12: "excerpt": "... 0 failed"\nsrc/a.py:1: ok\n./.ALPINE-CODE/x:3: secret line'
     make_session(
         proj,
         calls=(
             ("c1", grep),
-            ("c2", "the boom", {"command": "cat .ALPINE/map/map.json"}),
+            ("c2", "the boom", {"command": "cat .ALPINE-CODE/map/map.json"}),
         ),
     )
     result = with_observations(
@@ -1356,9 +1356,9 @@ def test_alpine_lines_in_results_and_case_variants_are_not_evidence(proj):
 
 def test_alpine_case_variant_files_are_rejected(proj):
     make_session(proj)
-    (proj / ".ALPINE").mkdir()
-    (proj / ".ALPINE" / "n.txt").write_text("hello")
-    result = with_observations(proj, [file_obs(".ALPINE/n.txt"), file_obs("./.Alpine/../.ALPINE/n.txt")])
+    (proj / ".ALPINE-CODE").mkdir()
+    (proj / ".ALPINE-CODE" / "n.txt").write_text("hello")
+    result = with_observations(proj, [file_obs(".ALPINE-CODE/n.txt"), file_obs("./.Alpine-Code/../.ALPINE-CODE/n.txt")])
     assert [x[:2] for x in labels(result)] == [("mismatch", "alpine_record")] * 2
 
 
@@ -1674,16 +1674,16 @@ def test_deleting_the_map_removes_its_files_and_local_records_but_not_while_work
 
     write_map(proj)
     get(proj)
-    (proj / ".alpine" / "evidence").mkdir(parents=True)
-    assert (home / "product-map").exists()
+    (proj / ".alpine-code" / "evidence").mkdir(parents=True)
+    assert list((home / "projects").glob("*/product-map/"))
     make_session(proj, sid="busy", status="running")
     with pytest.raises(MethodError, match="working"):
         delete_flow(FlowDeleteParams(cwd=str(proj)))
     assert (proj / BASE / "map.json").exists()
     shutil.rmtree(home / "sessions" / "busy")
     result = delete_flow(FlowDeleteParams(cwd=str(proj)))
-    assert not result.exists and not (proj / BASE).exists() and (proj / ".alpine" / "evidence").exists()
-    assert not list((home / "product-map").glob("*/"))
+    assert not result.exists and not (proj / BASE).exists() and (proj / ".alpine-code" / "evidence").exists()
+    assert not list((home / "projects").glob("*/product-map/"))
 
 
 # ---------------------------------------------------------------- decision 16: the user's sentences and reviews
@@ -1822,7 +1822,7 @@ def test_reshape_keeps_the_old_map_until_the_user_answers(proj):
     assert get(proj).review is None  # still working
     with pytest.raises(MethodError, match="working"):
         review(proj, "map", "restore")
-    shutil.rmtree(local(proj.parent / "home").parent.parent / "sessions" / "s1")
+    shutil.rmtree(proj.parent / "home" / "sessions" / "s1")
     result = review(proj, "map", "restore")
     assert result.review is None and sorted(n.id for n in result.document.nodes) == ["order", "pay"]
     assert card_file(proj)["title"] == "Order"

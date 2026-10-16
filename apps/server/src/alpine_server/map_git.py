@@ -21,7 +21,7 @@ _TTL = 5.0  # seconds a list of changed files is reused
 _MAX_HASHES = 50000
 _MAX_UNCOVERED = 200
 _MAX_TREE = 500
-_SKIP_DIRS = frozenset({".git", "node_modules", "__pycache__", ".venv", ".alpine"})
+_SKIP_DIRS = frozenset({".git", "node_modules", "__pycache__", ".venv", ".alpine-code"})
 _hashes: OrderedDict[tuple[str, int, int, bool], str] = OrderedDict()
 _changes: dict[str, tuple[float, tuple, list[str]]] = {}
 _heads: dict[str, tuple[float, str | None]] = {}
@@ -199,7 +199,7 @@ def _changed(root: Path, base: str | None, current: str | None) -> list[str]:
         for name in names:
             if name.startswith(prefix) and name[len(prefix) :]:
                 found[name[len(prefix) :]] = None
-    result = [n for n in found if not (n == ".alpine" or n.startswith(".alpine/"))]
+    result = [n for n in found if not (n == ".alpine-code" or n.startswith(".alpine-code/"))]
     _changes[str(root)] = (time.monotonic(), stamp, result)
     return result
 

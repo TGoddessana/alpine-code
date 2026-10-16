@@ -1252,7 +1252,7 @@ function enrich(map: ProductMap): ProductMap {
           cwd: '.',
           expect: REPLAYS[key] as NonNullable<FlowCheck['replay']>['expect'],
         };
-      if (STUDIO_SHOTS[key]) check.screenshot = `.alpine/evidence/${node.id}-${check.conditionId}.png`;
+      if (STUDIO_SHOTS[key]) check.screenshot = `.alpine-code/evidence/${node.id}-${check.conditionId}.png`;
       const meta = (PROMISES[key] ??= {});
       meta.stamp = { at, sessionId: SESSION, witness: 'mine', ...meta.stamp };
     }
@@ -1449,8 +1449,8 @@ DEMO_META.set(
     readOnly: true,
     git: false,
     problems: [
-      { file: '.alpine/map/features/dns.json', message: 'kind: Input should be screen, api, sdk, process or data' },
-      { file: '.alpine/map/flows/rollback.json', message: 'nodeIds: expected a list' },
+      { file: '.alpine-code/map/features/dns.json', message: 'kind: Input should be screen, api, sdk, process or data' },
+      { file: '.alpine-code/map/flows/rollback.json', message: 'nodeIds: expected a list' },
     ],
   }),
 );

@@ -788,7 +788,7 @@ class AgentsDeleteResult(Message):
 SkillOrigin = Literal["project", "alpine", "agents", "claude", "codex"]
 """``alpine``: installed or made in Alpine, which may change and delete it. ``agents``, ``claude``, ``codex``: kept by
 another app in ``~/.agents/skills``, ``~/.claude/skills`` or ``~/.codex/skills``, used where it is. ``project``: in
-the project's own ``.agents/skills``, ``.alpine/skills`` or ``.claude/skills``."""
+the project's own ``.agents/skills``, ``.alpine-code/skills`` or ``.claude/skills``."""
 
 
 class SkillInfo(Message):
@@ -1434,8 +1434,8 @@ class MemoryChangedParams(Message):
 # Product map: a project-owned document, readable and editable by the coding agent.
 
 
-# Layout (docs/map-upkeep.md, decision 7): `.alpine/map/map.json` (MapFile), `features/<id>.json` (FeatureFile),
-# `flows/<id>.json` (FlowFile) are written by the agent. `.alpine/map/state/` is written only by Alpine. The server
+# Layout (docs/map-upkeep.md, decision 7): `.alpine-code/map/map.json` (MapFile), `features/<id>.json` (FeatureFile),
+# `flows/<id>.json` (FlowFile) are written by the agent. `.alpine-code/map/state/` is written only by Alpine. The server
 # assembles them into one ProductMap for the app.
 
 
@@ -1549,7 +1549,7 @@ class FlowCheck(Message):
 
 
 class FeatureFile(Message):
-    """``.alpine/map/features/<id>.json``: one card, written by the agent."""
+    """``.alpine-code/map/features/<id>.json``: one card, written by the agent."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -1627,11 +1627,11 @@ class ProductFlow(Message):
 
 
 class FlowFile(ProductFlow):
-    """``.alpine/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent."""
+    """``.alpine-code/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent."""
 
 
 class MapFile(Message):
-    """``.alpine/map/map.json``, written by the agent."""
+    """``.alpine-code/map/map.json``, written by the agent."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -1934,7 +1934,7 @@ class FlowScopeParams(Message):
 
 
 class FlowDeleteParams(Message):
-    """Deletes the project's map: every file under ``.alpine/map/`` and this computer's records of it."""
+    """Deletes the project's map: every file under ``.alpine-code/map/`` and this computer's records of it."""
 
     cwd: str
 

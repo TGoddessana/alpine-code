@@ -411,7 +411,7 @@ def test_memory_from_suggestion_to_approval(folder, monkeypatch):
 
             approved = (await client.call("memory/approve", cwd=str(folder), suggestionId=pending["id"]))["result"]
             assert approved["memory"]["id"] == "ui-tone"
-            assert (folder / ".alpine" / "memory" / "ui-tone.md").exists()
+            assert (folder / ".alpine-code" / "memory" / "ui-tone.md").exists()
             notices = [
                 e["event"]["item"]
                 for e in client.events(sid, "item_completed")
@@ -620,7 +620,9 @@ def test_product_map_discovery_uses_the_real_session_tools_and_survives_reopen(f
     }
     (folder / "hello.py").write_text("def hello(): return 'Hello'\n")
     fake_model(
-        monkeypatch, tool_call("write", path=".alpine/map/features/hello.json", content=json.dumps(card)), "Mapped."
+        monkeypatch,
+        tool_call("write", path=".alpine-code/map/features/hello.json", content=json.dumps(card)),
+        "Mapped.",
     )
 
     async def scenario():

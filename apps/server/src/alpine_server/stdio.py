@@ -19,6 +19,7 @@ from typing import Any, TextIO
 
 from pydantic import ValidationError
 
+from alpine_core import migrate_projects
 from alpine_protocol import (
     METHODS,
     ChatGPTSignInFinishedParams,
@@ -226,4 +227,5 @@ def main() -> None:
     # for ourselves and point fd 1 at stderr.
     protocol = os.fdopen(os.dup(sys.stdout.fileno()), "w", encoding="utf-8")
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
+    migrate_projects()
     serve(sys.stdin, protocol)

@@ -474,7 +474,7 @@ export interface ExternalSessionInfo {
   imported: string | null;
 }
 /**
- * ``.alpine/map/features/<id>.json``: one card, written by the agent.
+ * ``.alpine-code/map/features/<id>.json``: one card, written by the agent.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "FeatureFile".
@@ -1220,7 +1220,7 @@ export interface FlowChange {
   detail?: string;
 }
 /**
- * Deletes the project's map: every file under ``.alpine/map/`` and this computer's records of it.
+ * Deletes the project's map: every file under ``.alpine-code/map/`` and this computer's records of it.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "FlowDeleteParams".
@@ -1252,7 +1252,7 @@ export interface FlowEditParams {
   value?: string;
 }
 /**
- * ``.alpine/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent.
+ * ``.alpine-code/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "FlowFile".
@@ -1971,7 +1971,7 @@ export interface ItemStartedEvent {
     | ImportedItem;
 }
 /**
- * ``.alpine/map/map.json``, written by the agent.
+ * ``.alpine-code/map/map.json``, written by the agent.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "MapFile".

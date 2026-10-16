@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from alpineagents import ToolError, tool
 
-from ._common import WorkspaceTool, os_error
+from ._common import WorkspaceTool, json_note, os_error
 
 
 class Write(WorkspaceTool):
-    @tool(name="write", exception_handler=os_error, read_only=False, idempotent=True, open_world=False)
+    @tool(name="write", parallel=False, exception_handler=os_error, read_only=False, idempotent=True, open_world=False)
     def write(self, path: str, content: str) -> str:
         """Write a file, replacing it if it exists. Creates missing parent directories.
         Prefer edit for changing part of an existing file.
@@ -23,4 +23,4 @@ class Write(WorkspaceTool):
         file.write_text(content, encoding="utf-8")
         lines = content.count("\n") + (0 if content.endswith("\n") or not content else 1)
         verb = "Overwrote" if existed else "Created"
-        return f"{verb} {self.workspace.display(file)} ({lines} lines)"
+        return f"{verb} {self.workspace.display(file)} ({lines} lines)" + json_note(file, content)

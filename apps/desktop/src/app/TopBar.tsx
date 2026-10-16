@@ -7,16 +7,17 @@ import { useCurrentProject } from '@/features/rail/currentProject';
 import { useWorkResult } from '@/features/work-result/useWorkResult';
 import { StatusWord } from '@/shared/components/status';
 import { useMessages } from '@/shared/i18n';
+import { restartToUpdate, useUpdateReady } from '@/shared/platform';
 import { useProjectGit, useProjects, useSession } from '@/shared/server';
 
-import { messages } from './messages';
+import { menuMessages, messages } from './messages';
 
 const iconButton =
   'inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-fg-muted hover:bg-hover hover:text-fg';
 
 /**
  * The one line over the whole window: room for the traffic lights, the sidebar button, back and forward, then for a
- * session where it runs (project, branch) and its state (on the product map, the project), and at the far end the dock button. The bar and its
+ * session where it runs (project, branch) and its state (on the product map, the project), at the far end the dock button, and after it the update button once a new version is ready. The bar and its
  * empty parts drag the window; the buttons never do. On a new session the project is named only while the rail, which
  * names it otherwise, is hidden.
  */
@@ -55,7 +56,25 @@ export function TopBar({ railOpen, onToggleRail }: { railOpen: boolean; onToggle
       ) : (
         <span data-tauri-drag-region className="grow self-stretch" />
       )}
+      <UpdateButton />
     </div>
+  );
+}
+
+/** Once a newer version has downloaded: restart into it now (it installs on quit otherwise). */
+function UpdateButton() {
+  const t = useMessages(menuMessages);
+  const version = useUpdateReady();
+  if (!version) return null;
+  return (
+    <button
+      type="button"
+      title={t.updateReadyTitle(version)}
+      onClick={() => void restartToUpdate()}
+      className="ml-1 shrink-0 cursor-pointer rounded-full bg-interactive px-3 py-1 text-meta font-medium text-on-fill hover:bg-interactive-hover"
+    >
+      {t.restartToUpdate}
+    </button>
   );
 }
 

@@ -7,6 +7,7 @@ import { useCloneUpdates } from '@/shared/server';
 
 import { DroppedSkillsDialog } from '../DroppedSkills';
 import { TopBar } from '../TopBar';
+import { useAppMenu } from '../useAppMenu';
 import { useFolderOpening } from '../useFolderOpening';
 import { useNewSessionShortcut } from '../useNewSessionShortcut';
 
@@ -43,10 +44,11 @@ export const Route = createRootRoute({
 });
 
 function Root() {
-  const [dropped, closeDropped] = useFolderOpening();
+  const [dropped, closeDropped, openFolder] = useFolderOpening();
   const [railOpen, toggleRail] = useRailOpen();
   useCloneUpdates();
-  useNewSessionShortcut();
+  const newSession = useNewSessionShortcut();
+  useAppMenu(railOpen, { newSession, openFolder, toggleRail });
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-canvas-sunken">
       <TopBar railOpen={railOpen} onToggleRail={toggleRail} />

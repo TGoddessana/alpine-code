@@ -1,4 +1,5 @@
-//! The desktop shell: windows, tray, notifications, native dialogs and the server process.
+//! The desktop shell: windows, tray, notifications, native dialogs, updates and the server process. The menu bar is
+//! built by the frontend (`src/app/useAppMenu.ts`) so it follows the app's language and routes.
 //! Screens and the protocol live in the frontend (`../src`); this crate does not read protocol messages.
 
 mod server;
@@ -21,13 +22,19 @@ pub fn run() {
             }
             let server = server::Server::start(app.handle())?;
             app.manage(server);
+            app.manage(update::Updates::default());
             if cfg!(not(debug_assertions)) {
                 app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
                 update::download_in_background(app.handle());
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![server::server_send])
+        .invoke_handler(tauri::generate_handler![
+            server::server_send,
+            update::update_ready,
+            update::update_check,
+            update::update_restart
+        ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {

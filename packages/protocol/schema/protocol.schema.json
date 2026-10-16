@@ -99,6 +99,26 @@
       "params": "ChatGPTSignOutParams",
       "result": "ChatGPTSignOutResult"
     },
+    "github/status": {
+      "params": "GitHubStatusParams",
+      "result": "GitHubStatusResult"
+    },
+    "github/signIn": {
+      "params": "GitHubSignInParams",
+      "result": "GitHubSignInResult"
+    },
+    "github/cancelSignIn": {
+      "params": "GitHubCancelSignInParams",
+      "result": "GitHubCancelSignInResult"
+    },
+    "github/signOut": {
+      "params": "GitHubSignOutParams",
+      "result": "GitHubSignOutResult"
+    },
+    "github/repos": {
+      "params": "GitHubReposParams",
+      "result": "GitHubReposResult"
+    },
     "projects/list": {
       "params": "ProjectsListParams",
       "result": "ProjectsListResult"
@@ -276,7 +296,8 @@
     "session/event": "SessionEventParams",
     "chatgpt/signInFinished": "ChatGPTSignInFinishedParams",
     "memory/changed": "MemoryChangedParams",
-    "projects/cloneChanged": "ProjectsCloneChangedParams"
+    "projects/cloneChanged": "ProjectsCloneChangedParams",
+    "github/signInFinished": "GitHubSignInFinishedParams"
   },
   "$defs": {
     "Activity": {
@@ -2543,6 +2564,213 @@
         "field"
       ],
       "title": "FlowSetParams",
+      "type": "object"
+    },
+    "GitHubAccountInfo": {
+      "properties": {
+        "login": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "login"
+      ],
+      "title": "GitHubAccountInfo",
+      "type": "object"
+    },
+    "GitHubCancelSignInParams": {
+      "properties": {
+        "attemptId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attemptId"
+      ],
+      "title": "GitHubCancelSignInParams",
+      "type": "object"
+    },
+    "GitHubCancelSignInResult": {
+      "properties": {},
+      "title": "GitHubCancelSignInResult",
+      "type": "object"
+    },
+    "GitHubReposParams": {
+      "description": "The repositories the sign-in can see, the most recently pushed first. Fails with ``auth`` when signed out (or\nGitHub no longer accepts the token, which is then forgotten) and ``unreachable`` when GitHub cannot be reached.",
+      "properties": {},
+      "title": "GitHubReposParams",
+      "type": "object"
+    },
+    "GitHubReposResult": {
+      "properties": {
+        "repositories": {
+          "items": {
+            "$ref": "#/$defs/GitHubRepository"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "repositories"
+      ],
+      "title": "GitHubReposResult",
+      "type": "object"
+    },
+    "GitHubRepository": {
+      "properties": {
+        "fullName": {
+          "type": "string"
+        },
+        "cloneUrl": {
+          "type": "string"
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "pushedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "fullName",
+        "cloneUrl",
+        "private",
+        "pushedAt",
+        "description"
+      ],
+      "title": "GitHubRepository",
+      "type": "object"
+    },
+    "GitHubSignInFinishedParams": {
+      "description": "The end of a sign-in, whichever way it ended.",
+      "properties": {
+        "attemptId": {
+          "type": "string"
+        },
+        "result": {
+          "enum": [
+            "connected",
+            "declined",
+            "cancelled",
+            "timed_out",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "account": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GitHubAccountInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "attemptId",
+        "result"
+      ],
+      "title": "GitHubSignInFinishedParams",
+      "type": "object"
+    },
+    "GitHubSignInParams": {
+      "description": "Starts a sign-in, cancelling one still waiting. The app shows ``user_code`` and opens ``verification_uri``.",
+      "properties": {},
+      "title": "GitHubSignInParams",
+      "type": "object"
+    },
+    "GitHubSignInResult": {
+      "properties": {
+        "attemptId": {
+          "type": "string"
+        },
+        "userCode": {
+          "type": "string"
+        },
+        "verificationUri": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attemptId",
+        "userCode",
+        "verificationUri"
+      ],
+      "title": "GitHubSignInResult",
+      "type": "object"
+    },
+    "GitHubSignOutParams": {
+      "description": "Forgets the sign-in here. GitHub keeps the grant until the user revokes it at ``access_url``.",
+      "properties": {},
+      "title": "GitHubSignOutParams",
+      "type": "object"
+    },
+    "GitHubSignOutResult": {
+      "properties": {},
+      "title": "GitHubSignOutResult",
+      "type": "object"
+    },
+    "GitHubStatusParams": {
+      "properties": {},
+      "title": "GitHubStatusParams",
+      "type": "object"
+    },
+    "GitHubStatusResult": {
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "account": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GitHubAccountInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accessUrl": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "available",
+        "account",
+        "accessUrl"
+      ],
+      "title": "GitHubStatusResult",
       "type": "object"
     },
     "GitInfo": {

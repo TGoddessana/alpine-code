@@ -27,6 +27,8 @@ from alpine_core import (
     install_git_tools,
     place,
 )
+from alpine_core.git import clone_url
+from alpine_core.github import GitHubUnavailable, SignedOut, access_token
 from alpine_protocol import (
     CloneInfo,
     ProjectsCancelCloneParams,
@@ -97,7 +99,10 @@ class Clones:
         if existing:
             return ProjectsCloneResult(project=await asyncio.to_thread(_open, folder), existing=True)
 
-        credentials = Credentials(params.username, params.password) if params.username and params.password else None
+        if params.username and params.password:
+            credentials: Credentials | None = Credentials(params.username, params.password)
+        else:
+            credentials = await asyncio.to_thread(_github_sign_in, address)
         info = CloneInfo(
             id=params.id, address=address, name=folder.name, path=str(folder), state="receiving", percent=0
         )
@@ -190,6 +195,17 @@ class Clones:
     def _forget(self, clone_id: str) -> None:
         self._running.pop(clone_id, None)
         self._sent_at.pop(clone_id, None)
+
+
+def _github_sign_in(address: str) -> Credentials | None:
+    """The GitHub sign-in, for an HTTPS address on github.com: it reads private repositories without asking."""
+    if not clone_url(address).startswith("https://github.com/"):
+        return None
+    try:
+        account = access_token(_settings().secrets)
+    except (SignedOut, GitHubUnavailable, MethodError):
+        return None
+    return Credentials(account.login, account.token)
 
 
 def _open(folder: Path) -> Any:

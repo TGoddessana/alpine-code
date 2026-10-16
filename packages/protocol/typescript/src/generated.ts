@@ -1623,6 +1623,105 @@ export interface FlowSetParams {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubAccountInfo".
+ */
+export interface GitHubAccountInfo {
+  login: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubCancelSignInParams".
+ */
+export interface GitHubCancelSignInParams {
+  attemptId: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubCancelSignInResult".
+ */
+export interface GitHubCancelSignInResult {}
+/**
+ * The repositories the sign-in can see, the most recently pushed first. Fails with ``auth`` when signed out (or
+ * GitHub no longer accepts the token, which is then forgotten) and ``unreachable`` when GitHub cannot be reached.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubReposParams".
+ */
+export interface GitHubReposParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubReposResult".
+ */
+export interface GitHubReposResult {
+  repositories: GitHubRepository[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubRepository".
+ */
+export interface GitHubRepository {
+  fullName: string;
+  cloneUrl: string;
+  private: boolean;
+  pushedAt: string | null;
+  description: string | null;
+}
+/**
+ * The end of a sign-in, whichever way it ended.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubSignInFinishedParams".
+ */
+export interface GitHubSignInFinishedParams {
+  attemptId: string;
+  result: 'connected' | 'declined' | 'cancelled' | 'timed_out' | 'failed';
+  account?: GitHubAccountInfo | null;
+  message?: string | null;
+}
+/**
+ * Starts a sign-in, cancelling one still waiting. The app shows ``user_code`` and opens ``verification_uri``.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubSignInParams".
+ */
+export interface GitHubSignInParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubSignInResult".
+ */
+export interface GitHubSignInResult {
+  attemptId: string;
+  userCode: string;
+  verificationUri: string;
+}
+/**
+ * Forgets the sign-in here. GitHub keeps the grant until the user revokes it at ``access_url``.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubSignOutParams".
+ */
+export interface GitHubSignOutParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubSignOutResult".
+ */
+export interface GitHubSignOutResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubStatusParams".
+ */
+export interface GitHubStatusParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubStatusResult".
+ */
+export interface GitHubStatusResult {
+  available: boolean;
+  account: GitHubAccountInfo | null;
+  accessUrl: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "GitInfo".
  */
 export interface GitInfo {
@@ -2834,6 +2933,11 @@ export interface Methods {
   'chatgpt/signIn': { params: ChatGPTSignInParams; result: ChatGPTSignInResult };
   'chatgpt/cancelSignIn': { params: ChatGPTCancelSignInParams; result: ChatGPTCancelSignInResult };
   'chatgpt/signOut': { params: ChatGPTSignOutParams; result: ChatGPTSignOutResult };
+  'github/status': { params: GitHubStatusParams; result: GitHubStatusResult };
+  'github/signIn': { params: GitHubSignInParams; result: GitHubSignInResult };
+  'github/cancelSignIn': { params: GitHubCancelSignInParams; result: GitHubCancelSignInResult };
+  'github/signOut': { params: GitHubSignOutParams; result: GitHubSignOutResult };
+  'github/repos': { params: GitHubReposParams; result: GitHubReposResult };
   'projects/list': { params: ProjectsListParams; result: ProjectsListResult };
   'projects/open': { params: ProjectsOpenParams; result: ProjectsOpenResult };
   'projects/archive': { params: ProjectsArchiveParams; result: ProjectsArchiveResult };
@@ -2884,4 +2988,5 @@ export interface Notifications {
   'chatgpt/signInFinished': ChatGPTSignInFinishedParams;
   'memory/changed': MemoryChangedParams;
   'projects/cloneChanged': ProjectsCloneChangedParams;
+  'github/signInFinished': GitHubSignInFinishedParams;
 }

@@ -23,6 +23,7 @@ from alpine_protocol import (
     METHODS,
     ChatGPTSignInFinishedParams,
     ErrorObject,
+    GitHubSignInFinishedParams,
     MemoryChangedParams,
     ProjectsCloneChangedParams,
     Request,
@@ -34,6 +35,7 @@ from .agents import HANDLERS as AGENT_HANDLERS
 from .chatgpt import ChatGPTSignIns
 from .clones import Clones
 from .flow import HANDLERS as FLOW_HANDLERS
+from .github import GitHubSignIns
 from .memory import MemoryMethods
 from .methods import HANDLERS as METHOD_HANDLERS
 from .methods import INVALID_PARAMS, MethodError
@@ -70,8 +72,13 @@ class Server:
         self.sign_ins = sign_ins or ChatGPTSignIns(self._send_sign_in_finished)
         self.memory = MemoryMethods(self.sessions.memories, self._send_memory_changed)
         self.clones = Clones(self._send_clone_changed)
+        self.github = GitHubSignIns(self._send_github_sign_in_finished)
         self._async_handlers = (
-            self.sessions.handlers() | self.sign_ins.handlers() | self.memory.handlers() | self.clones.handlers()
+            self.sessions.handlers()
+            | self.sign_ins.handlers()
+            | self.memory.handlers()
+            | self.clones.handlers()
+            | self.github.handlers()
         )
 
     def _send_event(self, params: SessionEventParams) -> None:
@@ -82,6 +89,9 @@ class Server:
 
     def _send_memory_changed(self, params: MemoryChangedParams) -> None:
         self._notify("memory/changed", params)
+
+    def _send_github_sign_in_finished(self, params: GitHubSignInFinishedParams) -> None:
+        self._notify("github/signInFinished", params)
 
     def _send_clone_changed(self, params: ProjectsCloneChangedParams) -> None:
         self._notify("projects/cloneChanged", params)
@@ -144,6 +154,7 @@ class Server:
         """Stops running sessions so they are saved ending in ``run_stopped: interrupted``, waiting sign-ins, and
         clones (which remove what they wrote)."""
         await self.sign_ins.shutdown()
+        await self.github.shutdown()
         await self.clones.shutdown()
         await self.sessions.shutdown()
 

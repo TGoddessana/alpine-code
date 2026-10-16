@@ -332,6 +332,80 @@ class ChatGPTSignInFinishedParams(Message):
     """With ``failed``: what went wrong, in English."""
 
 
+# GitHub: a sign-in for the clone dialog (the user's repositories, and a token git can use). The device flow shows a
+# code the user enters on github.com; the server polls and announces the end with github/signInFinished.
+
+
+class GitHubAccountInfo(Message):
+    login: str
+
+
+class GitHubStatusParams(Message):
+    pass
+
+
+class GitHubStatusResult(Message):
+    available: bool
+    """This build knows its GitHub app (a client id); without one, GitHub sign-in is not offered."""
+    account: GitHubAccountInfo | None
+    access_url: str
+    """GitHub's page for AlpineCode's access: revoke it, or ask an organization to allow it."""
+
+
+class GitHubSignInParams(Message):
+    """Starts a sign-in, cancelling one still waiting. The app shows ``user_code`` and opens ``verification_uri``."""
+
+
+class GitHubSignInResult(Message):
+    attempt_id: str
+    user_code: str
+    verification_uri: str
+
+
+class GitHubCancelSignInParams(Message):
+    attempt_id: str
+
+
+class GitHubCancelSignInResult(Message):
+    pass
+
+
+class GitHubSignInFinishedParams(Message):
+    """The end of a sign-in, whichever way it ended."""
+
+    attempt_id: str
+    result: Literal["connected", "declined", "cancelled", "timed_out", "failed"]
+    account: GitHubAccountInfo | None = None
+    message: str | None = None
+    """With ``failed``: what went wrong, in English."""
+
+
+class GitHubSignOutParams(Message):
+    """Forgets the sign-in here. GitHub keeps the grant until the user revokes it at ``access_url``."""
+
+
+class GitHubSignOutResult(Message):
+    pass
+
+
+class GitHubRepository(Message):
+    full_name: str
+    """``owner/name``."""
+    clone_url: str
+    private: bool
+    pushed_at: str | None
+    description: str | None
+
+
+class GitHubReposParams(Message):
+    """The repositories the sign-in can see, the most recently pushed first. Fails with ``auth`` when signed out (or
+    GitHub no longer accepts the token, which is then forgotten) and ``unreachable`` when GitHub cannot be reached."""
+
+
+class GitHubReposResult(Message):
+    repositories: list[GitHubRepository]
+
+
 # Projects: folders the user works in
 
 
@@ -1905,6 +1979,11 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "chatgpt/signIn": (ChatGPTSignInParams, ChatGPTSignInResult),
     "chatgpt/cancelSignIn": (ChatGPTCancelSignInParams, ChatGPTCancelSignInResult),
     "chatgpt/signOut": (ChatGPTSignOutParams, ChatGPTSignOutResult),
+    "github/status": (GitHubStatusParams, GitHubStatusResult),
+    "github/signIn": (GitHubSignInParams, GitHubSignInResult),
+    "github/cancelSignIn": (GitHubCancelSignInParams, GitHubCancelSignInResult),
+    "github/signOut": (GitHubSignOutParams, GitHubSignOutResult),
+    "github/repos": (GitHubReposParams, GitHubReposResult),
     "projects/list": (ProjectsListParams, ProjectsListResult),
     "projects/open": (ProjectsOpenParams, ProjectsOpenResult),
     "projects/archive": (ProjectsArchiveParams, ProjectsArchiveResult),
@@ -1956,4 +2035,5 @@ NOTIFICATIONS: dict[str, type[Message]] = {
     "chatgpt/signInFinished": ChatGPTSignInFinishedParams,
     "memory/changed": MemoryChangedParams,
     "projects/cloneChanged": ProjectsCloneChangedParams,
+    "github/signInFinished": GitHubSignInFinishedParams,
 }

@@ -33,6 +33,7 @@ def test_every_protocol_method_has_a_handler():
     from alpine_protocol import METHODS
     from alpine_server.chatgpt import ChatGPTSignIns
     from alpine_server.clones import Clones
+    from alpine_server.github import GitHubSignIns
     from alpine_server.memory import MemoryMethods
     from alpine_server.sessions import SessionManager
     from alpine_server.stdio import HANDLERS
@@ -43,6 +44,7 @@ def test_every_protocol_method_has_a_handler():
         | ChatGPTSignIns(lambda params: None).handlers()
         | MemoryMethods(sessions.memories, lambda params: None).handlers()
         | Clones(lambda params: None).handlers()
+        | GitHubSignIns(lambda params: None).handlers()
     )
     assert set(HANDLERS) | set(async_handlers) == set(METHODS)
 

@@ -14,11 +14,54 @@ await mkdir(publicBrand, { recursive: true });
 const source = (name) => join(brand, 'source', name);
 const png = async (input, size, output) => sharp(input).resize(size, size, { kernel: 'nearest' }).png().toFile(output);
 
+// App icon on the macOS grid: an 824 px continuous-corner tile inside a 1024 px canvas,
+// leaving room for the drop shadow the Dock expects.
+const appIcon = async () => {
+  const size = 1024;
+  const inset = 100;
+  const tile = 824;
+  const points = Array.from({ length: 360 }, (_, i) => {
+    const t = (i / 360) * 2 * Math.PI;
+    const axis = (v) => Math.sign(v) * Math.abs(v) ** (2 / 5);
+    return [inset + (tile / 2) * (1 + axis(Math.cos(t))), inset + (tile / 2) * (1 + axis(Math.sin(t)))];
+  });
+  const path = `M${points.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join('L')}Z`;
+  const hareHeight = 640;
+  const hare = await sharp(await sharp(source('hare-transparent.png')).trim().toBuffer())
+    .resize({ height: hareHeight, kernel: 'nearest' })
+    .toBuffer({ resolveWithObject: true });
+  const left = Math.round((size - hare.info.width) / 2);
+  const top = inset + (tile - hareHeight) / 2 + 6;
+  const hareShadow = await sharp(hare.data).linear([0, 0, 0, 0.28], [0, 0, 0, 0]).blur(10).toBuffer();
+  const background = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9d2f0"/><stop offset="1" stop-color="#6fa6d3"/></linearGradient>
+      <radialGradient id="glow" cx="0.5" cy="0.18" r="0.75"><stop offset="0" stop-color="#fff" stop-opacity="0.35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+      <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#5d93c0" stop-opacity="0.6"/></linearGradient>
+      <filter id="drop" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceAlpha" stdDeviation="14"/><feOffset dy="12"/><feComponentTransfer><feFuncA type="linear" slope="0.32"/></feComponentTransfer></filter>
+    </defs>
+    <path d="${path}" filter="url(#drop)"/>
+    <path d="${path}" fill="url(#sky)"/>
+    <path d="${path}" fill="url(#glow)"/>
+    <ellipse cx="${size / 2}" cy="${top + hareHeight - 8}" rx="230" ry="26" fill="#0b2a44" fill-opacity="0.16"/>
+    <path d="${path}" fill="none" stroke="url(#rim)" stroke-width="3"/>
+  </svg>`;
+  return sharp(Buffer.from(background))
+    .composite([
+      { input: hareShadow, left, top: top + 10 },
+      { input: hare.data, left, top },
+    ])
+    .png()
+    .toBuffer();
+};
+
 await png(source('hare-transparent.png'), 1024, join(brand, 'hare.png'));
-await png(source('icon-transparent.png'), 1024, join(brand, 'icon.png'));
+const icon = await appIcon();
+await sharp(icon).toFile(join(brand, 'icon.png'));
 await png(source('hare-transparent.png'), 256, join(publicBrand, 'hare.png'));
 for (const size of [16, 32, 48, 64, 128, 180, 192, 256, 512]) {
-  await png(source('icon-transparent.png'), size, join(brand, `icon-${size}.png`));
+  // Smooth downscaling keeps the gradient and shadow clean at small sizes.
+  await sharp(icon).resize(size, size).png().toFile(join(brand, `icon-${size}.png`));
 }
 await copyFile(join(brand, 'icon-32.png'), join(desktop, 'public/favicon.png'));
 

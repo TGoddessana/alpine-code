@@ -18,9 +18,8 @@ One snow hare across the desktop app, website and documentation. The selected de
 | Asset | Use |
 | --- | --- |
 | `source/approved-icon.png` | Approved concept, kept unchanged as the visual reference |
-| `source/icon-transparent.png` | App icon master; transparent outside the blue tile |
 | `source/hare-transparent.png` | Transparent character master |
-| `icon.png`, `icon-*.png` | App and web icon exports, from 16 to 1024 pixels |
+| `icon.png`, `icon-*.png` | App and web icon exports, from 16 to 1024 pixels; composed from the hare master on a sky-blue macOS tile |
 | `icon.icns`, `favicon.ico` | Native macOS and Windows/web formats |
 | `hare.png` | Transparent 1024 px character |
 | `wordmark.png`, `wordmark-light.png` | Transparent horizontal lockups for light / dark surfaces |

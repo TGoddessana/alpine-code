@@ -113,8 +113,9 @@ class ErrorData(Message):
     ``invalid_config``: config.toml cannot be read; the message says where. ``exists``: a skill with that name is
     already there. ``no_access``: git found no repository there that this computer may see (a wrong address, or a
     sign-in needed; hosts answer both the same way). ``no_git_tools``: git is not installed (on macOS, Apple's command
-    line developer tools). ``clone_failed``: git could not clone otherwise; the message is git's. ``invalid_name``: a tool file name is not
-lowercase letters, digits and ``_``. ``package_not_approved``: a tool needs a package nobody approved.
+    line developer tools). ``clone_failed``: git could not clone otherwise; the message is git's.
+``invalid_name``: a tool file name is not lowercase letters, digits and ``_``. ``package_not_approved``: a tool
+needs a package nobody approved.
 ``install_failed``: a package did not install. ``name_taken``: a tool name is already used. ``agent_not_found``:
 no agent has the id. ``model_failed``: the model call behind a draft failed.
 ``not_found``: the memory suggestion was already approved or declined, or the other app's conversation to carry

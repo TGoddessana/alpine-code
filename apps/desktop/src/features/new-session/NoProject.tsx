@@ -1,19 +1,17 @@
-import { Button } from '@alpine/ui/primitives';
 import { useState } from 'react';
 
 import { BrandMark } from '@/shared/components/brand';
 
 import { Composer } from '@/shared/components/composer';
-import { CloneDialog, projectAddMessages } from '@/shared/components/project-add';
+import { CloneDialog, ProjectChoices } from '@/shared/components/project-add';
 import { useMessages } from '@/shared/i18n';
 import { useOpenFolder } from '@/shared/platform';
 
 import { messages } from './messages';
 
-/** A new session with no project yet: the centre offers the two ways in, and the input waits where it will be. */
+/** A new session with no project yet: the centre lists the ways a project comes in, and the input waits below. */
 export function NoProject({ onProjectChange }: { onProjectChange?: (path: string) => void }) {
   const t = useMessages(messages);
-  const added = useMessages(projectAddMessages);
   const openFolder = useOpenFolder(onProjectChange);
   const [cloning, setCloning] = useState(false);
   return (
@@ -27,10 +25,7 @@ export function NoProject({ onProjectChange }: { onProjectChange?: (path: string
             </h2>
             <p className="text-body text-fg-muted">{t.dropHint}</p>
           </div>
-          <div className="flex flex-col items-start gap-2">
-            <Button onClick={() => setCloning(true)}>{added.getProjectButton}</Button>
-            <Button onClick={openFolder}>{added.openProjectButton} · ⌘O</Button>
-          </div>
+          <ProjectChoices onGet={() => setCloning(true)} onOpen={() => void openFolder()} />
         </div>
       </section>
       <div className="mx-auto w-full max-w-202 px-6 pt-3 pb-6">

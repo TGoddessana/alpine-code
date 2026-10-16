@@ -1,4 +1,5 @@
 import { Button, Dialog, Input, LinkButton } from '@alpine/ui/primitives';
+import { ChevronLeft } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { useMessages } from '@/shared/i18n';
@@ -41,7 +42,16 @@ export function CloneDialog({
   );
 }
 
-function CloneForm({ onDone, initialAddress = '' }: { onDone: (path: string) => void; initialAddress?: string }) {
+/** The address, and what it takes to get it. `onBack` returns to the choices it was picked from. */
+export function CloneForm({
+  onDone,
+  onBack,
+  initialAddress = '',
+}: {
+  onDone: (path: string) => void;
+  onBack?: () => void;
+  initialAddress?: string;
+}) {
   const t = useMessages(messages);
   const [address, setAddress] = useState(initialAddress);
   const [username, setUsername] = useState('');
@@ -143,7 +153,20 @@ function CloneForm({ onDone, initialAddress = '' }: { onDone: (path: string) => 
 
   return (
     <>
-      <Dialog.Title>{t.title}</Dialog.Title>
+      <div className="flex items-center gap-1">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label={t.back}
+            title={t.back}
+            className="-ml-1.5 inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-fg-muted hover:bg-hover hover:text-fg"
+          >
+            <ChevronLeft size={18} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        )}
+        <Dialog.Title>{t.title}</Dialog.Title>
+      </div>
       <form
         className="flex flex-col gap-3"
         onSubmit={(event) => {

@@ -6,10 +6,10 @@ import { BookMarked, ChevronDown, ChevronRight, Ellipsis, Map, Plus, Settings, S
 import { useState } from 'react';
 
 import { BrandMark } from '@/shared/components/brand';
-import { CloneDialog, ProgressBar, ProjectAddItems, projectAddMessages } from '@/shared/components/project-add';
+import { ProgressBar, ProjectAddDialog, projectAddMessages } from '@/shared/components/project-add';
 
 import { useFormat, useMessages } from '@/shared/i18n';
-import { revealInFinder, useOpenFolder } from '@/shared/platform';
+import { revealInFinder } from '@/shared/platform';
 import { useArchiveProject, useProjects, useSessions } from '@/shared/server';
 
 import { AVATAR_CLASS, avatarLetters, avatarSlot } from './avatar';
@@ -37,9 +37,8 @@ export function Rail() {
   const projects = useProjects();
   const navigate = useNavigate();
   const show = (path: string) => void navigate({ to: '/', search: { project: path } });
-  const openFolder = useOpenFolder(show);
   const added = useMessages(projectAddMessages);
-  const [cloning, setCloning] = useState(false);
+  const [adding, setAdding] = useState(false);
   const shown = projects.data?.projects.filter((project) => !project.archived) ?? [];
   const clones = projects.data?.clones ?? [];
   const none = projects.isSuccess && shown.length === 0;
@@ -72,18 +71,15 @@ export function Rail() {
       <section aria-label={t.projects} className="flex flex-col gap-0.5">
         <div className="flex min-h-7 items-center gap-2 px-2 text-meta text-fg-muted">
           <span className="grow">{t.projects}</span>
-          <Menu.Root>
-            <Menu.Trigger
-              aria-label={added.addProject}
-              title={added.addProject}
-              className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-fg-muted hover:bg-hover data-popup-open:bg-hover"
-            >
-              <Plus size={16} strokeWidth={1.5} aria-hidden="true" />
-            </Menu.Trigger>
-            <Menu.Popup aria-label={added.addProject} className="w-64">
-              <ProjectAddItems onGet={() => setCloning(true)} onOpen={openFolder} />
-            </Menu.Popup>
-          </Menu.Root>
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            aria-label={added.addProject}
+            title={added.addProject}
+            className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-fg-muted hover:bg-hover"
+          >
+            <Plus size={16} strokeWidth={1.5} aria-hidden="true" />
+          </button>
         </div>
         {[...clones].reverse().map((clone) => (
           <CloneRow key={clone.id} clone={clone} />
@@ -105,7 +101,7 @@ export function Rail() {
           {t.settings}
         </Link>
       </div>
-      <CloneDialog open={cloning} onOpenChange={setCloning} onDone={show} />
+      <ProjectAddDialog open={adding} onOpenChange={setAdding} onDone={show} />
       <DeleteProjectDialog project={deleting} onClose={() => setDeleting(null)} />
       <DeleteSessionDialog session={deletingSession} onClose={() => setDeletingSession(null)} />
     </nav>

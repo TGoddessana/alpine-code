@@ -6,9 +6,8 @@ import { BrandMark } from '@/shared/components/brand';
 
 import { AgentChip, Composer, useSlashSkills, type Mode } from '@/shared/components/composer';
 import { GitBar } from '@/shared/components/git';
-import { CloneDialog, ProjectAddItems, projectAddMessages } from '@/shared/components/project-add';
+import { CloneDialog, ProjectAddDialog, projectAddMessages } from '@/shared/components/project-add';
 import { useMessages } from '@/shared/i18n';
-import { useOpenFolder } from '@/shared/platform';
 import { useAgents, useCancelClone, useConnections, useNewSession, useSendMessage, useSettings } from '@/shared/server';
 
 import { ExampleCards } from './ExampleCards';
@@ -59,8 +58,7 @@ export function NewSession({
   const sendMessage = useSendMessage();
   // A session made for a message that then failed to send is used again on retry (with the same agent), not made twice.
   const made = useRef<{ path: string; agent: string | null; id: string } | null>(null);
-  const openFolder = useOpenFolder(onProjectChange);
-  const [cloning, setCloning] = useState(false);
+  const [adding, setAdding] = useState(false);
   // An agent picked in the chip, for this project only.
   const [picked, setPicked] = useState<{ path: string; id: string } | null>(null);
   const agents = useAgents().data?.agents;
@@ -131,7 +129,7 @@ export function NewSession({
                 ))}
               </Menu.RadioGroup>
               <Menu.Separator />
-              <ProjectAddItems onGet={() => setCloning(true)} onOpen={openFolder} />
+              <Menu.Item onClick={() => setAdding(true)}>{added.addProjectItem}</Menu.Item>
             </Menu.Popup>
           </Menu.Root>
           {!clone && <GitBar path={project.path} />}
@@ -154,7 +152,7 @@ export function NewSession({
           }
         />
       </div>
-      <CloneDialog open={cloning} onOpenChange={setCloning} onDone={onProjectChange} />
+      <ProjectAddDialog open={adding} onOpenChange={setAdding} onDone={onProjectChange} />
       <CloneDialog
         open={retrying !== null}
         address={retrying ?? undefined}

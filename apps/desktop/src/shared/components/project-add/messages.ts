@@ -4,11 +4,13 @@ import { defineMessages } from '@/shared/i18n';
 
 export const messages = defineMessages({
   ko: {
-    getProject: '회사·팀 프로젝트 받기…',
-    openProject: '내 컴퓨터의 프로젝트 열기…',
-    getProjectButton: '회사·팀 프로젝트 받기',
-    openProjectButton: '내 컴퓨터의 프로젝트 열기',
     addProject: '프로젝트 추가',
+    addProjectItem: '프로젝트 추가…',
+    getProject: '회사·팀 프로젝트 받기',
+    getProjectHint: 'GitHub, GitLab 같은 저장소 주소로',
+    openProject: '내 컴퓨터의 프로젝트 열기',
+    openProjectHint: '이미 이 컴퓨터에 있는 폴더',
+    back: '뒤로',
 
     title: '회사·팀 프로젝트 받기',
     address: '저장소 주소',
@@ -47,11 +49,13 @@ export const messages = defineMessages({
     dismiss: '지우기',
   },
   en: {
-    getProject: 'Get a team project…',
-    openProject: 'Open a project on this computer…',
-    getProjectButton: 'Get a team project',
-    openProjectButton: 'Open a project on this computer',
     addProject: 'Add a project',
+    addProjectItem: 'Add a project…',
+    getProject: 'Get a team project',
+    getProjectHint: 'From a repository address, such as GitHub or GitLab',
+    openProject: 'Open a project on this computer',
+    openProjectHint: 'A folder already on this computer',
+    back: 'Back',
 
     title: 'Get a team project',
     address: 'Repository address',

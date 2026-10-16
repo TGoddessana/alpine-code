@@ -62,7 +62,8 @@ export const PickingAProject: Story = {
 export const GetNotFound: Story = {
   play: async () => {
     await userEvent.click(await screen.findByRole('button', { name: /alpine-code/ }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: /회사·팀 프로젝트 받기|Get a team project/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /프로젝트 추가|Add a project/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /회사·팀 프로젝트 받기|Get a team project/ }));
     await userEvent.type(await screen.findByLabelText(/저장소 주소|Repository address/), 'owner/fails');
     await userEvent.click(screen.getByRole('button', { name: /^(받기|Get)$/ }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeVisible());
@@ -73,7 +74,8 @@ export const GetNotFound: Story = {
 export const GetPrivate: Story = {
   play: async () => {
     await userEvent.click(await screen.findByRole('button', { name: /alpine-code/ }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: /회사·팀 프로젝트 받기|Get a team project/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /프로젝트 추가|Add a project/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /회사·팀 프로젝트 받기|Get a team project/ }));
     await userEvent.type(await screen.findByLabelText(/저장소 주소|Repository address/), 'acme/private-app');
     await userEvent.click(screen.getByRole('button', { name: /^(받기|Get)$/ }));
     await waitFor(() => expect(screen.getByLabelText(/^(아이디|Username)$/)).toBeVisible());

@@ -385,6 +385,17 @@ def test_overview_is_written_ignored_and_rewritten_when_edited(proj):
     assert "`pay`" in (proj / BASE / "OVERVIEW.md").read_text()
 
 
+def test_parts_not_mapped_yet_are_kept_shown_and_continued(proj):
+    part = {"title": "운영자 콘솔에서 사용자 정지하기", "why": "not reached", "paths": ["ops/"]}
+    write_map(proj, unmapped=[part])
+    result = get(proj)
+    assert [(p.title, p.why, p.paths) for p in result.unmapped] == [(part["title"], "not reached", ["ops/"])]
+    overview = (proj / BASE / "OVERVIEW.md").read_text()
+    assert "## Not mapped yet" in overview and "- 운영자 콘솔에서 사용자 정지하기 (ops/): not reached" in overview
+    prompt = prepare(proj, action="discover", nodeId=None, flowId=None, request="").prompt
+    assert "If map.json lists `unmapped` parts" in prompt and "Keep `unmapped` in map.json true" in prompt
+
+
 # ---- stamping and witness
 
 
@@ -673,6 +684,45 @@ def test_sync_session_moves_the_sync_commit_after_it_ends(proj):
     assert project["syncSession"] is None and project["syncCommit"] == done.coverage.since
 
 
+def test_sync_sees_every_change_with_the_cards_that_cite_it(proj):
+    git_repo(proj)
+    (proj / "src").mkdir()
+    (proj / "src/refund.py").write_text("RATE = 1.0\n")
+    write_map(proj, features=[order(sources=["src/refund.py"], checks=[])], flows=[], exclude=["*.lock"])
+    git(proj, "add", ".")
+    git(proj, "commit", "-q", "-m", "start")
+    get(proj)
+    (proj / "src/refund.py").write_text("RATE = 0.6\n")  # covered: the behaviour behind a card changed
+    (proj / "coupon.py").write_text("c")  # no card
+    (proj / "deps.lock").write_text("x")  # excluded
+    git(proj, "add", ".")
+    git(proj, "commit", "-q", "-m", "Refunds keep 40% after three uses")
+    prompt = prepare(proj, action="sync", nodeId=None, flowId=None, request="").prompt
+    assert "Refunds keep 40% after three uses" in prompt
+    assert "- src/refund.py — cards: order" in prompt and "- coupon.py — no card" in prompt
+    assert "deps.lock" not in prompt
+    assert "-RATE = 1.0" in prompt and "+RATE = 0.6" in prompt
+    assert "rewrite or add its promises" in prompt
+
+
+def test_a_sync_session_created_just_before_prepare_is_not_over_yet(proj):
+    first = git_repo(proj)
+    write_map(proj)
+    get(proj)
+    (proj / "new.py").write_text("n")
+    git(proj, "add", ".")
+    git(proj, "commit", "-q", "-m", "work")
+    from datetime import UTC, datetime
+
+    # The app creates the session, then prepares the map turn: the session is idle and was updated this second.
+    now = datetime.now(UTC).isoformat(timespec="milliseconds")
+    make_session(proj, created=now, updated=now, status="idle")
+    prepared = prepare(proj, action="sync", nodeId=None, flowId=None, request="")
+    assert "new.py" in prepared.prompt
+    assert prepared.board.coverage.since == first and prepared.board.coverage.uncovered_count == 1
+    assert get(proj).coverage.since == first
+
+
 # ---- replays
 
 
@@ -859,12 +909,12 @@ def files_under(root: Path) -> dict[str, bytes]:
 def test_discovery_starts_empty_creates_the_map_and_writes_schemas(proj):
     prepared = prepare(proj, action="discover", nodeId=None, flowId=None)
     assert not prepared.board.document.nodes and prepared.board.exists
-    assert json.loads((proj / BASE / "map.json").read_text()) == {"formatVersion": 1, "exclude": []}
+    assert json.loads((proj / BASE / "map.json").read_text()) == {"formatVersion": 1, "exclude": [], "unmapped": []}
     for name in ("map", "feature", "flow"):
         assert json.loads((proj / BASE / f"schema/{name}.json").read_text())["type"] == "object"
     assert "ALREADY implemented" in prepared.prompt and "proposedInclude" not in prepared.prompt
     assert "the whole project" in prepared.prompt and "You decide how to explore" in prepared.prompt
-    assert "Give each card a few `tags`" in prepared.prompt and "what you did not map yet" in prepared.prompt
+    assert "Give each card a few `tags`" in prepared.prompt and "Keep `unmapped` in map.json true" in prepared.prompt
     assert "new unique `id`" in prepared.prompt  # discovery may record checks (decision 14)
     assert "how we know it holds" in prepared.prompt and "Do not record checks" not in prepared.prompt
     # Decision 18: a flow is a journey through one door, and every card sits where its user meets it.

@@ -242,7 +242,9 @@ def assemble(layout: Layout, cards: dict[str, dict]) -> ProductMap:
     return ProductMap(flows=flows, nodes=nodes, edges=list(edges.values()))
 
 
-def render_overview(document: ProductMap, states: dict[str, NodeState], problems: list) -> dict[str, str]:
+def render_overview(
+    document: ProductMap, states: dict[str, NodeState], problems: list, unmapped: list | None = None
+) -> dict[str, str]:
     """OVERVIEW.md for agents that read top down: the flows, then every card with its tags and status. Paths are
     relative to the project."""
 
@@ -269,6 +271,11 @@ def render_overview(document: ProductMap, states: dict[str, NodeState], problems
     lines += ["", "## Cards"]
     ordered = sorted(document.nodes, key=lambda n: (not n.tags, n.tags[0] if n.tags else "", n.id))
     lines += [card_line(n) for n in ordered] or ["- none yet"]
+    if unmapped:
+        lines += ["", "## Not mapped yet (map.json `unmapped`)"]
+        for part in unmapped:
+            where = f" ({', '.join(part.paths)})" if part.paths else ""
+            lines.append(f"- {part.title}{where}" + (f": {part.why}" if part.why else ""))
     if problems:
         lines += ["", "## Files Alpine could not read"]
         lines += [f"- {p.file}: {p.message}" for p in problems]

@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 
 import { BrandMark } from '@/shared/components/brand';
 
-import { AgentChip, Composer, type Mode } from '@/shared/components/composer';
+import { AgentChip, Composer, useSlashSkills, type Mode } from '@/shared/components/composer';
 import { GitBar } from '@/shared/components/git';
 import { useMessages } from '@/shared/i18n';
 import { useOpenFolder } from '@/shared/platform';
@@ -41,6 +41,7 @@ export function NewSession({
   onProjectChange: (path: string) => void;
   onStarted: (sessionId: string) => void;
 }) {
+  const slash = useSlashSkills(project.path);
   const t = useMessages(messages);
   const defaultModel = useConnections().data?.defaultModel;
   const newSession = useNewSession();
@@ -119,6 +120,7 @@ export function NewSession({
         </div>
         <Composer
           onSend={start}
+          slash={slash}
           prefill={prefill}
           mode={shownMode ? { value: shownMode, onChange: setMode } : undefined}
           agent={

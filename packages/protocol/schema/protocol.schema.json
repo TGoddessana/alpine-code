@@ -167,6 +167,30 @@
       "params": "AgentsDeleteParams",
       "result": "AgentsDeleteResult"
     },
+    "skills/list": {
+      "params": "SkillsListParams",
+      "result": "SkillsListResult"
+    },
+    "skills/add": {
+      "params": "SkillsAddParams",
+      "result": "SkillsAddResult"
+    },
+    "skills/get": {
+      "params": "SkillsGetParams",
+      "result": "SkillsGetResult"
+    },
+    "skills/save": {
+      "params": "SkillsSaveParams",
+      "result": "SkillsSaveResult"
+    },
+    "skills/remove": {
+      "params": "SkillsRemoveParams",
+      "result": "SkillsRemoveResult"
+    },
+    "skills/search": {
+      "params": "SkillsSearchParams",
+      "result": "SkillsSearchResult"
+    },
     "memory/list": {
       "params": "MemoryListParams",
       "result": "MemoryListResult"
@@ -403,6 +427,12 @@
           "maximum": 8,
           "minimum": 1,
           "type": "integer"
+        },
+        "skillsOff": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -1292,6 +1322,15 @@
             "reason_required",
             "replay_changed",
             "flow_busy",
+            "unknown_source",
+            "offline",
+            "too_big",
+            "bad_archive",
+            "no_skills",
+            "not_a_skill",
+            "bad_name",
+            "not_owned",
+            "invalid",
             "import_failed"
           ],
           "type": "string"
@@ -4988,6 +5027,318 @@
         "reviewModel"
       ],
       "title": "SettingsSetReviewModelResult",
+      "type": "object"
+    },
+    "SkillCandidate": {
+      "description": "A skill found at a source, not installed yet.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "hasScripts": {
+          "type": "boolean"
+        },
+        "installed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "hasScripts",
+        "installed"
+      ],
+      "title": "SkillCandidate",
+      "type": "object"
+    },
+    "SkillHit": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "installs": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "source",
+        "id",
+        "installs"
+      ],
+      "title": "SkillHit",
+      "type": "object"
+    },
+    "SkillInfo": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "origin": {
+          "enum": [
+            "project",
+            "alpine",
+            "agents",
+            "claude",
+            "codex"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "folder": {
+          "type": "string"
+        },
+        "hasScripts": {
+          "type": "boolean"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "origin",
+        "source",
+        "folder",
+        "hasScripts",
+        "notes"
+      ],
+      "title": "SkillInfo",
+      "type": "object"
+    },
+    "SkillsAddParams": {
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "names": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "SkillsAddParams",
+      "type": "object"
+    },
+    "SkillsAddResult": {
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "added": {
+          "items": {
+            "$ref": "#/$defs/SkillInfo"
+          },
+          "type": "array"
+        },
+        "choices": {
+          "items": {
+            "$ref": "#/$defs/SkillCandidate"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "source",
+        "added",
+        "choices"
+      ],
+      "title": "SkillsAddResult",
+      "type": "object"
+    },
+    "SkillsGetParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "cwd": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "SkillsGetParams",
+      "type": "object"
+    },
+    "SkillsGetResult": {
+      "properties": {
+        "skill": {
+          "$ref": "#/$defs/SkillInfo"
+        },
+        "text": {
+          "type": "string"
+        },
+        "files": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "skill",
+        "text",
+        "files"
+      ],
+      "title": "SkillsGetResult",
+      "type": "object"
+    },
+    "SkillsListParams": {
+      "properties": {
+        "cwd": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "SkillsListParams",
+      "type": "object"
+    },
+    "SkillsListResult": {
+      "properties": {
+        "skills": {
+          "items": {
+            "$ref": "#/$defs/SkillInfo"
+          },
+          "type": "array"
+        },
+        "folder": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "skills",
+        "folder"
+      ],
+      "title": "SkillsListResult",
+      "type": "object"
+    },
+    "SkillsRemoveParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "SkillsRemoveParams",
+      "type": "object"
+    },
+    "SkillsRemoveResult": {
+      "properties": {},
+      "title": "SkillsRemoveResult",
+      "type": "object"
+    },
+    "SkillsSaveParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "new": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "text"
+      ],
+      "title": "SkillsSaveParams",
+      "type": "object"
+    },
+    "SkillsSaveResult": {
+      "properties": {
+        "skill": {
+          "$ref": "#/$defs/SkillInfo"
+        }
+      },
+      "required": [
+        "skill"
+      ],
+      "title": "SkillsSaveResult",
+      "type": "object"
+    },
+    "SkillsSearchParams": {
+      "properties": {
+        "query": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "SkillsSearchParams",
+      "type": "object"
+    },
+    "SkillsSearchResult": {
+      "properties": {
+        "hits": {
+          "items": {
+            "$ref": "#/$defs/SkillHit"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "hits"
+      ],
+      "title": "SkillsSearchResult",
       "type": "object"
     },
     "StatusLineItem": {

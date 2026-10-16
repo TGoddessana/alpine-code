@@ -2,6 +2,7 @@ export { CHATGPT_USAGE_URL, useChatGPTSignIn, useChatGPTSignOut, type SignInStat
 export { ServerError, type Notification, type ServerConnection } from './connection';
 export { ServerProvider, useServer } from './context';
 export { useAgents, useDeleteAgent, useSaveAgent } from './agents';
+export { useAddSkill, useRemoveSkill, useSaveSkill, useSearchSkills, useSkill, useSkills } from './skills';
 export { useApproveMemory, useForgetMemory, useMemory, useRejectMemory } from './memory';
 export {
   useAnswerApproval,
@@ -70,6 +71,7 @@ export {
   statefulScript,
   withRouterScript,
 } from './fixtures';
+export { SKILLS, skillsScript, type SkillsScriptOptions } from './skillsScript';
 export { MEMORY, MEMORY_REMOVAL, MEMORY_SUGGESTION, memoryScript } from './memoryScript';
 export { mergeScripts, scriptedConnection, type Script, type ScriptContext } from './scripted';
 export {

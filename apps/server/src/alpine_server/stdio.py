@@ -36,6 +36,7 @@ from .memory import MemoryMethods
 from .methods import HANDLERS as METHOD_HANDLERS
 from .methods import INVALID_PARAMS, MethodError
 from .sessions import SessionManager
+from .skills import HANDLERS as SKILL_HANDLERS
 from .tools import HANDLERS as TOOL_HANDLERS
 
 PARSE_ERROR = -32700
@@ -46,7 +47,7 @@ INTERNAL_ERROR = -32603
 Write = Callable[[str], None]
 
 
-HANDLERS = {**METHOD_HANDLERS, **TOOL_HANDLERS, **AGENT_HANDLERS, **FLOW_HANDLERS}
+HANDLERS = {**METHOD_HANDLERS, **TOOL_HANDLERS, **AGENT_HANDLERS, **SKILL_HANDLERS, **FLOW_HANDLERS}
 
 
 class _Failure(Exception):

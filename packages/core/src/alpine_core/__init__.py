@@ -76,6 +76,10 @@ from .providers import PROVIDERS, Api, Auth, Billing, Provider
 from .review import GlobalAgentsMd, ModelReviewer, Review, Reviewer, ReviewRequest, TrustedNote, TrustedSource
 from .secrets import FileSecrets, Secrets
 from .session import Session, Snapshot, delete_session, list_sessions
+from .skill_fetch import Found as FoundSkills
+from .skill_fetch import SearchHit, SkillFetcher, parse_source
+from .skill_fetch import search as search_skills
+from .skills import Skill, SkillError, SkillLibrary, skill_text, slug
 from .storage import (
     Activity,
     ActivityKind,
@@ -105,6 +109,16 @@ from .toolbox import (
 from .tools import BUILTIN, Workspace
 
 __all__ = [
+    "FoundSkills",
+    "SearchHit",
+    "Skill",
+    "SkillError",
+    "SkillFetcher",
+    "SkillLibrary",
+    "parse_source",
+    "search_skills",
+    "skill_text",
+    "slug",
     "Session",
     "Evidence",
     "Memories",

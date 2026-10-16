@@ -1,6 +1,6 @@
 import type { ApprovalItem } from '@alpine/protocol';
 
-export type ToolKind = 'edit' | 'run' | 'read' | 'search' | 'memory' | 'other';
+export type ToolKind = 'edit' | 'run' | 'read' | 'search' | 'memory' | 'skill' | 'other';
 
 /**
  * What a tool call does, from its name: the core's tools (`edit`, `bash`, `read`...), the scripted `*_file` ones, and
@@ -9,6 +9,7 @@ export type ToolKind = 'edit' | 'run' | 'read' | 'search' | 'memory' | 'other';
  */
 export function toolKind(name: string): ToolKind {
   if (name === 'propose_memory') return 'memory';
+  if (name === 'skill') return 'skill';
   if (/^(edit|write)(_file)?$/i.test(name) || /^(MultiEdit|NotebookEdit|apply_patch)$/.test(name)) return 'edit';
   if (/^(bash|shell|local_shell|exec_command)$/i.test(name)) return 'run';
   if (/^read(_file)?$/i.test(name)) return 'read';
@@ -18,12 +19,12 @@ export function toolKind(name: string): ToolKind {
 
 /**
  * The part of a call's arguments worth showing on its line: a path, a command, a pattern (and where it looks) or a
- * memory's headline. Takes a call or an approval, which carries its call's arguments.
+ * memory's headline or a skill's name. Takes a call or an approval, which carries its call's arguments.
  */
 export function toolTarget({ args }: { args: Record<string, unknown> }): string {
-  const { path, file_path, command, cmd, pattern, headline } = args;
+  const { path, file_path, command, cmd, pattern, headline, name } = args;
   if (typeof pattern === 'string') return typeof path === 'string' && path ? `${pattern}  ${path}` : pattern;
-  for (const value of [path, file_path, command, cmd, headline]) if (typeof value === 'string') return value;
+  for (const value of [path, file_path, command, cmd, headline, name]) if (typeof value === 'string') return value;
   // Codex's shell takes the command as a list: ["bash", "-lc", "ls"].
   if (Array.isArray(command) && command.every((part) => typeof part === 'string')) return command.at(-1) ?? '';
   return '';

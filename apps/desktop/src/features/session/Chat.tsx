@@ -4,10 +4,11 @@ import { memo, useMemo } from 'react';
 
 import { agentMessages, agentName, Character, toolLabel } from '@/shared/components/agent';
 import { Markdown } from '@/shared/components/markdown';
-import { useFormat, useMessages } from '@/shared/i18n';
+import { skillTitle } from '@/shared/components/skills';
+import { useFormat, useLocale, useMessages } from '@/shared/i18n';
 import { productMapMessage } from '@/shared/productMapMessage';
 import { openInBrowser } from '@/shared/platform';
-import { CHATGPT_USAGE_URL, useAgents, type Item } from '@/shared/server';
+import { CHATGPT_USAGE_URL, useAgents, useSkills, type Item } from '@/shared/server';
 
 import { ApprovalCard } from './ApprovalCard';
 import { answers, type Answer } from './answers';
@@ -55,6 +56,7 @@ export function Chat({
           <ItemView
             key={block.item.id}
             item={block.item}
+            cwd={cwd}
             active={activeIds.includes(block.item.id)}
             header={answered.get(block.item.id)?.header ?? true}
             remembered={answered.get(block.item.id)?.remembered ?? null}
@@ -96,14 +98,36 @@ function AgentMessage({
   );
 }
 
+/** My message; one that starts with `/<skill>` shows the skill as a chip, since the agent got it along. */
+function UserText({ text, cwd }: { text: string; cwd: string }) {
+  const { locale } = useLocale();
+  const t = useMessages(messages);
+  const skills = useSkills(cwd).data?.skills;
+  const match = text.match(/^\/([\w.:-]+)(\s+|$)/);
+  if (!match || !skills?.some((s) => s.name === match[1])) return text;
+  return (
+    <>
+      <span
+        title={t.skillSent}
+        className="mr-1.5 inline-flex rounded-md bg-selected px-1.5 align-baseline text-body text-interactive"
+      >
+        {skillTitle(match[1]!, locale)}
+      </span>
+      {text.slice(match[0].length)}
+    </>
+  );
+}
+
 /** Drawn again only when its item changed (items keep their identity until an event changes them). */
 const ItemView = memo(function ItemView({
   item,
+  cwd,
   active,
   header,
   remembered,
 }: {
   item: Extract<Block, { type: 'item' }>['item'];
+  cwd: string;
   active: boolean;
 } & Answer) {
   const t = useMessages(messages);
@@ -115,7 +139,7 @@ const ItemView = memo(function ItemView({
       return (
         <div className="flex flex-col items-end gap-2">
           <p className="max-w-140 rounded-2xl bg-hover px-4 py-2 text-reading whitespace-pre-wrap">
-            {map?.request ?? item.text}
+            {map ? map.request : <UserText text={item.text} cwd={cwd} />}
           </p>
           {map && (
             <details className="max-w-full text-meta text-fg-muted">

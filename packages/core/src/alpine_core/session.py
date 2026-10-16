@@ -64,6 +64,7 @@ from .permissions import Mode, PermissionPolicy
 from .projects import ProjectList
 from .prompt import build_system_prompt
 from .review import GlobalAgentsMd, ModelReviewer, Review, Reviewer, ReviewRequest
+from .skills import Skill, SkillLibrary, SkillTool, catalog, expand_command
 from .storage import Activity, ActivityKind, Record, SessionInfo, SessionStatus, Storage
 from .tool_sources import ToolSources, builtins_only, gather, pick
 from .tools import Workspace
@@ -136,14 +137,17 @@ class Session:
         agent: str | None = None,
         model: str | None = None,
         memories: Memories | None = None,
+        skills: SkillLibrary | None = None,
         _saved: _Saved | None = None,
     ) -> None:
         if mode is not None:
             settings = dataclasses.replace(settings, mode=mode)
         self.workspace = Workspace((cwd or Path.cwd()).resolve())
         self._memory = memories.of(self.workspace.root) if memories is not None else None
-        readable = tuple(self._memory.readable()) if self._memory is not None else ()
-        self.policy = PermissionPolicy(self.workspace, settings.mode, readable)
+        self._readable = tuple(self._memory.readable()) if self._memory is not None else ()
+        self.policy = PermissionPolicy(self.workspace, settings.mode, self._readable)
+        self._skill_library = skills
+        self._skills: tuple[Skill, ...] = ()
         self._checks: CheckRunner | None = None
         self._new_files: dict[str, bool] = {}
         self._watch_rules()
@@ -203,6 +207,7 @@ class Session:
         agents: AgentList | None = None,
         tools: ToolSources = builtins_only,
         memories: Memories | None = None,
+        skills: SkillLibrary | None = None,
     ) -> Session:
         """Opens a saved session and continues it: the items and ``seq`` from the log, the conversation from the
         store. The session's own model, mode and folder win over ``settings`` and ``cwd``. If the process died
@@ -237,19 +242,25 @@ class Session:
             agents=agents,
             tools=tools,
             memories=memories,
+            skills=skills,
             _saved=_Saved(info, records, state),
         )
 
     def _build_agent(self, settings: Settings) -> Agent:
+        skills = self._available_skills()
+        tools = self._tools()
+        if skills and not any(getattr(t, "name", None) == "skill" for t in tools):
+            tools.append(SkillTool(skills))
         try:
-            return Agent(
+            agent = Agent(
                 make_model(settings),
                 system=build_system_prompt(
                     self.workspace.root,
                     self._memory.system_block() if self._memory is not None else "",
                     self._applied.instructions if self._applied is not None else "",
+                    catalog(skills),
                 ),
-                tools=self._tools(),
+                tools=tools,
                 loop=coding,
                 permissions=self._permissions,
                 reporter=self._reporter,
@@ -258,6 +269,22 @@ class Session:
             )
         except (ValueError, TypeError) as e:
             raise ConfigError(str(e)) from e
+        # The skills' folders are readable without asking, so their references and scripts can be opened.
+        self._skills = tuple(skills)
+        self.policy.readable = (*self._readable, *(s.folder for s in skills))
+        return agent
+
+    def _available_skills(self) -> tuple[Skill, ...]:
+        """The skills of the folder and the user, less the ones the agent turned off."""
+        if self._skill_library is None:
+            return ()
+        off = set(self._applied.skills_off) if self._applied is not None else set()
+        return tuple(s for s in self._skill_library.for_project(self.workspace.root) if s.name not in off)
+
+    def _refresh_skills(self) -> None:
+        """Takes skills installed, removed or turned off since the last message: the prompt lists them again."""
+        if self._skill_library is not None and self._available_skills() != self._skills:
+            self._agent = self._build_agent(self._settings)
 
     @property
     def review_model(self) -> str | None:
@@ -321,8 +348,12 @@ class Session:
         Cancelling the task stops the run and keeps the conversation: ``Interrupted`` is emitted, the unfinished
         items are closed and ``CancelledError`` propagates."""
         self._refresh_agent()
+        self._refresh_skills()
+        # "/<skill> ..." comes with the skill's instructions; the screen keeps what the user typed.
+        expanded = expand_command(text, self._skills)
+        said = expanded[1] if expanded is not None else text
         if self._state is None:
-            self._state = State(messages=[Message.user(text)], id=self._id)
+            self._state = State(messages=[Message.user(said)], id=self._id)
             if self._projects is not None:
                 self._projects.open(self.workspace.root)
                 if self._applied is not None:
@@ -330,7 +361,7 @@ class Session:
             if self._title == NEW_TITLE:
                 self._title = _title(text)
         else:
-            self._state.add_message(Message.user(text))
+            self._state.add_message(Message.user(said))
         self._recorder.add_user_message(text)
         self._begin_run("thinking")
         try:
@@ -382,7 +413,7 @@ class Session:
         saved."""
         self._state = None
         self._refresh_agent()
-        self._agent = self._build_agent(self._settings)  # the new conversation's prompt has today's memory
+        self._agent = self._build_agent(self._settings)  # the prompt has today's memory and skills
         self._begin_conversation()
 
     async def acompact(self) -> bool:

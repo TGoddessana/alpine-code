@@ -56,6 +56,8 @@ class AgentConfig:
     """``<connection>/<model>``; ``None`` for the default model."""
     instructions: str = ""
     tools: tuple[str, ...] = BUILTIN
+    skills_off: tuple[str, ...] = ()
+    """Skills this agent does not use. Every other skill the user has is in it, so a new skill works at once."""
     look: str = "antenna"
     """One of ``LOOKS``."""
     color: int = 2
@@ -120,6 +122,7 @@ class AgentList:
             name=agent.name.strip(),
             description=agent.description.strip(),
             tools=tuple(dict.fromkeys(agent.tools)),
+            skills_off=tuple(dict.fromkeys(agent.skills_off)),
             look=look,
             color=color,
         )
@@ -227,6 +230,7 @@ class AgentList:
                     "model": a.model,
                     "instructions": a.instructions,
                     "tools": list(a.tools),
+                    "skills_off": list(a.skills_off),
                     "look": a.look,
                     "color": a.color,
                 }
@@ -255,6 +259,12 @@ def _tools_of(value: object) -> tuple[str, ...]:
     return BUILTIN
 
 
+def _names_of(value: object) -> tuple[str, ...]:
+    if isinstance(value, list):
+        return tuple(v for v in value if isinstance(v, str))
+    return ()
+
+
 def _model_of(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
@@ -269,6 +279,7 @@ def _agent_from(item: dict) -> AgentConfig:
         model=_model_of(item.get("model")),
         instructions=str(item.get("instructions", "")),
         tools=_tools_of(item.get("tools", BUILTIN)),
+        skills_off=_names_of(item.get("skills_off")),
         look=look if isinstance(look, str) and look in LOOKS else "antenna",
         color=color if isinstance(color, int) and not isinstance(color, bool) and color in COLORS else 2,
     )

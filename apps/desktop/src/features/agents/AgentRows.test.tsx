@@ -67,6 +67,8 @@ describe('AgentRows', () => {
         onOpenTool={noop}
         onBrowse={noop}
         onNewTool={noop}
+        onOpenSkill={noop}
+        skillActions={{ onToggle: noop, onInstalled: noop }}
       />,
       { wrapper: Providers },
     );

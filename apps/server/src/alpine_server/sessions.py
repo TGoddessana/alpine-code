@@ -72,6 +72,7 @@ from alpine_protocol import (
 from . import map_state
 from .agents import agents
 from .methods import APP_ERROR, MethodError
+from .skills import skills
 from .tools import list_tools, toolbox
 from .wire import to_event_params, to_info, to_item
 
@@ -186,6 +187,7 @@ class SessionManager:
                 agent=params.agent,
                 model=params.model,
                 memories=self.memories,
+                skills=skills(),
             )
         except ConfigError as e:
             raise MethodError(APP_ERROR, str(e), "invalid_config") from e
@@ -360,6 +362,7 @@ class SessionManager:
                 agents=agents(),
                 tools=self.tool_sources,
                 memories=self.memories,
+                skills=skills(),
             )
         except LookupError as e:
             raise MethodError(SESSION_NOT_FOUND, f"No such session: {session_id}") from e

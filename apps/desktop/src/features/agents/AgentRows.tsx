@@ -6,10 +6,11 @@ import { useState, type ReactNode } from 'react';
 import { agentMessages, alpineTools, shortModel, toolLabel, type AlpineTool } from '@/shared/components/agent';
 import { ModelPicker } from '@/shared/components/composer';
 import { connectionLabel, connectMessages } from '@/shared/components/connect';
-import { useFormat, useMessages } from '@/shared/i18n';
-import { useConnections, useTools } from '@/shared/server';
+import { skillTitle } from '@/shared/components/skills';
+import { useFormat, useLocale, useMessages } from '@/shared/i18n';
+import { useConnections, useSkills, useTools } from '@/shared/server';
 
-import type { LibraryTab } from './library';
+import type { LibraryTab, SkillActions } from './library';
 import { libraryMessages } from './library/messages';
 import { statusLine } from './library/status';
 import { agentsMessages } from './messages';
@@ -55,7 +56,7 @@ function Remove({ label, onClick }: { label: string; onClick: () => void }) {
 }
 
 /**
- * Board 에이전트 화면, the rows: 모델, 지침, 기본 도구, 사용자 정의 도구 and the three
+ * Board 에이전트 화면, the rows: 모델, 지침, 기본 도구, 사용자 정의 도구, 스킬 and the two
  * that are 준비 중. `onChange` saves the agent; `onAdd` and `onRemove` save a tool change and tell about it.
  */
 export function AgentRows({
@@ -67,6 +68,8 @@ export function AgentRows({
   onOpenTool,
   onBrowse,
   onNewTool,
+  onOpenSkill,
+  skillActions,
 }: {
   agent: AgentInfo;
   /** The tool that was just added. */
@@ -77,6 +80,8 @@ export function AgentRows({
   onOpenTool: (file: string, tool: string) => void;
   onBrowse: (tab: LibraryTab) => void;
   onNewTool: () => void;
+  onOpenSkill: (name: string) => void;
+  skillActions: SkillActions;
 }) {
   const t = useMessages(agentsMessages);
   const a = useMessages(agentMessages);
@@ -147,9 +152,16 @@ export function AgentRows({
         </div>
       </Row>
 
+      <SkillRow
+        agent={agent}
+        flash={flash}
+        onOpen={onOpenSkill}
+        onBrowse={() => onBrowse('skill')}
+        actions={skillActions}
+      />
+
       {(
         [
-          [t.skillLabel, t.skillNote, t.skillSoon],
           [t.mcpLabel, t.mcpNote, t.mcpSoon],
           [t.subLabel, t.subNote, t.subSoon],
         ] as const
@@ -162,6 +174,64 @@ export function AgentRows({
         </Row>
       ))}
     </div>
+  );
+}
+
+/**
+ * 스킬: every skill I have, since an agent has all of them unless it turns one off. One turned off stays, crossed
+ * out, to add back; a press on a name opens it in the library.
+ */
+function SkillRow({
+  agent,
+  flash,
+  onOpen,
+  onBrowse,
+  actions,
+}: {
+  agent: AgentInfo;
+  flash: string | null;
+  onOpen: (name: string) => void;
+  onBrowse: () => void;
+  actions: SkillActions;
+}) {
+  const t = useMessages(agentsMessages);
+  const { locale } = useLocale();
+  const skills = useSkills().data?.skills ?? [];
+  const off = agent.skillsOff ?? [];
+  return (
+    <Row label={t.skillLabel} note={t.skillNote}>
+      <div className="flex flex-wrap content-start gap-1.5">
+        {skills.map((skill) => {
+          const label = skillTitle(skill.name, locale);
+          return off.includes(skill.name) ? (
+            <button
+              key={skill.name}
+              type="button"
+              onClick={() => actions.onToggle(skill.name, true, label)}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-line px-2.5 py-1 text-body text-fg-faint hover:bg-hover"
+            >
+              <span className="line-through">{label}</span>
+              <span className="text-meta text-interactive">{t.addBack}</span>
+            </button>
+          ) : (
+            <div key={skill.name} className={clsx(tile(flash === skill.name), 'py-1 pr-1 pl-2.5 text-body')}>
+              <button type="button" onClick={() => onOpen(skill.name)} className="cursor-pointer hover:underline">
+                {label}
+              </button>
+              <Remove label={label} onClick={() => actions.onToggle(skill.name, false, label)} />
+            </div>
+          );
+        })}
+        <button
+          type="button"
+          onClick={onBrowse}
+          className="flex min-h-8 cursor-pointer items-center gap-1 rounded-lg border border-dashed border-line px-2.5 text-body text-fg-muted hover:bg-hover"
+        >
+          <Plus size={14} strokeWidth={1.5} aria-hidden="true" />
+          {t.addSkill}
+        </button>
+      </div>
+    </Row>
   );
 }
 

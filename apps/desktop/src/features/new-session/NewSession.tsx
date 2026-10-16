@@ -12,12 +12,14 @@ import { useAgents, useConnections, useNewSession, useSendMessage, useSettings }
 
 import { CloneDialog } from './CloneDialog';
 import { ExampleCards } from './ExampleCards';
+import { ImportList } from './ImportList';
 import { messages } from './messages';
 
 const DEFAULT_AGENT = 'default';
 
 /**
- * Board NewSession: pick the project over the input, then type. No header and no work result panel yet: they belong to
+ * Board NewSession: pick the project over the input, then type, or go on with a conversation Claude Code or Codex had in
+ * the project. No header and no work result panel yet: they belong to
  * a session and appear with the first message, while the input stays where it is.
  *
  * Sending starts the session in the project's folder with the shown agent, sends the message, and calls `onStarted`
@@ -89,6 +91,7 @@ export function NewSession({
           <p className="text-body text-fg-muted">{t.lead(project.name)}</p>
         </div>
         <ExampleCards onPick={(text) => setPrefill((last) => ({ text, key: last.key + 1 }))} />
+        <ImportList cwd={project.path} onOpen={onStarted} />
       </div>
       <div className="mx-auto flex w-full max-w-202 flex-col gap-2 px-6 pt-3 pb-6">
         <div className="flex min-w-0 items-center gap-3">

@@ -179,6 +179,17 @@ class AgentChanged:
 
 
 @dataclass(frozen=True)
+class Imported:
+    """Where a conversation carried over from another app ends: the items before it are what that app recorded, and
+    the session goes on from here."""
+
+    id: str
+    source: str
+    """The app it came from: ``claude_code`` or ``codex``."""
+    kind: ClassVar[str] = "imported"
+
+
+@dataclass(frozen=True)
 class RunStopped:
     """Why a run ended other than by answering."""
 
@@ -200,6 +211,7 @@ Item = (
     | Compaction
     | AgentSwitched
     | AgentChanged
+    | Imported
     | RunStopped
 )
 
@@ -217,6 +229,7 @@ ITEM_KINDS: dict[str, type] = {
         Compaction,
         AgentSwitched,
         AgentChanged,
+        Imported,
         RunStopped,
     )
 }
@@ -654,6 +667,7 @@ __all__ = [
     "Compaction",
     "AgentSwitched",
     "AgentChanged",
+    "Imported",
     "RunStopped",
     "ItemEvent",
     "EVENT_TYPES",

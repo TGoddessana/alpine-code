@@ -8,6 +8,8 @@ export {
   useAnswerApproval,
   useCancelSession,
   useDeleteSession,
+  useImportableSessions,
+  useImportSession,
   useNewSession,
   useSendMessage,
   useSession,

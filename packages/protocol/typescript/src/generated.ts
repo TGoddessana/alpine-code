@@ -66,6 +66,7 @@ export interface AgentInfo {
     | 'bowtie'
     | 'grad';
   color: number;
+  skillsOff?: string[];
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -417,7 +418,16 @@ export interface ErrorData {
     | 'map_read_only'
     | 'reason_required'
     | 'replay_changed'
-    | 'flow_busy';
+    | 'flow_busy'
+    | 'unknown_source'
+    | 'offline'
+    | 'too_big'
+    | 'bad_archive'
+    | 'no_skills'
+    | 'not_a_skill'
+    | 'bad_name'
+    | 'not_owned'
+    | 'invalid';
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -2366,6 +2376,132 @@ export interface SettingsSetReviewModelResult {
   reviewModel: string | null;
 }
 /**
+ * A skill found at a source, not installed yet.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillCandidate".
+ */
+export interface SkillCandidate {
+  name: string;
+  description: string;
+  hasScripts: boolean;
+  installed: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillHit".
+ */
+export interface SkillHit {
+  name: string;
+  source: string;
+  id: string;
+  installs: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillInfo".
+ */
+export interface SkillInfo {
+  name: string;
+  description: string;
+  origin: 'project' | 'alpine' | 'agents' | 'claude' | 'codex';
+  source: string | null;
+  folder: string;
+  hasScripts: boolean;
+  notes: string[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillsAddParams".
+ */
+export interface SkillsAddParams {
+  source: string;
+  names?: string[] | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillsAddResult".
+ */
+export interface SkillsAddResult {
+  source: string;
+  added: SkillInfo[];
+  choices: SkillCandidate[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillsGetParams".
+ */
+export interface SkillsGetParams {
+  name: string;
+  cwd?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillsGetResult".
+ */
+export interface SkillsGetResult {
+  skill: SkillInfo;
+  text: string;
+  files: string[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillsListParams".
+ */
+export interface SkillsListParams {
+  cwd?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillsListResult".
+ */
+export interface SkillsListResult {
+  skills: SkillInfo[];
+  folder: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillsRemoveParams".
+ */
+export interface SkillsRemoveParams {
+  name: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillsRemoveResult".
+ */
+export interface SkillsRemoveResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillsSaveParams".
+ */
+export interface SkillsSaveParams {
+  name: string;
+  text: string;
+  new?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillsSaveResult".
+ */
+export interface SkillsSaveResult {
+  skill: SkillInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillsSearchParams".
+ */
+export interface SkillsSearchParams {
+  query: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SkillsSearchResult".
+ */
+export interface SkillsSearchResult {
+  hits: SkillHit[];
+}
+/**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ToolFileInfo".
  */
@@ -2560,6 +2696,12 @@ export interface Methods {
   'agents/list': { params: AgentsListParams; result: AgentsListResult };
   'agents/save': { params: AgentsSaveParams; result: AgentsSaveResult };
   'agents/delete': { params: AgentsDeleteParams; result: AgentsDeleteResult };
+  'skills/list': { params: SkillsListParams; result: SkillsListResult };
+  'skills/add': { params: SkillsAddParams; result: SkillsAddResult };
+  'skills/get': { params: SkillsGetParams; result: SkillsGetResult };
+  'skills/save': { params: SkillsSaveParams; result: SkillsSaveResult };
+  'skills/remove': { params: SkillsRemoveParams; result: SkillsRemoveResult };
+  'skills/search': { params: SkillsSearchParams; result: SkillsSearchResult };
   'memory/list': { params: MemoryListParams; result: MemoryListResult };
   'memory/approve': { params: MemoryApproveParams; result: MemoryApproveResult };
   'memory/reject': { params: MemoryRejectParams; result: MemoryRejectResult };

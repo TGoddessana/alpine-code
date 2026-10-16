@@ -28,6 +28,9 @@ export const messages = defineMessages({
     newAgent: '새 에이전트',
     agentSettings: '에이전트 설정',
     chipUnavailable: '에이전트를 불러오지 못했어요',
+    slashTitle: '스킬 · 고르면 에이전트가 바로 읽어요',
+    slashEmpty: '맞는 스킬이 없어요',
+    slashFind: '스킬 더 찾기',
   },
   en: {
     message: 'Message',
@@ -56,5 +59,8 @@ export const messages = defineMessages({
     newAgent: 'New agent',
     agentSettings: 'Agent settings',
     chipUnavailable: "Couldn't load the agents",
+    slashTitle: 'Skills · the agent reads the one you pick right away',
+    slashEmpty: 'No skill matches',
+    slashFind: 'Find more skills',
   },
 });

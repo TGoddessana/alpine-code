@@ -98,6 +98,7 @@ def test_the_file_is_plain_json(agents, home):
         "model": "a/b",
         "instructions": "쉬운 말로",
         "tools": list(BUILTIN),
+        "skills_off": [],
         "look": "beret",
         "color": 4,
     }

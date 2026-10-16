@@ -40,6 +40,7 @@ def save_agent(params: AgentsSaveParams) -> AgentsSaveResult:
             model=info.model,
             instructions=info.instructions,
             tools=tuple(info.tools),
+            skills_off=tuple(info.skills_off),
             look=info.look,
             color=info.color,
         )
@@ -60,6 +61,7 @@ def _agent_info(agent: AgentConfig) -> AgentInfo:
         model=agent.model,
         instructions=agent.instructions,
         tools=list(agent.tools),
+        skills_off=list(agent.skills_off),
         look=agent.look,  # type: ignore[arg-type]
         color=agent.color,
     )

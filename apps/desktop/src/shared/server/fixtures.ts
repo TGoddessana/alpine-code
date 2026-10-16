@@ -10,6 +10,7 @@ import { ServerError } from './connection';
 import { memoryScript } from './memoryScript';
 import { mergeScripts, type Script } from './scripted';
 import { sessionInfo, sessionScript, type SessionScriptOptions } from './sessionScript';
+import { skillsScript } from './skillsScript';
 import { agentStore, toolsScript, type AgentStore } from './toolsScript';
 
 /** The providers the server ships, for scripts. */
@@ -289,6 +290,7 @@ export const setUpScript = (agents: AgentStore = agentStore()) =>
     statefulScript({ connections: CONNECTED, projects: PROJECTS, agents }),
     toolsScript(agents),
     memoryScript(),
+    skillsScript(),
   );
 
 /** Three earlier sessions, one of them at work, for a rail that is not empty. */

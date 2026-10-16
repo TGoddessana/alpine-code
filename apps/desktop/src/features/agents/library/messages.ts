@@ -18,9 +18,6 @@ export const libraryMessages = defineMessages({
     tabSkill: '스킬',
     tabMcp: 'MCP',
     tabSub: '서브에이전트',
-    skillSoonTitle: '스킬은 준비 중이에요',
-    skillSoonBody:
-      '에이전트는 스킬의 이름과 설명만 늘 보고, 필요하다고 판단할 때 본문을 읽어요. 본문을 길게 써도 평소 대화가 무거워지지 않아요.',
     mcpSoonTitle: 'MCP는 준비 중이에요',
     mcpSoonBody:
       '노션, 캘린더 같은 서비스를 MCP로 한 번 연결하면, 그 서비스가 주는 도구를 에이전트마다 골라 추가할 수 있어요.',
@@ -123,9 +120,6 @@ export const libraryMessages = defineMessages({
     tabSkill: 'Skills',
     tabMcp: 'MCP',
     tabSub: 'Subagents',
-    skillSoonTitle: 'Skills are coming soon',
-    skillSoonBody:
-      "The agent always sees a skill's name and description, and reads the body when it decides it needs to. A long body doesn't weigh down everyday chat.",
     mcpSoonTitle: 'MCP is coming soon',
     mcpSoonBody:
       'Connect a service like Notion or Calendar through MCP once, then pick the tools it offers agent by agent.',

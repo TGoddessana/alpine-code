@@ -90,6 +90,7 @@ class ErrorData(Message):
         "reason_required",
         "replay_changed",
         "flow_busy",
+        "import_failed",
     ]
     """``auth``: the key is missing or rejected. ``unreachable``: no answer from the address. ``unsupported``: the
     server does not list its models, so the model name has to be typed. ``not_a_folder``: the path is not a folder.
@@ -98,10 +99,11 @@ class ErrorData(Message):
 lowercase letters, digits and ``_``. ``package_not_approved``: a tool needs a package nobody approved.
 ``install_failed``: a package did not install. ``name_taken``: a tool name is already used. ``agent_not_found``:
 no agent has the id. ``model_failed``: the model call behind a draft failed.
-``not_found``: the memory suggestion was already approved or declined. ``memory_full``: the scope filled up since the
-suggestion was made; the message says how full. ``map_read_only``: the product map was written by a newer
-Alpine, so this one does not write it. ``reason_required``: 안 고침 needs a one-line reason.
-``replay_changed``: the re-run command changed after the user saw it."""
+``not_found``: the memory suggestion was already approved or declined, or the other app's conversation to carry
+over is gone. ``import_failed``: that conversation could not be read or has nothing to carry over.
+``memory_full``: the scope filled up since the suggestion was made; the message says how full. ``map_read_only``:
+the product map was written by a newer Alpine, so this one does not write it. ``reason_required``: 안 고침 needs a
+one-line reason. ``replay_changed``: the re-run command changed after the user saw it."""
 
 
 # Model connections: where models come from. Keys are write-only; the app never reads one back.
@@ -810,6 +812,17 @@ class AgentChangedItem(ItemModel):
     """The model the agent switched to; ``None`` if it did not."""
 
 
+ImportSource = Literal["claude_code", "codex"]
+
+
+class ImportedItem(ItemModel):
+    """Where a conversation carried over from another app ends; the session goes on from here."""
+
+    id: str
+    kind: Literal["imported"] = "imported"
+    source: ImportSource
+
+
 Item = Annotated[
     UserMessageItem
     | AgentMessageItem
@@ -822,7 +835,8 @@ Item = Annotated[
     | CompactionItem
     | RunStoppedItem
     | AgentSwitchedItem
-    | AgentChangedItem,
+    | AgentChangedItem
+    | ImportedItem,
     Field(discriminator="kind"),
 ]
 
@@ -934,6 +948,42 @@ class SessionDeleteParams(Message):
 
 class SessionDeleteResult(Message):
     pass
+
+
+class ExternalSessionInfo(Message):
+    """A conversation Claude Code or Codex had in the folder, which can be carried over and continued here."""
+
+    source: ImportSource
+    id: str
+    """The other app's id for it."""
+    title: str
+    updated_at: datetime
+    """When the other app last wrote to it."""
+    imported: str | None
+    """The session it was already carried over as, while the other app has not added to it since; ``None``
+    otherwise."""
+
+
+class SessionImportableParams(Message):
+    cwd: str
+
+
+class SessionImportableResult(Message):
+    sessions: list[ExternalSessionInfo]
+    """The other apps' conversations in the folder or a folder inside it, most recently changed first."""
+
+
+class SessionImportParams(Message):
+    """Carries a conversation over as a new session of ``cwd``; its earlier messages, tool calls and results come
+    with it, and the next message continues it."""
+
+    cwd: str
+    source: ImportSource
+    id: str
+
+
+class SessionImportResult(Message):
+    info: SessionInfo
 
 
 # session/event: the one notification, server -> app
@@ -1675,6 +1725,8 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "session/setModel": (SessionSetModelParams, SessionSetModelResult),
     "session/setAgent": (SessionSetAgentParams, SessionSetAgentResult),
     "session/delete": (SessionDeleteParams, SessionDeleteResult),
+    "session/importable": (SessionImportableParams, SessionImportableResult),
+    "session/import": (SessionImportParams, SessionImportResult),
 }
 
 #: Every notification the server sends: name -> params.

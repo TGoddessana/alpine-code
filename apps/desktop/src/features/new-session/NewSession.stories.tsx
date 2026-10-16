@@ -69,3 +69,26 @@ export const Sent: Story = {
     await waitFor(() => expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/)));
   },
 };
+
+const ago = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
+
+/**
+ * Conversations Claude Code and Codex had in the project, under the examples. Picking one brings it over and hands
+ * over the new session's id.
+ */
+export const FromOtherApps: Story = {
+  parameters: {
+    server: chatScript({
+      importable: [
+        { source: 'claude_code', id: 'c1', title: '로그인 화면 오류 고치기', updatedAt: ago(2), imported: null },
+        { source: 'codex', id: 'x1', title: '결제 페이지 휴대폰 화면 정리', updatedAt: ago(26), imported: null },
+        { source: 'claude_code', id: 'c2', title: 'README 다시 쓰기', updatedAt: ago(80), imported: null },
+        { source: 'codex', id: 'x2', title: '배포 스크립트 점검', updatedAt: ago(200), imported: null },
+      ],
+    }),
+  },
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /결제 페이지 휴대폰 화면 정리/ }));
+    await waitFor(() => expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/)));
+  },
+};

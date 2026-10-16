@@ -40,6 +40,7 @@ from .events import (
 from .git import CloneError, GitStatus, PullRequest, clone, current_branch, pull_request
 from .git import status as git_status
 from .home import home_dir
+from .imports import SOURCE_NAMES, ExternalSession, ImportSource, find_external_sessions, import_session
 from .items import (
     AgentChanged,
     AgentMessage,
@@ -47,6 +48,7 @@ from .items import (
     ApprovalItem,
     Compaction,
     Deleted,
+    Imported,
     InfoChanged,
     Item,
     ItemCompleted,
@@ -125,6 +127,11 @@ __all__ = [
     "Settings",
     "ConfigError",
     "home_dir",
+    "ExternalSession",
+    "ImportSource",
+    "SOURCE_NAMES",
+    "find_external_sessions",
+    "import_session",
     "config_file",
     "Connection",
     "remove_connection",
@@ -215,6 +222,7 @@ __all__ = [
     "ApprovalItem",
     "ReviewBlocked",
     "Compaction",
+    "Imported",
     "Deleted",
     "InfoChanged",
     "Item",

@@ -101,6 +101,9 @@ class SessionInfo:
     last_seq: int = 0
     """The highest event ``seq`` emitted when the info was saved, so ``seq`` keeps growing across restarts. Not on the
     wire."""
+    imported_from: dict[str, str] | None = None
+    """``{"source", "id", "updated_at"}`` of the other app's conversation the session was carried over from, so the
+    same one is not imported twice. Core only, not on the wire."""
 
     def to_dict(self) -> dict[str, Any]:
         """A JSON-ready dict, snake_case."""
@@ -124,6 +127,7 @@ class SessionInfo:
             "agent": self.agent,
             "agent_applied": self.agent_applied,
             "last_seq": self.last_seq,
+            "imported_from": self.imported_from,
         }
 
     @classmethod
@@ -151,6 +155,7 @@ class SessionInfo:
             agent=data.get("agent", data.get("profile")),
             agent_applied=data.get("agent_applied"),
             last_seq=data.get("last_seq", 0),
+            imported_from=data.get("imported_from"),
         )
 
 

@@ -222,6 +222,14 @@
     "session/delete": {
       "params": "SessionDeleteParams",
       "result": "SessionDeleteResult"
+    },
+    "session/importable": {
+      "params": "SessionImportableParams",
+      "result": "SessionImportableResult"
+    },
+    "session/import": {
+      "params": "SessionImportParams",
+      "result": "SessionImportResult"
     }
   },
   "x-notifications": {
@@ -1283,7 +1291,8 @@
             "map_read_only",
             "reason_required",
             "replay_changed",
-            "flow_busy"
+            "flow_busy",
+            "import_failed"
           ],
           "type": "string"
         }
@@ -1311,6 +1320,47 @@
         "message"
       ],
       "title": "ErrorObject",
+      "type": "object"
+    },
+    "ExternalSessionInfo": {
+      "description": "A conversation Claude Code or Codex had in the folder, which can be carried over and continued here.",
+      "properties": {
+        "source": {
+          "enum": [
+            "claude_code",
+            "codex"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "imported": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "id",
+        "title",
+        "updatedAt",
+        "imported"
+      ],
+      "title": "ExternalSessionInfo",
       "type": "object"
     },
     "FeatureFile": {
@@ -2398,6 +2448,33 @@
       "title": "GitInfo",
       "type": "object"
     },
+    "ImportedItem": {
+      "description": "Where a conversation carried over from another app ends; the session goes on from here.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "imported",
+          "default": "imported",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "claude_code",
+            "codex"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "source"
+      ],
+      "title": "ImportedItem",
+      "type": "object"
+    },
     "InfoChangedEvent": {
       "properties": {
         "type": {
@@ -2462,6 +2539,7 @@
               "agent_switched": "#/$defs/AgentSwitchedItem",
               "approval": "#/$defs/ApprovalItem",
               "compaction": "#/$defs/CompactionItem",
+              "imported": "#/$defs/ImportedItem",
               "memory_review": "#/$defs/MemoryReviewItem",
               "notice": "#/$defs/NoticeItem",
               "review_blocked": "#/$defs/ReviewBlockedItem",
@@ -2508,6 +2586,9 @@
             },
             {
               "$ref": "#/$defs/AgentChangedItem"
+            },
+            {
+              "$ref": "#/$defs/ImportedItem"
             }
           ]
         }
@@ -2577,6 +2658,7 @@
               "agent_switched": "#/$defs/AgentSwitchedItem",
               "approval": "#/$defs/ApprovalItem",
               "compaction": "#/$defs/CompactionItem",
+              "imported": "#/$defs/ImportedItem",
               "memory_review": "#/$defs/MemoryReviewItem",
               "notice": "#/$defs/NoticeItem",
               "review_blocked": "#/$defs/ReviewBlockedItem",
@@ -2623,6 +2705,9 @@
             },
             {
               "$ref": "#/$defs/AgentChangedItem"
+            },
+            {
+              "$ref": "#/$defs/ImportedItem"
             }
           ]
         }
@@ -4260,6 +4345,70 @@
       "title": "SessionEventParams",
       "type": "object"
     },
+    "SessionImportParams": {
+      "description": "Carries a conversation over as a new session of ``cwd``; its earlier messages, tool calls and results come\nwith it, and the next message continues it.",
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "claude_code",
+            "codex"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "source",
+        "id"
+      ],
+      "title": "SessionImportParams",
+      "type": "object"
+    },
+    "SessionImportResult": {
+      "properties": {
+        "info": {
+          "$ref": "#/$defs/SessionInfo"
+        }
+      },
+      "required": [
+        "info"
+      ],
+      "title": "SessionImportResult",
+      "type": "object"
+    },
+    "SessionImportableParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "title": "SessionImportableParams",
+      "type": "object"
+    },
+    "SessionImportableResult": {
+      "properties": {
+        "sessions": {
+          "items": {
+            "$ref": "#/$defs/ExternalSessionInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "sessions"
+      ],
+      "title": "SessionImportableResult",
+      "type": "object"
+    },
     "SessionInfo": {
       "properties": {
         "id": {
@@ -4491,6 +4640,7 @@
                 "agent_switched": "#/$defs/AgentSwitchedItem",
                 "approval": "#/$defs/ApprovalItem",
                 "compaction": "#/$defs/CompactionItem",
+                "imported": "#/$defs/ImportedItem",
                 "memory_review": "#/$defs/MemoryReviewItem",
                 "notice": "#/$defs/NoticeItem",
                 "review_blocked": "#/$defs/ReviewBlockedItem",
@@ -4537,6 +4687,9 @@
               },
               {
                 "$ref": "#/$defs/AgentChangedItem"
+              },
+              {
+                "$ref": "#/$defs/ImportedItem"
               }
             ]
           },
@@ -4551,6 +4704,7 @@
                 "agent_switched": "#/$defs/AgentSwitchedItem",
                 "approval": "#/$defs/ApprovalItem",
                 "compaction": "#/$defs/CompactionItem",
+                "imported": "#/$defs/ImportedItem",
                 "memory_review": "#/$defs/MemoryReviewItem",
                 "notice": "#/$defs/NoticeItem",
                 "review_blocked": "#/$defs/ReviewBlockedItem",
@@ -4597,6 +4751,9 @@
               },
               {
                 "$ref": "#/$defs/AgentChangedItem"
+              },
+              {
+                "$ref": "#/$defs/ImportedItem"
               }
             ]
           },

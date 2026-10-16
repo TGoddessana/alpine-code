@@ -1,4 +1,12 @@
-import type { Activity, AgentInfo, ApprovalItem, SessionInfo, ToolCallItem, Usage } from '@alpine/protocol';
+import type {
+  Activity,
+  AgentInfo,
+  ApprovalItem,
+  ExternalSessionInfo,
+  SessionInfo,
+  ToolCallItem,
+  Usage,
+} from '@alpine/protocol';
 
 import { ServerError } from './connection';
 import { agentStore, type AgentStore } from './toolsScript';
@@ -22,6 +30,8 @@ export interface SessionScriptOptions {
   reply?: string;
   /** The agents and the projects' last agents, shared with `toolsScript` so a session sees the agents as edited. */
   agents?: AgentStore;
+  /** Conversations Claude Code and Codex had, offered in every folder; importing one makes a short session of it. */
+  importable?: ExternalSessionInfo[];
 }
 
 /** A session info with sensible values, for scripts and stories. */
@@ -84,6 +94,7 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
   const store = options.agents ?? agentStore();
   const sessions = new Map<string, Live>();
   let nextSession = 1;
+  let importable = options.importable ?? [];
 
   for (const { info, items = [] } of options.sessions ?? [])
     sessions.set(info.id, {
@@ -369,6 +380,38 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         };
         sessions.set(info.id, live);
         emit(context, live, { type: 'info_changed', info });
+        return { info };
+      },
+      'session/importable': () => ({ sessions: importable }),
+      'session/import': ({ cwd, source, id: externalId }, context) => {
+        const external = importable.find((e) => e.source === source && e.id === externalId);
+        if (!external) throw new ServerError(-32000, 'No such conversation');
+        const info = sessionInfo({ id: `s-${nextSession++}`, cwd, title: external.title });
+        const items: Item[] = [
+          { id: 'i-1', kind: 'user_message', text: external.title },
+          { id: 'i-2', kind: 'agent_message', text: 'I looked at the project first.', agent: null },
+          {
+            id: 'call-1',
+            kind: 'tool_call',
+            name: source === 'codex' ? 'exec_command' : 'Bash',
+            args: source === 'codex' ? { cmd: 'ls' } : { command: 'ls' },
+            status: 'done',
+            result: 'README.md\nsrc',
+            images: 0,
+          },
+          { id: 'i-3', kind: 'agent_message', text: 'Done. The page loads now.', agent: null },
+          { id: 'i-4', kind: 'imported', source },
+        ];
+        const live: Live = {
+          state: { info, seq: 0, items: [], activeIds: [], deleted: false },
+          run: null,
+          waiting: null,
+          counter: 0,
+        };
+        sessions.set(info.id, live);
+        emit(context, live, { type: 'info_changed', info });
+        for (const item of items) emit(context, live, { type: 'item_completed', item });
+        importable = importable.map((e) => (e === external ? { ...e, imported: info.id } : e));
         return { info };
       },
       'session/list': () => ({

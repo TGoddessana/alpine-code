@@ -167,6 +167,14 @@ const ItemView = memo(function ItemView({
           <span className="h-px grow bg-line-subtle" />
         </div>
       );
+    case 'imported':
+      return (
+        <div role="note" className="flex items-center gap-3 text-meta text-fg-muted">
+          <span className="h-px grow bg-line-subtle" />
+          {t.imported(item.source === 'codex' ? 'Codex' : 'Claude Code')}
+          <span className="h-px grow bg-line-subtle" />
+        </div>
+      );
     case 'agent_switched':
       return (
         <div role="note" className="flex items-center gap-3 text-meta text-fg-muted">

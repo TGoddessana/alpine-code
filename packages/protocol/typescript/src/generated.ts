@@ -417,7 +417,8 @@ export interface ErrorData {
     | 'map_read_only'
     | 'reason_required'
     | 'replay_changed'
-    | 'flow_busy';
+    | 'flow_busy'
+    | 'import_failed';
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -429,6 +430,19 @@ export interface ErrorObject {
   data?: {
     [k: string]: unknown;
   };
+}
+/**
+ * A conversation Claude Code or Codex had in the folder, which can be carried over and continued here.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ExternalSessionInfo".
+ */
+export interface ExternalSessionInfo {
+  source: 'claude_code' | 'codex';
+  id: string;
+  title: string;
+  updatedAt: string;
+  imported: string | null;
 }
 /**
  * ``.alpine/map/features/<id>.json``: one card, written by the agent.
@@ -1598,6 +1612,17 @@ export interface PullRequestInfo {
   checks: ('passing' | 'failing' | 'pending') | null;
 }
 /**
+ * Where a conversation carried over from another app ends; the session goes on from here.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ImportedItem".
+ */
+export interface ImportedItem {
+  id: string;
+  kind: 'imported';
+  source: 'claude_code' | 'codex';
+}
+/**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "InfoChangedEvent".
  */
@@ -1680,7 +1705,8 @@ export interface ItemCompletedEvent {
     | CompactionItem
     | RunStoppedItem
     | AgentSwitchedItem
-    | AgentChangedItem;
+    | AgentChangedItem
+    | ImportedItem;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -1813,7 +1839,8 @@ export interface ItemStartedEvent {
     | CompactionItem
     | RunStoppedItem
     | AgentSwitchedItem
-    | AgentChangedItem;
+    | AgentChangedItem
+    | ImportedItem;
 }
 /**
  * ``.alpine/map/map.json``, written by the agent.
@@ -2188,6 +2215,39 @@ export interface SessionEventParams {
   event: InfoChangedEvent | DeletedEvent | ItemStartedEvent | ItemDeltaEvent | ItemCompletedEvent | ItemDiscardedEvent;
 }
 /**
+ * Carries a conversation over as a new session of ``cwd``; its earlier messages, tool calls and results come
+ * with it, and the next message continues it.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionImportParams".
+ */
+export interface SessionImportParams {
+  cwd: string;
+  source: 'claude_code' | 'codex';
+  id: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionImportResult".
+ */
+export interface SessionImportResult {
+  info: SessionInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionImportableParams".
+ */
+export interface SessionImportableParams {
+  cwd: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionImportableResult".
+ */
+export interface SessionImportableResult {
+  sessions: ExternalSessionInfo[];
+}
+/**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "SessionListParams".
  */
@@ -2245,6 +2305,7 @@ export interface SessionOpenResult {
     | RunStoppedItem
     | AgentSwitchedItem
     | AgentChangedItem
+    | ImportedItem
   )[];
   active: (
     | UserMessageItem
@@ -2259,6 +2320,7 @@ export interface SessionOpenResult {
     | RunStoppedItem
     | AgentSwitchedItem
     | AgentChangedItem
+    | ImportedItem
   )[];
 }
 /**
@@ -2574,6 +2636,8 @@ export interface Methods {
   'session/setModel': { params: SessionSetModelParams; result: SessionSetModelResult };
   'session/setAgent': { params: SessionSetAgentParams; result: SessionSetAgentResult };
   'session/delete': { params: SessionDeleteParams; result: SessionDeleteResult };
+  'session/importable': { params: SessionImportableParams; result: SessionImportableResult };
+  'session/import': { params: SessionImportParams; result: SessionImportResult };
 }
 
 export interface Notifications {

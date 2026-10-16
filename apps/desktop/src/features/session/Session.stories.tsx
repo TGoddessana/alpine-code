@@ -656,3 +656,40 @@ export const DeletedAgent: Story = {
     await expect(await screen.findByRole('button', { name: '에이전트: 기본 에이전트' })).toBeVisible();
   },
 };
+
+/**
+ * A conversation brought over from Claude Code: its messages and tool calls as they were (Claude Code's `Bash` and
+ * `Read` counted like ours), then a divider that says where it ends and that saying something goes on with it.
+ */
+export const FromClaudeCode: Story = {
+  parameters: {
+    server: server([
+      { id: 'c1', kind: 'user_message', text: '로그인 버튼이 눌려도 아무 일도 안 일어나' },
+      { id: 'c2', kind: 'agent_message', agent: null, text: '로그인 화면 코드를 먼저 볼게요.' },
+      {
+        id: 'toolu_1',
+        kind: 'tool_call',
+        name: 'Read',
+        args: { file_path: 'src/LoginForm.tsx' },
+        status: 'done',
+        result: 'export function LoginForm() {}',
+        images: 0,
+      },
+      {
+        id: 'toolu_2',
+        kind: 'tool_call',
+        name: 'Bash',
+        args: { command: 'pnpm test login' },
+        status: 'done',
+        result: '1 passed',
+        images: 0,
+      },
+      { id: 'c3', kind: 'agent_message', agent: null, text: '폼이 새로고침되던 걸 막았어요. 테스트도 통과해요.' },
+      { id: 'c4', kind: 'imported', source: 'claude_code' },
+    ]),
+  },
+  play: async () => {
+    await expect(await screen.findByText(/여기까지 Claude Code에서 하던 대화예요/)).toBeVisible();
+    expect(screen.getByRole('button', { name: /명령 1개 실행|Ran 1 command/ })).toBeVisible();
+  },
+};

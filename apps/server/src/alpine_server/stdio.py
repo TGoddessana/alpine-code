@@ -1,7 +1,7 @@
 """JSON-RPC 2.0 over stdin/stdout, one JSON object per line.
 
 One asyncio loop reads the lines and runs every request as its own task, so a run in progress or a slow method
-(cloning, listing models) never holds up another. Blocking handlers run in a thread. Everything that reaches stdout
+(a clone, listing models) never holds up another. Blocking handlers run in a thread. Everything that reaches stdout
 is written on the loop's thread, one line at a time; logs go to stderr.
 """
 
@@ -24,6 +24,7 @@ from alpine_protocol import (
     ChatGPTSignInFinishedParams,
     ErrorObject,
     MemoryChangedParams,
+    ProjectsCloneChangedParams,
     Request,
     Response,
     SessionEventParams,
@@ -31,6 +32,7 @@ from alpine_protocol import (
 
 from .agents import HANDLERS as AGENT_HANDLERS
 from .chatgpt import ChatGPTSignIns
+from .clones import Clones
 from .flow import HANDLERS as FLOW_HANDLERS
 from .memory import MemoryMethods
 from .methods import HANDLERS as METHOD_HANDLERS
@@ -67,7 +69,10 @@ class Server:
         self.sessions = manager or SessionManager(self._send_event)
         self.sign_ins = sign_ins or ChatGPTSignIns(self._send_sign_in_finished)
         self.memory = MemoryMethods(self.sessions.memories, self._send_memory_changed)
-        self._async_handlers = self.sessions.handlers() | self.sign_ins.handlers() | self.memory.handlers()
+        self.clones = Clones(self._send_clone_changed)
+        self._async_handlers = (
+            self.sessions.handlers() | self.sign_ins.handlers() | self.memory.handlers() | self.clones.handlers()
+        )
 
     def _send_event(self, params: SessionEventParams) -> None:
         self._notify("session/event", params)
@@ -77,6 +82,9 @@ class Server:
 
     def _send_memory_changed(self, params: MemoryChangedParams) -> None:
         self._notify("memory/changed", params)
+
+    def _send_clone_changed(self, params: ProjectsCloneChangedParams) -> None:
+        self._notify("projects/cloneChanged", params)
 
     def _notify(self, method: str, params: Any) -> None:
         message = {"jsonrpc": "2.0", "method": method, "params": params.model_dump(by_alias=True, mode="json")}
@@ -133,8 +141,10 @@ class Server:
         return result.model_dump(by_alias=True, mode="json")
 
     async def close(self) -> None:
-        """Stops running sessions so they are saved ending in ``run_stopped: interrupted``, and waiting sign-ins."""
+        """Stops running sessions so they are saved ending in ``run_stopped: interrupted``, waiting sign-ins, and
+        clones (which remove what they wrote)."""
         await self.sign_ins.shutdown()
+        await self.clones.shutdown()
         await self.sessions.shutdown()
 
 

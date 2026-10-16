@@ -1,9 +1,9 @@
-"""The little git the app needs outside a session: what the branch changes, its pull request, and cloning."""
+"""The little git the app needs outside a session: what the branch changes, its pull request, and what a clone
+address means (the clone itself is in ``cloning.py``)."""
 
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
 from dataclasses import dataclass
@@ -12,10 +12,6 @@ from typing import Literal
 
 #: ``owner/repo`` means GitHub, as ``gh`` reads it.
 _SHORTHAND = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
-
-
-class CloneError(Exception):
-    """git could not clone. The message is git's own last line."""
 
 
 def current_branch(folder: Path) -> str | None:
@@ -140,32 +136,3 @@ def clone_url(address: str) -> str:
 def repo_name(address: str) -> str:
     name = address.strip().rstrip("/").rsplit("/", 1)[-1].rsplit(":", 1)[-1]
     return name.removesuffix(".git") or "repository"
-
-
-def clone(address: str, parent: Path, *, timeout: float = 600) -> Path:
-    """Clones into ``parent/<repo name>`` and returns that folder.
-
-    Raises:
-        FileExistsError: The folder is already there.
-        CloneError: git failed; it never waits for a password (``GIT_TERMINAL_PROMPT=0``).
-    """
-    dest = parent.expanduser().resolve() / repo_name(address)
-    if dest.exists():
-        raise FileExistsError(str(dest))
-    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
-    try:
-        result = subprocess.run(
-            ["git", "clone", "--quiet", clone_url(address), str(dest)],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env,
-        )
-    except subprocess.TimeoutExpired as e:
-        raise CloneError(f"git clone took longer than {timeout:.0f}s") from e
-    except OSError as e:
-        raise CloneError(f"git is not installed: {e}") from e
-    if result.returncode != 0:
-        lines = [line for line in result.stderr.strip().splitlines() if line.strip()]
-        raise CloneError(lines[-1] if lines else f"git clone exited with {result.returncode}")
-    return dest

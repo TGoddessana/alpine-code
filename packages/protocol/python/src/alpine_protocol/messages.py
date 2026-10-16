@@ -73,8 +73,9 @@ class ErrorData(Message):
         "other",
         "not_a_folder",
         "invalid_config",
-        "exists",
         "clone_failed",
+        "no_access",
+        "no_git_tools",
         "invalid_name",
         "package_not_approved",
         "install_failed",
@@ -108,8 +109,10 @@ class ErrorData(Message):
 
     ``auth``: the key is missing or rejected. ``unreachable``: no answer from the address. ``unsupported``: the
     server does not list its models, so the model name has to be typed. ``not_a_folder``: the path is not a folder.
-    ``invalid_config``: config.toml cannot be read; the message says where. ``exists``: the clone's folder is already
-    there. ``clone_failed``: git could not clone; the message is git's. ``invalid_name``: a tool file name is not
+    ``invalid_config``: config.toml cannot be read; the message says where. ``no_access``: git found no repository
+    there that this computer may see (a wrong address, or a sign-in needed; hosts answer both the same way).
+    ``no_git_tools``: git is not installed (on macOS, Apple's command line developer tools).
+    ``clone_failed``: git could not clone otherwise; the message is git's. ``invalid_name``: a tool file name is not
 lowercase letters, digits and ``_``. ``package_not_approved``: a tool needs a package nobody approved.
 ``install_failed``: a package did not install. ``name_taken``: a tool name is already used. ``agent_not_found``:
 no agent has the id. ``model_failed``: the model call behind a draft failed.
@@ -246,6 +249,8 @@ class SettingsGetResult(Message):
     """The permission mode new sessions start with (config.toml ``mode``)."""
     review_model: str | None = None
     """``<connection>/<model>`` of auto mode's reviewer in new sessions; ``None``: each session's own model."""
+    clone_folder: str
+    """Where the app puts the repositories it clones (config.toml ``clone_folder``, else ``~/AlpineCode``)."""
 
 
 class SettingsSetModeParams(Message):
@@ -263,6 +268,15 @@ class SettingsSetReviewModelParams(Message):
 
 class SettingsSetReviewModelResult(Message):
     review_model: str | None
+
+
+class SettingsSetCloneFolderParams(Message):
+    clone_folder: str | None
+    """``None``: back to ``~/AlpineCode``."""
+
+
+class SettingsSetCloneFolderResult(Message):
+    clone_folder: str
 
 
 # ChatGPT: a connection that signs in with the user's ChatGPT account and runs on their plan.
@@ -334,11 +348,33 @@ class ProjectsListParams(Message):
     pass
 
 
+class CloneInfo(Message):
+    """A repository being brought to this computer, or one that stopped before it got here."""
+
+    id: str
+    """The one the app gave in ``projects/clone``."""
+    address: str
+    name: str
+    """The folder's name, which becomes the project's."""
+    path: str
+    """Where it goes."""
+    state: Literal["receiving", "failed", "done", "cancelled"]
+    """``done`` and ``cancelled`` are only ever announced: the clone then leaves ``projects/list``."""
+    percent: int
+    """0 to 100 over the whole clone."""
+    received: int | None = None
+    """Bytes received so far, while git says."""
+    reason: Literal["no_access", "unreachable", "clone_failed"] | None = None
+    """With ``failed``: as in ``ErrorData``."""
+    message: str | None = None
+    """With ``failed``: git's own last line, in English."""
+
+
 class ProjectsListResult(Message):
     projects: list[ProjectInfo]
     """The most recently used first."""
-    clone_parent: str
-    """Where a clone goes unless the user picks another folder."""
+    clones: list[CloneInfo]
+    """Clones receiving, and failed ones the user has not dismissed; the oldest first."""
 
 
 class ProjectsOpenParams(Message):
@@ -370,15 +406,65 @@ class ProjectsDeleteResult(Message):
 
 
 class ProjectsCloneParams(Message):
-    """Clones into ``parent/<repo name>`` and opens it. Blocks until git is done."""
+    """Brings a repository into the clone folder and opens it as a project.
 
+    Answers once the host has answered: with ``project`` when the repository is already here (a project with the same
+    ``origin``, or the same repository in the clone folder) or the clone already finished, else with ``clone``, which
+    goes on in the background and announces itself through ``projects/cloneChanged``. A wrong address or a missing
+    sign-in fails the request itself (``no_access``, ``unreachable``, ``no_git_tools``, ``clone_failed``), so the app
+    can ask again before anything shows on the rail.
+    """
+
+    id: str
+    """Chosen by the app, so it can cancel the clone before this request answers."""
     address: str
     """A URL, ``git@...``, or GitHub's ``owner/repo``."""
-    parent: str
+    username: str | None = None
+    password: str | None = None
+    """An HTTPS sign-in, given to git only; the macOS keychain keeps it when the clone succeeds."""
 
 
 class ProjectsCloneResult(Message):
-    project: ProjectInfo
+    project: ProjectInfo | None = None
+    existing: bool = False
+    """``project`` was already here; nothing was cloned."""
+    clone: CloneInfo | None = None
+
+
+class ProjectsCancelCloneParams(Message):
+    """Stops a clone and removes what it wrote, or dismisses a failed one. Does nothing for an unknown id."""
+
+    id: str
+
+
+class ProjectsCancelCloneResult(Message):
+    pass
+
+
+class ProjectsCloneChangedParams(Message):
+    """A clone moved on: more received, or it finished (``done``, with ``project``), failed or was cancelled."""
+
+    clone: CloneInfo
+    project: ProjectInfo | None = None
+
+
+class ProjectsGitToolsParams(Message):
+    pass
+
+
+class ProjectsGitToolsResult(Message):
+    ready: bool
+    """git can run. On macOS it needs Apple's command line developer tools."""
+    installable: bool
+    """``projects/installGitTools`` can open an installer here (macOS)."""
+
+
+class ProjectsInstallGitToolsParams(Message):
+    """Opens Apple's installer for the command line developer tools. ``projects/gitTools`` says when it is done."""
+
+
+class ProjectsInstallGitToolsResult(Message):
+    pass
 
 
 class PullRequestInfo(Message):
@@ -1813,6 +1899,7 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "settings/get": (SettingsGetParams, SettingsGetResult),
     "settings/setMode": (SettingsSetModeParams, SettingsSetModeResult),
     "settings/setReviewModel": (SettingsSetReviewModelParams, SettingsSetReviewModelResult),
+    "settings/setCloneFolder": (SettingsSetCloneFolderParams, SettingsSetCloneFolderResult),
     "chatgpt/signIn": (ChatGPTSignInParams, ChatGPTSignInResult),
     "chatgpt/cancelSignIn": (ChatGPTCancelSignInParams, ChatGPTCancelSignInResult),
     "chatgpt/signOut": (ChatGPTSignOutParams, ChatGPTSignOutResult),
@@ -1821,6 +1908,9 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "projects/archive": (ProjectsArchiveParams, ProjectsArchiveResult),
     "projects/delete": (ProjectsDeleteParams, ProjectsDeleteResult),
     "projects/clone": (ProjectsCloneParams, ProjectsCloneResult),
+    "projects/cancelClone": (ProjectsCancelCloneParams, ProjectsCancelCloneResult),
+    "projects/gitTools": (ProjectsGitToolsParams, ProjectsGitToolsResult),
+    "projects/installGitTools": (ProjectsInstallGitToolsParams, ProjectsInstallGitToolsResult),
     "projects/git": (ProjectsGitParams, ProjectsGitResult),
     "tools/list": (ToolsListParams, ToolsListResult),
     "tools/source": (ToolsSourceParams, ToolsSourceResult),
@@ -1863,4 +1953,5 @@ NOTIFICATIONS: dict[str, type[Message]] = {
     "session/event": SessionEventParams,
     "chatgpt/signInFinished": ChatGPTSignInFinishedParams,
     "memory/changed": MemoryChangedParams,
+    "projects/cloneChanged": ProjectsCloneChangedParams,
 }

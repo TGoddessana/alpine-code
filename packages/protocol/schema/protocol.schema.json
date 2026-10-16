@@ -83,6 +83,10 @@
       "params": "SettingsSetReviewModelParams",
       "result": "SettingsSetReviewModelResult"
     },
+    "settings/setCloneFolder": {
+      "params": "SettingsSetCloneFolderParams",
+      "result": "SettingsSetCloneFolderResult"
+    },
     "chatgpt/signIn": {
       "params": "ChatGPTSignInParams",
       "result": "ChatGPTSignInResult"
@@ -114,6 +118,18 @@
     "projects/clone": {
       "params": "ProjectsCloneParams",
       "result": "ProjectsCloneResult"
+    },
+    "projects/cancelClone": {
+      "params": "ProjectsCancelCloneParams",
+      "result": "ProjectsCancelCloneResult"
+    },
+    "projects/gitTools": {
+      "params": "ProjectsGitToolsParams",
+      "result": "ProjectsGitToolsResult"
+    },
+    "projects/installGitTools": {
+      "params": "ProjectsInstallGitToolsParams",
+      "result": "ProjectsInstallGitToolsResult"
     },
     "projects/git": {
       "params": "ProjectsGitParams",
@@ -259,7 +275,8 @@
   "x-notifications": {
     "session/event": "SessionEventParams",
     "chatgpt/signInFinished": "ChatGPTSignInFinishedParams",
-    "memory/changed": "MemoryChangedParams"
+    "memory/changed": "MemoryChangedParams",
+    "projects/cloneChanged": "ProjectsCloneChangedParams"
   },
   "$defs": {
     "Activity": {
@@ -933,6 +950,83 @@
       "title": "CheckStamp",
       "type": "object"
     },
+    "CloneInfo": {
+      "description": "A repository being brought to this computer, or one that stopped before it got here.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "receiving",
+            "failed",
+            "done",
+            "cancelled"
+          ],
+          "type": "string"
+        },
+        "percent": {
+          "type": "integer"
+        },
+        "received": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "no_access",
+                "unreachable",
+                "clone_failed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "address",
+        "name",
+        "path",
+        "state",
+        "percent"
+      ],
+      "title": "CloneInfo",
+      "type": "object"
+    },
     "CompactionItem": {
       "properties": {
         "id": {
@@ -1305,8 +1399,9 @@
             "other",
             "not_a_folder",
             "invalid_config",
-            "exists",
             "clone_failed",
+            "no_access",
+            "no_git_tools",
             "invalid_name",
             "package_not_approved",
             "install_failed",
@@ -3698,19 +3793,83 @@
       "title": "ProjectsArchiveResult",
       "type": "object"
     },
-    "ProjectsCloneParams": {
-      "description": "Clones into ``parent/<repo name>`` and opens it. Blocks until git is done.",
+    "ProjectsCancelCloneParams": {
+      "description": "Stops a clone and removes what it wrote, or dismisses a failed one. Does nothing for an unknown id.",
       "properties": {
-        "address": {
-          "type": "string"
-        },
-        "parent": {
+        "id": {
           "type": "string"
         }
       },
       "required": [
-        "address",
-        "parent"
+        "id"
+      ],
+      "title": "ProjectsCancelCloneParams",
+      "type": "object"
+    },
+    "ProjectsCancelCloneResult": {
+      "properties": {},
+      "title": "ProjectsCancelCloneResult",
+      "type": "object"
+    },
+    "ProjectsCloneChangedParams": {
+      "description": "A clone moved on: more received, or it finished (``done``, with ``project``), failed or was cancelled.",
+      "properties": {
+        "clone": {
+          "$ref": "#/$defs/CloneInfo"
+        },
+        "project": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProjectInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "clone"
+      ],
+      "title": "ProjectsCloneChangedParams",
+      "type": "object"
+    },
+    "ProjectsCloneParams": {
+      "description": "Brings a repository into the clone folder and opens it as a project.\n\nAnswers once the host has answered: with ``project`` when the repository is already here (a project with the same\n``origin``, or the same repository in the clone folder) or the clone already finished, else with ``clone``, which\ngoes on in the background and announces itself through ``projects/cloneChanged``. A wrong address or a missing\nsign-in fails the request itself (``no_access``, ``unreachable``, ``no_git_tools``, ``clone_failed``), so the app\ncan ask again before anything shows on the rail.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "username": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "password": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "address"
       ],
       "title": "ProjectsCloneParams",
       "type": "object"
@@ -3718,12 +3877,32 @@
     "ProjectsCloneResult": {
       "properties": {
         "project": {
-          "$ref": "#/$defs/ProjectInfo"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProjectInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "existing": {
+          "default": false,
+          "type": "boolean"
+        },
+        "clone": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CloneInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
-      "required": [
-        "project"
-      ],
       "title": "ProjectsCloneResult",
       "type": "object"
     },
@@ -3776,6 +3955,38 @@
       "title": "ProjectsGitResult",
       "type": "object"
     },
+    "ProjectsGitToolsParams": {
+      "properties": {},
+      "title": "ProjectsGitToolsParams",
+      "type": "object"
+    },
+    "ProjectsGitToolsResult": {
+      "properties": {
+        "ready": {
+          "type": "boolean"
+        },
+        "installable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ready",
+        "installable"
+      ],
+      "title": "ProjectsGitToolsResult",
+      "type": "object"
+    },
+    "ProjectsInstallGitToolsParams": {
+      "description": "Opens Apple's installer for the command line developer tools. ``projects/gitTools`` says when it is done.",
+      "properties": {},
+      "title": "ProjectsInstallGitToolsParams",
+      "type": "object"
+    },
+    "ProjectsInstallGitToolsResult": {
+      "properties": {},
+      "title": "ProjectsInstallGitToolsResult",
+      "type": "object"
+    },
     "ProjectsListParams": {
       "properties": {},
       "title": "ProjectsListParams",
@@ -3789,13 +4000,16 @@
           },
           "type": "array"
         },
-        "cloneParent": {
-          "type": "string"
+        "clones": {
+          "items": {
+            "$ref": "#/$defs/CloneInfo"
+          },
+          "type": "array"
         }
       },
       "required": [
         "projects",
-        "cloneParent"
+        "clones"
       ],
       "title": "ProjectsListResult",
       "type": "object"
@@ -4947,12 +5161,47 @@
             }
           ],
           "default": null
+        },
+        "cloneFolder": {
+          "type": "string"
         }
       },
       "required": [
-        "mode"
+        "mode",
+        "cloneFolder"
       ],
       "title": "SettingsGetResult",
+      "type": "object"
+    },
+    "SettingsSetCloneFolderParams": {
+      "properties": {
+        "cloneFolder": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "cloneFolder"
+      ],
+      "title": "SettingsSetCloneFolderParams",
+      "type": "object"
+    },
+    "SettingsSetCloneFolderResult": {
+      "properties": {
+        "cloneFolder": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cloneFolder"
+      ],
+      "title": "SettingsSetCloneFolderResult",
       "type": "object"
     },
     "SettingsSetModeParams": {

@@ -27,7 +27,6 @@ def test_archive_until_opened_again(tmp_path):
     folder = tmp_path / "a"
     folder.mkdir()
     projects.open(folder)
-    assert projects.clone_parent() == tmp_path.resolve()
     projects.archive(folder)
     assert [p.archived for p in projects.list()] == [True]
     projects.open(folder)

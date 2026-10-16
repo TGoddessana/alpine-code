@@ -93,11 +93,6 @@ class ProjectList:
             self._write(projects)
         shutil.rmtree(self.file.parent / "projects" / project_key(folder), ignore_errors=True)
 
-    def clone_parent(self) -> Path:
-        """Where a clone goes unless the user picks: next to the most recent project, else the home folder."""
-        recent = self.list()
-        return recent[0].path.parent if recent else Path.home()
-
     def _read(self) -> dict[Path, Project]:
         try:
             data = json.loads(self.file.read_text(encoding="utf-8"))

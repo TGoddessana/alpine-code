@@ -9,6 +9,17 @@ from .agents import DEFAULT_ID as DEFAULT_AGENT
 from .agents import LOOKS, AgentConfig, AgentList, free_character
 from .approval import ApprovalRequest, Approver, AsyncApprover, BlockingApprover, Decision
 from .catalog import hidden_models, load_catalog
+from .cloning import (
+    Clone,
+    CloneCancelled,
+    CloneFailed,
+    Credentials,
+    Progress,
+    default_clone_folder,
+    git_tools_ready,
+    install_git_tools,
+    place,
+)
 from .config import (
     ConfigError,
     Connection,
@@ -16,6 +27,7 @@ from .config import (
     config_file,
     remove_connection,
     save_connection,
+    set_clone_folder,
     set_default_mode,
     set_default_model,
     set_review_model,
@@ -37,7 +49,7 @@ from .events import (
     TurnStarted,
     UsageInfo,
 )
-from .git import CloneError, GitStatus, PullRequest, clone, current_branch, pull_request
+from .git import GitStatus, PullRequest, current_branch, pull_request
 from .git import status as git_status
 from .home import home_dir
 from .imports import SOURCE_NAMES, ExternalSession, ImportSource, find_external_sessions, import_session
@@ -150,6 +162,7 @@ __all__ = [
     "Connection",
     "remove_connection",
     "save_connection",
+    "set_clone_folder",
     "set_default_mode",
     "set_default_model",
     "set_review_model",
@@ -196,8 +209,15 @@ __all__ = [
     "draft",
     "package_info",
     "summarize",
-    "clone",
-    "CloneError",
+    "Clone",
+    "CloneCancelled",
+    "CloneFailed",
+    "Credentials",
+    "Progress",
+    "default_clone_folder",
+    "git_tools_ready",
+    "install_git_tools",
+    "place",
     "current_branch",
     "git_status",
     "GitStatus",

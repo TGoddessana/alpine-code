@@ -260,6 +260,23 @@ export interface CheckStamp {
   uncertain?: boolean;
 }
 /**
+ * A repository being brought to this computer, or one that stopped before it got here.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloneInfo".
+ */
+export interface CloneInfo {
+  id: string;
+  address: string;
+  name: string;
+  path: string;
+  state: 'receiving' | 'failed' | 'done' | 'cancelled';
+  percent: number;
+  received?: number | null;
+  reason?: ('no_access' | 'unreachable' | 'clone_failed') | null;
+  message?: string | null;
+}
+/**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "CompactionItem".
  */
@@ -402,8 +419,9 @@ export interface ErrorData {
     | 'other'
     | 'not_a_folder'
     | 'invalid_config'
-    | 'exists'
     | 'clone_failed'
+    | 'no_access'
+    | 'no_git_tools'
     | 'invalid_name'
     | 'package_not_approved'
     | 'install_failed'
@@ -2079,21 +2097,55 @@ export interface ProjectsArchiveParams {
  */
 export interface ProjectsArchiveResult {}
 /**
- * Clones into ``parent/<repo name>`` and opens it. Blocks until git is done.
+ * Stops a clone and removes what it wrote, or dismisses a failed one. Does nothing for an unknown id.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsCancelCloneParams".
+ */
+export interface ProjectsCancelCloneParams {
+  id: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsCancelCloneResult".
+ */
+export interface ProjectsCancelCloneResult {}
+/**
+ * A clone moved on: more received, or it finished (``done``, with ``project``), failed or was cancelled.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsCloneChangedParams".
+ */
+export interface ProjectsCloneChangedParams {
+  clone: CloneInfo;
+  project?: ProjectInfo | null;
+}
+/**
+ * Brings a repository into the clone folder and opens it as a project.
+ *
+ * Answers once the host has answered: with ``project`` when the repository is already here (a project with the same
+ * ``origin``, or the same repository in the clone folder) or the clone already finished, else with ``clone``, which
+ * goes on in the background and announces itself through ``projects/cloneChanged``. A wrong address or a missing
+ * sign-in fails the request itself (``no_access``, ``unreachable``, ``no_git_tools``, ``clone_failed``), so the app
+ * can ask again before anything shows on the rail.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ProjectsCloneParams".
  */
 export interface ProjectsCloneParams {
+  id: string;
   address: string;
-  parent: string;
+  username?: string | null;
+  password?: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ProjectsCloneResult".
  */
 export interface ProjectsCloneResult {
-  project: ProjectInfo;
+  project?: ProjectInfo | null;
+  existing?: boolean;
+  clone?: CloneInfo | null;
 }
 /**
  * Forgets a project and what Alpine keeps about it. The folder and its files are never touched.
@@ -2125,6 +2177,31 @@ export interface ProjectsGitResult {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsGitToolsParams".
+ */
+export interface ProjectsGitToolsParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsGitToolsResult".
+ */
+export interface ProjectsGitToolsResult {
+  ready: boolean;
+  installable: boolean;
+}
+/**
+ * Opens Apple's installer for the command line developer tools. ``projects/gitTools`` says when it is done.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsInstallGitToolsParams".
+ */
+export interface ProjectsInstallGitToolsParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsInstallGitToolsResult".
+ */
+export interface ProjectsInstallGitToolsResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ProjectsListParams".
  */
 export interface ProjectsListParams {}
@@ -2134,7 +2211,7 @@ export interface ProjectsListParams {}
  */
 export interface ProjectsListResult {
   projects: ProjectInfo[];
-  cloneParent: string;
+  clones: CloneInfo[];
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -2408,6 +2485,21 @@ export interface SettingsGetParams {}
 export interface SettingsGetResult {
   mode: 'default' | 'accept_edits' | 'auto' | 'yolo';
   reviewModel?: string | null;
+  cloneFolder: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SettingsSetCloneFolderParams".
+ */
+export interface SettingsSetCloneFolderParams {
+  cloneFolder: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SettingsSetCloneFolderResult".
+ */
+export interface SettingsSetCloneFolderResult {
+  cloneFolder: string;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -2737,6 +2829,7 @@ export interface Methods {
   'settings/get': { params: SettingsGetParams; result: SettingsGetResult };
   'settings/setMode': { params: SettingsSetModeParams; result: SettingsSetModeResult };
   'settings/setReviewModel': { params: SettingsSetReviewModelParams; result: SettingsSetReviewModelResult };
+  'settings/setCloneFolder': { params: SettingsSetCloneFolderParams; result: SettingsSetCloneFolderResult };
   'chatgpt/signIn': { params: ChatGPTSignInParams; result: ChatGPTSignInResult };
   'chatgpt/cancelSignIn': { params: ChatGPTCancelSignInParams; result: ChatGPTCancelSignInResult };
   'chatgpt/signOut': { params: ChatGPTSignOutParams; result: ChatGPTSignOutResult };
@@ -2745,6 +2838,9 @@ export interface Methods {
   'projects/archive': { params: ProjectsArchiveParams; result: ProjectsArchiveResult };
   'projects/delete': { params: ProjectsDeleteParams; result: ProjectsDeleteResult };
   'projects/clone': { params: ProjectsCloneParams; result: ProjectsCloneResult };
+  'projects/cancelClone': { params: ProjectsCancelCloneParams; result: ProjectsCancelCloneResult };
+  'projects/gitTools': { params: ProjectsGitToolsParams; result: ProjectsGitToolsResult };
+  'projects/installGitTools': { params: ProjectsInstallGitToolsParams; result: ProjectsInstallGitToolsResult };
   'projects/git': { params: ProjectsGitParams; result: ProjectsGitResult };
   'tools/list': { params: ToolsListParams; result: ToolsListResult };
   'tools/source': { params: ToolsSourceParams; result: ToolsSourceResult };
@@ -2786,4 +2882,5 @@ export interface Notifications {
   'session/event': SessionEventParams;
   'chatgpt/signInFinished': ChatGPTSignInFinishedParams;
   'memory/changed': MemoryChangedParams;
+  'projects/cloneChanged': ProjectsCloneChangedParams;
 }

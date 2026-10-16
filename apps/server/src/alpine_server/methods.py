@@ -11,7 +11,6 @@ from typing import Any
 from alpine_core import (
     PROVIDERS,
     Auth,
-    CloneError,
     ConfigError,
     Connection,
     Mode,
@@ -21,7 +20,6 @@ from alpine_core import (
     PullRequest,
     Settings,
     chatgpt_tokens,
-    clone,
     current_branch,
     git_status,
     hidden_models,
@@ -33,6 +31,9 @@ from alpine_core import (
     set_default_mode,
     set_default_model,
     show_model,
+)
+from alpine_core import (
+    set_clone_folder as save_clone_folder,
 )
 from alpine_core import (
     set_review_model as save_review_model,
@@ -61,14 +62,10 @@ from alpine_protocol import (
     ProjectInfo,
     ProjectsArchiveParams,
     ProjectsArchiveResult,
-    ProjectsCloneParams,
-    ProjectsCloneResult,
     ProjectsDeleteParams,
     ProjectsDeleteResult,
     ProjectsGitParams,
     ProjectsGitResult,
-    ProjectsListParams,
-    ProjectsListResult,
     ProjectsOpenParams,
     ProjectsOpenResult,
     ProviderInfo,
@@ -76,6 +73,8 @@ from alpine_protocol import (
     ServerInfo,
     SettingsGetParams,
     SettingsGetResult,
+    SettingsSetCloneFolderParams,
+    SettingsSetCloneFolderResult,
     SettingsSetModeParams,
     SettingsSetModeResult,
     SettingsSetReviewModelParams,
@@ -193,7 +192,9 @@ def set_default(params: ConnectionsSetDefaultParams) -> ConnectionsSetDefaultRes
 
 def get_settings(params: SettingsGetParams) -> SettingsGetResult:
     settings = _settings()
-    return SettingsGetResult(mode=settings.mode.value, review_model=settings.review_model)
+    return SettingsGetResult(
+        mode=settings.mode.value, review_model=settings.review_model, clone_folder=str(settings.clone_folder)
+    )
 
 
 def set_mode(params: SettingsSetModeParams) -> SettingsSetModeResult:
@@ -210,6 +211,14 @@ def set_review_model(params: SettingsSetReviewModelParams) -> SettingsSetReviewM
     except ConfigError as e:
         raise MethodError(APP_ERROR, str(e), "invalid_config") from e
     return SettingsSetReviewModelResult(review_model=params.review_model)
+
+
+def set_clone_folder(params: SettingsSetCloneFolderParams) -> SettingsSetCloneFolderResult:
+    try:
+        save_clone_folder(Path(params.clone_folder).expanduser() if params.clone_folder else None)
+    except ConfigError as e:
+        raise MethodError(APP_ERROR, str(e), "invalid_config") from e
+    return SettingsSetCloneFolderResult(clone_folder=str(_settings().clone_folder))
 
 
 def _connection(provider_id: str | None, base_url: str | None, settings: Settings) -> Connection:
@@ -270,19 +279,12 @@ def _settings() -> Settings:
 # ------------------------------------------------------------ projects
 
 
-def list_projects(params: ProjectsListParams) -> ProjectsListResult:
-    projects = ProjectList.default()
-    return ProjectsListResult(
-        projects=[_project_info(p) for p in projects.list()], clone_parent=str(projects.clone_parent())
-    )
-
-
 def open_project(params: ProjectsOpenParams) -> ProjectsOpenResult:
     try:
         project = ProjectList.default().open(Path(params.path))
     except NotADirectoryError as e:
         raise MethodError(APP_ERROR, f"Not a folder: {params.path}", "not_a_folder") from e
-    return ProjectsOpenResult(project=_project_info(project))
+    return ProjectsOpenResult(project=project_info(project))
 
 
 def archive_project(params: ProjectsArchiveParams) -> ProjectsArchiveResult:
@@ -293,16 +295,6 @@ def archive_project(params: ProjectsArchiveParams) -> ProjectsArchiveResult:
 def delete_project(params: ProjectsDeleteParams) -> ProjectsDeleteResult:
     ProjectList.default().delete(Path(params.path))
     return ProjectsDeleteResult()
-
-
-def clone_project(params: ProjectsCloneParams) -> ProjectsCloneResult:
-    try:
-        folder = clone(params.address, Path(params.parent))
-    except FileExistsError as e:
-        raise MethodError(APP_ERROR, f"Already there: {e}", "exists") from e
-    except CloneError as e:
-        raise MethodError(APP_ERROR, str(e), "clone_failed") from e
-    return ProjectsCloneResult(project=_project_info(ProjectList.default().open(folder)))
 
 
 #: Asking GitHub takes a second, so a branch's pull request is looked up at most once a minute.
@@ -336,7 +328,7 @@ def _cached_pull_request(folder: Path, branch: str | None) -> PullRequest | None
     return pr
 
 
-def _project_info(project: Project) -> ProjectInfo:
+def project_info(project: Project) -> ProjectInfo:
     return ProjectInfo(
         path=str(project.path),
         name=project.name,
@@ -358,10 +350,9 @@ HANDLERS: dict[str, Callable[[Any], Any]] = {
     "settings/get": get_settings,
     "settings/setMode": set_mode,
     "settings/setReviewModel": set_review_model,
-    "projects/list": list_projects,
+    "settings/setCloneFolder": set_clone_folder,
     "projects/open": open_project,
     "projects/archive": archive_project,
     "projects/delete": delete_project,
-    "projects/clone": clone_project,
     "projects/git": project_git,
 }

@@ -3,11 +3,13 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
 import { NewSession } from '@/features/new-session/NewSession';
 import { NoProject } from '@/features/new-session/NoProject';
+import { useCurrentProject } from '@/features/rail/currentProject';
 import { useProjects } from '@/shared/server';
 
 /**
- * `?project=` picks the project; without it, the most recently used one. `?agent=` is the agent to start with. A
- * project still being cloned (or whose clone failed) is shown from its clone until it arrives.
+ * `?project=` picks the project; without it, the one the rail shows (the one shown last, else the most recently used).
+ * `?agent=` is the agent to start with. A project still being cloned (or whose clone failed) is shown from its clone
+ * until it arrives.
  */
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>): { project?: string; agent?: string } => ({
@@ -18,7 +20,8 @@ export const Route = createFileRoute('/')({
 });
 
 function NewSessionRoute() {
-  const { project: chosen, agent } = Route.useSearch();
+  const { agent } = Route.useSearch();
+  const chosen = useCurrentProject() ?? undefined;
   const navigate = useNavigate();
   const projects = useProjects();
   const shown = projects.data?.projects.filter((p) => !p.archived) ?? [];
@@ -31,7 +34,6 @@ function NewSessionRoute() {
     <>
       {project ? (
         <NewSession
-          projects={shown}
           project={project}
           clone={clone}
           agent={agent}

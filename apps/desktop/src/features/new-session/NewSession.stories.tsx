@@ -1,7 +1,6 @@
 import type { CloneInfo } from '@alpine/protocol';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
-import { useState } from 'react';
 
 import { chatScript, PROJECTS } from '@/shared/server';
 
@@ -10,21 +9,14 @@ import { NewSession } from './NewSession';
 const started = fn();
 
 function Example() {
-  const [path, setPath] = useState(PROJECTS[0]!.path);
-  const project = PROJECTS.find((p) => p.path === path) ?? PROJECTS[0]!;
   return (
     <div className="flex h-screen">
-      <NewSession
-        projects={PROJECTS}
-        project={project}
-        onProjectChange={(next) => setPath(next ?? PROJECTS[0]!.path)}
-        onStarted={started}
-      />
+      <NewSession project={PROJECTS[0]!} onProjectChange={fn()} onStarted={started} />
     </div>
   );
 }
 
-/** Boards NewSession and ProjectAdd, without the rail and the right panel. */
+/** Board NewSession, without the rail (which picks the project) and the right panel. */
 const meta = {
   title: 'New session/New session',
   component: Example,
@@ -51,37 +43,6 @@ export const PickingAnAgent: Story = {
   },
 };
 
-export const PickingAProject: Story = {
-  play: async () => {
-    await userEvent.click(await screen.findByRole('button', { name: /alpine-code/ }));
-    await waitFor(() => expect(screen.getByRole('menuitemradio', { name: /docs-site/ })).toBeVisible());
-  },
-};
-
-/** A wrong address is fixed while the dialog is still open. */
-export const GetNotFound: Story = {
-  play: async () => {
-    await userEvent.click(await screen.findByRole('button', { name: /alpine-code/ }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: /프로젝트 추가|Add a project/ }));
-    await userEvent.click(await screen.findByRole('button', { name: /회사·팀 프로젝트 받기|Get a team project/ }));
-    await userEvent.type(await screen.findByLabelText(/저장소 주소|Repository address/), 'owner/fails');
-    await userEvent.click(screen.getByRole('button', { name: /^(받기|Get)$/ }));
-    await waitFor(() => expect(screen.getByRole('alert')).toBeVisible());
-  },
-};
-
-/** A private repository asks for a sign-in in the same dialog. */
-export const GetPrivate: Story = {
-  play: async () => {
-    await userEvent.click(await screen.findByRole('button', { name: /alpine-code/ }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: /프로젝트 추가|Add a project/ }));
-    await userEvent.click(await screen.findByRole('button', { name: /회사·팀 프로젝트 받기|Get a team project/ }));
-    await userEvent.type(await screen.findByLabelText(/저장소 주소|Repository address/), 'acme/private-app');
-    await userEvent.click(screen.getByRole('button', { name: /^(받기|Get)$/ }));
-    await waitFor(() => expect(screen.getByLabelText(/^(아이디|Username)$/)).toBeVisible());
-  },
-};
-
 const RECEIVING: CloneInfo = {
   id: 'c1',
   address: 'acme/booking-web',
@@ -103,7 +64,7 @@ function WhileCloning({ clone }: { clone: CloneInfo }) {
   };
   return (
     <div className="flex h-screen">
-      <NewSession projects={PROJECTS} project={project} clone={clone} onProjectChange={fn()} onStarted={started} />
+      <NewSession project={project} clone={clone} onProjectChange={fn()} onStarted={started} />
     </div>
   );
 }
@@ -130,8 +91,8 @@ export const Sent: Story = {
 const ago = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
 
 /**
- * Conversations Claude Code and Codex had in the project, under the examples. Picking one brings it over and hands
- * over the new session's id.
+ * Conversations other apps had in the project: one line under the suggestions naming the apps, opening the list.
+ * Picking one brings it over and hands over the new session's id.
  */
 export const FromOtherApps: Story = {
   parameters: {
@@ -145,6 +106,7 @@ export const FromOtherApps: Story = {
     }),
   },
   play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /Claude Code·Codex에서 하던 대화 4개 이어 하기/ }));
     await userEvent.click(await screen.findByRole('button', { name: /결제 페이지 휴대폰 화면 정리/ }));
     await waitFor(() => expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/)));
   },

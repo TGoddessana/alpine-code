@@ -35,6 +35,7 @@ export function Composer({
   prefill,
   mode,
   slash,
+  placeholder,
 }: {
   locked?: boolean;
   /** Typing is fine but sending waits, and this line says for what (e.g. a project still being received). */
@@ -54,6 +55,8 @@ export function Composer({
   mode?: { value: Mode; onChange: (mode: Mode) => void };
   /** The skills `/` lists, and where to find more (`useSlashSkills`). */
   slash?: { skills: SlashSkill[]; onFind: () => void };
+  /** What the empty box shows, instead of the usual question (e.g. an example where a heading already asks). */
+  placeholder?: string;
 }) {
   const t = useMessages(messages);
   const [text, setText] = useState('');
@@ -137,7 +140,7 @@ export function Composer({
           rows={2}
           disabled={locked}
           value={text}
-          placeholder={answer?.placeholder ?? t.placeholder}
+          placeholder={answer?.placeholder ?? placeholder ?? t.placeholder}
           onChange={(event) => {
             setText(event.target.value);
             setActive(0);

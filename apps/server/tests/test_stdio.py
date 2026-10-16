@@ -1,5 +1,6 @@
 import io
 import json
+from pathlib import Path
 
 from alpine_protocol import PROTOCOL_VERSION
 from alpine_server.stdio import METHOD_NOT_FOUND, PARSE_ERROR, serve
@@ -31,6 +32,8 @@ def test_notifications_get_no_reply():
 def test_every_protocol_method_has_a_handler():
     from alpine_protocol import METHODS
     from alpine_server.chatgpt import ChatGPTSignIns
+    from alpine_server.clones import Clones
+    from alpine_server.github import GitHubSignIns
     from alpine_server.memory import MemoryMethods
     from alpine_server.sessions import SessionManager
     from alpine_server.stdio import HANDLERS
@@ -40,6 +43,8 @@ def test_every_protocol_method_has_a_handler():
         sessions.handlers()
         | ChatGPTSignIns(lambda params: None).handlers()
         | MemoryMethods(sessions.memories, lambda params: None).handlers()
+        | Clones(lambda params: None).handlers()
+        | GitHubSignIns(lambda params: None).handlers()
     )
     assert set(HANDLERS) | set(async_handlers) == set(METHODS)
 
@@ -79,28 +84,37 @@ def test_connections_and_projects(tmp_path, monkeypatch):
     opened = request("projects/open", {"path": str(tmp_path)})["result"]["project"]
     assert opened["name"] == tmp_path.name
     listed = request("projects/list")["result"]
-    assert [p["path"] for p in listed["projects"]] == [opened["path"]] and listed["cloneParent"]
+    assert [p["path"] for p in listed["projects"]] == [opened["path"]] and listed["clones"] == []
     assert opened["branch"] is None
 
     request("projects/archive", {"path": str(tmp_path)})
     assert request("projects/list")["result"]["projects"][0]["archived"] is True
     assert request("connections/setDefault", {"model": "local/qwen3"})["result"] == {"defaultModel": "local/qwen3"}
     assert request("connections/list")["result"]["defaultModel"] == "local/qwen3"
-    assert request("settings/get")["result"] == {"mode": "default", "reviewModel": None}
+    clone_folder = str(Path.home() / "AlpineCode")
+    assert request("settings/get")["result"] == {"mode": "default", "reviewModel": None, "cloneFolder": clone_folder}
     assert request("settings/setMode", {"mode": "auto"})["result"] == {"mode": "auto"}
     set_reviewer = request("settings/setReviewModel", {"reviewModel": "local/qwen3"})
     assert set_reviewer["result"] == {"reviewModel": "local/qwen3"}
-    assert request("settings/get")["result"] == {"mode": "auto", "reviewModel": "local/qwen3"}
+    assert request("settings/get")["result"] == {
+        "mode": "auto",
+        "reviewModel": "local/qwen3",
+        "cloneFolder": clone_folder,
+    }
+    moved = request("settings/setCloneFolder", {"cloneFolder": str(tmp_path / "repos")})
+    assert moved["result"] == {"cloneFolder": str(tmp_path / "repos")}
+    assert request("settings/setCloneFolder", {"cloneFolder": None})["result"] == {"cloneFolder": clone_folder}
     assert request("settings/setMode", {"mode": "never"})["error"]["code"] == -32602
     assert request("connections/remove", {"connection": "local"})["result"] == {"defaultModel": None}
-    assert request("settings/get")["result"] == {"mode": "auto", "reviewModel": None}  # went with its connection
+    assert request("settings/get")["result"]["reviewModel"] is None  # went with its connection
     assert [c["name"] for c in request("connections/list")["result"]["connections"]] == ["anthropic"]
     assert request("connections/remove", {"connection": "anthropic"})["result"] == {"defaultModel": None}
     assert "anthropic" not in (tmp_path / "home" / "auth.json").read_text()
     assert request("connections/remove", {"connection": "anthropic"})["error"]["code"] == -32602
 
-    failed = request("projects/clone", {"address": str(tmp_path / "nope"), "parent": str(tmp_path)})
-    assert failed["error"]["data"] == {"reason": "clone_failed"}
+    request("settings/setCloneFolder", {"cloneFolder": str(tmp_path / "repos")})
+    failed = request("projects/clone", {"id": "c1", "address": str(tmp_path / "nope")})
+    assert failed["error"]["data"] == {"reason": "no_access"}
 
     assert request("projects/git", {"path": str(tmp_path)})["result"] == {"git": None}
 

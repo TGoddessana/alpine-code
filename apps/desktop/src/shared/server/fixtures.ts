@@ -1,4 +1,5 @@
 import type {
+  CloneInfo,
   ConnectionInfo,
   ConnectionsListResult,
   ProjectInfo,
@@ -111,11 +112,19 @@ interface ScriptState {
 
 /**
  * A server that remembers what the app does to it. Keys starting with `sk-` pass, others are rejected; local
- * addresses answer, others do not; clones of `owner/fails` fail.
+ * addresses answer, others do not. Clones: an address with `fails` is not found, one with `private` needs a sign-in,
+ * one with `nogit` first needs Apple's developer tools, one with `breaks` stops half way; the rest arrive in about
+ * three seconds, announcing their progress.
  */
 export function statefulScript(start: ScriptState): Script {
   let { connections, projects } = start;
-  let settings: SettingsGetResult = { mode: 'default', reviewModel: null };
+  let settings: SettingsGetResult = { mode: 'default', reviewModel: null, cloneFolder: '/Users/me/AlpineCode' };
+  let clones: CloneInfo[] = [];
+  const cloneTimers = new Map<string, ReturnType<typeof setInterval>>();
+  /** Apple's developer tools: missing for `nogit` addresses until the installer "finishes", a moment after it opens. */
+  let gitTools: 'ready' | 'missing' | 'installing' = 'missing';
+  let gitHubLogin: string | null = null;
+  const gitHubSignIns = new Map<string, ReturnType<typeof setTimeout>>();
   const signIns = new Map<string, ReturnType<typeof setTimeout>>();
   /** Models shown or hidden by hand, by connection: `connections/showModel`. */
   const chosen = new Map<string, Map<string, boolean>>();
@@ -233,9 +242,13 @@ export function statefulScript(start: ScriptState): Script {
         settings = { ...settings, reviewModel };
         return { reviewModel };
       },
+      'settings/setCloneFolder': ({ cloneFolder }) => {
+        settings = { ...settings, cloneFolder: cloneFolder ?? '/Users/me/AlpineCode' };
+        return { cloneFolder: settings.cloneFolder };
+      },
       'projects/list': () => ({
         projects: projects.map((p) => ({ ...p, lastAgent: start.agents?.lastAgent.get(p.path) ?? p.lastAgent })),
-        cloneParent: '/Users/me',
+        clones,
       }),
       'projects/open': ({ path }) => {
         const opened = project(path);
@@ -262,23 +275,125 @@ export function statefulScript(start: ScriptState): Script {
         projects = projects.filter((p) => p.path !== path);
         return {};
       },
-      'projects/clone': ({ address, parent }) => {
-        if (address.includes('fails'))
-          throw new ServerError(-32000, "fatal: repository 'https://github.com/owner/fails.git/' not found", {
-            reason: 'clone_failed',
+      'projects/clone': ({ id, address, username }, context) => {
+        if (address.includes('nogit') && gitTools !== 'ready')
+          throw new ServerError(-32000, 'git is not installed', { reason: 'no_git_tools' });
+        if (address.includes('fails') || (address.includes('private') && !username))
+          throw new ServerError(-32000, "fatal: could not read Username for 'https://github.com'", {
+            reason: 'no_access',
           });
-        const opened = project(
-          `${parent}/${address
+        const name =
+          address
             .split('/')
             .pop()
-            ?.replace(/\.git$/, '')}`,
+            ?.replace(/\.git$/, '') ?? 'repository';
+        const path = `${settings.cloneFolder}/${name}`;
+        const known = projects.find((p) => p.path === path);
+        if (known) return { project: known, existing: true };
+        const clone: CloneInfo = { id, address, name, path, state: 'receiving', percent: 0 };
+        clones = [...clones, clone];
+        const changed = (next: CloneInfo, project: ProjectInfo | null = null) => {
+          clones =
+            next.state === 'receiving' || next.state === 'failed'
+              ? clones.map((c) => (c.id === id ? next : c))
+              : clones.filter((c) => c.id !== id);
+          context.emit({ method: 'projects/cloneChanged', params: { clone: next, project } });
+        };
+        let percent = 0;
+        const timer = setInterval(() => {
+          percent += 7;
+          if (address.includes('breaks') && percent > 40) {
+            clearInterval(timer);
+            cloneTimers.delete(id);
+            return changed({
+              ...clone,
+              percent: 42,
+              state: 'failed',
+              reason: 'unreachable',
+              message: 'fatal: early EOF',
+            });
+          }
+          if (percent < 100) return changed({ ...clone, percent, received: percent * 1_200_000 });
+          clearInterval(timer);
+          cloneTimers.delete(id);
+          const opened = project(path);
+          projects = [opened, ...projects];
+          changed({ ...clone, percent: 100, state: 'done' }, opened);
+        }, 200);
+        cloneTimers.set(id, timer);
+        return { clone, existing: false };
+      },
+      'projects/cancelClone': ({ id }, context) => {
+        clearInterval(cloneTimers.get(id));
+        cloneTimers.delete(id);
+        const clone = clones.find((c) => c.id === id);
+        clones = clones.filter((c) => c.id !== id);
+        if (clone)
+          context.emit({ method: 'projects/cloneChanged', params: { clone: { ...clone, state: 'cancelled' } } });
+        return {};
+      },
+      'github/status': () => ({
+        available: true,
+        account: gitHubLogin ? { login: gitHubLogin } : null,
+        accessUrl: 'https://github.com/settings/connections/applications/Iv1.example',
+      }),
+      'github/signIn': (_params, context) => {
+        const attemptId = `gh-${gitHubSignIns.size + 1}`;
+        gitHubSignIns.set(
+          attemptId,
+          setTimeout(() => {
+            gitHubSignIns.delete(attemptId);
+            gitHubLogin = 'you';
+            context.emit({
+              method: 'github/signInFinished',
+              params: { attemptId, result: 'connected', account: { login: 'you' }, message: null },
+            });
+          }, 2500),
         );
-        projects = [opened, ...projects];
-        return { project: opened };
+        return { attemptId, userCode: 'WDJB-MJHT', verificationUri: 'https://github.com/login/device' };
+      },
+      'github/cancelSignIn': ({ attemptId }, context) => {
+        clearTimeout(gitHubSignIns.get(attemptId));
+        gitHubSignIns.delete(attemptId);
+        context.emit({ method: 'github/signInFinished', params: { attemptId, result: 'cancelled' } });
+        return {};
+      },
+      'github/signOut': () => {
+        gitHubLogin = null;
+        return {};
+      },
+      'github/repos': () => {
+        if (!gitHubLogin) throw new ServerError(-32000, 'Not signed in to GitHub', { reason: 'auth' });
+        return { repositories: GITHUB_REPOS };
+      },
+      'projects/gitTools': () => ({ ready: gitTools === 'ready', installable: true }),
+      'projects/installGitTools': () => {
+        gitTools = 'installing';
+        setTimeout(() => (gitTools = 'ready'), 4000);
+        return {};
       },
     },
   };
 }
+
+const ago = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+
+/** What a GitHub sign-in sees in the scripted server: a company's repositories and the user's own. */
+const GITHUB_REPOS = [
+  ['acme-corp/booking-web', true, 0.2, '예약 웹사이트'],
+  ['acme-corp/admin', true, 2, '사내 관리자 화면'],
+  ['acme-corp/design-system', true, 6, null],
+  ['you/blog', false, 9, '개인 블로그'],
+  ['acme-corp/landing', true, 21, null],
+  ['you/dotfiles', false, 40, null],
+  ['acme-corp/legacy-api', true, 200, null],
+].map(([fullName, isPrivate, days, description]) => ({
+  fullName: fullName as string,
+  cloneUrl: `https://github.com/${fullName as string}.git`,
+  private: isPrivate as boolean,
+  pushedAt: ago(days as number),
+  description: description as string | null,
+}));
 
 /** A first run: nothing connected, no projects. */
 export const firstRunScript = (chatgpt: ScriptState['chatgpt'] = 'connected') =>

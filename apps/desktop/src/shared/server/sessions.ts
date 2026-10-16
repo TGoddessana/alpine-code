@@ -1,5 +1,7 @@
 import type {
+  ExternalSessionInfo,
   SessionAnswerParams,
+  SessionImportParams,
   SessionInfo,
   SessionNewParams,
   SessionSendParams,
@@ -50,6 +52,33 @@ export function useNewSession() {
   return useMutation({
     mutationFn: async (params: SessionNewParams) => (await server.request('session/new', params)).info,
     onSuccess: (info) => upsertSession(client, info),
+  });
+}
+
+/**
+ * The conversations Claude Code and Codex had in a folder (or a folder inside it), most recently changed first. Read
+ * from their files each time the folder is shown, since they change outside the app.
+ */
+export function useImportableSessions(cwd: string) {
+  const server = useServer();
+  return useQuery({
+    queryKey: ['importable', cwd],
+    queryFn: async (): Promise<ExternalSessionInfo[]> => (await server.request('session/importable', { cwd })).sessions,
+    staleTime: 0,
+    retry: false,
+  });
+}
+
+/** Carries another app's conversation over as a new session of the folder. Resolves with its `SessionInfo`. */
+export function useImportSession() {
+  const server = useServer();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: SessionImportParams) => (await server.request('session/import', params)).info,
+    onSuccess: (info) => {
+      upsertSession(client, info);
+      void client.invalidateQueries({ queryKey: ['importable', info.cwd] });
+    },
   });
 }
 

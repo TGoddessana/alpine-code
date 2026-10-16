@@ -25,6 +25,7 @@ import { SlashMenu, matchSkills, slashQuery, type SlashSkill } from './SlashMenu
  */
 export function Composer({
   locked = false,
+  waiting,
   running = false,
   agent,
   bar,
@@ -34,8 +35,11 @@ export function Composer({
   prefill,
   mode,
   slash,
+  placeholder,
 }: {
   locked?: boolean;
+  /** Typing is fine but sending waits, and this line says for what (e.g. a project still being received). */
+  waiting?: string;
   running?: boolean;
   /** The agent chip, first in the bar. */
   agent?: ReactNode;
@@ -51,6 +55,8 @@ export function Composer({
   mode?: { value: Mode; onChange: (mode: Mode) => void };
   /** The skills `/` lists, and where to find more (`useSlashSkills`). */
   slash?: { skills: SlashSkill[]; onFind: () => void };
+  /** What the empty box shows, instead of the usual question (e.g. an example where a heading already asks). */
+  placeholder?: string;
 }) {
   const t = useMessages(messages);
   const [text, setText] = useState('');
@@ -103,7 +109,7 @@ export function Composer({
   }, [stoppable]);
 
   const send = async () => {
-    if (!text.trim() || (running && !answer) || sending.current) return;
+    if (!text.trim() || (running && !answer) || waiting || sending.current) return;
     if (!connected && !answer) return ask();
     sending.current = true;
     setPending(true);
@@ -134,7 +140,7 @@ export function Composer({
           rows={2}
           disabled={locked}
           value={text}
-          placeholder={answer?.placeholder ?? t.placeholder}
+          placeholder={answer?.placeholder ?? placeholder ?? t.placeholder}
           onChange={(event) => {
             setText(event.target.value);
             setActive(0);
@@ -189,7 +195,7 @@ export function Composer({
             ) : (
               <button
                 type="button"
-                disabled={locked || pending || !text.trim()}
+                disabled={locked || !!waiting || pending || !text.trim()}
                 onClick={() => void send()}
                 aria-label={t.send}
                 title={t.send}
@@ -201,9 +207,9 @@ export function Composer({
           </span>
         </div>
       </div>
-      {(error || (running && !answer)) && (
+      {(error || (running && !answer) || waiting) && (
         <p role={error ? 'alert' : undefined} className="px-1 text-meta text-fg-muted">
-          {error ?? t.working}
+          {error ?? (running && !answer ? t.working : waiting)}
         </p>
       )}
     </div>

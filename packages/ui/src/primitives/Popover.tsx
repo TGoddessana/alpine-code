@@ -13,7 +13,7 @@ interface PopupProps {
 function Popup({ side = 'bottom', align = 'start', className, children }: PopupProps) {
   return (
     <BasePopover.Portal>
-      <BasePopover.Positioner side={side} align={align} sideOffset={8} className="outline-none">
+      <BasePopover.Positioner side={side} align={align} sideOffset={8} className="z-50 outline-none">
         <BasePopover.Popup
           className={clsx(
             'flex flex-col gap-3 rounded-xl border border-line bg-canvas-raised p-4 text-fg shadow-overlay outline-none',

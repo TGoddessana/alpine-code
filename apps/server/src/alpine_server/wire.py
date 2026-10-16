@@ -11,11 +11,11 @@ from alpine_core import SessionInfo as CoreInfo
 from alpine_protocol import SessionEvent, SessionEventParams, SessionInfo
 
 _EVENT = TypeAdapter(SessionEvent)
-_CORE_ONLY = {"last_seq", "agent_applied"}
+_CORE_ONLY = {"last_seq", "agent_applied", "imported_from"}
 
 
 def to_info(info: CoreInfo | dict[str, Any]) -> SessionInfo:
-    """A session's info, without the core's ``last_seq`` and ``agent_applied``."""
+    """A session's info, without the core-only fields (``last_seq``, ``agent_applied``, ``imported_from``)."""
     data = info if isinstance(info, dict) else info.to_dict()
     return SessionInfo.model_validate({key: value for key, value in data.items() if key not in _CORE_ONLY})
 

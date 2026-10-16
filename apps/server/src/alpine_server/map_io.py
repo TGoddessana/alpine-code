@@ -14,11 +14,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from alpine_core import home_dir
+from alpine_core.memory import project_key
 
 from .methods import APP_ERROR, MethodError
 
 LIMIT = 2 * 1024 * 1024
-MAP_DIR = ".alpine/map"
+MAP_DIR = ".alpine-code/map"
 # One lock serializes map work per process (handlers, the background replay runner).
 lock = threading.RLock()
 
@@ -78,11 +79,11 @@ def lpath(root: Path, relative: str) -> Path:
 
 
 def guard(path: Path) -> None:
-    """Refuses a write when any part of the path from ``.alpine`` down is a symlink."""
+    """Refuses a write when any part of the path from ``.alpine-code`` down is a symlink."""
     parts = path.parts
-    if ".alpine" not in parts:
+    if ".alpine-code" not in parts:
         return
-    for end in range(parts.index(".alpine") + 1, len(parts) + 1):
+    for end in range(parts.index(".alpine-code") + 1, len(parts) + 1):
         if Path(*parts[:end]).is_symlink():
             raise MethodError(APP_ERROR, "Product map files cannot be links", "invalid_flow_path")
 
@@ -170,7 +171,7 @@ def parse_time(value: str | None) -> float | None:
 
 def local_dir(root: Path) -> Path:
     """Where this computer keeps what must not travel with the project (witness, approvals, replays, ...)."""
-    return home_dir() / "product-map" / sha(str(root))
+    return home_dir() / "projects" / project_key(root) / "product-map"
 
 
 def image(root: Path, relative: str, budget: int) -> tuple[str, int] | None:

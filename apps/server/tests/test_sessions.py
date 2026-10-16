@@ -411,7 +411,7 @@ def test_memory_from_suggestion_to_approval(folder, monkeypatch):
 
             approved = (await client.call("memory/approve", cwd=str(folder), suggestionId=pending["id"]))["result"]
             assert approved["memory"]["id"] == "ui-tone"
-            assert (folder / ".alpine" / "memory" / "ui-tone.md").exists()
+            assert (folder / ".alpine-code" / "memory" / "ui-tone.md").exists()
             notices = [
                 e["event"]["item"]
                 for e in client.events(sid, "item_completed")
@@ -620,7 +620,9 @@ def test_product_map_discovery_uses_the_real_session_tools_and_survives_reopen(f
     }
     (folder / "hello.py").write_text("def hello(): return 'Hello'\n")
     fake_model(
-        monkeypatch, tool_call("write", path=".alpine/map/features/hello.json", content=json.dumps(card)), "Mapped."
+        monkeypatch,
+        tool_call("write", path=".alpine-code/map/features/hello.json", content=json.dumps(card)),
+        "Mapped.",
     )
 
     async def scenario():
@@ -646,5 +648,64 @@ def test_product_map_discovery_uses_the_real_session_tools_and_survives_reopen(f
             opened = (await client.call("session/open", sessionId=sid))["result"]
             assert opened["info"]["title"] == "Map existing features"
             assert any(i["kind"] == "tool_call" and i["name"] == "write" for i in opened["items"])
+
+    run(scenario())
+
+
+def test_a_codex_conversation_is_carried_over_and_continued(folder, tmp_path, monkeypatch):
+    codex = tmp_path / "codex"
+    monkeypatch.setenv("CODEX_HOME", str(codex))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    rollout = codex / "sessions" / "2026" / "10" / "01" / "rollout-2026-10-01T00-00-00-t1.jsonl"
+    rollout.parent.mkdir(parents=True)
+
+    def line(kind, payload):
+        return json.dumps({"timestamp": "2026-10-01T00:00:00Z", "type": kind, "payload": payload}) + "\n"
+
+    def message(role, text):
+        kind = "output_text" if role == "assistant" else "input_text"
+        return line("response_item", {"type": "message", "role": role, "content": [{"type": kind, "text": text}]})
+
+    rollout.write_text(
+        line("session_meta", {"id": "t1", "cwd": str(folder), "source": "cli", "cli_version": "0.160.0"})
+        + message("user", "Make the button blue")
+        + line(
+            "response_item",
+            {"type": "function_call", "name": "exec_command", "arguments": '{"cmd":"ls"}', "call_id": "c1"},
+        )
+        + line("response_item", {"type": "function_call_output", "call_id": "c1", "output": "app.css"})
+        + message("assistant", "It is blue now.")
+    )
+    seen = []
+
+    def reply(request):
+        seen.append(request.messages)
+        return "Green too."
+
+    fake_model(monkeypatch, reply)
+
+    async def scenario():
+        async with Client([]) as client:
+            [found] = (await client.call("session/importable", cwd=str(folder)))["result"]["sessions"]
+            assert (found["source"], found["id"], found["title"], found["imported"]) == (
+                "codex",
+                "t1",
+                "Make the button blue",
+                None,
+            )
+            info = (await client.call("session/import", cwd=str(folder), source="codex", id="t1"))["result"]["info"]
+            sid = info["id"]
+            assert info["title"] == "Make the button blue" and "importedFrom" not in info
+            opened = (await client.call("session/open", sessionId=sid))["result"]
+            assert [i["kind"] for i in opened["items"]] == ["user_message", "tool_call", "agent_message", "imported"]
+            assert opened["items"][1]["status"] == "done" and opened["items"][1]["result"] == "app.css"
+            await client.call("session/send", sessionId=sid, text="And green?")
+            await client.status(sid, "idle")
+            [messages] = seen
+            assert messages[0].text == "Make the button blue" and messages[-1].text == "And green?"
+            [again] = (await client.call("session/importable", cwd=str(folder)))["result"]["sessions"]
+            assert again["imported"] == sid
+            missing = await client.call("session/import", cwd=str(folder), source="codex", id="nope")
+            assert missing["error"]["data"]["reason"] == "not_found"
 
     run(scenario())

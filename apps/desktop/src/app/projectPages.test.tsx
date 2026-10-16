@@ -22,9 +22,13 @@ const q = (path: string) => `?project=${encodeURIComponent(path)}`;
 function mount(path: string, projects = PROJECTS) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const connection = scriptedConnection(
-    mergeScripts(setUpScript(), flowScript(() => EXAMPLE_MAP), {
-      results: { 'projects/list': { projects, cloneParent: '/Users/me' } },
-    }),
+    mergeScripts(
+      setUpScript(),
+      flowScript(() => EXAMPLE_MAP),
+      {
+        results: { 'projects/list': { projects, clones: [] } },
+      },
+    ),
   );
   const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [path] }) });
   render(
@@ -70,7 +74,9 @@ describe('project pages in the rail', () => {
   it('marks 지도 on the board', async () => {
     mount('/board' + q(cwd));
     const pages = await screen.findByRole('navigation', { name: 'alpine-code 화면' });
-    await waitFor(() => expect(within(pages).getByRole('link', { name: '지도' }).getAttribute('aria-current')).toBe('page'));
+    await waitFor(() =>
+      expect(within(pages).getByRole('link', { name: '지도' }).getAttribute('aria-current')).toBe('page'),
+    );
   });
 
   it('no longer offers 기억 열기 in the project menu', async () => {
@@ -107,7 +113,10 @@ describe('page tabs in the top bar', () => {
   });
 
   it('are hidden for an archived project', async () => {
-    mount('/board' + q(cwd), PROJECTS.map((p) => (p.path === cwd ? { ...p, archived: true } : p)));
+    mount(
+      '/board' + q(cwd),
+      PROJECTS.map((p) => (p.path === cwd ? { ...p, archived: true } : p)),
+    );
     expect(await screen.findByText(cwd)).toBeTruthy();
     expect(screen.queryByRole('navigation', { name: '프로젝트 화면' })).toBeNull();
   });

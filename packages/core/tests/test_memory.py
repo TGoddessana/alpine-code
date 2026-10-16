@@ -54,19 +54,19 @@ def test_store_writes_a_file_per_memory_and_an_index(project, home):
     store = MarkdownStore(project, home)
     stored = store.put(Memory("ui-tone", "rule", "team", "화면 문구는 해요체로 쓴다", "이유: 두 번 고쳐 말함."))
 
-    assert stored.path == project / ".alpine" / "memory" / "ui-tone.md"
+    assert stored.path == project / ".alpine-code" / "memory" / "ui-tone.md"
     assert stored.path.read_text() == "---\nkind: rule\n---\n# 화면 문구는 해요체로 쓴다\n\n이유: 두 번 고쳐 말함.\n"
-    index = (project / ".alpine" / "memory" / "index.md").read_text()
+    index = (project / ".alpine-code" / "memory" / "index.md").read_text()
     assert "- rule: 화면 문구는 해요체로 쓴다 → [ui-tone.md](ui-tone.md)" in index
     assert store.list("team") == [stored]
 
     store.remove("team", "ui-tone")
     assert store.list("team") == []
-    assert not (project / ".alpine" / "memory" / "index.md").exists()
+    assert not (project / ".alpine-code" / "memory" / "index.md").exists()
 
 
 def test_store_reads_a_file_written_by_hand(project, home):
-    folder = project / ".alpine" / "memory"
+    folder = project / ".alpine-code" / "memory"
     folder.mkdir(parents=True)
     (folder / "deploy.md").write_text("배포는 Vercel에서 한다\n\nmain에 push하면 배포됨.\n")
     (folder / "empty.md").write_text("\n")
@@ -104,8 +104,8 @@ def test_recall_puts_an_index_line_per_memory_by_scope(memory, project):
 
     block = memory.system_block()
     team = block.index("## Team")
-    assert block.index("- rule: 화면 문구는 해요체로 쓴다 (.alpine/memory/ui-tone.md)", team) < block.index(
-        "- fact: 배포는 Vercel (.alpine/memory/deploy.md)", team
+    assert block.index("- rule: 화면 문구는 해요체로 쓴다 (.alpine-code/memory/ui-tone.md)", team) < block.index(
+        "- fact: 배포는 Vercel (.alpine-code/memory/deploy.md)", team
     )
     assert block.index("## This user, every project") > team
     assert "- user: 설명은 쉬운 말로 (" in block
@@ -262,7 +262,7 @@ def test_every_part_can_be_replaced(project, home):
     kept = memory.inbox.approve(propose(memory, "화면 문구는 해요체로 쓴다").id)
 
     assert store.items == {("team", "ui-tone"): kept}
-    assert not (project / ".alpine").exists()
+    assert not (project / ".alpine-code").exists()
     assert memory.system_block() == "화면 문구는 해요체로 쓴다: 이유: 사용자가 고쳐 말함."
     assert memory.tools() == ["search"]
 
@@ -310,7 +310,7 @@ def test_a_session_gets_the_memory_in_its_prompt_and_the_tool(project, home, mon
     memories.of(project).store.put(Memory("ui-tone", "rule", "team", "화면 문구는 해요체로 쓴다", ""))
     session = memory_session(project, monkeypatch, memories)
 
-    assert "- rule: 화면 문구는 해요체로 쓴다 (.alpine/memory/ui-tone.md)" in session._agent.system
+    assert "- rule: 화면 문구는 해요체로 쓴다 (.alpine-code/memory/ui-tone.md)" in session._agent.system
     assert "propose_memory" in session._agent.tool_map
 
 
@@ -339,7 +339,7 @@ def test_an_approved_memory_reaches_an_open_session_as_a_notice(project, home, m
     assert notice.source == "memory_added"
     assert (
         notice.text
-        == "The user approved a new memory (team):\n- rule: 화면 문구는 해요체로 쓴다 (.alpine/memory/ui-tone.md)"
+        == "The user approved a new memory (team):\n- rule: 화면 문구는 해요체로 쓴다 (.alpine-code/memory/ui-tone.md)"
     )
     assert session._state.messages[-1].is_notice
     assert "# Memory" not in session._agent.system  # the prompt stays as it started

@@ -100,7 +100,7 @@ is one more client. [CONTRIBUTING.md](CONTRIBUTING.md) shows how the repository 
 ## Get started
 
 1. **Download** Alpine Code from the [latest release](https://github.com/TGoddessana/alpine-code/releases/latest)
-   (the `.dmg` file), open it and drag Alpine Code into Applications.
+   (the `.dmg` file), open it and drag AlpineCode into Applications.
 2. **Connect a model.** Alpine Code asks the first time you open it.
 3. **Open a folder** and say what you'd like to do.
 

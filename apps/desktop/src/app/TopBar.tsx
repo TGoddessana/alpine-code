@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, GitBranch, PanelLeft } from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import { DockToggle } from '@/features/dock/Dock';
+import { useCurrentProject } from '@/features/rail/currentProject';
 import { useWorkResult } from '@/features/work-result/useWorkResult';
 import { StatusWord } from '@/shared/components/status';
 import { useMessages } from '@/shared/i18n';
@@ -16,7 +17,8 @@ const iconButton =
 /**
  * The one line over the whole window: room for the traffic lights, the sidebar button, back and forward, then for a
  * session where it runs (project, branch) and its state (on the product map, the project), and at the far end the dock button. The bar and its
- * empty parts drag the window; the buttons never do.
+ * empty parts drag the window; the buttons never do. On a new session the project is named only while the rail, which
+ * names it otherwise, is hidden.
  */
 export function TopBar({ railOpen, onToggleRail }: { railOpen: boolean; onToggleRail: () => void }) {
   const t = useMessages(messages);
@@ -24,6 +26,7 @@ export function TopBar({ railOpen, onToggleRail }: { railOpen: boolean; onToggle
   const match = useMatch({ from: '/session/$sessionId', shouldThrow: false });
   const board = useMatch({ from: '/board', shouldThrow: false });
   const memory = useMatch({ from: '/memory', shouldThrow: false });
+  const start = useMatch({ from: '/', shouldThrow: false });
   return (
     <div data-tauri-drag-region className="flex h-11.5 shrink-0 items-center gap-1 bg-canvas-sunken pr-3 pl-20">
       <button
@@ -47,6 +50,8 @@ export function TopBar({ railOpen, onToggleRail }: { railOpen: boolean; onToggle
         <BoardPart project={board.search.project} sessionId={board.search.session ?? null} />
       ) : memory ? (
         <ProjectPages project={memory.search.project} current="memory" />
+      ) : start && !railOpen ? (
+        <NewSessionPart />
       ) : (
         <span data-tauri-drag-region className="grow self-stretch" />
       )}
@@ -121,6 +126,23 @@ function BoardPart({ project, sessionId }: { project?: string; sessionId: string
   );
 }
 
+/** The project a new session starts in. */
+function NewSessionPart() {
+  const projects = useProjects().data;
+  const current = useCurrentProject();
+  const name =
+    [...(projects?.projects ?? []), ...(projects?.clones ?? [])].find((p) => p.path === current)?.name ?? null;
+  return (
+    <Drag className="ml-3 gap-2">
+      {name && (
+        <span className="truncate text-body font-medium" title={current ?? undefined}>
+          {name}
+        </span>
+      )}
+    </Drag>
+  );
+}
+
 /** The project name and its page tabs, on a page with no dock (the memory). */
 function ProjectPages({ project, current }: { project?: string; current: 'map' | 'memory' }) {
   const projects = useProjects();
@@ -141,7 +163,8 @@ function ProjectPages({ project, current }: { project?: string; current: 'map' |
 /** Map | Memory of one project. They navigate, so they are links (the current one aria-current), not tabs. */
 function PageTabs({ project, current }: { project?: string; current: 'map' | 'memory' }) {
   const t = useMessages(messages);
-  const tab = 'rounded-md px-2 py-0.5 text-meta text-fg-muted hover:text-fg aria-[current=page]:bg-canvas-raised aria-[current=page]:font-medium aria-[current=page]:text-fg aria-[current=page]:shadow-sm';
+  const tab =
+    'rounded-md px-2 py-0.5 text-meta text-fg-muted hover:text-fg aria-[current=page]:bg-canvas-raised aria-[current=page]:font-medium aria-[current=page]:text-fg aria-[current=page]:shadow-sm';
   return (
     <nav aria-label={t.pages} className="ml-1 flex shrink-0 items-center gap-0.5 rounded-lg bg-hover p-0.5">
       <Link to="/board" search={{ project }} className={tab} aria-current={current === 'map' ? 'page' : undefined}>

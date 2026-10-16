@@ -75,6 +75,8 @@ class ErrorData(Message):
         "invalid_config",
         "exists",
         "clone_failed",
+        "no_access",
+        "no_git_tools",
         "invalid_name",
         "package_not_approved",
         "install_failed",
@@ -99,6 +101,7 @@ class ErrorData(Message):
         "bad_name",
         "not_owned",
         "invalid",
+        "import_failed",
     ]
     """Skills: ``unknown_source`` (not a link, path or ``owner/repo``), ``offline`` (the source cannot be reached),
     ``too_big``, ``bad_archive`` (a damaged or unsafe archive), ``no_skills`` (nothing there, or not the one named),
@@ -107,15 +110,19 @@ class ErrorData(Message):
 
     ``auth``: the key is missing or rejected. ``unreachable``: no answer from the address. ``unsupported``: the
     server does not list its models, so the model name has to be typed. ``not_a_folder``: the path is not a folder.
-    ``invalid_config``: config.toml cannot be read; the message says where. ``exists``: the clone's folder is already
-    there. ``clone_failed``: git could not clone; the message is git's. ``invalid_name``: a tool file name is not
-lowercase letters, digits and ``_``. ``package_not_approved``: a tool needs a package nobody approved.
+    ``invalid_config``: config.toml cannot be read; the message says where. ``exists``: a skill with that name is
+    already there. ``no_access``: git found no repository there that this computer may see (a wrong address, or a
+    sign-in needed; hosts answer both the same way). ``no_git_tools``: git is not installed (on macOS, Apple's command
+    line developer tools). ``clone_failed``: git could not clone otherwise; the message is git's.
+``invalid_name``: a tool file name is not lowercase letters, digits and ``_``. ``package_not_approved``: a tool
+needs a package nobody approved.
 ``install_failed``: a package did not install. ``name_taken``: a tool name is already used. ``agent_not_found``:
 no agent has the id. ``model_failed``: the model call behind a draft failed.
-``not_found``: the memory suggestion was already approved or declined. ``memory_full``: the scope filled up since the
-suggestion was made; the message says how full. ``map_read_only``: the product map was written by a newer
-Alpine, so this one does not write it. ``reason_required``: 안 고침 needs a one-line reason.
-``replay_changed``: the re-run command changed after the user saw it."""
+``not_found``: the memory suggestion was already approved or declined, or the other app's conversation to carry
+over is gone. ``import_failed``: that conversation could not be read or has nothing to carry over.
+``memory_full``: the scope filled up since the suggestion was made; the message says how full. ``map_read_only``:
+the product map was written by a newer Alpine, so this one does not write it. ``reason_required``: 안 고침 needs a
+one-line reason. ``replay_changed``: the re-run command changed after the user saw it."""
 
 
 # Model connections: where models come from. Keys are write-only; the app never reads one back.
@@ -244,6 +251,8 @@ class SettingsGetResult(Message):
     """The permission mode new sessions start with (config.toml ``mode``)."""
     review_model: str | None = None
     """``<connection>/<model>`` of auto mode's reviewer in new sessions; ``None``: each session's own model."""
+    clone_folder: str
+    """Where the app puts the repositories it clones (config.toml ``clone_folder``, else ``~/AlpineCode``)."""
 
 
 class SettingsSetModeParams(Message):
@@ -261,6 +270,15 @@ class SettingsSetReviewModelParams(Message):
 
 class SettingsSetReviewModelResult(Message):
     review_model: str | None
+
+
+class SettingsSetCloneFolderParams(Message):
+    clone_folder: str | None
+    """``None``: back to ``~/AlpineCode``."""
+
+
+class SettingsSetCloneFolderResult(Message):
+    clone_folder: str
 
 
 # ChatGPT: a connection that signs in with the user's ChatGPT account and runs on their plan.
@@ -314,6 +332,80 @@ class ChatGPTSignInFinishedParams(Message):
     """With ``failed``: what went wrong, in English."""
 
 
+# GitHub: a sign-in for the clone dialog (the user's repositories, and a token git can use). The device flow shows a
+# code the user enters on github.com; the server polls and announces the end with github/signInFinished.
+
+
+class GitHubAccountInfo(Message):
+    login: str
+
+
+class GitHubStatusParams(Message):
+    pass
+
+
+class GitHubStatusResult(Message):
+    available: bool
+    """This build knows its GitHub app (a client id); without one, GitHub sign-in is not offered."""
+    account: GitHubAccountInfo | None
+    access_url: str
+    """GitHub's page for AlpineCode's access: revoke it, or ask an organization to allow it."""
+
+
+class GitHubSignInParams(Message):
+    """Starts a sign-in, cancelling one still waiting. The app shows ``user_code`` and opens ``verification_uri``."""
+
+
+class GitHubSignInResult(Message):
+    attempt_id: str
+    user_code: str
+    verification_uri: str
+
+
+class GitHubCancelSignInParams(Message):
+    attempt_id: str
+
+
+class GitHubCancelSignInResult(Message):
+    pass
+
+
+class GitHubSignInFinishedParams(Message):
+    """The end of a sign-in, whichever way it ended."""
+
+    attempt_id: str
+    result: Literal["connected", "declined", "cancelled", "timed_out", "failed"]
+    account: GitHubAccountInfo | None = None
+    message: str | None = None
+    """With ``failed``: what went wrong, in English."""
+
+
+class GitHubSignOutParams(Message):
+    """Forgets the sign-in here. GitHub keeps the grant until the user revokes it at ``access_url``."""
+
+
+class GitHubSignOutResult(Message):
+    pass
+
+
+class GitHubRepository(Message):
+    full_name: str
+    """``owner/name``."""
+    clone_url: str
+    private: bool
+    pushed_at: str | None
+    description: str | None
+
+
+class GitHubReposParams(Message):
+    """The repositories the sign-in can see, the most recently pushed first. Fails with ``auth`` when signed out (or
+    GitHub no longer accepts the token, which is then forgotten) and ``unreachable`` when GitHub cannot be reached."""
+
+
+class GitHubReposResult(Message):
+    repositories: list[GitHubRepository]
+
+
 # Projects: folders the user works in
 
 
@@ -332,11 +424,33 @@ class ProjectsListParams(Message):
     pass
 
 
+class CloneInfo(Message):
+    """A repository being brought to this computer, or one that stopped before it got here."""
+
+    id: str
+    """The one the app gave in ``projects/clone``."""
+    address: str
+    name: str
+    """The folder's name, which becomes the project's."""
+    path: str
+    """Where it goes."""
+    state: Literal["receiving", "failed", "done", "cancelled"]
+    """``done`` and ``cancelled`` are only ever announced: the clone then leaves ``projects/list``."""
+    percent: int
+    """0 to 100 over the whole clone."""
+    received: int | None = None
+    """Bytes received so far, while git says."""
+    reason: Literal["no_access", "unreachable", "clone_failed"] | None = None
+    """With ``failed``: as in ``ErrorData``."""
+    message: str | None = None
+    """With ``failed``: git's own last line, in English."""
+
+
 class ProjectsListResult(Message):
     projects: list[ProjectInfo]
     """The most recently used first."""
-    clone_parent: str
-    """Where a clone goes unless the user picks another folder."""
+    clones: list[CloneInfo]
+    """Clones receiving, and failed ones the user has not dismissed; the oldest first."""
 
 
 class ProjectsOpenParams(Message):
@@ -368,15 +482,65 @@ class ProjectsDeleteResult(Message):
 
 
 class ProjectsCloneParams(Message):
-    """Clones into ``parent/<repo name>`` and opens it. Blocks until git is done."""
+    """Brings a repository into the clone folder and opens it as a project.
 
+    Answers once the host has answered: with ``project`` when the repository is already here (a project with the same
+    ``origin``, or the same repository in the clone folder) or the clone already finished, else with ``clone``, which
+    goes on in the background and announces itself through ``projects/cloneChanged``. A wrong address or a missing
+    sign-in fails the request itself (``no_access``, ``unreachable``, ``no_git_tools``, ``clone_failed``), so the app
+    can ask again before anything shows on the rail.
+    """
+
+    id: str
+    """Chosen by the app, so it can cancel the clone before this request answers."""
     address: str
     """A URL, ``git@...``, or GitHub's ``owner/repo``."""
-    parent: str
+    username: str | None = None
+    password: str | None = None
+    """An HTTPS sign-in, given to git only; the macOS keychain keeps it when the clone succeeds."""
 
 
 class ProjectsCloneResult(Message):
-    project: ProjectInfo
+    project: ProjectInfo | None = None
+    existing: bool = False
+    """``project`` was already here; nothing was cloned."""
+    clone: CloneInfo | None = None
+
+
+class ProjectsCancelCloneParams(Message):
+    """Stops a clone and removes what it wrote, or dismisses a failed one. Does nothing for an unknown id."""
+
+    id: str
+
+
+class ProjectsCancelCloneResult(Message):
+    pass
+
+
+class ProjectsCloneChangedParams(Message):
+    """A clone moved on: more received, or it finished (``done``, with ``project``), failed or was cancelled."""
+
+    clone: CloneInfo
+    project: ProjectInfo | None = None
+
+
+class ProjectsGitToolsParams(Message):
+    pass
+
+
+class ProjectsGitToolsResult(Message):
+    ready: bool
+    """git can run. On macOS it needs Apple's command line developer tools."""
+    installable: bool
+    """``projects/installGitTools`` can open an installer here (macOS)."""
+
+
+class ProjectsInstallGitToolsParams(Message):
+    """Opens Apple's installer for the command line developer tools. ``projects/gitTools`` says when it is done."""
+
+
+class ProjectsInstallGitToolsResult(Message):
+    pass
 
 
 class PullRequestInfo(Message):
@@ -624,7 +788,7 @@ class AgentsDeleteResult(Message):
 SkillOrigin = Literal["project", "alpine", "agents", "claude", "codex"]
 """``alpine``: installed or made in Alpine, which may change and delete it. ``agents``, ``claude``, ``codex``: kept by
 another app in ``~/.agents/skills``, ``~/.claude/skills`` or ``~/.codex/skills``, used where it is. ``project``: in
-the project's own ``.agents/skills``, ``.alpine/skills`` or ``.claude/skills``."""
+the project's own ``.agents/skills``, ``.alpine-code/skills`` or ``.claude/skills``."""
 
 
 class SkillInfo(Message):
@@ -933,6 +1097,17 @@ class AgentChangedItem(ItemModel):
     """The model the agent switched to; ``None`` if it did not."""
 
 
+ImportSource = Literal["claude_code", "codex"]
+
+
+class ImportedItem(ItemModel):
+    """Where a conversation carried over from another app ends; the session goes on from here."""
+
+    id: str
+    kind: Literal["imported"] = "imported"
+    source: ImportSource
+
+
 Item = Annotated[
     UserMessageItem
     | AgentMessageItem
@@ -945,7 +1120,8 @@ Item = Annotated[
     | CompactionItem
     | RunStoppedItem
     | AgentSwitchedItem
-    | AgentChangedItem,
+    | AgentChangedItem
+    | ImportedItem,
     Field(discriminator="kind"),
 ]
 
@@ -1057,6 +1233,42 @@ class SessionDeleteParams(Message):
 
 class SessionDeleteResult(Message):
     pass
+
+
+class ExternalSessionInfo(Message):
+    """A conversation Claude Code or Codex had in the folder, which can be carried over and continued here."""
+
+    source: ImportSource
+    id: str
+    """The other app's id for it."""
+    title: str
+    updated_at: datetime
+    """When the other app last wrote to it."""
+    imported: str | None
+    """The session it was already carried over as, while the other app has not added to it since; ``None``
+    otherwise."""
+
+
+class SessionImportableParams(Message):
+    cwd: str
+
+
+class SessionImportableResult(Message):
+    sessions: list[ExternalSessionInfo]
+    """The other apps' conversations in the folder or a folder inside it, most recently changed first."""
+
+
+class SessionImportParams(Message):
+    """Carries a conversation over as a new session of ``cwd``; its earlier messages, tool calls and results come
+    with it, and the next message continues it."""
+
+    cwd: str
+    source: ImportSource
+    id: str
+
+
+class SessionImportResult(Message):
+    info: SessionInfo
 
 
 # session/event: the one notification, server -> app
@@ -1222,8 +1434,8 @@ class MemoryChangedParams(Message):
 # Product map: a project-owned document, readable and editable by the coding agent.
 
 
-# Layout (docs/map-upkeep.md, decision 7): `.alpine/map/map.json` (MapFile), `features/<id>.json` (FeatureFile),
-# `flows/<id>.json` (FlowFile) are written by the agent. `.alpine/map/state/` is written only by Alpine. The server
+# Layout (docs/map-upkeep.md, decision 7): `.alpine-code/map/map.json` (MapFile), `features/<id>.json` (FeatureFile),
+# `flows/<id>.json` (FlowFile) are written by the agent. `.alpine-code/map/state/` is written only by Alpine. The server
 # assembles them into one ProductMap for the app.
 
 
@@ -1337,7 +1549,7 @@ class FlowCheck(Message):
 
 
 class FeatureFile(Message):
-    """``.alpine/map/features/<id>.json``: one card, written by the agent."""
+    """``.alpine-code/map/features/<id>.json``: one card, written by the agent."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -1415,7 +1627,7 @@ class ProductFlow(Message):
 
 
 class FlowFile(ProductFlow):
-    """``.alpine/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent."""
+    """``.alpine-code/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent."""
 
 
 class UnmappedPart(Message):
@@ -1432,7 +1644,7 @@ class UnmappedPart(Message):
 
 
 class MapFile(Message):
-    """``.alpine/map/map.json``, written by the agent."""
+    """``.alpine-code/map/map.json``, written by the agent."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -1739,7 +1951,7 @@ class FlowScopeParams(Message):
 
 
 class FlowDeleteParams(Message):
-    """Deletes the project's map: every file under ``.alpine/map/`` and this computer's records of it."""
+    """Deletes the project's map: every file under ``.alpine-code/map/`` and this computer's records of it."""
 
     cwd: str
 
@@ -1780,14 +1992,23 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "settings/get": (SettingsGetParams, SettingsGetResult),
     "settings/setMode": (SettingsSetModeParams, SettingsSetModeResult),
     "settings/setReviewModel": (SettingsSetReviewModelParams, SettingsSetReviewModelResult),
+    "settings/setCloneFolder": (SettingsSetCloneFolderParams, SettingsSetCloneFolderResult),
     "chatgpt/signIn": (ChatGPTSignInParams, ChatGPTSignInResult),
     "chatgpt/cancelSignIn": (ChatGPTCancelSignInParams, ChatGPTCancelSignInResult),
     "chatgpt/signOut": (ChatGPTSignOutParams, ChatGPTSignOutResult),
+    "github/status": (GitHubStatusParams, GitHubStatusResult),
+    "github/signIn": (GitHubSignInParams, GitHubSignInResult),
+    "github/cancelSignIn": (GitHubCancelSignInParams, GitHubCancelSignInResult),
+    "github/signOut": (GitHubSignOutParams, GitHubSignOutResult),
+    "github/repos": (GitHubReposParams, GitHubReposResult),
     "projects/list": (ProjectsListParams, ProjectsListResult),
     "projects/open": (ProjectsOpenParams, ProjectsOpenResult),
     "projects/archive": (ProjectsArchiveParams, ProjectsArchiveResult),
     "projects/delete": (ProjectsDeleteParams, ProjectsDeleteResult),
     "projects/clone": (ProjectsCloneParams, ProjectsCloneResult),
+    "projects/cancelClone": (ProjectsCancelCloneParams, ProjectsCancelCloneResult),
+    "projects/gitTools": (ProjectsGitToolsParams, ProjectsGitToolsResult),
+    "projects/installGitTools": (ProjectsInstallGitToolsParams, ProjectsInstallGitToolsResult),
     "projects/git": (ProjectsGitParams, ProjectsGitResult),
     "tools/list": (ToolsListParams, ToolsListResult),
     "tools/source": (ToolsSourceParams, ToolsSourceResult),
@@ -1821,6 +2042,8 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "session/setModel": (SessionSetModelParams, SessionSetModelResult),
     "session/setAgent": (SessionSetAgentParams, SessionSetAgentResult),
     "session/delete": (SessionDeleteParams, SessionDeleteResult),
+    "session/importable": (SessionImportableParams, SessionImportableResult),
+    "session/import": (SessionImportParams, SessionImportResult),
 }
 
 #: Every notification the server sends: name -> params.
@@ -1828,4 +2051,6 @@ NOTIFICATIONS: dict[str, type[Message]] = {
     "session/event": SessionEventParams,
     "chatgpt/signInFinished": ChatGPTSignInFinishedParams,
     "memory/changed": MemoryChangedParams,
+    "projects/cloneChanged": ProjectsCloneChangedParams,
+    "github/signInFinished": GitHubSignInFinishedParams,
 }

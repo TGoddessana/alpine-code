@@ -5,6 +5,7 @@ Config file: ``~/.alpine-code/config.toml`` (see ``home_dir``)::
     default_model = "anthropic/claude-sonnet-5"   # <connection>/<model>
     # mode = "default"                             # default | accept_edits | auto | yolo
     # review_model = "openrouter/qwen3"           # auto mode's reviewer; unset: the session's model
+    # clone_folder = "~/Developments"              # where the app puts repositories; unset: ~/AlpineCode
     # context_window = 128000
 
     [connections.anthropic]
@@ -36,6 +37,7 @@ from typing import Any
 import tomlkit
 import tomllib
 
+from .cloning import default_clone_folder
 from .home import home_dir
 from .permissions import Mode
 from .providers import PROVIDERS, Api, Billing, Provider
@@ -54,6 +56,7 @@ _FILE_KEYS = {
     "default_model": "model",
     "mode": "mode",
     "review_model": "review_model",
+    "clone_folder": "clone_folder",
     "context_window": "context_window",
 }
 
@@ -118,6 +121,8 @@ class Settings:
     mode: Mode = Mode.DEFAULT
     review_model: str | None = None
     """``<connection>/<model>`` of auto mode's reviewer; ``None``: the session's model."""
+    clone_folder: Path = field(default_factory=default_clone_folder)
+    """Where the app puts the repositories it clones."""
     connections: Mapping[str, Connection] = field(default_factory=dict)
     secrets: Secrets | None = field(default=None, compare=False, repr=False)
 
@@ -233,6 +238,17 @@ def set_default_mode(mode: Mode) -> None:
 
 
 @_locked
+def set_clone_folder(folder: Path | None) -> None:
+    """Where the app puts the repositories it clones; ``None`` goes back to ``~/AlpineCode``."""
+    doc = _edit()
+    if folder is not None:
+        doc["clone_folder"] = str(folder)
+    elif "clone_folder" in doc:
+        del doc["clone_folder"]
+    _save(doc)
+
+
+@_locked
 def set_review_model(model: str | None) -> None:
     """The model auto mode's reviewer uses, or ``None`` for each session's own model."""
     doc = _edit()
@@ -270,6 +286,8 @@ def _convert(values: dict[str, Any]) -> None:
             values["context_window"] = int(values["context_window"])
         except ValueError as e:
             raise ConfigError(f"context_window must be an integer (got {values['context_window']!r})") from e
+    if values.get("clone_folder") is not None:
+        values["clone_folder"] = Path(values["clone_folder"]).expanduser()
     try:
         values["mode"] = Mode(values.get("mode", Mode.DEFAULT))
     except ValueError as e:

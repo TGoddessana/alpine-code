@@ -8,6 +8,8 @@ export {
   useAnswerApproval,
   useCancelSession,
   useDeleteSession,
+  useImportableSessions,
+  useImportSession,
   useNewSession,
   useSendMessage,
   useSession,
@@ -25,10 +27,18 @@ export {
   type SessionEvent,
   type SessionState,
 } from './sessionState';
+export { useGitHub, useGitHubRepos, useGitHubSignIn, useGitHubSignOut, type GitHubSignInState } from './github';
+export {
+  useCancelClone,
+  useCloneProject,
+  useCloneUpdates,
+  useGitTools,
+  useInstallGitTools,
+  useSetCloneFolder,
+} from './clones';
 export {
   useAddConnection,
   useArchiveProject,
-  useCloneProject,
   useConnectionModels,
   useConnections,
   useDeleteProject,

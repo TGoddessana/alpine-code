@@ -6,7 +6,7 @@ are read with the ordinary tools, and its folder is readable without asking.
 
 Where skills come from, first one with a name wins:
 
-- the project's own (``<project>/.agents/skills``, ``<project>/.alpine/skills``, ``<project>/.claude/skills``),
+- the project's own (``<project>/.agents/skills``, ``<project>/.alpine-code/skills``, ``<project>/.claude/skills``),
   read like the project's AGENTS.md;
 - the ones Alpine installed, in ``~/.alpine-code/skills/<name>``, which Alpine may change and delete;
 - the ones other apps put on this computer (``~/.agents/skills``, ``~/.claude/skills``, ``~/.codex/skills``), used
@@ -47,7 +47,7 @@ SKILL_FILE = "SKILL.md"
 SOURCE_FILE = ".alpine-source.json"
 
 #: Folders inside a project that hold its skills, in order.
-PROJECT_FOLDERS = (".agents/skills", ".alpine/skills", ".claude/skills")
+PROJECT_FOLDERS = (".agents/skills", ".alpine-code/skills", ".claude/skills")
 
 _NAME = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 _SKIP = {".git", "node_modules", "__pycache__", ".venv", "venv"}

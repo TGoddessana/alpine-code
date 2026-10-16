@@ -68,7 +68,7 @@ def contains(text: str, excerpt: str) -> bool:
 
 def _mentions_map(value: object) -> bool:
     if isinstance(value, str):
-        return ".alpine/" in value.casefold()
+        return ".alpine-code/" in value.casefold()
     if isinstance(value, dict):
         return any(_mentions_map(v) for v in value.values())
     if isinstance(value, list | tuple):
@@ -98,7 +98,7 @@ class _Session:
 # "path:line:" at the start of a search result line, as grep and rg print it.
 _HIT = re.compile(r"^([^:\n]+?):\d+[:-]", re.MULTILINE)
 _OPENING = {"read", "edit", "write"}
-_CARD = re.compile(r"\.alpine/map/features/([A-Za-z0-9_-]+)\.json")
+_CARD = re.compile(r"\.alpine-code/map/features/([A-Za-z0-9_-]+)\.json")
 _CD = re.compile(r"(?:^|[;&|]\s*)cd\s+([^\s;&|]+)")
 
 
@@ -210,7 +210,7 @@ def _session(session_id: str) -> _Session | None:
                 # Lines that mention the map's folder are Alpine's own words (e.g. grep over the project).
                 result = item.result
                 if not is_map:
-                    result = "\n".join(line for line in result.split("\n") if ".alpine" not in line.casefold())
+                    result = "\n".join(line for line in result.split("\n") if ".alpine-code" not in line.casefold())
                 calls.append((item.id, result, is_map, item.name in _READING))
         session = _Session(
             info.cwd, info.created_at, info.updated_at, calls, frozenset(opened), tuple(commands), frozenset(cards)
@@ -316,7 +316,7 @@ def _under_alpine(root: Path, path: Path) -> bool:
         parts = path.relative_to(root).parts
     except ValueError:
         return False
-    return bool(parts) and parts[0].casefold() == ".alpine"
+    return bool(parts) and parts[0].casefold() == ".alpine-code"
 
 
 def _check_file(

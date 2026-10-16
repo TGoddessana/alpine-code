@@ -178,6 +178,7 @@ class Session:
         self._title = NEW_TITLE
         self._status: SessionStatus = "idle"
         self._created = self._updated = ""
+        self._imported_from: dict[str, str] | None = None
         self._activity: Activity | None = None
         self._run_started_at: str | None = None
         self._run_base = UsageInfo()
@@ -590,6 +591,7 @@ class Session:
                 "instructions": self._applied.instructions,
                 "tools": list(self._applied.tools),
             },
+            imported_from=self._imported_from,
         )
 
     @property
@@ -808,6 +810,7 @@ class Session:
         self._status = "idle"
         self._activity = self._run_started_at = None
         self._created = self._updated = _now()
+        self._imported_from = None
         self._recorder = ItemRecorder(self._on_recorded)
         self._recorder.agent = self.agent_id
         if self._storage is not None:
@@ -817,6 +820,7 @@ class Session:
         info = saved.info
         self._id, self._title = info.id, info.title
         self._created, self._updated = info.created_at, info.updated_at
+        self._imported_from = info.imported_from
         self._state = saved.state
         items = [item_from_dict(data) for _, data in saved.records]
         seq = max(info.last_seq, saved.records[-1][0] if saved.records else 0)

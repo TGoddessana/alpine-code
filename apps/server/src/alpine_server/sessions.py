@@ -20,6 +20,7 @@ from alpine_core import (
     Builtins,
     ConfigError,
     Decision,
+    ExternalSession,
     InfoChanged,
     ItemEvent,
     Memories,
@@ -31,11 +32,14 @@ from alpine_core import (
     ToolSource,
     Workspace,
     file_storage,
+    find_external_sessions,
+    import_session,
     list_sessions,
 )
 from alpine_protocol import (
     SESSION_NOT_FOUND,
     SESSION_RUNNING,
+    ExternalSessionInfo,
     SessionAnswerParams,
     SessionAnswerResult,
     SessionCancelParams,
@@ -43,6 +47,10 @@ from alpine_protocol import (
     SessionDeleteParams,
     SessionDeleteResult,
     SessionEventParams,
+    SessionImportableParams,
+    SessionImportableResult,
+    SessionImportParams,
+    SessionImportResult,
     SessionListParams,
     SessionListResult,
     SessionNewParams,
@@ -143,6 +151,8 @@ class SessionManager:
             "session/setAgent": self.set_agent,
             "session/setModel": self.set_model,
             "session/delete": self.delete,
+            "session/importable": self.importable,
+            "session/import": self.import_,
             "tools/list": self.list_tools,
         }
 
@@ -259,7 +269,61 @@ class SessionManager:
         self._live.pop(params.session_id, None)
         return SessionDeleteResult()
 
+    async def importable(self, params: SessionImportableParams) -> SessionImportableResult:
+        folder = Path(params.cwd)
+        found = await asyncio.to_thread(find_external_sessions, folder)
+        done = self._imported()
+        return SessionImportableResult(
+            sessions=[
+                ExternalSessionInfo(
+                    source=external.source,
+                    id=external.id,
+                    title=external.title,
+                    updated_at=external.updated_at,
+                    imported=done.get((external.source, external.id, external.updated_at)),
+                )
+                for external in found
+            ]
+        )
+
+    async def import_(self, params: SessionImportParams) -> SessionImportResult:
+        folder = Path(params.cwd)
+        if not folder.is_dir():
+            raise MethodError(APP_ERROR, f"Not a folder: {params.cwd}", "not_a_folder")
+        external = await self._external(folder, params.source, params.id)
+        settings = self._load_settings()
+        project = ProjectList.default().open(folder)
+        try:
+            info = await asyncio.to_thread(
+                import_session,
+                self.storage,
+                external,
+                folder,
+                model=settings.model or "",
+                mode=settings.mode.value,
+                agent=project.last_agent,
+            )
+        except (OSError, ValueError) as e:
+            raise MethodError(APP_ERROR, f"Cannot carry over {external.path}: {e}", "import_failed") from e
+        session = self._get(info.id).session
+        self._on_item_event(session.id, session.seq, InfoChanged(session.info))
+        return SessionImportResult(info=to_info(session.info))
+
     # ------------------------------------------------------------ internals
+
+    def _imported(self) -> dict[tuple[str, str, str], str]:
+        """The sessions carried over from other apps, by ``(source, id, updated_at)`` of what they came from."""
+        done = {}
+        for info in list_sessions(self.storage):
+            if (origin := info.imported_from) is not None:
+                done[(origin.get("source", ""), origin.get("id", ""), origin.get("updated_at", ""))] = info.id
+        return done
+
+    async def _external(self, folder: Path, source: str, external_id: str) -> ExternalSession:
+        for external in await asyncio.to_thread(find_external_sessions, folder):
+            if (external.source, external.id) == (source, external_id):
+                return external
+        raise MethodError(APP_ERROR, f"No {source} conversation {external_id} in {folder}", "not_found")
 
     @property
     def storage(self) -> Storage:

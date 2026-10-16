@@ -1121,8 +1121,8 @@ describe('map upkeep', () => {
     mount(
       withBoard((board) => {
         board.problems = [
-          { file: '.alpine/map/features/gift.json', message: 'title is required' },
-          { file: '.alpine/map/flows/old.json', message: 'bad JSON' },
+          { file: '.alpine-code/map/features/gift.json', message: 'title is required' },
+          { file: '.alpine-code/map/flows/old.json', message: 'bad JSON' },
         ];
       }),
     );

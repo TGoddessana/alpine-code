@@ -54,6 +54,8 @@ def test_schema_has_session_types_and_notifications():
         "session/event": "SessionEventParams",
         "chatgpt/signInFinished": "ChatGPTSignInFinishedParams",
         "memory/changed": "MemoryChangedParams",
+        "projects/cloneChanged": "ProjectsCloneChangedParams",
+        "github/signInFinished": "GitHubSignInFinishedParams",
     }
     assert (SESSION_NOT_FOUND, SESSION_RUNNING) == (-32001, -32002)
 

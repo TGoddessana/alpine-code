@@ -1,53 +1,60 @@
-import type { ProjectInfo } from '@alpine/protocol';
-import { Button, Menu } from '@alpine/ui/primitives';
+import type { CloneInfo, ProjectInfo } from '@alpine/protocol';
 import { useRef, useState } from 'react';
 
 import { BrandMark } from '@/shared/components/brand';
 
 import { AgentChip, Composer, useSlashSkills, type Mode } from '@/shared/components/composer';
-import { GitBar } from '@/shared/components/git';
+import { CloneDialog, projectAddMessages } from '@/shared/components/project-add';
 import { useMessages } from '@/shared/i18n';
-import { useOpenFolder } from '@/shared/platform';
-import { useAgents, useConnections, useNewSession, useSendMessage, useSettings } from '@/shared/server';
+import { useAgents, useCancelClone, useConnections, useNewSession, useSendMessage, useSettings } from '@/shared/server';
 
-import { CloneDialog } from './CloneDialog';
-import { ExampleCards } from './ExampleCards';
+import { ImportLink } from './ImportLink';
 import { messages } from './messages';
+import { Receiving } from './Receiving';
+import { Suggestions } from './Suggestions';
 
 const DEFAULT_AGENT = 'default';
 
 /**
- * Board NewSession: pick the project over the input, then type. No header and no work result panel yet: they belong to
- * a session and appear with the first message, while the input stays where it is.
+ * Board NewSession: type, pick one of three suggestions, or go on with a conversation another app (Claude Code, Codex,
+ * …) had in the project. The project is the one the rail shows; it is picked there, not here. No header and no work
+ * result panel yet: they belong to a session and appear with the first message, while the input stays where it is
+ * (as wide as in the session).
  *
  * Sending starts the session in the project's folder with the shown agent, sends the message, and calls `onStarted`
  * with the new session's id so the app can show it. The agent is the one picked in its chip for this project, else
  * `agent` (from the address), else the one the project used last, else the default agent. The session starts in the
  * default permission mode (Settings › General) unless one is picked in the chip, which counts for this session only.
+ *
+ * While the project is still being received (`clone`), the centre shows how far it got and the input takes text but
+ * does not send; when it arrives the screen is the usual one, with the text still there.
  */
 export function NewSession({
-  projects,
   project,
   agent,
+  clone,
   onProjectChange,
   onStarted,
 }: {
-  projects: ProjectInfo[];
   project: ProjectInfo;
+  /** The project's clone, while it is on its way or after it failed. */
+  clone?: CloneInfo;
   /** The agent to start with, unless one is picked here for this project. */
   agent?: string;
-  onProjectChange: (path: string) => void;
+  /** `null`: no project picked (back to the most recent one). */
+  onProjectChange: (path: string | null) => void;
   onStarted: (sessionId: string) => void;
 }) {
   const slash = useSlashSkills(project.path);
   const t = useMessages(messages);
+  const added = useMessages(projectAddMessages);
+  const cancelClone = useCancelClone();
+  const [retrying, setRetrying] = useState<string | null>(null);
   const defaultModel = useConnections().data?.defaultModel;
   const newSession = useNewSession();
   const sendMessage = useSendMessage();
   // A session made for a message that then failed to send is used again on retry (with the same agent), not made twice.
   const made = useRef<{ path: string; agent: string | null; id: string } | null>(null);
-  const openFolder = useOpenFolder(onProjectChange);
-  const [cloning, setCloning] = useState(false);
   // An agent picked in the chip, for this project only.
   const [picked, setPicked] = useState<{ path: string; id: string } | null>(null);
   const agents = useAgents().data?.agents;
@@ -82,40 +89,33 @@ export function NewSession({
   return (
     <main aria-label={t.newSession} className="flex min-w-120 grow flex-col bg-canvas">
       <div className="min-h-0 grow" />
-      <div className="mx-auto flex w-full max-w-160 flex-col items-center gap-6 px-6 pb-8">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <BrandMark size={64} />
-          <h1 className="text-display font-semibold">{t.heading}</h1>
-          <p className="text-body text-fg-muted">{t.lead(project.name)}</p>
-        </div>
-        <ExampleCards onPick={(text) => setPrefill((last) => ({ text, key: last.key + 1 }))} />
+      <div className="mx-auto flex w-full max-w-175 flex-col items-center gap-6 px-6">
+        {clone ? (
+          <Receiving
+            clone={clone}
+            onCancel={() => cancelClone.mutate(clone.id, { onSuccess: () => onProjectChange(null) })}
+            onDismiss={() => cancelClone.mutate(clone.id, { onSuccess: () => onProjectChange(null) })}
+            onRetry={() => setRetrying(clone.address)}
+          />
+        ) : (
+          <>
+            <div className="flex flex-col items-center gap-3 text-center">
+              <BrandMark size={56} />
+              <h1 className="text-display font-semibold">{t.heading}</h1>
+            </div>
+            <div className="flex w-full flex-col gap-2">
+              <Suggestions onPick={(text) => setPrefill((last) => ({ text, key: last.key + 1 }))} />
+              <ImportLink cwd={project.path} onOpen={onStarted} />
+            </div>
+          </>
+        )}
       </div>
-      <div className="mx-auto flex w-full max-w-202 flex-col gap-2 px-6 pt-3 pb-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <Menu.Root>
-            <Menu.Trigger render={<Button />} aria-label={`${t.project}: ${project.name}`} title={project.path}>
-              {project.name}
-              <span aria-hidden="true">›</span>
-            </Menu.Trigger>
-            <Menu.Popup side="top" className="w-60">
-              <Menu.RadioGroup value={project.path} onValueChange={(path: string) => onProjectChange(path)}>
-                {projects.map((p) => (
-                  <Menu.RadioItem key={p.path} value={p.path}>
-                    <span className="min-w-0 grow truncate">{p.name}</span>
-                  </Menu.RadioItem>
-                ))}
-              </Menu.RadioGroup>
-              <Menu.Separator />
-              <Menu.Item onClick={openFolder}>
-                <span className="grow">{t.openFolderItem}</span>
-                <span className="text-meta text-fg-muted">⌘O</span>
-              </Menu.Item>
-              <Menu.Item onClick={() => setCloning(true)}>{t.cloneItem}</Menu.Item>
-            </Menu.Popup>
-          </Menu.Root>
-          <GitBar path={project.path} />
-        </div>
+      <div className="min-h-0 grow" />
+      <div className="mx-auto w-full max-w-175 px-6 pt-3 pb-6">
         <Composer
+          placeholder={t.placeholder}
+          locked={clone?.state === 'failed'}
+          waiting={clone?.state === 'receiving' ? added.waitToSend : undefined}
           onSend={start}
           slash={slash}
           prefill={prefill}
@@ -131,7 +131,16 @@ export function NewSession({
           }
         />
       </div>
-      <CloneDialog open={cloning} onOpenChange={setCloning} onCloned={onProjectChange} />
+      <CloneDialog
+        open={retrying !== null}
+        address={retrying ?? undefined}
+        onOpenChange={(open) => !open && setRetrying(null)}
+        onDone={(path) => {
+          setRetrying(null);
+          if (clone) cancelClone.mutate(clone.id); // the failed one makes way for the new try
+          onProjectChange(path);
+        }}
+      />
     </main>
   );
 }

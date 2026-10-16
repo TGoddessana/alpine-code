@@ -260,6 +260,23 @@ export interface CheckStamp {
   uncertain?: boolean;
 }
 /**
+ * A repository being brought to this computer, or one that stopped before it got here.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloneInfo".
+ */
+export interface CloneInfo {
+  id: string;
+  address: string;
+  name: string;
+  path: string;
+  state: 'receiving' | 'failed' | 'done' | 'cancelled';
+  percent: number;
+  received?: number | null;
+  reason?: ('no_access' | 'unreachable' | 'clone_failed') | null;
+  message?: string | null;
+}
+/**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "CompactionItem".
  */
@@ -404,6 +421,8 @@ export interface ErrorData {
     | 'invalid_config'
     | 'exists'
     | 'clone_failed'
+    | 'no_access'
+    | 'no_git_tools'
     | 'invalid_name'
     | 'package_not_approved'
     | 'install_failed'
@@ -427,7 +446,8 @@ export interface ErrorData {
     | 'not_a_skill'
     | 'bad_name'
     | 'not_owned'
-    | 'invalid';
+    | 'invalid'
+    | 'import_failed';
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -441,7 +461,20 @@ export interface ErrorObject {
   };
 }
 /**
- * ``.alpine/map/features/<id>.json``: one card, written by the agent.
+ * A conversation Claude Code or Codex had in the folder, which can be carried over and continued here.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ExternalSessionInfo".
+ */
+export interface ExternalSessionInfo {
+  source: 'claude_code' | 'codex';
+  id: string;
+  title: string;
+  updatedAt: string;
+  imported: string | null;
+}
+/**
+ * ``.alpine-code/map/features/<id>.json``: one card, written by the agent.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "FeatureFile".
@@ -1187,7 +1220,7 @@ export interface FlowChange {
   detail?: string;
 }
 /**
- * Deletes the project's map: every file under ``.alpine/map/`` and this computer's records of it.
+ * Deletes the project's map: every file under ``.alpine-code/map/`` and this computer's records of it.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "FlowDeleteParams".
@@ -1219,7 +1252,7 @@ export interface FlowEditParams {
   value?: string;
 }
 /**
- * ``.alpine/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent.
+ * ``.alpine-code/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "FlowFile".
@@ -1737,6 +1770,105 @@ export interface FlowSetParams {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubAccountInfo".
+ */
+export interface GitHubAccountInfo {
+  login: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubCancelSignInParams".
+ */
+export interface GitHubCancelSignInParams {
+  attemptId: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubCancelSignInResult".
+ */
+export interface GitHubCancelSignInResult {}
+/**
+ * The repositories the sign-in can see, the most recently pushed first. Fails with ``auth`` when signed out (or
+ * GitHub no longer accepts the token, which is then forgotten) and ``unreachable`` when GitHub cannot be reached.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubReposParams".
+ */
+export interface GitHubReposParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubReposResult".
+ */
+export interface GitHubReposResult {
+  repositories: GitHubRepository[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubRepository".
+ */
+export interface GitHubRepository {
+  fullName: string;
+  cloneUrl: string;
+  private: boolean;
+  pushedAt: string | null;
+  description: string | null;
+}
+/**
+ * The end of a sign-in, whichever way it ended.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubSignInFinishedParams".
+ */
+export interface GitHubSignInFinishedParams {
+  attemptId: string;
+  result: 'connected' | 'declined' | 'cancelled' | 'timed_out' | 'failed';
+  account?: GitHubAccountInfo | null;
+  message?: string | null;
+}
+/**
+ * Starts a sign-in, cancelling one still waiting. The app shows ``user_code`` and opens ``verification_uri``.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubSignInParams".
+ */
+export interface GitHubSignInParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubSignInResult".
+ */
+export interface GitHubSignInResult {
+  attemptId: string;
+  userCode: string;
+  verificationUri: string;
+}
+/**
+ * Forgets the sign-in here. GitHub keeps the grant until the user revokes it at ``access_url``.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubSignOutParams".
+ */
+export interface GitHubSignOutParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubSignOutResult".
+ */
+export interface GitHubSignOutResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubStatusParams".
+ */
+export interface GitHubStatusParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "GitHubStatusResult".
+ */
+export interface GitHubStatusResult {
+  available: boolean;
+  account: GitHubAccountInfo | null;
+  accessUrl: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "GitInfo".
  */
 export interface GitInfo {
@@ -1753,6 +1885,17 @@ export interface PullRequestInfo {
   number: number;
   url: string;
   checks: ('passing' | 'failing' | 'pending') | null;
+}
+/**
+ * Where a conversation carried over from another app ends; the session goes on from here.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ImportedItem".
+ */
+export interface ImportedItem {
+  id: string;
+  kind: 'imported';
+  source: 'claude_code' | 'codex';
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -1837,7 +1980,8 @@ export interface ItemCompletedEvent {
     | CompactionItem
     | RunStoppedItem
     | AgentSwitchedItem
-    | AgentChangedItem;
+    | AgentChangedItem
+    | ImportedItem;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -1970,10 +2114,11 @@ export interface ItemStartedEvent {
     | CompactionItem
     | RunStoppedItem
     | AgentSwitchedItem
-    | AgentChangedItem;
+    | AgentChangedItem
+    | ImportedItem;
 }
 /**
- * ``.alpine/map/map.json``, written by the agent.
+ * ``.alpine-code/map/map.json``, written by the agent.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "MapFile".
@@ -2203,21 +2348,55 @@ export interface ProjectsArchiveParams {
  */
 export interface ProjectsArchiveResult {}
 /**
- * Clones into ``parent/<repo name>`` and opens it. Blocks until git is done.
+ * Stops a clone and removes what it wrote, or dismisses a failed one. Does nothing for an unknown id.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsCancelCloneParams".
+ */
+export interface ProjectsCancelCloneParams {
+  id: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsCancelCloneResult".
+ */
+export interface ProjectsCancelCloneResult {}
+/**
+ * A clone moved on: more received, or it finished (``done``, with ``project``), failed or was cancelled.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsCloneChangedParams".
+ */
+export interface ProjectsCloneChangedParams {
+  clone: CloneInfo;
+  project?: ProjectInfo | null;
+}
+/**
+ * Brings a repository into the clone folder and opens it as a project.
+ *
+ * Answers once the host has answered: with ``project`` when the repository is already here (a project with the same
+ * ``origin``, or the same repository in the clone folder) or the clone already finished, else with ``clone``, which
+ * goes on in the background and announces itself through ``projects/cloneChanged``. A wrong address or a missing
+ * sign-in fails the request itself (``no_access``, ``unreachable``, ``no_git_tools``, ``clone_failed``), so the app
+ * can ask again before anything shows on the rail.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ProjectsCloneParams".
  */
 export interface ProjectsCloneParams {
+  id: string;
   address: string;
-  parent: string;
+  username?: string | null;
+  password?: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ProjectsCloneResult".
  */
 export interface ProjectsCloneResult {
-  project: ProjectInfo;
+  project?: ProjectInfo | null;
+  existing?: boolean;
+  clone?: CloneInfo | null;
 }
 /**
  * Forgets a project and what Alpine keeps about it. The folder and its files are never touched.
@@ -2249,6 +2428,31 @@ export interface ProjectsGitResult {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsGitToolsParams".
+ */
+export interface ProjectsGitToolsParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsGitToolsResult".
+ */
+export interface ProjectsGitToolsResult {
+  ready: boolean;
+  installable: boolean;
+}
+/**
+ * Opens Apple's installer for the command line developer tools. ``projects/gitTools`` says when it is done.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsInstallGitToolsParams".
+ */
+export interface ProjectsInstallGitToolsParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsInstallGitToolsResult".
+ */
+export interface ProjectsInstallGitToolsResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ProjectsListParams".
  */
 export interface ProjectsListParams {}
@@ -2258,7 +2462,7 @@ export interface ProjectsListParams {}
  */
 export interface ProjectsListResult {
   projects: ProjectInfo[];
-  cloneParent: string;
+  clones: CloneInfo[];
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -2349,6 +2553,39 @@ export interface SessionEventParams {
   event: InfoChangedEvent | DeletedEvent | ItemStartedEvent | ItemDeltaEvent | ItemCompletedEvent | ItemDiscardedEvent;
 }
 /**
+ * Carries a conversation over as a new session of ``cwd``; its earlier messages, tool calls and results come
+ * with it, and the next message continues it.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionImportParams".
+ */
+export interface SessionImportParams {
+  cwd: string;
+  source: 'claude_code' | 'codex';
+  id: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionImportResult".
+ */
+export interface SessionImportResult {
+  info: SessionInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionImportableParams".
+ */
+export interface SessionImportableParams {
+  cwd: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionImportableResult".
+ */
+export interface SessionImportableResult {
+  sessions: ExternalSessionInfo[];
+}
+/**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "SessionListParams".
  */
@@ -2406,6 +2643,7 @@ export interface SessionOpenResult {
     | RunStoppedItem
     | AgentSwitchedItem
     | AgentChangedItem
+    | ImportedItem
   )[];
   active: (
     | UserMessageItem
@@ -2420,6 +2658,7 @@ export interface SessionOpenResult {
     | RunStoppedItem
     | AgentSwitchedItem
     | AgentChangedItem
+    | ImportedItem
   )[];
 }
 /**
@@ -2497,6 +2736,21 @@ export interface SettingsGetParams {}
 export interface SettingsGetResult {
   mode: 'default' | 'accept_edits' | 'auto' | 'yolo';
   reviewModel?: string | null;
+  cloneFolder: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SettingsSetCloneFolderParams".
+ */
+export interface SettingsSetCloneFolderParams {
+  cloneFolder: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SettingsSetCloneFolderResult".
+ */
+export interface SettingsSetCloneFolderResult {
+  cloneFolder: string;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -2826,14 +3080,23 @@ export interface Methods {
   'settings/get': { params: SettingsGetParams; result: SettingsGetResult };
   'settings/setMode': { params: SettingsSetModeParams; result: SettingsSetModeResult };
   'settings/setReviewModel': { params: SettingsSetReviewModelParams; result: SettingsSetReviewModelResult };
+  'settings/setCloneFolder': { params: SettingsSetCloneFolderParams; result: SettingsSetCloneFolderResult };
   'chatgpt/signIn': { params: ChatGPTSignInParams; result: ChatGPTSignInResult };
   'chatgpt/cancelSignIn': { params: ChatGPTCancelSignInParams; result: ChatGPTCancelSignInResult };
   'chatgpt/signOut': { params: ChatGPTSignOutParams; result: ChatGPTSignOutResult };
+  'github/status': { params: GitHubStatusParams; result: GitHubStatusResult };
+  'github/signIn': { params: GitHubSignInParams; result: GitHubSignInResult };
+  'github/cancelSignIn': { params: GitHubCancelSignInParams; result: GitHubCancelSignInResult };
+  'github/signOut': { params: GitHubSignOutParams; result: GitHubSignOutResult };
+  'github/repos': { params: GitHubReposParams; result: GitHubReposResult };
   'projects/list': { params: ProjectsListParams; result: ProjectsListResult };
   'projects/open': { params: ProjectsOpenParams; result: ProjectsOpenResult };
   'projects/archive': { params: ProjectsArchiveParams; result: ProjectsArchiveResult };
   'projects/delete': { params: ProjectsDeleteParams; result: ProjectsDeleteResult };
   'projects/clone': { params: ProjectsCloneParams; result: ProjectsCloneResult };
+  'projects/cancelClone': { params: ProjectsCancelCloneParams; result: ProjectsCancelCloneResult };
+  'projects/gitTools': { params: ProjectsGitToolsParams; result: ProjectsGitToolsResult };
+  'projects/installGitTools': { params: ProjectsInstallGitToolsParams; result: ProjectsInstallGitToolsResult };
   'projects/git': { params: ProjectsGitParams; result: ProjectsGitResult };
   'tools/list': { params: ToolsListParams; result: ToolsListResult };
   'tools/source': { params: ToolsSourceParams; result: ToolsSourceResult };
@@ -2867,10 +3130,14 @@ export interface Methods {
   'session/setModel': { params: SessionSetModelParams; result: SessionSetModelResult };
   'session/setAgent': { params: SessionSetAgentParams; result: SessionSetAgentResult };
   'session/delete': { params: SessionDeleteParams; result: SessionDeleteResult };
+  'session/importable': { params: SessionImportableParams; result: SessionImportableResult };
+  'session/import': { params: SessionImportParams; result: SessionImportResult };
 }
 
 export interface Notifications {
   'session/event': SessionEventParams;
   'chatgpt/signInFinished': ChatGPTSignInFinishedParams;
   'memory/changed': MemoryChangedParams;
+  'projects/cloneChanged': ProjectsCloneChangedParams;
+  'github/signInFinished': GitHubSignInFinishedParams;
 }

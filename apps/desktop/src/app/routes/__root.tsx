@@ -3,10 +3,12 @@ import { useCallback, useState } from 'react';
 
 import { FirstRun } from '@/features/first-run/FirstRun';
 import { Rail } from '@/features/rail/Rail';
+import { useCloneUpdates } from '@/shared/server';
 
 import { DroppedSkillsDialog } from '../DroppedSkills';
 import { TopBar } from '../TopBar';
 import { useFolderOpening } from '../useFolderOpening';
+import { useNewSessionShortcut } from '../useNewSessionShortcut';
 
 const RAIL_KEY = 'alpine.rail.open';
 
@@ -43,6 +45,8 @@ export const Route = createRootRoute({
 function Root() {
   const [dropped, closeDropped] = useFolderOpening();
   const [railOpen, toggleRail] = useRailOpen();
+  useCloneUpdates();
+  useNewSessionShortcut();
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-canvas-sunken">
       <TopBar railOpen={railOpen} onToggleRail={toggleRail} />

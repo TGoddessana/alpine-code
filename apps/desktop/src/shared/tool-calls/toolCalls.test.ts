@@ -9,6 +9,12 @@ describe('toolKind', () => {
       ['edit', 'edit_file', 'write', 'bash', 'read', 'read_file', 'grep', 'glob', 'propose_memory', 'x'].map(toolKind),
     ).toEqual(['edit', 'edit', 'edit', 'run', 'read', 'read', 'search', 'search', 'memory', 'other']);
   });
+
+  it('knows the tools of conversations brought over from Claude Code and Codex', () => {
+    expect(
+      ['Bash', 'Read', 'Edit', 'MultiEdit', 'Grep', 'exec_command', 'shell', 'apply_patch', 'WebFetch'].map(toolKind),
+    ).toEqual(['run', 'read', 'edit', 'edit', 'search', 'run', 'run', 'edit', 'other']);
+  });
 });
 
 describe('toolTarget', () => {
@@ -17,6 +23,8 @@ describe('toolTarget', () => {
     expect(toolTarget({ args: { pattern: '*.py', path: null } })).toBe('*.py');
     expect(toolTarget({ args: { command: 'git status' } })).toBe('git status');
     expect(toolTarget({ args: { headline: '해요체로 쓴다', body: '…' } })).toBe('해요체로 쓴다');
+    expect(toolTarget({ args: { cmd: 'npm test' } })).toBe('npm test');
+    expect(toolTarget({ args: { command: ['bash', '-lc', 'ls'] } })).toBe('ls');
   });
 });
 

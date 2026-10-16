@@ -20,7 +20,7 @@ interface PopupProps {
 function MenuPopup({ side = 'bottom', align = 'start', className, children }: PopupProps) {
   return (
     <BaseMenu.Portal>
-      <BaseMenu.Positioner side={side} align={align} sideOffset={4} className="outline-none">
+      <BaseMenu.Positioner side={side} align={align} sideOffset={4} className="z-50 outline-none">
         <BaseMenu.Popup className={clsx(popup, className)}>{children}</BaseMenu.Popup>
       </BaseMenu.Positioner>
     </BaseMenu.Portal>
@@ -30,7 +30,7 @@ function MenuPopup({ side = 'bottom', align = 'start', className, children }: Po
 function ContextPopup({ className, children }: Pick<PopupProps, 'className' | 'children'>) {
   return (
     <BaseContextMenu.Portal>
-      <BaseContextMenu.Positioner className="outline-none">
+      <BaseContextMenu.Positioner className="z-50 outline-none">
         <BaseContextMenu.Popup className={clsx(popup, className)}>{children}</BaseContextMenu.Popup>
       </BaseContextMenu.Positioner>
     </BaseContextMenu.Portal>

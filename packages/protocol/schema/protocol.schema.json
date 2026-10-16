@@ -83,6 +83,10 @@
       "params": "SettingsSetReviewModelParams",
       "result": "SettingsSetReviewModelResult"
     },
+    "settings/setCloneFolder": {
+      "params": "SettingsSetCloneFolderParams",
+      "result": "SettingsSetCloneFolderResult"
+    },
     "chatgpt/signIn": {
       "params": "ChatGPTSignInParams",
       "result": "ChatGPTSignInResult"
@@ -94,6 +98,26 @@
     "chatgpt/signOut": {
       "params": "ChatGPTSignOutParams",
       "result": "ChatGPTSignOutResult"
+    },
+    "github/status": {
+      "params": "GitHubStatusParams",
+      "result": "GitHubStatusResult"
+    },
+    "github/signIn": {
+      "params": "GitHubSignInParams",
+      "result": "GitHubSignInResult"
+    },
+    "github/cancelSignIn": {
+      "params": "GitHubCancelSignInParams",
+      "result": "GitHubCancelSignInResult"
+    },
+    "github/signOut": {
+      "params": "GitHubSignOutParams",
+      "result": "GitHubSignOutResult"
+    },
+    "github/repos": {
+      "params": "GitHubReposParams",
+      "result": "GitHubReposResult"
     },
     "projects/list": {
       "params": "ProjectsListParams",
@@ -114,6 +138,18 @@
     "projects/clone": {
       "params": "ProjectsCloneParams",
       "result": "ProjectsCloneResult"
+    },
+    "projects/cancelClone": {
+      "params": "ProjectsCancelCloneParams",
+      "result": "ProjectsCancelCloneResult"
+    },
+    "projects/gitTools": {
+      "params": "ProjectsGitToolsParams",
+      "result": "ProjectsGitToolsResult"
+    },
+    "projects/installGitTools": {
+      "params": "ProjectsInstallGitToolsParams",
+      "result": "ProjectsInstallGitToolsResult"
     },
     "projects/git": {
       "params": "ProjectsGitParams",
@@ -246,12 +282,22 @@
     "session/delete": {
       "params": "SessionDeleteParams",
       "result": "SessionDeleteResult"
+    },
+    "session/importable": {
+      "params": "SessionImportableParams",
+      "result": "SessionImportableResult"
+    },
+    "session/import": {
+      "params": "SessionImportParams",
+      "result": "SessionImportResult"
     }
   },
   "x-notifications": {
     "session/event": "SessionEventParams",
     "chatgpt/signInFinished": "ChatGPTSignInFinishedParams",
-    "memory/changed": "MemoryChangedParams"
+    "memory/changed": "MemoryChangedParams",
+    "projects/cloneChanged": "ProjectsCloneChangedParams",
+    "github/signInFinished": "GitHubSignInFinishedParams"
   },
   "$defs": {
     "Activity": {
@@ -925,6 +971,83 @@
       "title": "CheckStamp",
       "type": "object"
     },
+    "CloneInfo": {
+      "description": "A repository being brought to this computer, or one that stopped before it got here.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "receiving",
+            "failed",
+            "done",
+            "cancelled"
+          ],
+          "type": "string"
+        },
+        "percent": {
+          "type": "integer"
+        },
+        "received": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "no_access",
+                "unreachable",
+                "clone_failed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "address",
+        "name",
+        "path",
+        "state",
+        "percent"
+      ],
+      "title": "CloneInfo",
+      "type": "object"
+    },
     "CompactionItem": {
       "properties": {
         "id": {
@@ -1299,6 +1422,8 @@
             "invalid_config",
             "exists",
             "clone_failed",
+            "no_access",
+            "no_git_tools",
             "invalid_name",
             "package_not_approved",
             "install_failed",
@@ -1322,7 +1447,8 @@
             "not_a_skill",
             "bad_name",
             "not_owned",
-            "invalid"
+            "invalid",
+            "import_failed"
           ],
           "type": "string"
         }
@@ -1352,9 +1478,50 @@
       "title": "ErrorObject",
       "type": "object"
     },
+    "ExternalSessionInfo": {
+      "description": "A conversation Claude Code or Codex had in the folder, which can be carried over and continued here.",
+      "properties": {
+        "source": {
+          "enum": [
+            "claude_code",
+            "codex"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "imported": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "id",
+        "title",
+        "updatedAt",
+        "imported"
+      ],
+      "title": "ExternalSessionInfo",
+      "type": "object"
+    },
     "FeatureFile": {
       "additionalProperties": false,
-      "description": "``.alpine/map/features/<id>.json``: one card, written by the agent.",
+      "description": "``.alpine-code/map/features/<id>.json``: one card, written by the agent.",
       "properties": {
         "id": {
           "maxLength": 100,
@@ -1646,7 +1813,7 @@
       "type": "object"
     },
     "FlowDeleteParams": {
-      "description": "Deletes the project's map: every file under ``.alpine/map/`` and this computer's records of it.",
+      "description": "Deletes the project's map: every file under ``.alpine-code/map/`` and this computer's records of it.",
       "properties": {
         "cwd": {
           "type": "string"
@@ -1724,7 +1891,7 @@
     },
     "FlowFile": {
       "additionalProperties": false,
-      "description": "``.alpine/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent.",
+      "description": "``.alpine-code/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent.",
       "properties": {
         "id": {
           "maxLength": 100,
@@ -2405,6 +2572,213 @@
       "title": "FlowSetParams",
       "type": "object"
     },
+    "GitHubAccountInfo": {
+      "properties": {
+        "login": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "login"
+      ],
+      "title": "GitHubAccountInfo",
+      "type": "object"
+    },
+    "GitHubCancelSignInParams": {
+      "properties": {
+        "attemptId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attemptId"
+      ],
+      "title": "GitHubCancelSignInParams",
+      "type": "object"
+    },
+    "GitHubCancelSignInResult": {
+      "properties": {},
+      "title": "GitHubCancelSignInResult",
+      "type": "object"
+    },
+    "GitHubReposParams": {
+      "description": "The repositories the sign-in can see, the most recently pushed first. Fails with ``auth`` when signed out (or\nGitHub no longer accepts the token, which is then forgotten) and ``unreachable`` when GitHub cannot be reached.",
+      "properties": {},
+      "title": "GitHubReposParams",
+      "type": "object"
+    },
+    "GitHubReposResult": {
+      "properties": {
+        "repositories": {
+          "items": {
+            "$ref": "#/$defs/GitHubRepository"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "repositories"
+      ],
+      "title": "GitHubReposResult",
+      "type": "object"
+    },
+    "GitHubRepository": {
+      "properties": {
+        "fullName": {
+          "type": "string"
+        },
+        "cloneUrl": {
+          "type": "string"
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "pushedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "fullName",
+        "cloneUrl",
+        "private",
+        "pushedAt",
+        "description"
+      ],
+      "title": "GitHubRepository",
+      "type": "object"
+    },
+    "GitHubSignInFinishedParams": {
+      "description": "The end of a sign-in, whichever way it ended.",
+      "properties": {
+        "attemptId": {
+          "type": "string"
+        },
+        "result": {
+          "enum": [
+            "connected",
+            "declined",
+            "cancelled",
+            "timed_out",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "account": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GitHubAccountInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "attemptId",
+        "result"
+      ],
+      "title": "GitHubSignInFinishedParams",
+      "type": "object"
+    },
+    "GitHubSignInParams": {
+      "description": "Starts a sign-in, cancelling one still waiting. The app shows ``user_code`` and opens ``verification_uri``.",
+      "properties": {},
+      "title": "GitHubSignInParams",
+      "type": "object"
+    },
+    "GitHubSignInResult": {
+      "properties": {
+        "attemptId": {
+          "type": "string"
+        },
+        "userCode": {
+          "type": "string"
+        },
+        "verificationUri": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attemptId",
+        "userCode",
+        "verificationUri"
+      ],
+      "title": "GitHubSignInResult",
+      "type": "object"
+    },
+    "GitHubSignOutParams": {
+      "description": "Forgets the sign-in here. GitHub keeps the grant until the user revokes it at ``access_url``.",
+      "properties": {},
+      "title": "GitHubSignOutParams",
+      "type": "object"
+    },
+    "GitHubSignOutResult": {
+      "properties": {},
+      "title": "GitHubSignOutResult",
+      "type": "object"
+    },
+    "GitHubStatusParams": {
+      "properties": {},
+      "title": "GitHubStatusParams",
+      "type": "object"
+    },
+    "GitHubStatusResult": {
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "account": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GitHubAccountInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accessUrl": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "available",
+        "account",
+        "accessUrl"
+      ],
+      "title": "GitHubStatusResult",
+      "type": "object"
+    },
     "GitInfo": {
       "properties": {
         "branch": {
@@ -2441,6 +2815,33 @@
         "pullRequest"
       ],
       "title": "GitInfo",
+      "type": "object"
+    },
+    "ImportedItem": {
+      "description": "Where a conversation carried over from another app ends; the session goes on from here.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "imported",
+          "default": "imported",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "claude_code",
+            "codex"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "source"
+      ],
+      "title": "ImportedItem",
       "type": "object"
     },
     "InfoChangedEvent": {
@@ -2507,6 +2908,7 @@
               "agent_switched": "#/$defs/AgentSwitchedItem",
               "approval": "#/$defs/ApprovalItem",
               "compaction": "#/$defs/CompactionItem",
+              "imported": "#/$defs/ImportedItem",
               "memory_review": "#/$defs/MemoryReviewItem",
               "notice": "#/$defs/NoticeItem",
               "review_blocked": "#/$defs/ReviewBlockedItem",
@@ -2553,6 +2955,9 @@
             },
             {
               "$ref": "#/$defs/AgentChangedItem"
+            },
+            {
+              "$ref": "#/$defs/ImportedItem"
             }
           ]
         }
@@ -2622,6 +3027,7 @@
               "agent_switched": "#/$defs/AgentSwitchedItem",
               "approval": "#/$defs/ApprovalItem",
               "compaction": "#/$defs/CompactionItem",
+              "imported": "#/$defs/ImportedItem",
               "memory_review": "#/$defs/MemoryReviewItem",
               "notice": "#/$defs/NoticeItem",
               "review_blocked": "#/$defs/ReviewBlockedItem",
@@ -2668,6 +3074,9 @@
             },
             {
               "$ref": "#/$defs/AgentChangedItem"
+            },
+            {
+              "$ref": "#/$defs/ImportedItem"
             }
           ]
         }
@@ -2720,7 +3129,7 @@
     },
     "MapFile": {
       "additionalProperties": false,
-      "description": "``.alpine/map/map.json``, written by the agent.",
+      "description": "``.alpine-code/map/map.json``, written by the agent.",
       "properties": {
         "formatVersion": {
           "const": 1,
@@ -3626,19 +4035,83 @@
       "title": "ProjectsArchiveResult",
       "type": "object"
     },
-    "ProjectsCloneParams": {
-      "description": "Clones into ``parent/<repo name>`` and opens it. Blocks until git is done.",
+    "ProjectsCancelCloneParams": {
+      "description": "Stops a clone and removes what it wrote, or dismisses a failed one. Does nothing for an unknown id.",
       "properties": {
-        "address": {
-          "type": "string"
-        },
-        "parent": {
+        "id": {
           "type": "string"
         }
       },
       "required": [
-        "address",
-        "parent"
+        "id"
+      ],
+      "title": "ProjectsCancelCloneParams",
+      "type": "object"
+    },
+    "ProjectsCancelCloneResult": {
+      "properties": {},
+      "title": "ProjectsCancelCloneResult",
+      "type": "object"
+    },
+    "ProjectsCloneChangedParams": {
+      "description": "A clone moved on: more received, or it finished (``done``, with ``project``), failed or was cancelled.",
+      "properties": {
+        "clone": {
+          "$ref": "#/$defs/CloneInfo"
+        },
+        "project": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProjectInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "clone"
+      ],
+      "title": "ProjectsCloneChangedParams",
+      "type": "object"
+    },
+    "ProjectsCloneParams": {
+      "description": "Brings a repository into the clone folder and opens it as a project.\n\nAnswers once the host has answered: with ``project`` when the repository is already here (a project with the same\n``origin``, or the same repository in the clone folder) or the clone already finished, else with ``clone``, which\ngoes on in the background and announces itself through ``projects/cloneChanged``. A wrong address or a missing\nsign-in fails the request itself (``no_access``, ``unreachable``, ``no_git_tools``, ``clone_failed``), so the app\ncan ask again before anything shows on the rail.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "username": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "password": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "address"
       ],
       "title": "ProjectsCloneParams",
       "type": "object"
@@ -3646,12 +4119,32 @@
     "ProjectsCloneResult": {
       "properties": {
         "project": {
-          "$ref": "#/$defs/ProjectInfo"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProjectInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "existing": {
+          "default": false,
+          "type": "boolean"
+        },
+        "clone": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CloneInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
-      "required": [
-        "project"
-      ],
       "title": "ProjectsCloneResult",
       "type": "object"
     },
@@ -3704,6 +4197,38 @@
       "title": "ProjectsGitResult",
       "type": "object"
     },
+    "ProjectsGitToolsParams": {
+      "properties": {},
+      "title": "ProjectsGitToolsParams",
+      "type": "object"
+    },
+    "ProjectsGitToolsResult": {
+      "properties": {
+        "ready": {
+          "type": "boolean"
+        },
+        "installable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ready",
+        "installable"
+      ],
+      "title": "ProjectsGitToolsResult",
+      "type": "object"
+    },
+    "ProjectsInstallGitToolsParams": {
+      "description": "Opens Apple's installer for the command line developer tools. ``projects/gitTools`` says when it is done.",
+      "properties": {},
+      "title": "ProjectsInstallGitToolsParams",
+      "type": "object"
+    },
+    "ProjectsInstallGitToolsResult": {
+      "properties": {},
+      "title": "ProjectsInstallGitToolsResult",
+      "type": "object"
+    },
     "ProjectsListParams": {
       "properties": {},
       "title": "ProjectsListParams",
@@ -3717,13 +4242,16 @@
           },
           "type": "array"
         },
-        "cloneParent": {
-          "type": "string"
+        "clones": {
+          "items": {
+            "$ref": "#/$defs/CloneInfo"
+          },
+          "type": "array"
         }
       },
       "required": [
         "projects",
-        "cloneParent"
+        "clones"
       ],
       "title": "ProjectsListResult",
       "type": "object"
@@ -4312,6 +4840,70 @@
       "title": "SessionEventParams",
       "type": "object"
     },
+    "SessionImportParams": {
+      "description": "Carries a conversation over as a new session of ``cwd``; its earlier messages, tool calls and results come\nwith it, and the next message continues it.",
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "claude_code",
+            "codex"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "source",
+        "id"
+      ],
+      "title": "SessionImportParams",
+      "type": "object"
+    },
+    "SessionImportResult": {
+      "properties": {
+        "info": {
+          "$ref": "#/$defs/SessionInfo"
+        }
+      },
+      "required": [
+        "info"
+      ],
+      "title": "SessionImportResult",
+      "type": "object"
+    },
+    "SessionImportableParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "title": "SessionImportableParams",
+      "type": "object"
+    },
+    "SessionImportableResult": {
+      "properties": {
+        "sessions": {
+          "items": {
+            "$ref": "#/$defs/ExternalSessionInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "sessions"
+      ],
+      "title": "SessionImportableResult",
+      "type": "object"
+    },
     "SessionInfo": {
       "properties": {
         "id": {
@@ -4543,6 +5135,7 @@
                 "agent_switched": "#/$defs/AgentSwitchedItem",
                 "approval": "#/$defs/ApprovalItem",
                 "compaction": "#/$defs/CompactionItem",
+                "imported": "#/$defs/ImportedItem",
                 "memory_review": "#/$defs/MemoryReviewItem",
                 "notice": "#/$defs/NoticeItem",
                 "review_blocked": "#/$defs/ReviewBlockedItem",
@@ -4589,6 +5182,9 @@
               },
               {
                 "$ref": "#/$defs/AgentChangedItem"
+              },
+              {
+                "$ref": "#/$defs/ImportedItem"
               }
             ]
           },
@@ -4603,6 +5199,7 @@
                 "agent_switched": "#/$defs/AgentSwitchedItem",
                 "approval": "#/$defs/ApprovalItem",
                 "compaction": "#/$defs/CompactionItem",
+                "imported": "#/$defs/ImportedItem",
                 "memory_review": "#/$defs/MemoryReviewItem",
                 "notice": "#/$defs/NoticeItem",
                 "review_blocked": "#/$defs/ReviewBlockedItem",
@@ -4649,6 +5246,9 @@
               },
               {
                 "$ref": "#/$defs/AgentChangedItem"
+              },
+              {
+                "$ref": "#/$defs/ImportedItem"
               }
             ]
           },
@@ -4803,12 +5403,47 @@
             }
           ],
           "default": null
+        },
+        "cloneFolder": {
+          "type": "string"
         }
       },
       "required": [
-        "mode"
+        "mode",
+        "cloneFolder"
       ],
       "title": "SettingsGetResult",
+      "type": "object"
+    },
+    "SettingsSetCloneFolderParams": {
+      "properties": {
+        "cloneFolder": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "cloneFolder"
+      ],
+      "title": "SettingsSetCloneFolderParams",
+      "type": "object"
+    },
+    "SettingsSetCloneFolderResult": {
+      "properties": {
+        "cloneFolder": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cloneFolder"
+      ],
+      "title": "SettingsSetCloneFolderResult",
       "type": "object"
     },
     "SettingsSetModeParams": {

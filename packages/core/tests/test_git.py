@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from alpine_core import CloneError, clone, current_branch, git_status
+from alpine_core import current_branch, git_status
 from alpine_core.git import _checks, clone_url, repo_name
 
 
@@ -29,22 +29,14 @@ def test_what_the_user_types_becomes_a_url():
     assert repo_name("https://github.com/owner/repo/") == "repo"
 
 
-def test_clone_and_branch(tmp_path, origin):
-    parent = tmp_path / "work"
-    parent.mkdir()
-    dest = clone(str(origin), parent)
-    assert dest == (parent / "demo").resolve() and (dest / "a.txt").read_text() == "hi"
-    assert current_branch(dest) == "trunk"
+def test_branch(tmp_path, origin):
+    assert current_branch(origin) == "trunk"
     assert current_branch(tmp_path) is None
-
-    with pytest.raises(FileExistsError):
-        clone(str(origin), parent)
-    with pytest.raises(CloneError):
-        clone(str(tmp_path / "missing"), parent)
 
 
 def test_status_counts_what_the_branch_adds_to_the_default_branch(tmp_path, origin):
-    work = clone(str(origin), tmp_path)
+    git("clone", "-q", str(origin), "work", cwd=tmp_path)
+    work = tmp_path / "work"
     assert git_status(work).added == 0 and git_status(work).branch == "trunk"
     assert git_status(tmp_path) is None
 

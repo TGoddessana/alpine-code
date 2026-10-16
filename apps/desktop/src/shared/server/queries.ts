@@ -174,13 +174,3 @@ export function useProjectGit(path: string) {
     refetchOnWindowFocus: true,
   });
 }
-
-/** Clones and opens the repository. The server answers when git is done. */
-export function useCloneProject() {
-  const server = useServer();
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (params: { address: string; parent: string }) => server.request('projects/clone', params),
-    onSuccess: () => client.invalidateQueries({ queryKey: ['projects'] }),
-  });
-}

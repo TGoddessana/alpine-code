@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from alpineagents import ToolError, tool
 
-from ._common import Workspace, WorkspaceTool, os_error
+from ._common import Workspace, WorkspaceTool, json_note, os_error
 from ._file_write import atomic_write, file_lock
 
 
 class Edit(WorkspaceTool):
-    @tool(name="edit", exception_handler=os_error, read_only=False, open_world=False)
+    @tool(name="edit", parallel=False, exception_handler=os_error, read_only=False, open_world=False)
     def edit(self, path: str, old_string: str, new_string: str, replace_all: bool = False) -> str:
         """Replace an exact piece of text in a file. Read the file first.
 
@@ -43,7 +43,7 @@ class Edit(WorkspaceTool):
             new_text = text.replace(old_string, new_string) if replace_all else text.replace(old_string, new_string, 1)
             atomic_write(file, new_text, before)
             times = f"{count} occurrences" if replace_all and count > 1 else "1 occurrence"
-            return f"Edited {self.workspace.display(file)} ({times} replaced)"
+            return f"Edited {self.workspace.display(file)} ({times} replaced)" + json_note(file, new_text)
 
 
 def preview_edit(workspace: Workspace, args: dict) -> tuple[str, str] | None:

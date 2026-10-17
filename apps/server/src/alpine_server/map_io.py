@@ -154,9 +154,10 @@ def sha(text: str | bytes) -> str:
     return hashlib.sha256(text.encode() if isinstance(text, str) else text).hexdigest()
 
 
-def iso(timestamp: float | None = None) -> str:
+def iso(timestamp: float | None = None, *, precise: bool = False) -> str:
+    """UTC time as ISO 8601; ``precise`` keeps milliseconds, for times compared with other stamps."""
     moment = datetime.now(UTC) if timestamp is None else datetime.fromtimestamp(timestamp, UTC)
-    return moment.isoformat(timespec="seconds").replace("+00:00", "Z")
+    return moment.isoformat(timespec="milliseconds" if precise else "seconds").replace("+00:00", "Z")
 
 
 def parse_time(value: str | None) -> float | None:

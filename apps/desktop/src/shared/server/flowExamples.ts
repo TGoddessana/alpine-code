@@ -9,6 +9,7 @@ import type {
   Observation,
   ObservationProvenance,
   ProductMap,
+  UnmappedPart,
 } from '@alpine/protocol';
 
 /*
@@ -47,6 +48,8 @@ export interface DemoMeta {
   git: boolean;
   include: string[];
   exclude: string[];
+  /** map.json `unmapped`: parts the agent knows exist but has not mapped yet. */
+  unmapped: UnmappedPart[];
   readOnly: boolean;
   problems: MapProblem[];
   schedule: MapSchedule;
@@ -68,6 +71,7 @@ export const demoMeta = (meta: Partial<DemoMeta> = {}): DemoMeta => ({
   git: true,
   include: [],
   exclude: [],
+  unmapped: [],
   readOnly: false,
   problems: [],
   schedule: { enabled: false, limit: 20, lastRun: null },
@@ -1390,6 +1394,18 @@ DEMO_META.set(
     syncedAt: '2026-10-08T00:00:00Z',
     include: ['app', 'lib', 'jobs', 'prisma', 'tests'],
     exclude: ['pnpm-lock.yaml', 'tests/fixtures/**', 'public/**', '**/*.snap', 'lib/generated/**'],
+    unmapped: [
+      {
+        title: '강사가 자기 수업 출석을 체크하기',
+        why: '강사용 화면은 이번에 다 보지 못했어요.',
+        paths: ['app/instructor/'],
+      },
+      {
+        title: '운영자가 환불을 승인하거나 거절하기',
+        why: '관리자 화면과 환불 규칙이 어떻게 이어지는지 아직 확인하지 못했어요.',
+        paths: ['app/admin/refunds/', 'lib/refund/'],
+      },
+    ],
     changes: STUDIO_CHANGES,
     previews: STUDIO_PREVIEWS,
     provenance: STUDIO_PROVENANCE,
@@ -1449,7 +1465,10 @@ DEMO_META.set(
     readOnly: true,
     git: false,
     problems: [
-      { file: '.alpine-code/map/features/dns.json', message: 'kind: Input should be screen, api, sdk, process or data' },
+      {
+        file: '.alpine-code/map/features/dns.json',
+        message: 'kind: Input should be screen, api, sdk, process or data',
+      },
       { file: '.alpine-code/map/flows/rollback.json', message: 'nodeIds: expected a list' },
     ],
   }),

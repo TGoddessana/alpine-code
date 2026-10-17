@@ -1491,6 +1491,7 @@ export interface FlowGetResult {
   schedule?: MapSchedule;
   removedCards?: RemovedCard[];
   review?: MapReview | null;
+  unmapped?: UnmappedPart[];
 }
 /**
  * The assembled map the app shows.
@@ -1697,6 +1698,152 @@ export interface MapReview {
   added?: string[];
   removed?: string[];
   changed?: string[];
+}
+/**
+ * A part of the product the agent knows exists but has not mapped yet.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "UnmappedPart".
+ */
+export interface UnmappedPart {
+  title: string;
+  why?: string;
+  /**
+   * @maxItems 20
+   */
+  paths?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -2168,6 +2315,10 @@ export interface MapFile {
    * @maxItems 200
    */
   exclude?: string[];
+  /**
+   * @maxItems 100
+   */
+  unmapped?: UnmappedPart[];
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema

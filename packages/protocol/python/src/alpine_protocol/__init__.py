@@ -243,6 +243,7 @@ from .messages import (
     ToolsTestParams,
     ToolsTestResult,
     ToolSummary,
+    UnmappedPart,
     Usage,
     UserMessageItem,
 )
@@ -266,6 +267,7 @@ __all__ = [
     "FlowScopeParams",
     "MapCoverage",
     "MapFile",
+    "UnmappedPart",
     "MapProblem",
     "MapSchedule",
     "NodeState",

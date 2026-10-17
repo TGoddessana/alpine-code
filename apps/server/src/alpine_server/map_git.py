@@ -240,6 +240,32 @@ def coverage(
     )
 
 
+_MAX_LOG = 8_000
+_MAX_DIFF = 40_000
+
+
+def change_brief(root: Path, base: str | None, include: list[str], exclude: list[str]) -> tuple[str, list[str], str]:
+    """What changed since ``base`` for a map sync: the commits, the changed files in scope (committed, uncommitted
+    and untracked) and the diff of tracked files, each cut to a size a prompt can carry."""
+    if not is_git(root):
+        return "", [], ""
+    current = head(root)
+    scope = {c for p in include if (c := normalize(p))}
+    files = [f for f in _changed(root, base, current) if (not scope or _under(f, scope)) and not matches(exclude, f)]
+    log = ""
+    if base and current and base != current:
+        log = git(
+            root, "log", "--first-parent", "--reverse", "--date=short", "--format=- %h %ad %s%n%b", f"{base}..HEAD"
+        )
+        log = "\n".join(line for line in (log or "").splitlines() if line.strip())
+        if len(log) > _MAX_LOG:
+            log = log[:_MAX_LOG] + "\n- ... (more commits)"
+    diff = (git(root, "diff", "--relative", base, "--", *files[:500]) or "") if base and files else ""
+    if len(diff) > _MAX_DIFF:
+        diff = diff[:_MAX_DIFF] + f"\n[... diff cut at {_MAX_DIFF} characters; read the files for the rest ...]"
+    return log, files, diff
+
+
 def forget() -> None:
     """Drops cached change lists (tests, and after the app writes files itself)."""
     _changes.clear()

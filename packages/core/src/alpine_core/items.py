@@ -66,6 +66,8 @@ class ToolCallItem:
     status: ToolCallStatus = "running"
     result: str | None = None
     images: int = 0
+    command_result: dict[str, Any] | None = None
+    file_changes: list[dict[str, Any]] | None = None
     kind: ClassVar[str] = "tool_call"
 
 
@@ -626,7 +628,16 @@ class ItemRecorder:
 
     def _on_tool_finished(self, event: ToolFinished) -> None:
         active = self._active.get(event.id)
-        item = ToolCallItem(event.id, event.name, dict(event.args), event.kind, event.result, event.images)
+        item = ToolCallItem(
+            event.id,
+            event.name,
+            dict(event.args),
+            event.kind,
+            event.result,
+            event.images,
+            event.command_result,
+            event.file_changes,
+        )
         if not isinstance(active, ToolCallItem):  # denied or cancelled without starting
             self._start(item)
         self._complete(item)

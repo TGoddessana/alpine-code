@@ -1048,6 +1048,50 @@
       "title": "CloneInfo",
       "type": "object"
     },
+    "CommandResult": {
+      "properties": {
+        "stdout": {
+          "default": "",
+          "type": "string"
+        },
+        "stderr": {
+          "default": "",
+          "type": "string"
+        },
+        "exitCode": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "timedOut": {
+          "default": false,
+          "type": "boolean"
+        },
+        "cancelled": {
+          "default": false,
+          "type": "boolean"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "CommandResult",
+      "type": "object"
+    },
     "CompactionItem": {
       "properties": {
         "id": {
@@ -1628,6 +1672,43 @@
         "title"
       ],
       "title": "FeatureFile",
+      "type": "object"
+    },
+    "FileChange": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "added": {
+          "default": 0,
+          "type": "integer"
+        },
+        "removed": {
+          "default": 0,
+          "type": "integer"
+        },
+        "diff": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "path",
+        "added",
+        "removed",
+        "diff"
+      ],
+      "title": "FileChange",
       "type": "object"
     },
     "FlowChange": {
@@ -5899,6 +5980,31 @@
         "images": {
           "default": 0,
           "type": "integer"
+        },
+        "commandResult": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CommandResult"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "fileChanges": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/FileChange"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -5908,7 +6014,9 @@
         "args",
         "status",
         "result",
-        "images"
+        "images",
+        "commandResult",
+        "fileChanges"
       ],
       "title": "ToolCallItem",
       "type": "object"

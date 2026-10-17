@@ -7,7 +7,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { common, useMessages } from '@/shared/i18n';
 import { useOpenProject } from '@/shared/server';
 
-const inTauri = () => '__TAURI_INTERNALS__' in window;
+/** Whether this runs in the desktop app, not a plain browser (`pnpm dev`, Storybook, tests). */
+export const inTauri = () => '__TAURI_INTERNALS__' in window;
 
 /** Asks the OS for a folder (Finder on macOS); `null` when cancelled. A plain browser (`pnpm dev`) asks for a path. */
 export async function pickFolder(title: string): Promise<string | null> {

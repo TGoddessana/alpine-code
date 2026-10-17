@@ -249,6 +249,8 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         status: 'running',
         result: null,
         images: 0,
+        commandResult: null,
+        fileChanges: null,
       };
       emit(context, live, { type: 'item_started', item: read });
       await step();
@@ -268,6 +270,8 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         status: 'running',
         result: null,
         images: 0,
+        commandResult: null,
+        fileChanges: null,
       };
       // As in the core: the call is asked about before it starts, and becomes an item once it runs (or is skipped).
       approval = {
@@ -398,6 +402,8 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
             status: 'done',
             result: 'README.md\nsrc',
             images: 0,
+            commandResult: null,
+            fileChanges: null,
           },
           { id: 'i-3', kind: 'agent_message', text: 'Done. The page loads now.', agent: null },
           { id: 'i-4', kind: 'imported', source },

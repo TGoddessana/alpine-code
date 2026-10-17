@@ -3,6 +3,7 @@ from __future__ import annotations
 from alpineagents import ToolError, tool
 
 from ._common import Workspace, WorkspaceTool, json_note, os_error
+from ._file_write import atomic_write, file_lock
 
 
 class Edit(WorkspaceTool):
@@ -19,29 +20,30 @@ class Edit(WorkspaceTool):
             new_string: The text to put in its place
             replace_all: Replace every occurrence instead of exactly one
         """
-        file = self.workspace.resolve(path)
-        if not file.is_file():
-            raise ToolError(f"{path} does not exist. Use write to create a file")
-        if old_string == new_string:
-            raise ToolError("old_string and new_string are the same")
-        if not old_string:
-            raise ToolError("old_string is empty. Use write to create or replace a whole file")
-        try:
-            text = file.read_text(encoding="utf-8")
-        except UnicodeDecodeError as e:
-            raise ToolError(f"{path} is not UTF-8 text. Use bash to change it") from e
-        count = text.count(old_string)
-        if count == 0:
-            raise ToolError(f"old_string was not found in {path}. Read the file and copy the text exactly")
-        if count > 1 and not replace_all:
-            raise ToolError(
-                f"old_string appears {count} times in {path}. Add surrounding lines to make it unique, "
-                "or set replace_all to true"
-            )
-        new_text = text.replace(old_string, new_string) if replace_all else text.replace(old_string, new_string, 1)
-        file.write_text(new_text, encoding="utf-8")
-        times = f"{count} occurrences" if replace_all and count > 1 else "1 occurrence"
-        return f"Edited {self.workspace.display(file)} ({times} replaced)" + json_note(file, new_text)
+        with file_lock(self.workspace.resolve(path)) as file:
+            if not file.is_file():
+                raise ToolError(f"{path} does not exist. Use write to create a file")
+            if old_string == new_string:
+                raise ToolError("old_string and new_string are the same")
+            if not old_string:
+                raise ToolError("old_string is empty. Use write to create or replace a whole file")
+            try:
+                before = file.read_bytes()
+                text = before.decode("utf-8")
+            except UnicodeDecodeError as e:
+                raise ToolError(f"{path} is not UTF-8 text. Use bash to change it") from e
+            count = text.count(old_string)
+            if count == 0:
+                raise ToolError(f"old_string was not found in {path}. Read the file and copy the text exactly")
+            if count > 1 and not replace_all:
+                raise ToolError(
+                    f"old_string appears {count} times in {path}. Add surrounding lines to make it unique, "
+                    "or set replace_all to true"
+                )
+            new_text = text.replace(old_string, new_string) if replace_all else text.replace(old_string, new_string, 1)
+            atomic_write(file, new_text, before)
+            times = f"{count} occurrences" if replace_all and count > 1 else "1 occurrence"
+            return f"Edited {self.workspace.display(file)} ({times} replaced)" + json_note(file, new_text)
 
 
 def preview_edit(workspace: Workspace, args: dict) -> tuple[str, str] | None:

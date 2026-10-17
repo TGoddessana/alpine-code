@@ -34,6 +34,8 @@ const earlier: Item[] = [
     status: 'done',
     result: Array.from({ length: 24 }, (_, i) => `${String(i + 1).padStart(3)}\t// line ${i + 1}`).join('\n'),
     images: 0,
+    commandResult: null,
+    fileChanges: null,
   },
   {
     id: 'i4',
@@ -43,6 +45,8 @@ const earlier: Item[] = [
     status: 'done',
     result: 'tests/login.test.ts:12:  await waitFor(() => screen.getByText("Welcome"));',
     images: 0,
+    commandResult: null,
+    fileChanges: null,
   },
   {
     id: 'i5a',
@@ -69,6 +73,8 @@ const earlier: Item[] = [
     status: 'done',
     result: 'Edited tests/login.test.ts',
     images: 0,
+    commandResult: null,
+    fileChanges: null,
   },
   {
     id: 'i6',
@@ -104,6 +110,8 @@ const earlier: Item[] = [
       ' Tests  1 failed | 11 passed (12)',
     ].join('\n'),
     images: 0,
+    commandResult: null,
+    fileChanges: null,
   },
   {
     id: 'i7a',
@@ -129,6 +137,8 @@ const earlier: Item[] = [
     status: 'denied',
     result: 'The user declined this tool call. They said: 린트는 지금 안 돌려도 돼요',
     images: 0,
+    commandResult: null,
+    fileChanges: null,
   },
   { id: 'i8', kind: 'notice', text: 'AGENTS.md를 읽었어요', source: 'agents_md' },
   { id: 'i9', kind: 'compaction', beforeTokens: 96_000, afterTokens: 12_000 },
@@ -426,6 +436,8 @@ function memorySuggested() {
         status: 'done',
         result: "Suggested; it waits for the user's approval. Carry on.",
         images: 0,
+        commandResult: null,
+        fileChanges: null,
       },
       { id: 'm3', kind: 'agent_message', agent: null, text: '버튼 문구를 해요체로 바꿨어요. 앞으로도 그렇게 쓸게요.' },
     ]),
@@ -465,6 +477,8 @@ export const MemoryChecks: Story = {
         status: 'done',
         result: 'Edited supabase/migrations/001_init.sql',
         images: 0,
+        commandResult: null,
+        fileChanges: null,
       },
       {
         id: 'c3',
@@ -480,6 +494,8 @@ export const MemoryChecks: Story = {
         status: 'denied',
         result: '커밋 전에 `pnpm lint`를 먼저 돌려 주세요.',
         images: 0,
+        commandResult: null,
+        fileChanges: null,
       },
       {
         id: 'c5',
@@ -489,6 +505,8 @@ export const MemoryChecks: Story = {
         status: 'done',
         result: '✓ lint passed\n[main 1a2b3c4] Fix table',
         images: 0,
+        commandResult: null,
+        fileChanges: null,
       },
       {
         id: 'c6',
@@ -516,6 +534,8 @@ export const AutoModeBlocked: Story = {
         status: 'done',
         result: 'Tests  4 passed',
         images: 0,
+        commandResult: null,
+        fileChanges: null,
       },
       {
         id: 'a3',
@@ -534,6 +554,8 @@ export const AutoModeBlocked: Story = {
         result:
           "Auto mode's reviewer blocked this call: 커밋만 부탁했는데 main에 강제로 푸시하려고 해서. Do not try...",
         images: 0,
+        commandResult: null,
+        fileChanges: null,
       },
       {
         id: 'a5',
@@ -643,6 +665,8 @@ export const DeletedAgent: Story = {
           status: 'done',
           result: '<html></html>',
           images: 0,
+          commandResult: null,
+          fileChanges: null,
         },
         { id: 'g5', kind: 'agent_message', agent: 'a-gone', text: '문제 없이 잘 되어 있어요.' },
       ],
@@ -674,6 +698,8 @@ export const FromClaudeCode: Story = {
         status: 'done',
         result: 'export function LoginForm() {}',
         images: 0,
+        commandResult: null,
+        fileChanges: null,
       },
       {
         id: 'toolu_2',
@@ -683,6 +709,8 @@ export const FromClaudeCode: Story = {
         status: 'done',
         result: '1 passed',
         images: 0,
+        commandResult: null,
+        fileChanges: null,
       },
       { id: 'c3', kind: 'agent_message', agent: null, text: '폼이 새로고침되던 걸 막았어요. 테스트도 통과해요.' },
       { id: 'c4', kind: 'imported', source: 'claude_code' },
@@ -717,6 +745,8 @@ export const SkillsUsed: Story = {
         status: 'done',
         result: '<skill_content name="frontend-design">…</skill_content>',
         images: 0,
+        commandResult: null,
+        fileChanges: null,
       },
       {
         id: 'k5',
@@ -726,6 +756,8 @@ export const SkillsUsed: Story = {
         status: 'done',
         result: '  1\texport default function Reservation() {',
         images: 0,
+        commandResult: null,
+        fileChanges: null,
       },
       {
         id: 'k6',

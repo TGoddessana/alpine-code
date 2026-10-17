@@ -972,6 +972,23 @@ class AgentMessageItem(ItemModel):
     """The id of the agent that wrote it; ``None`` for older answers written without one."""
 
 
+class CommandResult(Message):
+    stdout: str = ""
+    stderr: str = ""
+    exit_code: int | None = None
+    timed_out: bool = False
+    cancelled: bool = False
+    message: str | None = None
+
+
+class FileChange(ItemModel):
+    path: str
+    added: int = 0
+    removed: int = 0
+    diff: list[str] | None = None
+    """Actual baseline-to-current diff; None for binary or oversized files."""
+
+
 class ToolCallItem(ItemModel):
     id: str
     """The model's call id."""
@@ -982,6 +999,9 @@ class ToolCallItem(ItemModel):
     result: str | None = None
     images: int = 0
     """How many images the tool sent to the model; the images themselves are not kept."""
+    command_result: CommandResult | None = None
+    file_changes: list[FileChange] | None = None
+    """Cumulative actual session changes. None in old records or when collection was unavailable."""
 
 
 class ApprovalItem(ItemModel):

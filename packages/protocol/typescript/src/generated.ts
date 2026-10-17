@@ -278,6 +278,18 @@ export interface CloneInfo {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CommandResult".
+ */
+export interface CommandResult {
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number | null;
+  timedOut?: boolean;
+  cancelled?: boolean;
+  message?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "CompactionItem".
  */
 export interface CompactionItem {
@@ -1192,6 +1204,16 @@ export interface FlowReplay {
       ];
 }
 /**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FileChange".
+ */
+export interface FileChange {
+  path: string;
+  added: number;
+  removed: number;
+  diff: string[] | null;
+}
+/**
  * One recorded change to the map, kept by the server next to the document.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -2006,6 +2028,8 @@ export interface ToolCallItem {
   status: 'running' | 'done' | 'error' | 'input_error' | 'aborted' | 'interrupted' | 'denied' | 'cancelled';
   result: string | null;
   images: number;
+  commandResult: CommandResult | null;
+  fileChanges: FileChange[] | null;
 }
 /**
  * Auto mode's reviewer blocked a call; the model was told ``reason`` and went on. The call follows as a denied

@@ -1,4 +1,5 @@
 import asyncio
+import json
 import struct
 import zlib
 from pathlib import Path
@@ -123,10 +124,26 @@ def test_edit_unique_and_replace_all(ws):
 
 def test_bash_output_exit_code_and_timeout(ws):
     tool = Bash(ws).bash
-    assert run(tool, command="echo hi && pwd") == f"hi\n{ws.root}"
-    assert run(tool, command="echo oops >&2; exit 3") == "oops\n[exit code 3]"
-    with pytest.raises(ToolError, match="timed out"):
-        run(tool, command="sleep 5", timeout=1)
+    success = json.loads(run(tool, command="echo hi && pwd"))
+    assert success["stdout"] == f"hi\n{ws.root}" and success["exit_code"] == 0
+    with pytest.raises(ToolError) as failed:
+        run(tool, command="echo oops >&2; exit 3")
+    failure = json.loads(str(failed.value))
+    assert failure["stderr"] == "oops" and failure["exit_code"] == 3
+    with pytest.raises(ToolError, match="timed out") as expired:
+        run(tool, command="echo partial_progress; sleep 5", timeout=1)
+    timeout = json.loads(str(expired.value))
+    assert timeout["timed_out"] and timeout["stdout"] == "partial_progress"
+
+
+def test_bash_empty_output_and_both_streams_are_structured_and_bounded(ws):
+    assert json.loads(run(Bash(ws).bash, command="true"))["stdout"] == ""
+    result = json.loads(
+        run(Bash(ws).bash, command="python3 -c \"import sys; print('x' * 40000); print('y' * 40000, file=sys.stderr)\"")
+    )
+    assert result["stdout"].endswith("x" * 100) and result["stderr"].endswith("y" * 100)
+    assert "characters truncated" in result["stdout"] and "characters truncated" in result["stderr"]
+    assert len(result["stdout"]) + len(result["stderr"]) < 30200
 
 
 def make_tree(root: Path) -> None:

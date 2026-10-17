@@ -68,6 +68,7 @@ from .skills import Skill, SkillLibrary, SkillTool, catalog, expand_command
 from .storage import Activity, ActivityKind, Record, SessionInfo, SessionStatus, Storage
 from .tool_sources import ToolSources, builtins_only, gather, pick
 from .tools import Workspace
+from .work_changes import WorkChanges
 
 #: Longest session title, in characters.
 TITLE_LENGTH = 60
@@ -169,7 +170,8 @@ class Session:
         self._applied = self._pick_agent(_saved.info if _saved else None, agent)
         if _saved is None and (chosen := model or (self._applied.model if self._applied else None)):
             settings = settings.with_model(chosen)
-        self._reporter = EventReporter(self._dispatch)
+        self._work_changes = WorkChanges(self.workspace, _saved.info.work_baseline if _saved else None)
+        self._reporter = EventReporter(self._dispatch, self._work_changes)
         self._state: State | None = None
         self._settings = settings
         self._agent = self._build_agent(settings)
@@ -592,6 +594,7 @@ class Session:
                 "tools": list(self._applied.tools),
             },
             imported_from=self._imported_from,
+            work_baseline=dict(self._work_changes.baseline),
         )
 
     @property
@@ -772,6 +775,7 @@ class Session:
         self._touch()
 
     def _begin_run(self, kind: ActivityKind) -> None:
+        self._work_changes.begin()
         self._run_started_at = _now()
         self._run_base = self.usage
         self._running_tools.clear()
@@ -805,6 +809,7 @@ class Session:
 
     def _begin_conversation(self) -> None:
         """A new session id and an empty screen record (a new session, or ``clear``)."""
+        self._work_changes.clear()
         self._id = uuid.uuid4().hex
         self._title = NEW_TITLE
         self._status = "idle"

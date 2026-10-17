@@ -105,6 +105,9 @@ class SessionInfo:
     """``{"source", "id", "updated_at"}`` of the other app's conversation the session was carried over from, so the
     same one is not imported twice. Core only, not on the wire."""
 
+    work_baseline: dict[str, Any] = field(default_factory=dict)
+    """Core-only first observed file versions for actual session diffs; never sent to the model."""
+
     def to_dict(self) -> dict[str, Any]:
         """A JSON-ready dict, snake_case."""
         return {
@@ -128,6 +131,7 @@ class SessionInfo:
             "agent_applied": self.agent_applied,
             "last_seq": self.last_seq,
             "imported_from": self.imported_from,
+            "work_baseline": self.work_baseline,
         }
 
     @classmethod
@@ -156,6 +160,7 @@ class SessionInfo:
             agent_applied=data.get("agent_applied"),
             last_seq=data.get("last_seq", 0),
             imported_from=data.get("imported_from"),
+            work_baseline=data.get("work_baseline") or {},
         )
 
 

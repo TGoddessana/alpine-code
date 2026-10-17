@@ -13,6 +13,8 @@ const call = (id: string, over: Partial<ToolCallItem> = {}): ToolCallItem => ({
   status: 'done',
   result: null,
   images: 0,
+  commandResult: null,
+  fileChanges: null,
   ...over,
 });
 const message = (id: string): Item => ({ id, kind: 'agent_message', agent: null, text: 'hi' });

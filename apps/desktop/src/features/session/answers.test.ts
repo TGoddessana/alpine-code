@@ -14,6 +14,8 @@ const call = (id: string): Item => ({
   status: 'done',
   result: '',
   images: 0,
+  commandResult: null,
+  fileChanges: null,
 });
 const switched = (id: string, agent: string): Item => ({
   id,

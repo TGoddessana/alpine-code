@@ -30,6 +30,8 @@ const edit: ToolCallItem = {
   status: 'done',
   result: null,
   images: 0,
+  commandResult: null,
+  fileChanges: [{ path: 'src/Cart.tsx', added: 1, removed: 1, diff: ['@@ -1 +1 @@', '-x', '+y'] }],
 };
 const approval: ApprovalItem = {
   id: 'e1a',

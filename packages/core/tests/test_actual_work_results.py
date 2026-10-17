@@ -172,3 +172,35 @@ def test_git_dirty_baseline_deletion_rename_binary_and_ignored_paths(tmp_path):
     tracker.start("write", {"path": "ignored/output"})
     (tmp_path / "ignored/output").write_text("explicit change")
     assert "ignored/output" in {c["path"] for c in tracker.finish()}
+
+
+@pytest.mark.parametrize("content", ["existing notes\n", "updated notes\n", None])
+def test_newly_ignored_file_uses_disk_state_instead_of_assuming_deletion(tmp_path, content):
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    notes = tmp_path / "notes.txt"
+    notes.write_text("existing notes\n")
+    tracker = WorkChanges(ToolWorkspace(tmp_path))
+    tracker.start("bash", {})
+    (tmp_path / ".gitignore").write_text("notes.txt\n")
+    # Merely ignoring a file must not report it as deleted, even on subsequent scans.
+    for _ in range(2):
+        assert {c["path"] for c in tracker.finish()} == {".gitignore"}
+    tracker.start("bash", {})
+    if content is None:
+        notes.unlink()
+    else:
+        notes.write_text(content)
+    changes = {c["path"]: c for c in tracker.finish()}
+    if content == "existing notes\n":
+        assert set(changes) == {".gitignore"}
+    else:
+        assert changes["notes.txt"] == {
+            "path": "notes.txt",
+            "added": 0 if content is None else 1,
+            "removed": 1,
+            "diff": (
+                ["@@ -1 +0,0 @@", "-existing notes"]
+                if content is None
+                else ["@@ -1 +1 @@", "-existing notes", "+updated notes"]
+            ),
+        }

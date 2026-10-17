@@ -140,6 +140,9 @@ class WorkChanges:
                 raise OSError("Cannot collect actual changes: file enumeration failed")
             keys = set(found.stdout.decode("utf-8", errors="surrogateescape").split("\0"))
         keys |= self._explicit
+        # Enumeration can drop existing files after ignore rules change. Keep checking
+        # previously observed paths on disk so omission is not mistaken for deletion.
+        keys |= (self._previous or {}).keys()
         result = {}
         for key in keys:
             if not key or not self._safe(key):

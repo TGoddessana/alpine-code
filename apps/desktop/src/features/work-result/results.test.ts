@@ -11,6 +11,8 @@ const call = (id: string, over: Partial<ToolCallItem>): ToolCallItem => ({
   status: 'done',
   result: null,
   images: 0,
+  commandResult: null,
+  fileChanges: null,
   ...over,
 });
 
@@ -32,7 +34,7 @@ const diffApproval = (callId: string, path: string, preview: string): ApprovalIt
 });
 
 describe('workResult', () => {
-  it('lists each changed file once, adding up the diffs its edits showed', () => {
+  it('keeps legacy file names but never presents approval previews as actual diffs', () => {
     const items = [
       diffApproval('e1', 'a.ts', '--- a/a.ts\n+++ b/a.ts\n@@ -1 +1 @@\n-x\n+y\n'),
       call('e1', { args: { path: 'a.ts' } }),
@@ -41,9 +43,20 @@ describe('workResult', () => {
       call('e3', { args: { path: 'a.ts' } }),
     ];
     expect(workResult(items).files).toEqual([
-      { path: 'a.ts', added: 3, removed: 1, diff: ['@@ -1 +1 @@', '-x', '+y', '@@ -5 +5,2 @@', '+z', '+w'] },
+      { path: 'a.ts', added: 0, removed: 0, diff: null },
       { path: 'b.ts', added: 0, removed: 0, diff: null },
     ]);
+  });
+
+  it('uses the latest actual final diff, including changes by a failed shell or user tool', () => {
+    const final = { path: 'a.ts', added: 1, removed: 1, diff: ['@@ -1 +1 @@', '-original', '+final'] };
+    const items = [
+      diffApproval('e1', 'a.ts', '@@ -1 +1 @@\n-wrong\n+preview\n'),
+      call('e1', { fileChanges: [{ ...final, diff: ['-original', '+intermediate'] }] }),
+      call('e2', { name: 'custom_tool', status: 'error', fileChanges: [final] }),
+    ];
+    expect(workResult(items).files).toEqual([final]);
+    expect(workResult([...items, call('undo', { name: 'bash', fileChanges: [] })]).files).toEqual([]);
   });
 
   it('counts only edits that finished', () => {

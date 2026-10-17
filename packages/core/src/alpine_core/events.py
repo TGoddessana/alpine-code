@@ -73,6 +73,9 @@ class ToolFinished:
     kind: ToolResultKind
     images: int = 0
     """How many images the result sent to the model."""
+    command_result: dict[str, Any] | None = None
+    file_changes: list[dict[str, Any]] | None = None
+    """Cumulative actual changes, relative to the session's first observed version. None: not collected."""
 
     @property
     def is_error(self) -> bool:

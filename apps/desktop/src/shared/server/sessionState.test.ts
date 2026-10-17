@@ -73,6 +73,8 @@ describe('applyEvent', () => {
       status: 'running',
       result: null,
       images: 0,
+      commandResult: null,
+      fileChanges: null,
     };
     const state = apply(
       start(),

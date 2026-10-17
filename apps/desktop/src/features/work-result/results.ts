@@ -1,12 +1,9 @@
-import type { ApprovalItem, ToolCallItem } from '@alpine/protocol';
+import type { ToolCallItem } from '@alpine/protocol';
 
 import type { Item } from '@/shared/server';
-import { editDiff, toolKind, toolTarget } from '@/shared/tool-calls';
+import { toolKind, toolTarget } from '@/shared/tool-calls';
 
-/**
- * A file the agent changed, once however often it was changed. The diff and the counts come from the edits that
- * showed one when they asked; an edit that did not ask adds none, so `diff` is null when no edit of the file showed one.
- */
+/** Actual session-baseline-to-current change. A null diff is an old record or a non-text file. */
 export interface ChangedFile {
   path: string;
   added: number;
@@ -21,39 +18,30 @@ export interface RanCommand {
   status: ToolCallItem['status'];
 }
 
-/** What the work changed and ran, in the order it first happened. */
 export interface WorkResult {
   files: ChangedFile[];
   commands: RanCommand[];
 }
 
-/** Calls that never ran: the command list leaves them out. */
 const NOT_RUN: ToolCallItem['status'][] = ['denied', 'cancelled'];
 
-/** What a conversation's tool calls changed and ran. Only edits that finished count as a change. */
+/** Approval previews describe intent, never applied changes. The latest actual snapshot wins,
+ * including an empty snapshot when all changes have been reverted. Older sessions keep file names
+ * but do not present approval previews as verified final diffs. */
 export function workResult(items: Item[]): WorkResult {
-  const approvals = new Map<string, ApprovalItem>();
-  for (const item of items) if (item.kind === 'approval') approvals.set(item.callId, item);
-
-  const files = new Map<string, ChangedFile>();
+  const legacy = new Map<string, ChangedFile>();
+  let actual: ChangedFile[] | null = null;
   const commands: RanCommand[] = [];
   for (const item of items) {
     if (item.kind !== 'tool_call') continue;
+    if (item.fileChanges != null) actual = item.fileChanges;
     const kind = toolKind(item.name);
     if (kind === 'edit' && item.status === 'done') {
       const path = toolTarget(item);
-      if (!path) continue;
-      const file = files.get(path) ?? { path, added: 0, removed: 0, diff: null };
-      const diff = editDiff(approvals.get(item.id) ?? null);
-      if (diff) {
-        file.added += diff.added;
-        file.removed += diff.removed;
-        file.diff = [...(file.diff ?? []), ...diff.lines];
-      }
-      files.set(path, file);
+      if (path) legacy.set(path, { path, added: 0, removed: 0, diff: null });
     } else if (kind === 'run' && !NOT_RUN.includes(item.status)) {
       commands.push({ id: item.id, command: toolTarget(item), status: item.status });
     }
   }
-  return { files: [...files.values()], commands };
+  return { files: actual ?? [...legacy.values()], commands };
 }

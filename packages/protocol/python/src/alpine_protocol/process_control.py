@@ -16,6 +16,7 @@ class ToolExecution(Message):
 
 
 class ProcessesListParams(Message):
+    kind: Literal["command", "shell"] | None = None
     cwd: str | None = None
     session_id: str | None = None
 

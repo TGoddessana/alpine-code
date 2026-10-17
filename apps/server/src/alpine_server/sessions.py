@@ -36,6 +36,7 @@ from alpine_core import (
     import_session,
     list_sessions,
 )
+from alpine_core.work_changes import checkpoint_changes
 from alpine_protocol import (
     SESSION_NOT_FOUND,
     SESSION_RUNNING,
@@ -44,6 +45,8 @@ from alpine_protocol import (
     SessionAnswerResult,
     SessionCancelParams,
     SessionCancelResult,
+    SessionChangesParams,
+    SessionChangesResult,
     SessionDeleteParams,
     SessionDeleteResult,
     SessionEventParams,
@@ -144,6 +147,7 @@ class SessionManager:
             "session/new": self.new,
             "session/list": self.list,
             "session/open": self.open,
+            "session/changes": self.changes,
             "session/send": self.send,
             "session/cancel": self.cancel,
             "session/answer": self.answer,
@@ -217,6 +221,26 @@ class SessionManager:
             seq=snapshot.seq,
             items=[to_item(item) for item in snapshot.items],
             active=[to_item(item) for item in snapshot.active],
+        )
+
+    async def changes(self, params: SessionChangesParams) -> SessionChangesResult:
+        live = self._live.get(params.session_id)
+        try:
+            info = live.session.info if live else (await asyncio.to_thread(self.storage.log.read, params.session_id))[0]
+        except LookupError as exc:
+            raise MethodError(SESSION_NOT_FOUND, "Session not found") from exc
+        history = info.work_history
+        try:
+            files = await asyncio.to_thread(checkpoint_changes, history, info.work_baseline, params.checkpoint_id)
+        except LookupError as exc:
+            raise MethodError(APP_ERROR, str(exc), "not_found") from exc
+        return SessionChangesResult(
+            checkpoints=[
+                {key: request[key] for key in ("id", "label", "created_at", "status")}
+                for request in history.get("requests", [])
+            ],
+            files=files,
+            available=bool(history.get("requests")),
         )
 
     async def send(self, params: SessionSendParams) -> SessionSendResult:

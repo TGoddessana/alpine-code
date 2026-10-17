@@ -105,6 +105,9 @@ class SessionInfo:
     """``{"source", "id", "updated_at"}`` of the other app's conversation the session was carried over from, so the
     same one is not imported twice. Core only, not on the wire."""
 
+    work_history: dict[str, Any] = field(default_factory=dict)
+    """Core-only request checkpoints and deduplicated file versions."""
+
     work_baseline: dict[str, Any] = field(default_factory=dict)
     """Core-only first observed file versions for actual session diffs; never sent to the model."""
 
@@ -132,6 +135,7 @@ class SessionInfo:
             "last_seq": self.last_seq,
             "imported_from": self.imported_from,
             "work_baseline": self.work_baseline,
+            "work_history": self.work_history,
         }
 
     @classmethod
@@ -161,6 +165,7 @@ class SessionInfo:
             last_seq=data.get("last_seq", 0),
             imported_from=data.get("imported_from"),
             work_baseline=data.get("work_baseline") or {},
+            work_history=data.get("work_history") or {},
         )
 
 
@@ -305,7 +310,7 @@ class FileSessionLog:
             for folder in self._root.iterdir():
                 if folder.name.startswith(".") or not folder.is_dir():
                     continue
-                info = _read_info(folder)
+                info = _read_info(folder, hydrate=False)
                 if info is not None:
                     found.append(info)
         found.sort(key=lambda info: info.updated_at, reverse=True)
@@ -363,12 +368,53 @@ def _write(path: Path, data: bytes, *, append: bool) -> None:
 def _write_info(path: Path, info: SessionInfo) -> None:
     # The live fields describe a running process, so a saved session never has them.
     info = dataclasses.replace(info, activity=None, run_started_at=None, run_usage=None)
+    history = info.work_history
+    if history:
+        # File contents are immutable, owner-only blobs beside the session, not repeated
+        # in info.json every time usage/activity is saved. A blob is durable before any
+        # manifest can reference it; the caller atomically replaces that manifest.
+        blobs = history.get("blobs", {})
+        folder = path.parent / "checkpoints"
+        folder.mkdir(mode=0o700, exist_ok=True)
+        for digest, state in blobs.items():
+            if not _snapshot_digest(digest):
+                raise ValueError("Invalid snapshot digest")
+            target = folder / f"{digest}.json"
+            if not target.exists():
+                staging = folder / f".{digest}.{uuid.uuid4().hex}"
+                try:
+                    _write(staging, _dump(state).encode("utf-8"), append=False)
+                    os.replace(staging, target)
+                finally:
+                    staging.unlink(missing_ok=True)
+        history = {key: value for key, value in history.items() if key != "blobs"}
+        history["blob_ids"] = list(blobs)
+        info = dataclasses.replace(info, work_history=history)
     _write(path, _dump(info.to_dict()).encode("utf-8"), append=False)
 
 
-def _read_info(folder: Path) -> SessionInfo | None:
+def _snapshot_digest(value: str) -> bool:
+    return len(value) == 64 and all(char in "0123456789abcdef" for char in value)
+
+
+def _read_info(folder: Path, *, hydrate: bool = True) -> SessionInfo | None:
     try:
-        return SessionInfo.from_dict(json.loads((folder / _INFO).read_text("utf-8")))
+        data = json.loads((folder / _INFO).read_text("utf-8"))
+        history = data.get("work_history", {})
+        if "blob_ids" in history:
+            blobs = {}
+            if hydrate:
+                for digest in history.pop("blob_ids"):
+                    if not isinstance(digest, str) or not _snapshot_digest(digest):
+                        continue
+                    try:
+                        blobs[digest] = json.loads((folder / "checkpoints" / f"{digest}.json").read_text("utf-8"))
+                    except (OSError, ValueError):
+                        # A missing snapshot must not make the conversation disappear.
+                        # Comparing this version returns an explicit unavailable error.
+                        continue
+            history["blobs"] = blobs
+        return SessionInfo.from_dict(data)
     except (OSError, ValueError, KeyError):
         return None
 

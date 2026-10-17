@@ -1319,6 +1319,15 @@ export interface FileChange {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FileEntry".
+ */
+export interface FileEntry {
+  name: string;
+  path: string;
+  kind: 'directory' | 'file' | 'symlink';
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "FilesActionParams".
  */
 export interface FilesActionParams {
@@ -1333,6 +1342,25 @@ export interface FilesActionParams {
  */
 export interface FilesActionResult {
   ok?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FilesListParams".
+ */
+export interface FilesListParams {
+  cwd: string;
+  path?: string;
+  offset?: number;
+  limit?: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FilesListResult".
+ */
+export interface FilesListResult {
+  entries: FileEntry[];
+  nextOffset: number;
+  hasMore: boolean;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -2512,6 +2540,7 @@ export interface PackageInfo {
  * via the `definition` "ProcessesListParams".
  */
 export interface ProcessesListParams {
+  kind?: ('command' | 'shell') | null;
   cwd?: string | null;
   sessionId?: string | null;
 }
@@ -2534,6 +2563,7 @@ export interface TerminalProcess {
   sessionId?: string | null;
   title: string;
   pty: boolean;
+  kind?: 'command' | 'shell';
   pid: number;
   status: 'running' | 'stopping' | 'exited' | 'failed' | 'cancelled';
   exitCode?: number | null;
@@ -2559,6 +2589,7 @@ export interface ToolExecution {
  * via the `definition` "ProcessesStopParams".
  */
 export interface ProcessesStopParams {
+  kind?: ('command' | 'shell') | null;
   cwd?: string | null;
   sessionId?: string | null;
   force?: boolean;
@@ -2773,6 +2804,33 @@ export interface SessionCancelParams {
  * via the `definition` "SessionCancelResult".
  */
 export interface SessionCancelResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionChangesParams".
+ */
+export interface SessionChangesParams {
+  sessionId: string;
+  checkpointId?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionChangesResult".
+ */
+export interface SessionChangesResult {
+  checkpoints: SessionCheckpoint[];
+  files: FileChange[];
+  available: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionCheckpoint".
+ */
+export interface SessionCheckpoint {
+  id: string;
+  label: string;
+  createdAt: string;
+  status: string;
+}
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "SessionDeleteParams".
@@ -3150,6 +3208,13 @@ export interface SkillsSearchResult {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TerminalsCloseResult".
+ */
+export interface TerminalsCloseResult {
+  closed?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "TerminalsListParams".
  */
 export interface TerminalsListParams {
@@ -3165,6 +3230,13 @@ export interface TerminalsListResult {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TerminalsProcessParams".
+ */
+export interface TerminalsProcessParams {
+  processId: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "TerminalsProcessResult".
  */
 export interface TerminalsProcessResult {
@@ -3177,6 +3249,7 @@ export interface TerminalsProcessResult {
 export interface TerminalsReadParams {
   processId: string;
   offset?: number;
+  waitMs?: number;
   limit?: number;
 }
 /**
@@ -3208,6 +3281,7 @@ export interface TerminalsStartParams {
   sessionId?: string | null;
   title?: string | null;
   pty?: boolean;
+  kind?: 'command' | 'shell';
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -3384,6 +3458,7 @@ export interface Methods {
   'devServers/stop': { params: DevServersStopParams; result: DevServersStopResult };
   'devServers/restart': { params: DevServersRestartParams; result: DevServersRestartResult };
   'devServers/logs': { params: DevServersLogsParams; result: DevServersLogsResult };
+  'files/list': { params: FilesListParams; result: FilesListResult };
   'files/read': { params: FilesReadParams; result: FilesReadResult };
   'files/action': { params: FilesActionParams; result: FilesActionResult };
   'files/search': { params: FilesSearchParams; result: FilesSearchResult };
@@ -3394,6 +3469,7 @@ export interface Methods {
   'terminals/read': { params: TerminalsReadParams; result: TerminalsReadResult };
   'terminals/write': { params: TerminalsWriteParams; result: TerminalsProcessResult };
   'terminals/resize': { params: TerminalsResizeParams; result: TerminalsProcessResult };
+  'terminals/close': { params: TerminalsProcessParams; result: TerminalsCloseResult };
   'terminals/stop': { params: TerminalsStopParams; result: TerminalsProcessResult };
   'initialize': { params: InitializeParams; result: InitializeResult };
   'flow/get': { params: FlowGetParams; result: FlowGetResult };
@@ -3458,6 +3534,7 @@ export interface Methods {
   'session/new': { params: SessionNewParams; result: SessionNewResult };
   'session/list': { params: SessionListParams; result: SessionListResult };
   'session/open': { params: SessionOpenParams; result: SessionOpenResult };
+  'session/changes': { params: SessionChangesParams; result: SessionChangesResult };
   'session/send': { params: SessionSendParams; result: SessionSendResult };
   'session/cancel': { params: SessionCancelParams; result: SessionCancelResult };
   'session/answer': { params: SessionAnswerParams; result: SessionAnswerResult };

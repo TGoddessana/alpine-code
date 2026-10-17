@@ -3,8 +3,10 @@
 from alpine_core.processes import process_manager
 from alpine_protocol.terminals import (
     TerminalProcess,
+    TerminalsCloseResult,
     TerminalsListParams,
     TerminalsListResult,
+    TerminalsProcessParams,
     TerminalsProcessResult,
     TerminalsReadParams,
     TerminalsReadResult,
@@ -37,7 +39,12 @@ async def list_terminals(params: TerminalsListParams) -> TerminalsListResult:
 async def start_terminal(params: TerminalsStartParams) -> TerminalsProcessResult:
     try:
         process = await process_manager().start(
-            params.command, params.cwd, session_id=params.session_id, title=params.title, pty=params.pty
+            params.command,
+            params.cwd,
+            session_id=params.session_id,
+            title=params.title,
+            pty=params.pty,
+            kind=params.kind,
         )
     except (OSError, ValueError) as exc:
         raise MethodError(INVALID_PARAMS, str(exc)) from exc
@@ -46,6 +53,8 @@ async def start_terminal(params: TerminalsStartParams) -> TerminalsProcessResult
 
 async def read_terminal(params: TerminalsReadParams) -> TerminalsReadResult:
     process = _get(params.process_id)
+    if params.wait_ms:
+        await process.wait_for_output(params.offset, params.wait_ms / 1000)
     return TerminalsReadResult(
         **process.read(params.offset, params.limit), process=TerminalProcess(**process.snapshot())
     )
@@ -72,6 +81,15 @@ async def stop_terminal(params: TerminalsStopParams) -> TerminalsProcessResult:
     return _result(process)
 
 
+async def close_terminal(params: TerminalsProcessParams) -> TerminalsCloseResult:
+    _get(params.process_id)
+    try:
+        await process_manager().close(params.process_id)
+    except (OSError, TimeoutError) as exc:
+        raise MethodError(INVALID_PARAMS, str(exc)) from exc
+    return TerminalsCloseResult()
+
+
 HANDLERS = {
     "terminals/list": list_terminals,
     "terminals/start": start_terminal,
@@ -79,4 +97,5 @@ HANDLERS = {
     "terminals/write": write_terminal,
     "terminals/resize": resize_terminal,
     "terminals/stop": stop_terminal,
+    "terminals/close": close_terminal,
 }

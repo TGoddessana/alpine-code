@@ -34,3 +34,29 @@ it('opens and closes the actual baseline-to-final change', () => {
   fireEvent.click(file);
   expect(screen.queryByRole('region', { name: 'file.txt 바뀐 내용' })).toBeNull();
 });
+
+it('keeps files without a recorded diff in changes and supports reviewing all files', () => {
+  render(
+    <LocaleProvider locale="ko">
+      <WorkResult
+        result={{
+          files: [
+            { path: 'old.txt', added: 0, removed: 0, diff: null },
+            { path: 'new.txt', added: 1, removed: 0, diff: ['@@ -0,0 +1 @@', '+new'] },
+          ],
+          commands: [],
+        }}
+      />
+    </LocaleProvider>,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'old.txt' }));
+  expect(screen.getByRole('region', { name: 'old.txt 바뀐 내용' }).textContent).toContain(
+    '기록된 텍스트 diff가 없어요',
+  );
+  expect(screen.getByText('이 세션에서 기록한 변경 · 마지막 실행 기준')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: '모두 보기' }));
+  expect(screen.getByRole('region', { name: 'new.txt 바뀐 내용' }).textContent).toContain('+new');
+  fireEvent.click(screen.getByRole('button', { name: '모두 접기' }));
+  expect(screen.queryByRole('region', { name: 'new.txt 바뀐 내용' })).toBeNull();
+  expect(screen.queryByRole('region', { name: 'old.txt 바뀐 내용' })).toBeNull();
+});

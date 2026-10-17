@@ -23,6 +23,10 @@
       "params": "DevServersLogsParams",
       "result": "DevServersLogsResult"
     },
+    "files/list": {
+      "params": "FilesListParams",
+      "result": "FilesListResult"
+    },
     "files/read": {
       "params": "FilesReadParams",
       "result": "FilesReadResult"
@@ -62,6 +66,10 @@
     "terminals/resize": {
       "params": "TerminalsResizeParams",
       "result": "TerminalsProcessResult"
+    },
+    "terminals/close": {
+      "params": "TerminalsProcessParams",
+      "result": "TerminalsCloseResult"
     },
     "terminals/stop": {
       "params": "TerminalsStopParams",
@@ -318,6 +326,10 @@
     "session/open": {
       "params": "SessionOpenParams",
       "result": "SessionOpenResult"
+    },
+    "session/changes": {
+      "params": "SessionChangesParams",
+      "result": "SessionChangesResult"
     },
     "session/send": {
       "params": "SessionSendParams",
@@ -2075,6 +2087,31 @@
       "title": "FileChange",
       "type": "object"
     },
+    "FileEntry": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "directory",
+            "file",
+            "symlink"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "kind"
+      ],
+      "title": "FileEntry",
+      "type": "object"
+    },
     "FilesActionParams": {
       "properties": {
         "cwd": {
@@ -2112,6 +2149,56 @@
         }
       },
       "title": "FilesActionResult",
+      "type": "object"
+    },
+    "FilesListParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "path": {
+          "default": "",
+          "type": "string"
+        },
+        "offset": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "default": 200,
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "title": "FilesListParams",
+      "type": "object"
+    },
+    "FilesListResult": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/FileEntry"
+          },
+          "type": "array"
+        },
+        "nextOffset": {
+          "type": "integer"
+        },
+        "hasMore": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "entries",
+        "nextOffset",
+        "hasMore"
+      ],
+      "title": "FilesListResult",
       "type": "object"
     },
     "FilesReadParams": {
@@ -4500,6 +4587,21 @@
     },
     "ProcessesListParams": {
       "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "command",
+                "shell"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "cwd": {
           "anyOf": [
             {
@@ -4550,6 +4652,21 @@
     },
     "ProcessesStopParams": {
       "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "command",
+                "shell"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "cwd": {
           "anyOf": [
             {
@@ -5453,6 +5570,79 @@
     "SessionCancelResult": {
       "properties": {},
       "title": "SessionCancelResult",
+      "type": "object"
+    },
+    "SessionChangesParams": {
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "checkpointId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "title": "SessionChangesParams",
+      "type": "object"
+    },
+    "SessionChangesResult": {
+      "properties": {
+        "checkpoints": {
+          "items": {
+            "$ref": "#/$defs/SessionCheckpoint"
+          },
+          "type": "array"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/FileChange"
+          },
+          "type": "array"
+        },
+        "available": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "checkpoints",
+        "files",
+        "available"
+      ],
+      "title": "SessionChangesResult",
+      "type": "object"
+    },
+    "SessionCheckpoint": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "createdAt",
+        "status"
+      ],
+      "title": "SessionCheckpoint",
       "type": "object"
     },
     "SessionDeleteParams": {
@@ -6565,6 +6755,14 @@
         "pty": {
           "type": "boolean"
         },
+        "kind": {
+          "default": "command",
+          "enum": [
+            "command",
+            "shell"
+          ],
+          "type": "string"
+        },
         "pid": {
           "type": "integer"
         },
@@ -6625,6 +6823,16 @@
       "title": "TerminalProcess",
       "type": "object"
     },
+    "TerminalsCloseResult": {
+      "properties": {
+        "closed": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "title": "TerminalsCloseResult",
+      "type": "object"
+    },
     "TerminalsListParams": {
       "properties": {
         "cwd": {
@@ -6668,6 +6876,18 @@
       "title": "TerminalsListResult",
       "type": "object"
     },
+    "TerminalsProcessParams": {
+      "properties": {
+        "processId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "processId"
+      ],
+      "title": "TerminalsProcessParams",
+      "type": "object"
+    },
     "TerminalsProcessResult": {
       "properties": {
         "process": {
@@ -6687,6 +6907,12 @@
         },
         "offset": {
           "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "waitMs": {
+          "default": 0,
+          "maximum": 1000,
           "minimum": 0,
           "type": "integer"
         },
@@ -6786,6 +7012,14 @@
         "pty": {
           "default": true,
           "type": "boolean"
+        },
+        "kind": {
+          "default": "command",
+          "enum": [
+            "command",
+            "shell"
+          ],
+          "type": "string"
         }
       },
       "required": [

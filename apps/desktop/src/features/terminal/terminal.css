@@ -1,0 +1,12 @@
+/* Nerd Fonts v3.4.0 Symbols Only (Mono), WOFF2 compression only.
+ * Source: https://github.com/ryanoasis/nerd-fonts/tree/v3.4.0/patched-fonts/NerdFontsSymbolsOnly
+ * License: fonts/LICENSE
+ * Imported directly by the terminal so Vite resolves this asset from this file.
+ */
+@font-face {
+  font-family: 'Symbols Nerd Font Mono';
+  src: url('./fonts/symbols-mono.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: block;
+}

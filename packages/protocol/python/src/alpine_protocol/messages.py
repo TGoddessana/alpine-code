@@ -990,6 +990,24 @@ class FileChange(ItemModel):
     """Actual baseline-to-current diff; None for binary or oversized files."""
 
 
+class SessionCheckpoint(Message):
+    id: str
+    label: str
+    created_at: str
+    status: str
+
+
+class SessionChangesParams(Message):
+    session_id: str
+    checkpoint_id: str | None = None
+
+
+class SessionChangesResult(Message):
+    checkpoints: list[SessionCheckpoint]
+    files: list[FileChange]
+    available: bool
+
+
 class ToolCallItem(ItemModel):
     id: str
     """The model's call id."""
@@ -2060,6 +2078,7 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "session/new": (SessionNewParams, SessionNewResult),
     "session/list": (SessionListParams, SessionListResult),
     "session/open": (SessionOpenParams, SessionOpenResult),
+    "session/changes": (SessionChangesParams, SessionChangesResult),
     "session/send": (SessionSendParams, SessionSendResult),
     "session/cancel": (SessionCancelParams, SessionCancelResult),
     "session/answer": (SessionAnswerParams, SessionAnswerResult),

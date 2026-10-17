@@ -3,6 +3,7 @@ import { defineMessages } from '@/shared/i18n';
 export const messages = defineMessages({
   ko: {
     title: '개발 서버',
+    dismiss: '개발 서버 탭 닫기',
     command: '실행 명령',
     port: '포트',
     start: '서버 실행',
@@ -28,6 +29,7 @@ export const messages = defineMessages({
   },
   en: {
     title: 'Development servers',
+    dismiss: 'Close development servers tab',
     command: 'Command',
     port: 'Port',
     start: 'Start server',

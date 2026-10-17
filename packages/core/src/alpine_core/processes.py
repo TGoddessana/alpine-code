@@ -8,20 +8,30 @@ import errno
 import os
 import signal
 import struct
+import sys
 import tempfile
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from .cancellation import current_cancellation, current_session
 
 
 class ManagedProcess:
-    def __init__(self, command: str, cwd: Path, session_id: str | None, title: str | None, pty: bool):
+    def __init__(
+        self,
+        command: str,
+        cwd: Path,
+        session_id: str | None,
+        title: str | None,
+        pty: bool,
+        kind: Literal["command", "shell"] = "command",
+    ):
         self.id = uuid.uuid4().hex
         self.command, self.cwd, self.session_id = command, cwd, session_id
         self.title, self.pty = title or command, pty
+        self.kind = kind
         self.created_at = time.time()
         self.status = "running"
         self.cancelled = False
@@ -32,6 +42,7 @@ class ManagedProcess:
         self._stdout = tempfile.TemporaryFile()
         self._stderr = tempfile.TemporaryFile()
         self._size = 0
+        self._output_changed = asyncio.Event()
         self._finished: asyncio.Task[None]
         self._decoders = {
             channel: codecs.getincrementaldecoder("utf-8")(errors="replace") for channel in ("stdout", "stderr")
@@ -45,6 +56,7 @@ class ManagedProcess:
             session_id=self.session_id,
             title=self.title,
             pty=self.pty,
+            kind=self.kind,
             pid=self.process.pid,
             status=self.status,
             exit_code=self.process.returncode,
@@ -60,9 +72,19 @@ class ManagedProcess:
         self._log.seek(0, 2)
         self._log.write(encoded)
         self._size += len(encoded)
+        self._output_changed.set()
         stream = self._stderr if channel == "stderr" else self._stdout
         stream.seek(0, 2)
         stream.write(data)
+
+    async def wait_for_output(self, offset: int, timeout: float) -> None:
+        if offset < self._size or self.status not in ("running", "stopping"):
+            return
+        self._output_changed.clear()
+        try:
+            await asyncio.wait_for(self._output_changed.wait(), timeout)
+        except TimeoutError:
+            pass
 
     def read(self, offset: int = 0, limit: int = 65536) -> dict[str, Any]:
         offset, limit = max(0, min(offset, self._size)), max(4, min(limit, 262144))
@@ -93,6 +115,7 @@ class ManagedProcess:
         self._log.seek(0, 2)
         self._log.write(encoded)
         self._size += len(encoded)
+        self._output_changed.set()
 
     async def wait(self) -> int:
         await asyncio.shield(self._finished)
@@ -102,9 +125,6 @@ class ManagedProcess:
         if self.status != "running":
             raise ValueError("Process is no longer accepting input")
         if self.master is not None:
-            if data == "\x03":
-                os.killpg(self.process.pid, signal.SIGINT)
-                return
             remaining = data.encode()
             while remaining:
                 try:
@@ -123,6 +143,43 @@ class ManagedProcess:
 
             fcntl.ioctl(self.master, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
 
+    async def _terminal_groups(self) -> set[int]:
+        """Job-control shells put background jobs in separate groups. Include those
+        descendants before terminating the shell so their PTY descriptors do not leak."""
+        groups: set[int] = set()
+        scanner = None
+        try:
+            scanner = await asyncio.create_subprocess_exec(
+                "ps", "-axo", "pid=,ppid=,pgid=", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL
+            )
+            output, _ = await asyncio.wait_for(scanner.communicate(), 1)
+            children: dict[int, list[int]] = {}
+            group_of: dict[int, int] = {}
+            for line in output.decode().splitlines():
+                pid, parent, group = map(int, line.split())
+                children.setdefault(parent, []).append(pid)
+                group_of[pid] = group
+            pending = [self.process.pid]
+            seen = set()
+            while pending:
+                pid = pending.pop()
+                if pid in seen:
+                    continue
+                seen.add(pid)
+                if pid in group_of and group_of[pid] > 0:
+                    groups.add(group_of[pid])
+                pending.extend(children.get(pid, []))
+        except (OSError, ValueError, TimeoutError):
+            if scanner is not None and scanner.returncode is None:
+                scanner.kill()
+                await scanner.wait()
+        if self.master is not None:
+            try:
+                groups.add(os.tcgetpgrp(self.master))
+            except OSError:
+                pass
+        return groups - {self.process.pid, 0, -1}
+
     async def stop(self, force: bool = False, grace: float = 2) -> None:
         if self._finished.done():
             return
@@ -130,7 +187,14 @@ class ManagedProcess:
         self.status = "stopping"
         self.stop_error = None
         try:
-            os.killpg(self.process.pid, signal.SIGKILL if force else signal.SIGTERM)
+            sig = signal.SIGKILL if force else signal.SIGTERM
+            if self.master is not None:
+                for group in await self._terminal_groups():
+                    try:
+                        os.killpg(group, sig)
+                    except (OSError, ProcessLookupError):
+                        pass
+            os.killpg(self.process.pid, sig)
         except ProcessLookupError:
             pass
         except PermissionError as signal_error:
@@ -166,6 +230,7 @@ class ProcessManager:
         session_id: str | None = None,
         pty: bool = True,
         title: str | None = None,
+        kind: Literal["command", "shell"] = "command",
     ) -> ManagedProcess:
         cancellation = current_cancellation.get()
         if cancellation is not None and cancellation.is_set():
@@ -173,13 +238,19 @@ class ProcessManager:
         cwd = Path(cwd).expanduser().resolve(strict=True)
         if not cwd.is_dir() or not command.strip():
             raise ValueError("A command and an existing working directory are required")
-        entry = ManagedProcess(command, cwd, session_id or current_session.get(), title, pty)
+        entry = ManagedProcess(command, cwd, session_id or current_session.get(), title, pty, kind)
         if pty and os.name == "posix":
             import pty as pseudo_terminal
 
             master, slave = pseudo_terminal.openpty()
             try:
-                entry.process = await asyncio.create_subprocess_shell(
+                entry.process = await asyncio.create_subprocess_exec(
+                    sys.executable,
+                    "-c",
+                    # Acquire a controlling terminal after setsid, before exec. A tiny
+                    # helper avoids preexec_fn in a server that also has worker threads.
+                    "import fcntl,termios,os,sys; fcntl.ioctl(0,termios.TIOCSCTTY,0); "
+                    "os.execl('/bin/sh','sh','-c',sys.argv[1])",
                     command,
                     cwd=cwd,
                     stdin=slave,
@@ -257,6 +328,15 @@ class ProcessManager:
             await asyncio.gather(pipe(entry.process.stdout, "stdout"), pipe(entry.process.stderr, "stderr"))
             await entry.process.wait()
         entry.status = "cancelled" if entry.cancelled else ("exited" if entry.process.returncode == 0 else "failed")
+        entry._output_changed.set()
+
+    async def close(self, process_id: str) -> None:
+        entry = self.get(process_id)
+        await entry.stop(force=True)
+        if not entry._finished.done():
+            raise TimeoutError("Process is still stopping")
+        self._processes.pop(process_id, None)
+        entry.close()
 
     def get(self, process_id: str) -> ManagedProcess:
         try:

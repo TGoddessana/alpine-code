@@ -14,6 +14,7 @@ class TerminalProcess(Message):
     session_id: str | None = None
     title: str
     pty: bool
+    kind: Literal["command", "shell"] = "command"
     pid: int
     status: Literal["running", "stopping", "exited", "failed", "cancelled"]
     exit_code: int | None = None
@@ -38,6 +39,7 @@ class TerminalsStartParams(Message):
     session_id: str | None = None
     title: str | None = None
     pty: bool = True
+    kind: Literal["command", "shell"] = "command"
 
 
 class TerminalsProcessParams(Message):
@@ -50,6 +52,7 @@ class TerminalsProcessResult(Message):
 
 class TerminalsReadParams(TerminalsProcessParams):
     offset: int = Field(default=0, ge=0)
+    wait_ms: int = Field(default=0, ge=0, le=1000)
     limit: int = Field(default=65536, ge=4, le=262144)
 
 
@@ -69,6 +72,10 @@ class TerminalsResizeParams(TerminalsProcessParams):
     rows: int = Field(ge=1, le=1000)
 
 
+class TerminalsCloseResult(Message):
+    closed: bool = True
+
+
 class TerminalsStopParams(TerminalsProcessParams):
     force: bool = False
 
@@ -79,5 +86,6 @@ TERMINAL_METHODS = {
     "terminals/read": (TerminalsReadParams, TerminalsReadResult),
     "terminals/write": (TerminalsWriteParams, TerminalsProcessResult),
     "terminals/resize": (TerminalsResizeParams, TerminalsProcessResult),
+    "terminals/close": (TerminalsProcessParams, TerminalsCloseResult),
     "terminals/stop": (TerminalsStopParams, TerminalsProcessResult),
 }

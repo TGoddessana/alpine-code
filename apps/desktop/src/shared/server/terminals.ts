@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useServer } from './context';
+import type { ServerConnection } from './connection';
+import type { TerminalsProcessResult } from '@alpine/protocol';
+
+const defaultStarts = new WeakMap<ServerConnection, Map<string, Promise<TerminalsProcessResult>>>();
 
 export function useTerminals(cwd: string) {
   const server = useServer();
@@ -12,35 +16,35 @@ export function useTerminals(cwd: string) {
   });
 }
 
-export function useTerminalOutput(processId: string | null) {
-  const server = useServer();
-  const client = useQueryClient();
-  const key = ['terminal-output', processId];
-  return useQuery({
-    queryKey: key,
-    enabled: processId !== null,
-    queryFn: async () => {
-      const previous = client.getQueryData<{ text: string; offset: number; omitted: boolean }>(key);
-      const result = await server.request('terminals/read', { processId: processId!, offset: previous?.offset ?? 0 });
-      const text = (previous?.text ?? '') + result.text;
-      return {
-        text: text.slice(-1_000_000),
-        offset: result.nextOffset,
-        omitted: previous?.omitted || text.length > 1_000_000,
-        process: result.process,
-      };
-    },
-    refetchInterval: 250,
-    retry: false,
-  });
-}
-
 export function useStartTerminal(cwd: string, sessionId?: string) {
   const server = useServer();
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ command, title }: { command: string; title?: string }) =>
-      server.request('terminals/start', { cwd, command, title, sessionId }),
+    mutationFn: ({
+      command,
+      title,
+      kind,
+      defaultShell,
+    }: {
+      command: string;
+      title?: string;
+      kind?: 'shell' | 'command';
+      defaultShell?: boolean;
+    }) => {
+      const launch = () => server.request('terminals/start', { cwd, command, title, sessionId, kind });
+      if (!defaultShell) return launch();
+      let pending = defaultStarts.get(server);
+      if (!pending) {
+        pending = new Map();
+        defaultStarts.set(server, pending);
+      }
+      let request = pending.get(cwd);
+      if (!request) {
+        request = launch().finally(() => pending.delete(cwd));
+        pending.set(cwd, request);
+      }
+      return request;
+    },
     onSuccess: () => client.invalidateQueries({ queryKey: ['terminals', cwd] }),
   });
 }

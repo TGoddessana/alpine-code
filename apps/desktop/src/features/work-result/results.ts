@@ -21,6 +21,7 @@ export interface RanCommand {
 export interface WorkResult {
   files: ChangedFile[];
   commands: RanCommand[];
+  legacyFiles?: ChangedFile[];
 }
 
 const NOT_RUN: ToolCallItem['status'][] = ['denied', 'cancelled'];
@@ -36,12 +37,16 @@ export function workResult(items: Item[]): WorkResult {
     if (item.kind !== 'tool_call') continue;
     if (item.fileChanges != null) actual = item.fileChanges;
     const kind = toolKind(item.name);
-    if (kind === 'edit' && item.status === 'done') {
+    if (kind === 'edit' && item.status === 'done' && item.fileChanges == null) {
       const path = toolTarget(item);
       if (path) legacy.set(path, { path, added: 0, removed: 0, diff: null });
     } else if (kind === 'run' && !NOT_RUN.includes(item.status)) {
       commands.push({ id: item.id, command: toolTarget(item), status: item.status });
     }
   }
-  return { files: actual ?? [...legacy.values()], commands };
+  return {
+    files: actual ?? [],
+    commands,
+    ...(legacy.size ? { legacyFiles: [...legacy.values()] } : {}),
+  };
 }

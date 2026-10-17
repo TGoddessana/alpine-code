@@ -1,4 +1,5 @@
 import { Button, Input } from '@alpine/ui/primitives';
+import { X } from 'lucide-react';
 import { useState } from 'react';
 
 import { useMessages } from '@/shared/i18n';
@@ -12,7 +13,15 @@ import {
 import { messages } from './messages';
 
 /** Server state lives on the backend, so changing sessions never terminates a server. */
-export function DevelopmentServers({ cwd, sessionId }: { cwd: string; sessionId?: string }) {
+export function DevelopmentServers({
+  cwd,
+  sessionId,
+  onDismiss,
+}: {
+  cwd: string;
+  sessionId?: string;
+  onDismiss?: () => void;
+}) {
   const m = useMessages(messages);
   const servers = useDevelopmentServers(cwd);
   const actions = useDevelopmentServerActions();
@@ -32,7 +41,20 @@ export function DevelopmentServers({ cwd, sessionId }: { cwd: string; sessionId?
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4" aria-label={m.title}>
-      <h2 className="text-body font-medium text-fg">{m.title}</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-body font-medium text-fg">{m.title}</h2>
+        {onDismiss && (
+          <button
+            type="button"
+            aria-label={m.dismiss}
+            title={m.dismiss}
+            onClick={onDismiss}
+            className="cursor-pointer text-fg-muted hover:text-fg"
+          >
+            <X size={16} />
+          </button>
+        )}
+      </div>
       <form
         className="flex flex-wrap items-end gap-2"
         onSubmit={(event) => {

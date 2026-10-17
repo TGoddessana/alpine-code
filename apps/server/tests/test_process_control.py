@@ -35,3 +35,20 @@ def test_work_stop_is_session_scoped_and_output_survives(tmp_path):
             await manager.shutdown()
 
     asyncio.run(scenario())
+
+
+def test_command_filter_and_stop_leave_user_shell_running(tmp_path):
+    async def scenario():
+        manager = process_manager()
+        command = await manager.start("sleep 60", tmp_path, pty=False, session_id="agent")
+        shell = await manager.start("sleep 60", tmp_path, pty=False, session_id="agent", kind="shell")
+        try:
+            result = await list_processes(ProcessesListParams(cwd=str(tmp_path), session_id="agent", kind="command"))
+            assert [p.id for p in result.processes] == [command.id]
+            await stop_processes(ProcessesStopParams(cwd=str(tmp_path), session_id="agent", kind="command", force=True))
+            assert command.status == "cancelled"
+            assert shell.status == "running"
+        finally:
+            await manager.shutdown()
+
+    asyncio.run(scenario())

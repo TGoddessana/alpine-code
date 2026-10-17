@@ -42,7 +42,8 @@ describe('workResult', () => {
       diffApproval('e3', 'a.ts', '@@ -5 +5,2 @@\n+z\n+w\n'),
       call('e3', { args: { path: 'a.ts' } }),
     ];
-    expect(workResult(items).files).toEqual([
+    expect(workResult(items).files).toEqual([]);
+    expect(workResult(items).legacyFiles).toEqual([
       { path: 'a.ts', added: 0, removed: 0, diff: null },
       { path: 'b.ts', added: 0, removed: 0, diff: null },
     ]);

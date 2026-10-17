@@ -201,3 +201,13 @@ def test_grep(ws):
         run(tool, pattern="(")
     with pytest.raises(ToolError, match="nope does not exist"):
         run(tool, pattern="x", path="nope")
+
+
+def test_bash_title_is_retained_with_the_actual_command(ws):
+    from alpine_core.processes import process_manager
+
+    result = json.loads(run(Bash(ws).bash, command="printf checked", title="타입 검사"))
+    process = process_manager().get(result["process_id"])
+    assert process.snapshot()["title"] == "타입 검사"
+    assert process.command == "printf checked"
+    assert process.kind == "command"

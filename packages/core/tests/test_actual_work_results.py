@@ -204,3 +204,142 @@ def test_newly_ignored_file_uses_disk_state_instead_of_assuming_deletion(tmp_pat
                 else ["@@ -1 +1 @@", "-existing notes", "+updated notes"]
             ),
         }
+
+
+def test_request_checkpoints_are_immutable_and_survive_resume(tmp_path, monkeypatch):
+    from alpine_core.work_changes import checkpoint_changes
+
+    target = tmp_path / "file.txt"
+    target.write_text("user dirty state\n")
+    storage = file_storage()
+    session = make(
+        tmp_path, monkeypatch, [tool_call("write", path="file.txt", content="first\n"), "Done"], storage=storage
+    )
+    session.send("first request")
+    first_id = session.info.work_history["requests"][0]["id"]
+    # A later user edit must not rewrite an already saved comparison.
+    target.write_text("external edit\n")
+    saved, _ = storage.log.read(session.id)
+    assert checkpoint_changes(saved.work_history, saved.work_baseline, first_id)[0]["diff"] == [
+        "@@ -1 +1 @@",
+        "-user dirty state",
+        "+first",
+    ]
+    monkeypatch.setattr(
+        session_module,
+        "make_model",
+        lambda settings: FakeModel([tool_call("write", path="file.txt", content="second\n"), "Done"]),
+    )
+    resumed = Session.resume(storage, session.id, Settings(model="fake"), approver=Allow())
+    resumed.send("second request")
+    info, _ = storage.log.read(resumed.id)
+    assert len(info.work_history["requests"]) == 2
+    second_id = info.work_history["requests"][1]["id"]
+    assert checkpoint_changes(info.work_history, info.work_baseline, second_id)[0]["diff"][-2:] == [
+        "-external edit",
+        "+second",
+    ]
+    assert checkpoint_changes(info.work_history, info.work_baseline)[0]["diff"][-2:] == ["-user dirty state", "+second"]
+    assert checkpoint_changes(info.work_history, info.work_baseline, first_id)[0]["diff"][-1] == "+first"
+    assert all(request["status"] == "idle" for request in info.work_history["requests"])
+
+
+def test_checkpoint_retention_keeps_session_comparison_and_prunes_unreferenced_versions(tmp_path):
+    from alpine_core.work_changes import checkpoint_changes
+
+    target = tmp_path / "file.txt"
+    target.write_text("original\n")
+    tracker = WorkChanges(ToolWorkspace(tmp_path))
+    for i in range(103):
+        tracker.begin(f"request {i}")
+        tracker.start("write", {"path": "file.txt"})
+        target.write_text(f"version {i}\n")
+        tracker.finish()
+        tracker.end("idle")
+    assert len(tracker.history["requests"]) == 100
+    assert len(tracker.history["blobs"]) == 101
+    assert checkpoint_changes(tracker.history, tracker.baseline)[0]["diff"][-2:] == ["-original", "+version 102"]
+    with pytest.raises(LookupError):
+        checkpoint_changes(tracker.history, tracker.baseline, "not-a-checkpoint")
+
+
+def test_checkpoint_records_shell_creation_deletion_and_reversion(tmp_path):
+    from alpine_core.work_changes import checkpoint_changes
+
+    target = tmp_path / "a.txt"
+    target.write_text("before\n")
+    tracker = WorkChanges(ToolWorkspace(tmp_path))
+    tracker.begin("shell work")
+    tracker.start("bash", {})
+    target.unlink()
+    (tmp_path / "b.txt").write_text("new\n")
+    tracker.finish()
+    tracker.end("failed")
+    request = tracker.history["requests"][0]
+    changes = {c["path"]: c for c in checkpoint_changes(tracker.history, tracker.baseline, request["id"])}
+    assert changes["a.txt"]["removed"] == changes["b.txt"]["added"] == 1
+    assert request["status"] == "failed"
+    tracker.begin("undo everything")
+    tracker.start("bash", {})
+    target.write_text("before\n")
+    (tmp_path / "b.txt").unlink()
+    tracker.finish()
+    tracker.end("idle")
+    assert checkpoint_changes(tracker.history, tracker.baseline) == []
+    assert len(checkpoint_changes(tracker.history, tracker.baseline, request["id"])) == 2
+
+
+def test_checkpoint_blobs_are_deduplicated_on_disk_and_missing_blob_does_not_hide_session(tmp_path, monkeypatch):
+    import json
+
+    from alpine_core.home import home_dir
+    from alpine_core.work_changes import checkpoint_changes
+
+    target = tmp_path / "file.txt"
+    target.write_text("baseline\n")
+    storage = file_storage()
+    session = make(
+        tmp_path,
+        monkeypatch,
+        [tool_call("write", path="file.txt", content="snapshot-only-content\n"), "Done"],
+        storage=storage,
+    )
+    session.send("change file")
+    folder = home_dir() / "sessions" / session.id
+    manifest = json.loads((folder / "info.json").read_text())
+    assert "blobs" not in manifest["work_history"]
+    assert len(manifest["work_history"]["blob_ids"]) == 2
+    assert len(list((folder / "checkpoints").glob("*.json"))) == 2
+    saved, _ = storage.log.read(session.id)
+    current_digest = saved.work_history["latest"]["file.txt"]
+    assert saved.work_history["blobs"][current_digest]["text"] == "snapshot-only-content\n"
+    (folder / "checkpoints" / f"{current_digest}.json").unlink()
+    readable, _ = storage.log.read(session.id)
+    assert readable.id == session.id
+    with pytest.raises(LookupError, match="snapshot is unavailable"):
+        checkpoint_changes(readable.work_history, readable.work_baseline)
+
+
+def test_before_versions_are_saved_before_the_mutating_tool_runs(tmp_path, monkeypatch):
+    target = tmp_path / "file.txt"
+    target.write_text("before execution\n")
+    storage = file_storage()
+
+    @tool(read_only=False)
+    def mutate() -> str:
+        """Check the saved checkpoint, then mutate a file."""
+        info, _ = storage.log.read(session.id)
+        request = info.work_history["requests"][-1]
+        digest = request["before"]["file.txt"]
+        assert info.work_history["blobs"][digest]["text"] == "before execution\n"
+        target.write_text("after execution\n")
+        return "changed"
+
+    class Source:
+        def offered(self):
+            return [Offered(mutate, "user")]
+
+    session = make(tmp_path, monkeypatch, [tool_call("mutate"), "Done"], storage=storage, tools=lambda root: [Source()])
+    session.send("do it")
+    assert calls(session)[-1].status == "done"
+    assert calls(session)[-1].file_changes[0]["diff"][-1] == "+after execution"

@@ -15,7 +15,9 @@ MAX_TIMEOUT = 600
 
 class Bash(WorkspaceTool):
     @tool(name="bash", parallel=False, exception_handler=os_error, open_world=True)
-    async def bash(self, command: str, timeout: int = DEFAULT_TIMEOUT, background: bool = False) -> str:
+    async def bash(
+        self, command: str, timeout: int = DEFAULT_TIMEOUT, background: bool = False, title: str | None = None
+    ) -> str:
         """Run a shell command in the working directory. Return JSON with stdout, stderr, exit_code,
         timed_out and cancelled. A nonzero exit or timeout is an error result, not a successful check.
         Each call starts a fresh shell, so cd and variables do not carry over.
@@ -25,11 +27,12 @@ class Bash(WorkspaceTool):
 
         Args:
             command: The command to run
+            title: Short human-readable purpose in the user's language, e.g. "Run unit tests"; provide for every command
             timeout: Seconds before a foreground command is killed (default 120, max 600)
             background: Keep running beyond this call; no command timeout, explicit process_stop or session stop ends it
         """
         timeout = min(max(timeout, 1), MAX_TIMEOUT)
-        process = await process_manager().start(command, self.workspace.root, pty=False)
+        process = await process_manager().start(command, self.workspace.root, pty=False, title=title)
         if background:
             return json.dumps(
                 {"process_id": process.id, "process": process.snapshot(), "background": True}, ensure_ascii=False

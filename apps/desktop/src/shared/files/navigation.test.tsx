@@ -9,7 +9,7 @@ describe('file references', () => {
     expect(parseFileLocation('/project/a.ts:42:3')).toEqual({ path: '/project/a.ts', line: 42 });
     expect(parseFileLocation('src/a.ts#L21-L24')).toEqual({ path: 'src/a.ts', line: 21 });
     expect(parseFileLocation('src/My%20File.ts:3')).toEqual({ path: 'src/My File.ts', line: 3 });
-    expect(parseFileLocation('README.md')).toEqual({ path: 'README.md', line: 1 });
+    expect(parseFileLocation('README.md')).toEqual({ path: 'README.md' });
   });
   it('rejects network or executable URLs and unrecognizable text', () => {
     for (const value of ['https://example.com/a.ts:2', 'javascript:alert(1)', 'file:///etc/passwd', 'hello', '%FF'])

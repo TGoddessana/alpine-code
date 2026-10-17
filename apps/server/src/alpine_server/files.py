@@ -9,8 +9,11 @@ import sys
 from pathlib import Path
 
 from alpine_protocol.files import (
+    FileEntry,
     FilesActionParams,
     FilesActionResult,
+    FilesListParams,
+    FilesListResult,
     FilesReadParams,
     FilesReadResult,
     FilesSearchParams,
@@ -107,4 +110,39 @@ def search_files(params: FilesSearchParams) -> FilesSearchResult:
     return FilesSearchResult(paths=paths)
 
 
-FILE_HANDLERS = {"files/read": read_file, "files/action": file_action, "files/search": search_files}
+def list_files(params: FilesListParams) -> FilesListResult:
+    root = _root(params.cwd)
+    path = (root / params.path).resolve()
+    if not path.is_relative_to(root):
+        raise MethodError(APP_ERROR, "Folder is outside this workspace", "no_access")
+    if not path.is_dir():
+        raise MethodError(APP_ERROR, "Folder does not exist", "not_a_folder")
+    try:
+        entries = []
+        with os.scandir(path) as directory:
+            for entry in directory:
+                kind = (
+                    "symlink"
+                    if entry.is_symlink()
+                    else "directory"
+                    if entry.is_dir(follow_symlinks=False)
+                    else "file"
+                    if entry.is_file(follow_symlinks=False)
+                    else None
+                )
+                if kind is not None:
+                    entries.append(FileEntry(name=entry.name, path=str(Path(entry.path).relative_to(root)), kind=kind))
+        entries.sort(key=lambda entry: (entry.kind != "directory", entry.name.casefold(), entry.name))
+    except OSError as exc:
+        raise MethodError(APP_ERROR, "Cannot read this folder", "no_access") from exc
+    page = entries[params.offset : params.offset + params.limit]
+    next_offset = params.offset + len(page)
+    return FilesListResult(entries=page, next_offset=next_offset, has_more=next_offset < len(entries))
+
+
+FILE_HANDLERS = {
+    "files/list": list_files,
+    "files/read": read_file,
+    "files/action": file_action,
+    "files/search": search_files,
+}

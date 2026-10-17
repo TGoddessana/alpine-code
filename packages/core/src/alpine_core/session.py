@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import subprocess
 import threading
 import uuid
 from collections.abc import Callable, Coroutine
@@ -38,6 +39,7 @@ from .events import (
     Event,
     Failed,
     Interrupted,
+    Notice,
     RunFinished,
     StopReason,
     TextDelta,
@@ -171,7 +173,9 @@ class Session:
         self._applied = self._pick_agent(_saved.info if _saved else None, agent)
         if _saved is None and (chosen := model or (self._applied.model if self._applied else None)):
             settings = settings.with_model(chosen)
-        self._work_changes = WorkChanges(self.workspace, _saved.info.work_baseline if _saved else None)
+        self._work_changes = WorkChanges(
+            self.workspace, _saved.info.work_baseline if _saved else None, _saved.info.work_history if _saved else None
+        )
         self._reporter = EventReporter(self._dispatch, self._work_changes)
         self._state: State | None = None
         self._settings = settings
@@ -368,7 +372,7 @@ class Session:
         else:
             self._state.add_message(Message.user(said))
         self._recorder.add_user_message(text)
-        self._begin_run("thinking")
+        self._begin_run("thinking", text)
         self._cancel_event = threading.Event()
         cancellation_token = current_cancellation.set(self._cancel_event)
         token = current_session.set(self.id)
@@ -423,7 +427,11 @@ class Session:
             event.set()
         executions.cancel(self.id)
         await asyncio.gather(
-            *(p.stop() for p in process_manager().list(session_id=self.id) if p.status in ("running", "stopping")),
+            *(
+                p.stop()
+                for p in process_manager().list(session_id=self.id)
+                if p.kind == "command" and p.status in ("running", "stopping")
+            ),
             return_exceptions=True,
         )
 
@@ -592,6 +600,7 @@ class Session:
 
     @property
     def info(self) -> SessionInfo:
+        baseline, history = self._work_changes.saved_state()
         return SessionInfo(
             id=self._id,
             title=self._title,
@@ -616,7 +625,8 @@ class Session:
                 "tools": list(self._applied.tools),
             },
             imported_from=self._imported_from,
-            work_baseline=dict(self._work_changes.baseline),
+            work_baseline=baseline,
+            work_history=history,
         )
 
     @property
@@ -796,8 +806,11 @@ class Session:
         self._activity = Activity(kind, tool_name, _now())
         self._touch()
 
-    def _begin_run(self, kind: ActivityKind) -> None:
-        self._work_changes.begin()
+    def _begin_run(self, kind: ActivityKind, label: str | None = None) -> None:
+        try:
+            self._work_changes.begin(label)
+        except (OSError, TimeoutError, subprocess.TimeoutExpired) as exc:
+            self._dispatch(Notice(f"Checkpoint could not be captured: {exc}"))
         self._run_started_at = _now()
         self._run_base = self.usage
         self._running_tools.clear()
@@ -805,6 +818,7 @@ class Session:
         self._set_status("running")
 
     def _end_run(self, status: SessionStatus) -> None:
+        self._work_changes.end(status)
         self._run_started_at = None
         self._activity = None
         self._running_tools.clear()

@@ -709,3 +709,31 @@ def test_a_codex_conversation_is_carried_over_and_continued(folder, tmp_path, mo
             assert missing["error"]["data"]["reason"] == "not_found"
 
     run(scenario())
+
+
+def test_checkpoint_comparisons_use_saved_versions_and_never_expose_snapshot_storage(folder, monkeypatch):
+    fake_model(monkeypatch, tool_call("write", path="file.txt", content="saved\n"), "Done")
+
+    async def check():
+        async with Client([]) as client:
+            session_id = await client.new(folder, mode="yolo")
+            await client.call("session/send", sessionId=session_id, text="create the file")
+            await client.status(session_id, "idle")
+            reply = (await client.call("session/changes", sessionId=session_id))["result"]
+            assert reply["available"] and len(reply["checkpoints"]) == 1
+            checkpoint_id = reply["checkpoints"][0]["id"]
+            (folder / "file.txt").write_text("later external edit\n")
+            recorded = (await client.call("session/changes", sessionId=session_id, checkpointId=checkpoint_id))[
+                "result"
+            ]
+            assert recorded["files"][0]["diff"][-1] == "+saved"
+            info = (await client.call("session/open", sessionId=session_id))["result"]["info"]
+            assert "workHistory" not in info and "workBaseline" not in info
+            unknown = await client.call("session/changes", sessionId=session_id, checkpointId="missing")
+            assert "error" in unknown
+        # Reopening from disk must work without rebuilding a model/session just for review.
+        async with Client([]) as other:
+            saved = (await other.call("session/changes", sessionId=session_id, checkpointId=checkpoint_id))["result"]
+            assert saved["files"] == recorded["files"]
+
+    run(check())

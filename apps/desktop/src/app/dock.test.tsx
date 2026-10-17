@@ -1,4 +1,4 @@
-import type { ApprovalItem, ToolCallItem } from '@alpine/protocol';
+import type { ApprovalItem, ToolCallItem, TerminalProcess } from '@alpine/protocol';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
@@ -20,6 +20,10 @@ import {
 } from '@/shared/server';
 
 import { routeTree } from './routeTree.gen';
+
+vi.mock('@/features/terminal/TerminalScreen', () => ({
+  default: ({ label }: { label: string }) => <textarea aria-label={label} />,
+}));
 
 const cwd = '/Users/me/alpine-code';
 const edit: ToolCallItem = {
@@ -56,6 +60,7 @@ function mount(path: string, extra: Script = {}, running = false) {
   const connection = scriptedConnection(
     mergeScripts(
       setUpScript(),
+      { results: { 'devServers/list': { servers: [] } } },
       sessionScript({
         sessions: [
           {
@@ -118,11 +123,13 @@ describe('right dock on the routes', () => {
     mount('/session/work', { results: { 'processes/list': { processes: [], tools: [] } } }, true);
     fireEvent.click(await screen.findByRole('button', { name: '멈추기' }));
     const dock = await screen.findByRole('complementary', { name: '오른쪽 창' });
-    expect(within(dock).getByRole('tab', { name: '실행 관리', selected: true })).toBeTruthy();
-    expect(await within(dock).findByRole('region', { name: '실행 중단 관리' })).toBeTruthy();
+    expect(within(dock).getByRole('tab', { name: '에이전트 실행', selected: true })).toBeTruthy();
+    expect(await within(dock).findByRole('region', { name: '에이전트 실행' })).toBeTruthy();
   });
 
   it('opens the actual source viewer from a changed file and exposes the project execution tools', async () => {
+    let shell: TerminalProcess | null = null;
+    let launches = 0;
     mount('/session/work', {
       results: {
         'files/read': ({ cwd: project, path, line = 1 }) => ({
@@ -134,27 +141,59 @@ describe('right dock on the routes', () => {
           totalLines: 1,
           truncated: false,
         }),
-        'terminals/list': { processes: [] },
+        'terminals/list': () => ({ processes: shell ? [shell] : [] }),
+        'terminals/start': ({ command, title, kind, sessionId }) => {
+          launches++;
+          shell = {
+            id: 'default-shell',
+            command,
+            title: title!,
+            kind,
+            sessionId,
+            cwd,
+            pty: true,
+            pid: 42,
+            status: 'running',
+            createdAt: 1,
+            outputSize: 0,
+            cancelled: false,
+          };
+          return { process: shell };
+        },
         'devServers/list': { servers: [] },
       },
     });
     fireEvent.click(await screen.findByRole('button', { name: '오른쪽 창 열기, 바뀐 파일 1개' }));
     const dock = await screen.findByRole('complementary', { name: '오른쪽 창' });
     fireEvent.click(await within(dock).findByRole('button', { name: /Cart\.tsx/ }));
-    fireEvent.click(await within(dock).findByRole('button', { name: '원본 파일 열기' }));
-    expect(within(dock).getByRole('tab', { name: '파일 원본', selected: true })).toBeTruthy();
+    expect(within(dock).getByRole('tab', { name: '변경 사항', selected: true })).toBeTruthy();
+    expect(within(dock).getByRole('region', { name: 'Cart.tsx 바뀐 내용' })).toBeTruthy();
+    fireEvent.click(await within(dock).findByRole('button', { name: '전체 파일 보기' }));
+    expect(within(dock).getByRole('tab', { name: '파일', selected: true })).toBeTruthy();
     expect(await within(dock).findByText('export const cart = true;')).toBeTruthy();
+    fireEvent.click(within(dock).getByRole('button', { name: '변경 사항으로 돌아가기' }));
+    expect(within(dock).getByRole('region', { name: 'Cart.tsx 바뀐 내용' })).toBeTruthy();
+    expect(within(dock).getByRole('tab', { name: '변경 사항', selected: true })).toBeTruthy();
     fireEvent.click(within(dock).getByRole('tab', { name: '터미널' }));
-    expect(await within(dock).findByLabelText('실행할 명령')).toBeTruthy();
-    fireEvent.click(within(dock).getByRole('tab', { name: '개발 서버' }));
+    expect(await within(dock).findByRole('textbox', { name: '터미널 입력: 셸 1' })).toBeTruthy();
+    expect(launches).toBe(1);
+    expect(within(dock).queryByRole('tab', { name: '개발 서버' })).toBeNull();
+    fireEvent.click(within(dock).getByRole('button', { name: '터미널 메뉴' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: '개발 서버 실행…' }));
+    expect(await within(dock).findByRole('tab', { name: '개발 서버', selected: true })).toBeTruthy();
     expect(await within(dock).findByRole('button', { name: '서버 실행' })).toBeTruthy();
+    fireEvent.click(within(dock).getByRole('button', { name: '개발 서버 탭 닫기' }));
+    expect(within(dock).queryByRole('tab', { name: '개발 서버' })).toBeNull();
+    expect(within(dock).getByRole('tab', { name: '터미널', selected: true })).toBeTruthy();
+    expect(await within(dock).findByRole('textbox', { name: '터미널 입력: 셸 1' })).toBeTruthy();
+    expect(launches).toBe(1);
   });
 
   it('opens from the top bar on a session and shows its work result', async () => {
     mount('/session/work');
     fireEvent.click(await screen.findByRole('button', { name: '오른쪽 창 열기, 바뀐 파일 1개' }));
     const dock = await screen.findByRole('complementary', { name: '오른쪽 창' });
-    expect(within(dock).getByRole('tab', { name: '작업 결과', selected: true })).toBeTruthy();
+    expect(within(dock).getByRole('tab', { name: '변경 사항', selected: true })).toBeTruthy();
     expect(await within(dock).findByRole('button', { name: /Cart\.tsx/ })).toBeTruthy();
     fireEvent.click(await toggle());
     await waitFor(() => expect(screen.queryByRole('complementary', { name: '오른쪽 창' })).toBeNull());
@@ -167,7 +206,7 @@ describe('right dock on the routes', () => {
     const dock = await screen.findByRole('complementary', { name: '오른쪽 창' });
     // The map's session sits in the dock: its conversation first, then what it changed.
     expect(within(dock).getByRole('tab', { name: '작업 내용' }).getAttribute('aria-selected')).toBe('true');
-    fireEvent.click(within(dock).getByRole('tab', { name: '작업 결과' }));
+    fireEvent.click(within(dock).getByRole('tab', { name: '변경 사항' }));
     expect(await within(dock).findByRole('button', { name: /Cart\.tsx/ })).toBeTruthy();
   });
 
@@ -231,4 +270,26 @@ describe('right dock on the routes', () => {
     expect(panel.parentElement!.hasAttribute('data-overlay')).toBe(overlaid);
     expect(screen.getByRole('complementary', { name: '오른쪽 창' })).toBeTruthy();
   });
+});
+
+it('shows the development server tab when a real registered server is discovered', async () => {
+  mount('/session/work', {
+    results: {
+      'devServers/list': {
+        servers: [
+          {
+            id: 'web',
+            cwd,
+            command: 'pnpm dev',
+            port: 5173,
+            status: 'running',
+            url: 'http://localhost:5173',
+            external: false,
+          },
+        ],
+      },
+    },
+  });
+  fireEvent.click(await screen.findByRole('button', { name: '오른쪽 창 열기, 바뀐 파일 1개' }));
+  expect(await screen.findByRole('tab', { name: '개발 서버' })).toBeTruthy();
 });

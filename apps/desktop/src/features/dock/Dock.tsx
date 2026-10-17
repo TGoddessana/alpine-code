@@ -14,6 +14,7 @@ export interface DockTab {
   content: ReactNode;
   /** The content scrolls and pads itself (a conversation with its own composer). */
   bare?: boolean;
+  keepMounted?: boolean;
 }
 
 /**
@@ -147,16 +148,24 @@ export function Dock({ scope = '', tabs }: { scope?: string; tabs: DockTab[] }) 
           <X size={16} strokeWidth={1.5} aria-hidden="true" />
         </button>
       </header>
-      {active && (
-        <div
-          id={`dock-panel-${active.id}`}
-          role="tabpanel"
-          aria-labelledby={`dock-tab-${active.id}`}
-          className={clsx('flex min-h-0 grow flex-col', !active.bare && 'overflow-y-auto px-5 pb-5')}
-        >
-          {active.content}
-        </div>
-      )}
+      {tabs
+        .filter((tab) => tab.id === active?.id || tab.keepMounted)
+        .map((tab) => (
+          <div
+            key={tab.id}
+            hidden={tab.id !== active?.id}
+            id={`dock-panel-${tab.id}`}
+            role="tabpanel"
+            aria-labelledby={`dock-tab-${tab.id}`}
+            className={clsx(
+              'min-h-0 grow flex-col',
+              tab.id === active?.id ? 'flex' : 'hidden',
+              !tab.bare && 'overflow-y-auto px-5 pb-5',
+            )}
+          >
+            {tab.content}
+          </div>
+        ))}
     </aside>
   );
 }

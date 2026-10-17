@@ -43,3 +43,47 @@ def test_unknown_process_and_invalid_working_directory():
             await start_terminal(TerminalsStartParams(command="true", cwd="/missing-alpine-directory"))
 
     asyncio.run(scenario())
+
+
+def test_terminal_read_wait_and_close(tmp_path):
+    from alpine_protocol.terminals import TerminalsProcessParams
+    from alpine_server.terminals import close_terminal
+
+    async def scenario():
+        command = f"{shlex.quote(sys.executable)} -u -c {shlex.quote('print(input(),flush=True)')}"
+        started = await start_terminal(TerminalsStartParams(command=command, cwd=str(tmp_path), pty=False))
+        process_id = started.process.id
+        waiting = asyncio.create_task(read_terminal(TerminalsReadParams(process_id=process_id, wait_ms=1000)))
+        await asyncio.sleep(0)
+        assert not waiting.done()
+        await write_terminal(TerminalsWriteParams(process_id=process_id, data="wake\n"))
+        output = await asyncio.wait_for(waiting, 1)
+        assert output.text == "wake\n"
+        result = await close_terminal(TerminalsProcessParams(process_id=process_id))
+        assert result.closed
+        assert process_id not in [
+            process.id for process in (await list_terminals(TerminalsListParams(cwd=str(tmp_path)))).processes
+        ]
+        with pytest.raises(MethodError, match="Unknown process"):
+            await read_terminal(TerminalsReadParams(process_id=process_id))
+
+    asyncio.run(scenario())
+
+
+def test_interactive_shell_kind_survives_start_list_and_exit(tmp_path):
+    async def scenario():
+        from alpine_protocol.terminals import TerminalsProcessParams
+        from alpine_server.terminals import close_terminal
+
+        started = await start_terminal(TerminalsStartParams(command="exec /bin/sh -i", cwd=str(tmp_path), kind="shell"))
+        process_id = started.process.id
+        assert started.process.kind == "shell"
+        await write_terminal(TerminalsWriteParams(process_id=process_id, data="exit\r"))
+        await asyncio.wait_for(process_manager().get(process_id).wait(), 3)
+        listed = await list_terminals(TerminalsListParams(cwd=str(tmp_path)))
+        exited = next(p for p in listed.processes if p.id == process_id)
+        assert exited.kind == "shell"
+        assert exited.status == "exited"
+        await close_terminal(TerminalsProcessParams(process_id=process_id))
+
+    asyncio.run(scenario())

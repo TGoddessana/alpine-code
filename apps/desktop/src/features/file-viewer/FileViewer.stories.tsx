@@ -8,6 +8,27 @@ import { FileViewer } from './FileViewer';
 
 const server = {
   results: {
+    'files/list': ({ path = '' }) => ({
+      entries:
+        path === ''
+          ? [
+              { name: 'public', path: 'public', kind: 'directory' },
+              { name: 'src', path: 'src', kind: 'directory' },
+              { name: '.gitignore', path: '.gitignore', kind: 'file' },
+              { name: 'package.json', path: 'package.json', kind: 'file' },
+              { name: 'README.md', path: 'README.md', kind: 'file' },
+            ]
+          : path === 'src'
+            ? [
+                { name: 'components', path: 'src/components', kind: 'directory' },
+                { name: 'App.tsx', path: 'src/App.tsx', kind: 'file' },
+                { name: 'main.tsx', path: 'src/main.tsx', kind: 'file' },
+                { name: 'styles.css', path: 'src/styles.css', kind: 'file' },
+              ]
+            : [],
+      hasMore: false,
+      nextOffset: 5,
+    }),
     'files/read': ({ path, line = 1, limit = 400 }) => {
       const startLine = Math.max(1, line - 200);
       return {
@@ -34,12 +55,14 @@ const meta = {
   component: FileViewer,
   parameters: { server },
   decorators: [
-    (Story) => (
+    (Story, { parameters }) => (
       <FileNavigationProvider cwd="/project">
-        <div className="flex h-screen max-w-4xl flex-col bg-canvas p-5">
-          <div className="mb-4">
-            <FileReference value="src/App.tsx:242" />
-          </div>
+        <div className="flex h-screen max-w-110 flex-col bg-canvas p-5">
+          {parameters.reference !== false && (
+            <div className="mb-4">
+              <FileReference value="src/App.tsx:242" />
+            </div>
+          )}
           <Story />
         </div>
       </FileNavigationProvider>
@@ -48,6 +71,24 @@ const meta = {
 } satisfies Meta<typeof FileViewer>;
 export default meta;
 type Story = StoryObj<typeof meta>;
+export const FolderTree: Story = {
+  parameters: { reference: false },
+  play: async () => {
+    await userEvent.click(await screen.findByRole('treeitem', { name: 'src' }));
+    await expect(await screen.findByRole('treeitem', { name: 'App.tsx' })).toBeVisible();
+  },
+};
+export const BrowseAndReturn: Story = {
+  parameters: { reference: false },
+  play: async () => {
+    await userEvent.click(await screen.findByRole('treeitem', { name: 'src' }));
+    await userEvent.click(await screen.findByRole('treeitem', { name: 'App.tsx' }));
+    await expect(await screen.findByText('const item1 = 1;')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: /^(파일 목록|Files)$/ }));
+    await expect(screen.getByRole('treeitem', { name: 'src', expanded: true })).toBeVisible();
+    await expect(screen.getByRole('treeitem', { name: 'App.tsx' })).toBeVisible();
+  },
+};
 export const Source: Story = {
   play: async () => {
     await userEvent.click(screen.getByRole('button', { name: 'src/App.tsx:242' }));
@@ -75,5 +116,30 @@ export const MissingFile: Story = {
   play: async () => {
     await userEvent.click(screen.getByRole('button', { name: 'src/App.tsx:242' }));
     await expect(await screen.findByRole('alert')).toHaveTextContent('File does not exist');
+  },
+};
+
+export const CompactSource: Story = {
+  parameters: {
+    reference: false,
+    server: {
+      results: {
+        ...server.results,
+        'files/read': () => ({
+          path: '/project/package.json',
+          relativePath: 'package.json',
+          content:
+            '{\n  "name": "alpine-code",\n  "private": true,\n  "scripts": {\n    "dev": "vite",\n    "build": "tsc && vite build"\n  }\n}',
+          startLine: 1,
+          totalLines: 8,
+          line: 1,
+          truncated: false,
+        }),
+        'files/action': () => ({ ok: true }),
+      },
+    } satisfies Script,
+  },
+  play: async () => {
+    await userEvent.click(await screen.findByRole('treeitem', { name: 'package.json' }));
   },
 };

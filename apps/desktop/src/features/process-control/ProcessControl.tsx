@@ -21,12 +21,14 @@ export function ProcessControl({
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState('');
   const query = useQuery({
-    queryKey: ['processes', cwd, sessionId],
-    queryFn: () => server.request('processes/list', { cwd, sessionId }),
+    queryKey: ['processes', cwd, sessionId, 'command'],
+    queryFn: () => server.request('processes/list', { cwd, sessionId, kind: 'command' }),
     refetchInterval: 750,
     retry: false,
   });
-  const processes = query.data?.processes ?? [];
+  const processes = [...(query.data?.processes ?? [])]
+    .filter((p) => p.kind !== 'shell')
+    .sort((a, b) => b.createdAt - a.createdAt);
   const tools = query.data?.tools ?? [];
   const active =
     processes.some((p) => p.status === 'running' || p.status === 'stopping') ||
@@ -40,7 +42,7 @@ export function ProcessControl({
         await server.request('terminals/stop', { processId: id, force });
       } else {
         if (sessionId) await server.request('session/cancel', { sessionId });
-        await server.request('processes/stop', { cwd, sessionId, force });
+        await server.request('processes/stop', { cwd, sessionId, force, kind: 'command' });
       }
       await Promise.all([
         client.invalidateQueries({ queryKey: ['processes', cwd, sessionId] }),
@@ -55,7 +57,7 @@ export function ProcessControl({
   return (
     <section aria-label={t.title} className="flex min-h-0 grow flex-col gap-3 overflow-auto p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-meta text-fg-muted">{t.preserved}</p>
+        <p className="text-meta text-fg-muted">{t.count(processes.length)}</p>
         <button
           type="button"
           disabled={!active || pending !== null}
@@ -79,16 +81,14 @@ export function ProcessControl({
       {processes.map((p) => (
         <article key={p.id} className="flex flex-col gap-2 rounded-lg border border-line p-3">
           <div className="flex flex-wrap items-center gap-3">
-            <strong className="grow truncate font-mono text-meta" title={p.command}>
-              {p.title}
-            </strong>
+            <strong className="grow text-body font-medium break-words text-fg">{p.title}</strong>
             <span className="text-meta text-fg-muted">{t[p.status]}</span>
           </div>
+          <pre className="overflow-x-auto rounded-md bg-canvas-sunken px-2 py-1.5 font-mono text-meta text-fg whitespace-pre-wrap break-all">
+            {p.command}
+          </pre>
           <div className="flex items-center gap-3 text-meta">
-            <span className="grow text-fg-muted">
-              PID {p.pid}
-              {p.exitCode !== null ? ` · ${p.exitCode}` : ''}
-            </span>
+            <span className="grow text-fg-muted">{p.exitCode != null ? t.exitCode(p.exitCode) : ''}</span>
             {onInspectProcess && (
               <button type="button" onClick={() => onInspectProcess(p.id)} className="cursor-pointer text-interactive">
                 {t.output}

@@ -3,12 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useServer } from './context';
 
-export function useDevelopmentServers(cwd: string) {
+export function useDevelopmentServers(cwd: string, enabled = true) {
   const server = useServer();
   return useQuery({
     queryKey: ['devServers', cwd],
     queryFn: () => server.request('devServers/list', { cwd }),
-    enabled: !!cwd,
+    enabled: !!cwd && enabled,
     refetchInterval: 1500,
   });
 }

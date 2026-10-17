@@ -1,6 +1,6 @@
 [project]
 name = "alpine-code-core"
-version = "0.1.2"
+version = "0.1.3"
 description = "The UI-agnostic agent core of alpine-code"
 authors = [
     { name = "tgoddessana", email = "twicegoddessana1229@gmail.com" }

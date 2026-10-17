@@ -17,7 +17,11 @@ from .methods import INVALID_PARAMS, MethodError
 
 async def list_processes(params: ProcessesListParams) -> ProcessesListResult:
     return ProcessesListResult(
-        processes=[TerminalProcess(**p.snapshot()) for p in process_manager().list(params.cwd, params.session_id)],
+        processes=[
+            TerminalProcess(**p.snapshot())
+            for p in process_manager().list(params.cwd, params.session_id)
+            if params.kind is None or p.kind == params.kind
+        ],
         # User tool records carry a session, so project-only callers cannot accidentally see other projects.
         tools=[ToolExecution(**c) for c in executions.list(params.session_id)] if params.session_id else [],
     )
@@ -32,7 +36,7 @@ async def stop_processes(params: ProcessesStopParams) -> ProcessesListResult:
         *(
             p.stop(force=params.force)
             for p in process_manager().list(params.cwd, params.session_id)
-            if p.status in ("running", "stopping")
+            if p.status in ("running", "stopping") and (params.kind is None or p.kind == params.kind)
         )
     )
     return await list_processes(params)

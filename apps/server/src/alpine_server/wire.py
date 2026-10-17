@@ -11,7 +11,7 @@ from alpine_core import SessionInfo as CoreInfo
 from alpine_protocol import SessionEvent, SessionEventParams, SessionInfo
 
 _EVENT = TypeAdapter(SessionEvent)
-_CORE_ONLY = {"last_seq", "agent_applied", "imported_from", "work_baseline"}
+_CORE_ONLY = {"last_seq", "agent_applied", "imported_from", "work_baseline", "work_history"}
 
 
 def to_info(info: CoreInfo | dict[str, Any]) -> SessionInfo:

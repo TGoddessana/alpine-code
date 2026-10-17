@@ -218,3 +218,24 @@ def object_with_approve():
             raise AssertionError("read-only tool should not request approval")
 
     return Approver()
+
+
+def test_session_stop_preserves_interactive_user_shell(tmp_path, monkeypatch):
+    from alpine_core import Session
+    from alpine_core import processes as process_module
+
+    async def scenario():
+        manager = ProcessManager()
+        monkeypatch.setattr(process_module, "_manager", manager)
+        session = object.__new__(Session)
+        session._id = "agent"
+        command = await manager.start("sleep 60", tmp_path, pty=False, session_id=session.id)
+        shell = await manager.start("sleep 60", tmp_path, pty=False, session_id=session.id, kind="shell")
+        try:
+            await session.stop_processes()
+            assert command.status == "cancelled"
+            assert shell.status == "running"
+        finally:
+            await manager.shutdown()
+
+    asyncio.run(scenario())

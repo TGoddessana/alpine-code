@@ -11,7 +11,7 @@ const process: TerminalProcess = {
   command: 'pnpm build',
   cwd: '/project',
   sessionId: 'chat',
-  title: 'pnpm build',
+  title: '프로덕션 빌드',
   pty: false,
   pid: 4200,
   status: 'running',
@@ -99,4 +99,37 @@ export const StopAll: Story = {
 };
 export const Empty: Story = {
   parameters: { server: { results: { 'processes/list': { processes: [], tools: [] } } } satisfies Script },
+};
+
+export const AgentCommands: Story = {
+  parameters: {
+    server: {
+      results: {
+        'processes/list': {
+          processes: [
+            { ...process, id: 'types', title: '타입 검사', command: 'pnpm typecheck', createdAt: 3 },
+            {
+              ...process,
+              id: 'tests',
+              title: '단위 테스트 실행',
+              command: 'pnpm test',
+              status: 'exited',
+              exitCode: 0,
+              createdAt: 2,
+            },
+            {
+              ...process,
+              id: 'lint',
+              title: '코드 스타일 검사',
+              command: 'pnpm lint',
+              status: 'failed',
+              exitCode: 1,
+              createdAt: 1,
+            },
+          ],
+          tools: [],
+        },
+      },
+    } satisfies Script,
+  },
 };

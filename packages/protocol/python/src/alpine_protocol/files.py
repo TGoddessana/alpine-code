@@ -47,7 +47,27 @@ class FilesSearchResult(Message):
     truncated: bool = False
 
 
+class FilesListParams(Message):
+    cwd: str
+    path: str = ""
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=200, ge=1, le=500)
+
+
+class FileEntry(Message):
+    name: str
+    path: str
+    kind: Literal["directory", "file", "symlink"]
+
+
+class FilesListResult(Message):
+    entries: list[FileEntry]
+    next_offset: int
+    has_more: bool
+
+
 FILE_METHODS = {
+    "files/list": (FilesListParams, FilesListResult),
     "files/read": (FilesReadParams, FilesReadResult),
     "files/action": (FilesActionParams, FilesActionResult),
     "files/search": (FilesSearchParams, FilesSearchResult),

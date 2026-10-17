@@ -1,14 +1,15 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { DevelopmentServers } from '@/features/development-servers';
 import { DockLayout, type DockTab } from '@/features/dock/Dock';
-import { showDockTab } from '@/features/dock/state';
+import { showDockTab, useDockOpen } from '@/features/dock/state';
 import { FileViewer } from '@/features/file-viewer';
 import { ProcessControl } from '@/features/process-control';
 import { Terminal } from '@/features/terminal';
 import { FileNavigationProvider } from '@/shared/files';
 import { useMessages } from '@/shared/i18n';
+import { useDevelopmentServers } from '@/shared/server/devServers';
 
 import { messages } from './messages';
 
@@ -28,8 +29,22 @@ export function WorkspaceDock({
 }) {
   const t = useMessages(messages);
   const client = useQueryClient();
+  const [dockOpen] = useDockOpen();
+  const servers = useDevelopmentServers(cwd, dockOpen);
+  const [requestedServers, setRequestedServers] = useState<Record<string, boolean>>({});
+  const hasServers = Boolean(servers.data?.servers.length);
+  const showServers = hasServers || requestedServers[cwd];
+  const openServers = () => {
+    setRequestedServers((current) => ({ ...current, [cwd]: true }));
+    showDockTab('servers');
+  };
   return (
-    <FileNavigationProvider key={cwd} cwd={cwd} onOpen={() => showDockTab('source')}>
+    <FileNavigationProvider
+      key={cwd}
+      cwd={cwd}
+      onOpen={() => showDockTab('source')}
+      onReturnToChanges={() => showDockTab('work-result')}
+    >
       <DockLayout
         scope={scope}
         tabs={[
@@ -39,14 +54,32 @@ export function WorkspaceDock({
             id: 'terminal',
             label: t.terminal,
             bare: true,
-            content: <Terminal key={cwd} cwd={cwd} sessionId={sessionId} />,
+            content: <Terminal key={cwd} cwd={cwd} sessionId={sessionId} onOpenDevelopmentServer={openServers} />,
           },
-          {
-            id: 'servers',
-            label: t.servers,
-            bare: true,
-            content: <DevelopmentServers key={cwd} cwd={cwd} sessionId={sessionId} />,
-          },
+          ...(showServers
+            ? [
+                {
+                  id: 'servers',
+                  label: t.servers,
+                  bare: true,
+                  content: (
+                    <DevelopmentServers
+                      key={cwd}
+                      cwd={cwd}
+                      sessionId={sessionId}
+                      onDismiss={
+                        hasServers
+                          ? undefined
+                          : () => {
+                              setRequestedServers((current) => ({ ...current, [cwd]: false }));
+                              showDockTab('terminal');
+                            }
+                      }
+                    />
+                  ),
+                },
+              ]
+            : []),
           {
             id: 'processes',
             label: t.processes,

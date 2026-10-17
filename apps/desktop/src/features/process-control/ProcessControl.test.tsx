@@ -101,3 +101,48 @@ it('shows residual user functions as still executing without offering an unsafe 
   expect(screen.queryByRole('button', { name: 'Force stop' })).toBeNull();
   client.clear();
 });
+
+it('shows the agent purpose alongside its exact command and excludes interactive shells', async () => {
+  const inspected: string[] = [];
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const base: TerminalProcess = {
+    id: 'types',
+    title: 'Check SDK types',
+    command: 'pnpm typecheck',
+    cwd: '/project',
+    sessionId: 'chat',
+    pty: false,
+    pid: 42,
+    status: 'exited',
+    exitCode: 0,
+    cancelled: false,
+    createdAt: 1,
+    outputSize: 100,
+  };
+  render(
+    <LocaleProvider locale="en">
+      <QueryClientProvider client={client}>
+        <ServerProvider
+          connection={scriptedConnection({
+            results: {
+              'processes/list': ({ kind, sessionId }) => {
+                expect(kind).toBe('command');
+                expect(sessionId).toBe('chat');
+                return { processes: [base, { ...base, id: 'shell', title: 'My shell', kind: 'shell' }], tools: [] };
+              },
+            },
+          })}
+        >
+          <ProcessControl cwd="/project" sessionId="chat" onInspectProcess={(id) => inspected.push(id)} />
+        </ServerProvider>
+      </QueryClientProvider>
+    </LocaleProvider>,
+  );
+  await screen.findByText('Check SDK types');
+  expect(screen.getByText('pnpm typecheck')).toBeTruthy();
+  expect(screen.getByText('Exit code 0')).toBeTruthy();
+  expect(screen.queryByText('My shell')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'View output' }));
+  expect(inspected).toEqual(['types']);
+  client.clear();
+});

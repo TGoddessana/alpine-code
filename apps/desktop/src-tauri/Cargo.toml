@@ -1,6 +1,6 @@
 [package]
 name = "alpine-desktop"
-version = "0.1.2"
+version = "0.1.3"
 description = "The alpine-code desktop app"
 authors = ["tgoddessana"]
 edition = "2024"

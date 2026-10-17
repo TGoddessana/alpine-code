@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from alpine_protocol.files import FilesActionParams, FilesReadParams, FilesSearchParams
-from alpine_server.files import file_action, read_file, search_files
+from alpine_protocol.files import FilesActionParams, FilesListParams, FilesReadParams, FilesSearchParams
+from alpine_server.files import file_action, list_files, read_file, search_files
 from alpine_server.methods import MethodError
 
 
@@ -77,3 +77,40 @@ def test_editor_failure_is_reported(tmp_path: Path):
     with patch("alpine_server.files.subprocess.run", side_effect=OSError("not installed")):
         with pytest.raises(MethodError, match="Could not open"):
             file_action(FilesActionParams(cwd=str(tmp_path), path="a.ts", action="editor"))
+
+
+def test_tree_lists_one_level_directories_first_and_paginates(tmp_path):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "inside.ts").touch()
+    for name in ("b.ts", "A.ts", ".gitignore"):
+        (tmp_path / name).touch()
+    first = list_files(FilesListParams(cwd=str(tmp_path), limit=2))
+    assert [(e.name, e.kind) for e in first.entries] == [("src", "directory"), (".gitignore", "file")]
+    assert first.has_more and first.next_offset == 2
+    second = list_files(FilesListParams(cwd=str(tmp_path), offset=first.next_offset, limit=2))
+    assert [e.path for e in second.entries] == ["A.ts", "b.ts"]
+    assert not second.has_more
+    child = list_files(FilesListParams(cwd=str(tmp_path), path="src"))
+    assert [e.path for e in child.entries] == ["src/inside.ts"]
+
+
+def test_tree_rejects_outside_directories_and_does_not_follow_symlinks(tmp_path):
+    root, outside = tmp_path / "project", tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    (outside / "private").touch()
+    (root / "shortcut").symlink_to(outside, target_is_directory=True)
+    result = list_files(FilesListParams(cwd=str(root)))
+    assert [(e.name, e.kind) for e in result.entries] == [("shortcut", "symlink")]
+    for path in ("../outside", str(outside), "shortcut"):
+        with pytest.raises(MethodError, match="outside"):
+            list_files(FilesListParams(cwd=str(root), path=path))
+
+
+def test_tree_empty_missing_and_unreadable_directories(tmp_path):
+    assert not list_files(FilesListParams(cwd=str(tmp_path))).entries
+    with pytest.raises(MethodError, match="does not exist"):
+        list_files(FilesListParams(cwd=str(tmp_path), path="gone"))
+    with patch("alpine_server.files.os.scandir", side_effect=PermissionError):
+        with pytest.raises(MethodError, match="Cannot read"):
+            list_files(FilesListParams(cwd=str(tmp_path)))

@@ -2,22 +2,26 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 
 export interface FileLocation {
   path: string;
-  line: number;
+  line?: number;
+  fromChanges?: boolean;
 }
 export interface FileNavigation {
   cwd: string;
   location: FileLocation | null;
   open: (location: FileLocation) => void;
+  browse: () => void;
 }
 const Context = createContext<FileNavigation | null>(null);
 
 export function FileNavigationProvider({
   cwd,
   onOpen,
+  onReturnToChanges,
   children,
 }: {
   cwd: string;
   onOpen?: () => void;
+  onReturnToChanges?: () => void;
   children: ReactNode;
 }) {
   const [location, setLocation] = useState<FileLocation | null>(null);
@@ -26,6 +30,10 @@ export function FileNavigationProvider({
       value={{
         cwd,
         location,
+        browse: () => {
+          setLocation(null);
+          if (location?.fromChanges) onReturnToChanges?.();
+        },
         open: (next) => {
           setLocation(next);
           onOpen?.();
@@ -51,7 +59,8 @@ export function parseFileLocation(value: string): FileLocation | null {
   if (!match) return null;
   path = match[1] ?? '';
   if (!path || /[\n\r\0]/.test(path) || (!path.includes('/') && !/\.[a-z\d_-]+$/i.test(path))) return null;
-  return { path, line: Math.max(1, Number(match[2] ?? match[3] ?? 1)) };
+  const line = match[2] ?? match[3];
+  return line === undefined ? { path } : { path, line: Math.max(1, Number(line)) };
 }
 
 export function FileReference({ value, children }: { value: string; children?: ReactNode }) {

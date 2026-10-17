@@ -1,86 +1,183 @@
+import type { TerminalProcess } from '@alpine/protocol';
+import { Menu } from '@alpine/ui/primitives';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import clsx from 'clsx';
+import {
+  ChevronDown,
+  Columns2,
+  Download,
+  Eraser,
+  LoaderCircle,
+  MoreHorizontal,
+  Plus,
+  TerminalSquare,
+  Globe,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 
 import { useMessages } from '@/shared/i18n';
 import { useServer } from '@/shared/server';
-import { useStartTerminal, useTerminalOutput, useTerminals } from '@/shared/server/terminals';
+import { useStartTerminal, useTerminals } from '@/shared/server/terminals';
 
-import { terminalText } from './display';
 import { messages } from './messages';
 
+const TerminalScreen = lazy(() => import('./TerminalScreen'));
+const noProcesses: TerminalProcess[] = [];
+const iconButton =
+  'inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-fg-muted hover:bg-hover disabled:cursor-default disabled:opacity-40';
 interface TerminalProps {
   cwd: string;
   sessionId?: string;
   processId?: string | null;
   onSelectProcess?: (processId: string) => void;
+  onOpenDevelopmentServer?: () => void;
 }
 
-export function Terminal({ cwd, sessionId, processId, onSelectProcess }: TerminalProps) {
+export function Terminal({ cwd, sessionId, processId, onSelectProcess, onOpenDevelopmentServer }: TerminalProps) {
   const server = useServer();
   const t = useMessages(messages);
   const client = useQueryClient();
   const terminals = useTerminals(cwd);
   const start = useStartTerminal(cwd, sessionId);
-  const [selected, setSelected] = useState<{ cwd: string; id: string | null }>({
-    cwd,
-    id: processId ?? client.getQueryData<string>(['terminal-selection', cwd]) ?? null,
-  });
-  const [command, setCommand] = useState('');
-  const [input, setInput] = useState('');
+  const root = useRef<HTMLElement>(null);
+  const closing = useRef(new Set<string>());
+  const initialised = useRef(false);
+  const [selected, setSelected] = useState<string | null>(
+    () => processId ?? client.getQueryData<string>(['terminal-selection', cwd]) ?? null,
+  );
+  const [split, setSplit] = useState<string | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [follow, setFollow] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const log = useRef<HTMLPreElement>(null);
-  const processes = terminals.data?.processes ?? [];
-  const remembered = selected.cwd === cwd ? selected.id : client.getQueryData<string>(['terminal-selection', cwd]);
-  const activeId = processId ?? remembered ?? processes.at(-1)?.id ?? null;
-  const output = useTerminalOutput(activeId);
-  const active = processes.find((process) => process.id === activeId) ?? output.data?.process;
-  const running = active?.status === 'running';
-
-  useEffect(() => {
-    if (follow && log.current) log.current.scrollTop = log.current.scrollHeight;
-  }, [output.data?.offset, follow]);
-
-  useEffect(() => {
-    if (!activeId || !log.current) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (!entry) return;
-      const cols = Math.max(10, Math.floor(entry.contentRect.width / 8));
-      const rows = Math.max(2, Math.floor(entry.contentRect.height / 20));
-      void server.request('terminals/resize', { processId: activeId, cols, rows }).catch(() => {});
-    });
-    observer.observe(log.current);
-    return () => observer.disconnect();
-  }, [server, activeId]);
-
+  const [busy, setBusy] = useState(false);
+  const [epoch, setEpoch] = useState(0);
+  const processes = terminals.data?.processes ?? noProcesses;
+  const active = processes.find((process) => process.id === (processId ?? selected)) ?? processes.at(-1);
+  const secondary = processes.find((process) => process.id === split && process.id !== active?.id);
+  const background = processes.filter((process) => process.id !== active?.id && process.id !== secondary?.id);
+  const target = processes.find((process) => process.id === focusedId) ?? active;
   const select = (id: string) => {
-    setSelected({ cwd, id });
+    setFocusedId(id);
+    if (id === active?.id || id === secondary?.id) {
+      requestAnimationFrame(() => {
+        const pane = [...(root.current?.querySelectorAll<HTMLElement>('[data-terminal-id]') ?? [])].find(
+          (element) => element.dataset.terminalId === id,
+        );
+        pane?.querySelector('textarea')?.focus();
+      });
+    } else if (secondary && target?.id === secondary.id) {
+      setSplit(id);
+    } else {
+      setSelected(id);
+    }
     client.setQueryData(['terminal-selection', cwd], id);
-    setFollow(true);
+    setError('');
     onSelectProcess?.(id);
   };
-  const send = async (data: string) => {
-    if (!activeId) return;
+  const create = async (asSplit = false, defaultShell = false) => {
+    initialised.current = true;
     setError('');
     try {
-      await server.request('terminals/write', { processId: activeId, data });
-      setInput('');
+      if (asSplit && active) setSelected(active.id);
+      const nextNumber =
+        Math.max(
+          0,
+          ...processes.map((process) =>
+            process.title.startsWith(`${t.shell} `) ? Number(process.title.slice(t.shell.length + 1)) || 0 : 0,
+          ),
+        ) + 1;
+      const result = await start.mutateAsync({
+        command: 'exec "${SHELL:-/bin/sh}" -i',
+        title: `${t.shell} ${nextNumber}`,
+        kind: 'shell',
+        defaultShell,
+      });
+      if (asSplit && active) setSplit(result.process.id);
+      else select(result.process.id);
     } catch (cause) {
       setError(String(cause));
     }
   };
+  const initialise = useEffectEvent(() => {
+    if (initialised.current) return;
+    initialised.current = true;
+    const requested = processes.find((process) => process.id === (processId ?? selected));
+    if (requested && requested.kind !== 'shell') return;
+    const shell = processes.find((process) => process.kind === 'shell' && process.status === 'running');
+    if (shell) select(requested?.status === 'running' ? requested.id : shell.id);
+    else void create(false, true);
+  });
+  useEffect(() => {
+    // Decide once per tab opening, after a fresh list. Exiting the final shell
+    // must still close it instead of immediately creating another one.
+    if (!terminals.isFetchedAfterMount || !terminals.isSuccess || terminals.isFetching) return;
+    const timer = setTimeout(() => initialise(), 0);
+    return () => clearTimeout(timer);
+  }, [terminals.isFetchedAfterMount, terminals.isSuccess, terminals.isFetching]);
+  const close = useCallback(
+    async (id: string) => {
+      if (closing.current.has(id)) return;
+      closing.current.add(id);
+      setBusy(true);
+      setError('');
+      try {
+        await server.request('terminals/close', { processId: id });
+        client.setQueryData<{ processes: TerminalProcess[] }>(['terminals', cwd], (current) => ({
+          processes: (current?.processes ?? []).filter((process) => process.id !== id),
+        }));
+        if (split === id) setSplit(null);
+        if (active?.id === id) {
+          const nextId = secondary?.id ?? processes.filter((process) => process.id !== id).at(-1)?.id ?? null;
+          setSelected(nextId);
+          setSplit(null);
+          client.setQueryData(['terminal-selection', cwd], nextId);
+        }
+        if (active?.id === id || secondary?.id === id) {
+          const nextId =
+            active?.id === id
+              ? (secondary?.id ?? processes.filter((process) => process.id !== id).at(-1)?.id)
+              : active?.id;
+          setFocusedId(nextId ?? null);
+          requestAnimationFrame(() => {
+            const pane = [...(root.current?.querySelectorAll<HTMLElement>('[data-terminal-id]') ?? [])].find(
+              (element) => element.dataset.terminalId === nextId,
+            );
+            pane?.querySelector('textarea')?.focus();
+          });
+        }
+        await client.invalidateQueries({ queryKey: ['terminals', cwd] });
+        const { disposeTerminal } = await import('./runtime');
+        disposeTerminal(server, id);
+      } catch (cause) {
+        setError(String(cause));
+      } finally {
+        closing.current.delete(id);
+        setBusy(closing.current.size > 0);
+      }
+    },
+    [server, client, cwd, processes, split, active, secondary, setError],
+  );
+  useEffect(() => {
+    const ended = processes.filter(
+      (process) => process.kind === 'shell' && !['running', 'stopping'].includes(process.status),
+    );
+    if (!ended.length) return;
+    const timer = setTimeout(() => {
+      for (const process of ended) void close(process.id);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [processes, close]);
   const saveLog = async () => {
-    if (!activeId) return;
-    setSaving(true);
+    if (!target) return;
+    setBusy(true);
     setError('');
     try {
       let offset = 0;
       const chunks: string[] = [];
-      // Snapshot the extent so a busy process cannot keep this download open forever.
-      const total = (await server.request('terminals/read', { processId: activeId, limit: 4 })).total;
+      const total = (await server.request('terminals/read', { processId: target.id, limit: 4 })).total;
       while (offset < total) {
-        const page = await server.request('terminals/read', { processId: activeId, offset });
+        const page = await server.request('terminals/read', { processId: target.id, offset });
         chunks.push(page.text);
         if (page.nextOffset <= offset) break;
         offset = page.nextOffset;
@@ -88,151 +185,196 @@ export function Terminal({ cwd, sessionId, processId, onSelectProcess }: Termina
       const url = URL.createObjectURL(new Blob(chunks, { type: 'text/plain;charset=utf-8' }));
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `terminal-${activeId}.log`;
+      anchor.download = `terminal-${target.id}.log`;
       anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (cause) {
       setError(String(cause));
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   };
+  const pane = (process: TerminalProcess) => (
+    <div
+      key={process.id}
+      data-terminal-id={process.id}
+      onFocusCapture={() => setFocusedId(process.id)}
+      className="flex min-h-0 min-w-0 grow basis-0 flex-col"
+    >
+      {secondary && (
+        <div
+          className={clsx(
+            'flex h-7 shrink-0 items-center gap-2 border-b border-l-2 border-line-subtle px-2 text-meta',
+            target?.id === process.id ? 'border-l-interactive text-fg' : 'border-l-transparent text-fg-muted',
+          )}
+        >
+          <button
+            type="button"
+            onClick={(event) => event.currentTarget.closest('[data-terminal-id]')?.querySelector('textarea')?.focus()}
+            className="min-w-0 grow cursor-pointer truncate text-left"
+          >
+            {process.title}
+          </button>
+          <button
+            type="button"
+            title={t.close}
+            aria-label={`${t.close}: ${process.title}`}
+            disabled={busy}
+            onClick={() => void close(process.id)}
+            className={iconButton}
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
+      <Suspense fallback={<LoaderCircle size={16} className="m-3 animate-spin text-fg-muted" />}>
+        <TerminalScreen
+          key={`${process.id}:${epoch}`}
+          processId={process.id}
+          label={`${t.input}: ${process.title}`}
+          onError={setError}
+        />
+      </Suspense>
+      {process.status !== 'running' && (
+        <p className="shrink-0 px-3 py-1 text-meta text-fg-muted">
+          {t[process.status]}
+          {process.exitCode !== null ? ` (${process.exitCode})` : ''}
+        </p>
+      )}
+    </div>
+  );
 
   return (
-    <section aria-label={t.title} className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4">
-      <div className="flex shrink-0 items-center gap-3">
+    <section ref={root} aria-label={t.title} className="@container flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line-subtle px-2">
+        <div className="flex min-w-0 grow items-center">
+          {background.length > 0 ? (
+            <Menu.Root>
+              <Menu.Trigger
+                aria-label={t.processes}
+                title={t.processes}
+                className="flex h-7 min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-meta text-fg-muted hover:bg-hover"
+              >
+                <TerminalSquare size={14} className="shrink-0" />
+                <span className="truncate">
+                  {t.processes} ({background.length})
+                </span>
+                <ChevronDown size={12} className="shrink-0" />
+              </Menu.Trigger>
+              <Menu.Popup>
+                {background.map((process) => (
+                  <Menu.Item
+                    key={process.id}
+                    onClick={() => select(process.id)}
+                    title={`${process.command} · PID ${process.pid}`}
+                  >
+                    <TerminalSquare size={14} aria-hidden="true" className="shrink-0" />
+                    <span className="truncate">{process.title}</span>
+                  </Menu.Item>
+                ))}
+              </Menu.Popup>
+            </Menu.Root>
+          ) : (
+            <span className="truncate px-2 text-meta text-fg-muted">
+              {secondary ? t.title : (active?.title ?? t.title)}
+            </span>
+          )}
+        </div>
         <button
           type="button"
+          aria-label={t.newTerminal}
+          title={t.newTerminal}
           disabled={start.isPending}
-          onClick={() => {
-            setError('');
-            void start
-              .mutateAsync({ command: 'exec "${SHELL:-/bin/sh}" -i', title: t.shell })
-              .then((result) => select(result.process.id))
-              .catch((cause: unknown) => setError(String(cause)));
-          }}
-          className="shrink-0 cursor-pointer rounded-lg border border-line px-3 py-2 text-meta text-interactive disabled:opacity-50"
+          onClick={() => void create()}
+          className={iconButton}
         >
-          {t.newTerminal}
+          {start.isPending ? <LoaderCircle size={15} className="animate-spin" /> : <Plus size={16} />}
         </button>
-        <p className="text-meta text-fg-muted">{t.shellHint}</p>
-      </div>
-      <form
-        className="flex shrink-0 gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setError('');
-          void start
-            .mutateAsync({ command })
-            .then((result) => {
-              select(result.process.id);
-              setCommand('');
-            })
-            .catch((cause: unknown) => setError(String(cause)));
-        }}
-      >
-        <input
-          aria-label={t.command}
-          placeholder={t.commandPlaceholder}
-          value={command}
-          onChange={(event) => setCommand(event.target.value)}
-          className="min-w-0 grow rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-meta"
-        />
         <button
-          type="submit"
-          disabled={!command.trim() || start.isPending}
-          className="cursor-pointer text-meta text-interactive disabled:opacity-50"
+          type="button"
+          aria-label={t.split}
+          title={t.split}
+          disabled={!active || start.isPending || Boolean(secondary)}
+          onClick={() => void create(true)}
+          className={iconButton}
         >
-          {t.run}
+          <Columns2 size={15} />
         </button>
-      </form>
-      <div aria-label={t.processes} className="flex shrink-0 gap-2 overflow-x-auto">
-        {processes.map((process) => (
-          <button
-            key={process.id}
-            type="button"
-            aria-pressed={process.id === activeId}
-            onClick={() => select(process.id)}
-            title={`${process.command}\nPID ${process.pid}`}
-            className="shrink-0 cursor-pointer rounded-lg border border-line px-3 py-2 text-meta aria-pressed:bg-selected"
-          >
-            {process.title} · {t[process.status]}
-          </button>
-        ))}
-      </div>
-      {!active && <p className="text-body text-fg-muted">{t.empty}</p>}
-      {active && (
-        <>
-          <div className="flex shrink-0 flex-wrap items-center gap-3 text-meta text-fg-muted">
-            <span className="grow font-mono">
-              PID {active.pid} · {t[active.status]}
-              {active.exitCode !== null ? ` (${active.exitCode})` : ''}
-            </span>
-            <button
-              type="button"
-              onClick={() => setFollow(!follow)}
-              aria-pressed={follow}
-              className="cursor-pointer text-interactive"
+        <button
+          type="button"
+          aria-label={t.close}
+          title={t.close}
+          disabled={!target || busy}
+          onClick={() => target && void close(target.id)}
+          className={iconButton}
+        >
+          <Trash2 size={15} />
+        </button>
+        <Menu.Root>
+          <Menu.Trigger aria-label={t.actions} title={t.actions} className={iconButton}>
+            <MoreHorizontal size={17} />
+          </Menu.Trigger>
+          <Menu.Popup align="end">
+            {onOpenDevelopmentServer && (
+              <Menu.Item onClick={onOpenDevelopmentServer}>
+                <Globe size={15} />
+                {t.developmentServer}
+              </Menu.Item>
+            )}
+            <Menu.Item
+              disabled={!target}
+              onClick={() => {
+                if (target)
+                  void import('./runtime').then(({ terminalRuntime }) => terminalRuntime(server, target.id).clear());
+              }}
             >
-              {follow ? t.following : t.follow}
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void saveLog()}
-              className="cursor-pointer text-interactive"
-            >
+              <Eraser size={15} />
+              {t.clear}
+            </Menu.Item>
+            <Menu.Item disabled={!target || busy} onClick={() => void saveLog()}>
+              <Download size={15} />
               {t.save}
-            </button>
-          </div>
-          {output.data?.omitted && <p className="text-meta text-fg-muted">{t.omitted}</p>}
-          <pre
-            ref={log}
-            tabIndex={0}
-            aria-label={t.output}
-            onKeyDown={(event) => {
-              if (event.ctrlKey && event.key === 'c' && !window.getSelection()?.toString()) {
-                event.preventDefault();
-                void send('\x03');
-              }
-              if (event.ctrlKey && event.key === 'd') {
-                event.preventDefault();
-                void send('\x04');
-              }
-            }}
-            className="min-h-0 flex-1 overflow-auto rounded-lg border border-line-subtle bg-canvas-raised p-3 font-mono text-meta whitespace-pre-wrap"
+            </Menu.Item>
+          </Menu.Popup>
+        </Menu.Root>
+      </div>
+      {active ? (
+        <div className="flex min-h-0 grow flex-col divide-y divide-line-subtle @min-xl:flex-row @min-xl:divide-x @min-xl:divide-y-0">
+          {pane(active)}
+          {secondary && pane(secondary)}
+        </div>
+      ) : (
+        <div className="flex min-h-0 grow items-center justify-center">
+          <button
+            type="button"
+            disabled={start.isPending || terminals.isPending}
+            onClick={() => void create()}
+            className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-meta text-fg-muted hover:bg-hover"
           >
-            {terminalText(output.data?.text ?? '')}
-          </pre>
-          <form
-            className="flex shrink-0 gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void send(`${input}\n`);
-            }}
-          >
-            <input
-              aria-label={t.input}
-              disabled={!running}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder={running ? t.inputPlaceholder : t.ended}
-              className="min-w-0 grow rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-meta disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={!running}
-              className="cursor-pointer text-meta text-interactive disabled:opacity-50"
-            >
-              {t.send}
-            </button>
-          </form>
-        </>
+            <Plus size={15} />
+            {t.newTerminal}
+          </button>
+        </div>
       )}
-      {(error || terminals.error || output.error) && (
-        <p role="alert" className="text-meta text-danger">
-          {error || terminals.error?.message || output.error?.message}
-        </p>
+      {(error || terminals.error) && (
+        <div
+          role="alert"
+          className="flex shrink-0 items-center gap-2 border-t border-line-subtle px-3 py-2 text-meta text-danger"
+        >
+          <span className="min-w-0 grow">{error || terminals.error?.message}</span>
+          <button
+            type="button"
+            onClick={() => {
+              initialised.current = false;
+              setError('');
+              setEpoch((value) => value + 1);
+              void terminals.refetch();
+            }}
+            className="cursor-pointer text-interactive"
+          >
+            {t.retry}
+          </button>
+        </div>
       )}
     </section>
   );

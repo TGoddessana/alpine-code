@@ -80,12 +80,35 @@ def test_tool_test_timeout_kills_before_late_side_effect(tmp_path, monkeypatch):
 
     monkeypatch.setattr(module, "TEST_TIMEOUT", 1)
     marker = tmp_path / "late"
+    ready = tmp_path / "ready"
+    release = tmp_path / "release"
+    original_wait = module.subprocess.Popen.wait
+
+    def wait_after_tool_started(worker, timeout=None):
+        # Importing the worker can exceed the short test timeout on a cold CI host.
+        # Arm that timeout only once the real tool has printed and reached its gate.
+        if not getattr(worker, "_tool_test_ready", False):
+            deadline = time.monotonic() + 20
+            while not ready.exists() and worker.poll() is None and time.monotonic() < deadline:
+                time.sleep(0.01)
+            if not ready.exists():
+                worker.kill()
+                original_wait(worker)
+                pytest.fail("Tool worker did not reach the execution gate")
+            worker._tool_test_ready = True
+            release.touch()
+        return original_wait(worker, timeout=timeout)
+
+    monkeypatch.setattr(module.subprocess.Popen, "wait", wait_after_tool_started)
     source = f"""from alpineagents import tool
 import time
 from pathlib import Path
 @tool
 def slow() -> str:
     print("partial progress", flush=True)
+    Path({str(ready)!r}).touch()
+    while not Path({str(release)!r}).exists():
+        time.sleep(0.01)
     time.sleep(2)
     Path({str(marker)!r}).write_text("should not happen")
     return "done"

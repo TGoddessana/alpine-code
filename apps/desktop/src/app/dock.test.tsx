@@ -4,7 +4,7 @@ import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/rea
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useDockOpen } from '@/features/dock/state';
+import { useDockOpen, useDockTab } from '@/features/dock/state';
 import { LocaleProvider } from '@/shared/i18n';
 import {
   EXAMPLE_MAP,
@@ -51,14 +51,17 @@ const approval: ApprovalItem = {
 };
 
 /** `extra` answers after the defaults, so a test can change one result (e.g. an archived project). */
-function mount(path: string, extra: Script = {}) {
+function mount(path: string, extra: Script = {}, running = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const connection = scriptedConnection(
     mergeScripts(
       setUpScript(),
       sessionScript({
         sessions: [
-          { info: sessionInfo({ id: 'work', cwd, title: '장바구니 고치기' }), items: [approval, edit] },
+          {
+            info: sessionInfo({ id: 'work', cwd, title: '장바구니 고치기', status: running ? 'running' : 'idle' }),
+            items: [approval, edit],
+          },
           { info: sessionInfo({ id: 'elsewhere', cwd: '/Users/me/docs-site' }), items: [approval, edit] },
         ],
       }),
@@ -91,6 +94,10 @@ beforeEach(() => {
   localStorage.clear();
   localStorage.setItem('alpine.rail.open', 'false');
   setDock(false);
+  // Each test starts on the route's first tab; another test may have selected a project tool.
+  const selection = renderHook(() => useDockTab());
+  act(() => selection.result.current[1](''));
+  selection.unmount();
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -107,6 +114,42 @@ afterEach(() => {
 });
 
 describe('right dock on the routes', () => {
+  it('opens actual execution state when the running conversation is stopped', async () => {
+    mount('/session/work', { results: { 'processes/list': { processes: [], tools: [] } } }, true);
+    fireEvent.click(await screen.findByRole('button', { name: '멈추기' }));
+    const dock = await screen.findByRole('complementary', { name: '오른쪽 창' });
+    expect(within(dock).getByRole('tab', { name: '실행 관리', selected: true })).toBeTruthy();
+    expect(await within(dock).findByRole('region', { name: '실행 중단 관리' })).toBeTruthy();
+  });
+
+  it('opens the actual source viewer from a changed file and exposes the project execution tools', async () => {
+    mount('/session/work', {
+      results: {
+        'files/read': ({ cwd: project, path, line = 1 }) => ({
+          path: `${project}/${path}`,
+          relativePath: path,
+          line,
+          content: 'export const cart = true;',
+          startLine: 1,
+          totalLines: 1,
+          truncated: false,
+        }),
+        'terminals/list': { processes: [] },
+        'devServers/list': { servers: [] },
+      },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: '오른쪽 창 열기, 바뀐 파일 1개' }));
+    const dock = await screen.findByRole('complementary', { name: '오른쪽 창' });
+    fireEvent.click(await within(dock).findByRole('button', { name: /Cart\.tsx/ }));
+    fireEvent.click(await within(dock).findByRole('button', { name: '원본 파일 열기' }));
+    expect(within(dock).getByRole('tab', { name: '파일 원본', selected: true })).toBeTruthy();
+    expect(await within(dock).findByText('export const cart = true;')).toBeTruthy();
+    fireEvent.click(within(dock).getByRole('tab', { name: '터미널' }));
+    expect(await within(dock).findByLabelText('실행할 명령')).toBeTruthy();
+    fireEvent.click(within(dock).getByRole('tab', { name: '개발 서버' }));
+    expect(await within(dock).findByRole('button', { name: '서버 실행' })).toBeTruthy();
+  });
+
   it('opens from the top bar on a session and shows its work result', async () => {
     mount('/session/work');
     fireEvent.click(await screen.findByRole('button', { name: '오른쪽 창 열기, 바뀐 파일 1개' }));

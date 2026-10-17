@@ -418,6 +418,110 @@ export interface DeletedEvent {
   type?: 'deleted';
 }
 /**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DevServerConflict".
+ */
+export interface DevServerConflict {
+  port: number;
+  pid?: number | null;
+  cwd?: string | null;
+  canReuse?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DevServerInfo".
+ */
+export interface DevServerInfo {
+  id: string;
+  cwd: string;
+  command: string;
+  port: number;
+  url?: string | null;
+  processId?: string | null;
+  status: 'starting' | 'running' | 'stopping' | 'stopped' | 'failed';
+  external?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DevServersListParams".
+ */
+export interface DevServersListParams {
+  cwd: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DevServersListResult".
+ */
+export interface DevServersListResult {
+  servers: DevServerInfo[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DevServersLogsParams".
+ */
+export interface DevServersLogsParams {
+  id: string;
+  offset?: number;
+  limit?: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DevServersLogsResult".
+ */
+export interface DevServersLogsResult {
+  text: string;
+  nextOffset: number;
+  total: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DevServersRestartParams".
+ */
+export interface DevServersRestartParams {
+  id: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DevServersRestartResult".
+ */
+export interface DevServersRestartResult {
+  server?: DevServerInfo | null;
+  conflict?: DevServerConflict | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DevServersStartParams".
+ */
+export interface DevServersStartParams {
+  cwd: string;
+  command: string;
+  port: number;
+  sessionId?: string | null;
+  reuse?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DevServersStartResult".
+ */
+export interface DevServersStartResult {
+  server?: DevServerInfo | null;
+  conflict?: DevServerConflict | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DevServersStopParams".
+ */
+export interface DevServersStopParams {
+  id: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DevServersStopResult".
+ */
+export interface DevServersStopResult {
+  server: DevServerInfo;
+}
+/**
  * ``data`` of an error the app can act on, beyond its message.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -1212,6 +1316,64 @@ export interface FileChange {
   added: number;
   removed: number;
   diff: string[] | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FilesActionParams".
+ */
+export interface FilesActionParams {
+  cwd: string;
+  path: string;
+  line?: number;
+  action: 'editor' | 'reveal';
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FilesActionResult".
+ */
+export interface FilesActionResult {
+  ok?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FilesReadParams".
+ */
+export interface FilesReadParams {
+  cwd: string;
+  path: string;
+  line?: number;
+  startLine?: number | null;
+  limit?: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FilesReadResult".
+ */
+export interface FilesReadResult {
+  path: string;
+  relativePath: string;
+  content: string;
+  startLine: number;
+  totalLines: number;
+  line: number;
+  truncated: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FilesSearchParams".
+ */
+export interface FilesSearchParams {
+  cwd: string;
+  query: string;
+  limit?: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FilesSearchResult".
+ */
+export interface FilesSearchResult {
+  paths: string[];
+  truncated?: boolean;
 }
 /**
  * One recorded change to the map, kept by the server next to the document.
@@ -2196,6 +2358,62 @@ export interface PackageInfo {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProcessesListParams".
+ */
+export interface ProcessesListParams {
+  cwd?: string | null;
+  sessionId?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProcessesListResult".
+ */
+export interface ProcessesListResult {
+  processes: TerminalProcess[];
+  tools: ToolExecution[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TerminalProcess".
+ */
+export interface TerminalProcess {
+  id: string;
+  command: string;
+  cwd: string;
+  sessionId?: string | null;
+  title: string;
+  pty: boolean;
+  pid: number;
+  status: 'running' | 'stopping' | 'exited' | 'failed' | 'cancelled';
+  exitCode?: number | null;
+  stopError?: string | null;
+  cancelled?: boolean;
+  createdAt: number;
+  outputSize: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ToolExecution".
+ */
+export interface ToolExecution {
+  id: string;
+  sessionId?: string | null;
+  name: string;
+  createdAt: number;
+  status: 'running' | 'stopping' | 'finished' | 'cancelled';
+  cancellable: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProcessesStopParams".
+ */
+export interface ProcessesStopParams {
+  cwd?: string | null;
+  sessionId?: string | null;
+  force?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ProjectInfo".
  */
 export interface ProjectInfo {
@@ -2781,6 +2999,83 @@ export interface SkillsSearchResult {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TerminalsListParams".
+ */
+export interface TerminalsListParams {
+  cwd?: string | null;
+  sessionId?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TerminalsListResult".
+ */
+export interface TerminalsListResult {
+  processes: TerminalProcess[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TerminalsProcessResult".
+ */
+export interface TerminalsProcessResult {
+  process: TerminalProcess;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TerminalsReadParams".
+ */
+export interface TerminalsReadParams {
+  processId: string;
+  offset?: number;
+  limit?: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TerminalsReadResult".
+ */
+export interface TerminalsReadResult {
+  text: string;
+  nextOffset: number;
+  total: number;
+  process: TerminalProcess;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TerminalsResizeParams".
+ */
+export interface TerminalsResizeParams {
+  processId: string;
+  cols: number;
+  rows: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TerminalsStartParams".
+ */
+export interface TerminalsStartParams {
+  command: string;
+  cwd: string;
+  sessionId?: string | null;
+  title?: string | null;
+  pty?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TerminalsStopParams".
+ */
+export interface TerminalsStopParams {
+  processId: string;
+  force?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TerminalsWriteParams".
+ */
+export interface TerminalsWriteParams {
+  processId: string;
+  data: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ToolFileInfo".
  */
 export interface ToolFileInfo {
@@ -2933,6 +3228,22 @@ export interface ToolsTestResult {
 }
 
 export interface Methods {
+  'devServers/list': { params: DevServersListParams; result: DevServersListResult };
+  'devServers/start': { params: DevServersStartParams; result: DevServersStartResult };
+  'devServers/stop': { params: DevServersStopParams; result: DevServersStopResult };
+  'devServers/restart': { params: DevServersRestartParams; result: DevServersRestartResult };
+  'devServers/logs': { params: DevServersLogsParams; result: DevServersLogsResult };
+  'files/read': { params: FilesReadParams; result: FilesReadResult };
+  'files/action': { params: FilesActionParams; result: FilesActionResult };
+  'files/search': { params: FilesSearchParams; result: FilesSearchResult };
+  'processes/list': { params: ProcessesListParams; result: ProcessesListResult };
+  'processes/stop': { params: ProcessesStopParams; result: ProcessesListResult };
+  'terminals/list': { params: TerminalsListParams; result: TerminalsListResult };
+  'terminals/start': { params: TerminalsStartParams; result: TerminalsProcessResult };
+  'terminals/read': { params: TerminalsReadParams; result: TerminalsReadResult };
+  'terminals/write': { params: TerminalsWriteParams; result: TerminalsProcessResult };
+  'terminals/resize': { params: TerminalsResizeParams; result: TerminalsProcessResult };
+  'terminals/stop': { params: TerminalsStopParams; result: TerminalsProcessResult };
   'initialize': { params: InitializeParams; result: InitializeResult };
   'flow/get': { params: FlowGetParams; result: FlowGetResult };
   'flow/prepare': { params: FlowPrepareParams; result: FlowPrepareResult };

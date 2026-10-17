@@ -15,6 +15,7 @@ from .bash import Bash
 from .edit import Edit, preview_edit
 from .glob_files import Glob
 from .grep import Grep
+from .process import Processes
 from .read import Read
 from .write import Write
 
@@ -29,6 +30,7 @@ def default_tools(workspace: Workspace) -> list:
         Write(workspace),
         Edit(workspace),
         Bash(workspace),
+        Processes(workspace),
     ]
 
 

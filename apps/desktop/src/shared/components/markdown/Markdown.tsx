@@ -1,6 +1,7 @@
 import { memo, type ElementType, type HTMLAttributes, type ReactNode } from 'react';
 import { defaultRehypePlugins, Streamdown, useIsCodeFenceIncomplete, type Components } from 'streamdown';
 
+import { FileReference, useFileNavigation, parseFileLocation } from '@/shared/files';
 import { useMessages } from '@/shared/i18n';
 import { openInBrowser } from '@/shared/platform';
 
@@ -17,6 +18,8 @@ const rehypePlugins = [defaultRehypePlugins.sanitize!];
 const OPENABLE = /^(https?:|mailto:)/i;
 
 function Link({ href, children }: { href: string | undefined; children: ReactNode }) {
+  const navigation = useFileNavigation();
+  if (href && navigation && parseFileLocation(href)) return <FileReference value={href}>{children}</FileReference>;
   if (!href || !OPENABLE.test(href)) return <span>{children}</span>;
   return (
     <a
@@ -86,7 +89,11 @@ const components: Components = {
   td: styled('td', 'border-b border-line-subtle px-2 py-1 align-top'),
   a: ({ href, children }) => <Link href={href}>{children}</Link>,
   img: ({ src, alt }) => <Image src={src} alt={alt} />,
-  inlineCode: styled('code', 'rounded-sm bg-canvas-sunken px-1 font-mono text-meta'),
+  inlineCode: ({ children }) => (
+    <code className="rounded-sm bg-canvas-sunken px-1 font-mono text-meta">
+      {typeof children === 'string' ? <FileReference value={children} /> : children}
+    </code>
+  ),
   code: ({ className, children }) => <FencedCode className={className}>{children}</FencedCode>,
 };
 

@@ -13,5 +13,9 @@ Messages between alpine-code apps and `apps/server`: JSON-RPC 2.0, one JSON obje
 After changing a model, run `pnpm protocol:generate` and commit all three. CI runs `pnpm protocol:check`, which fails
 when the generated files are out of date.
 
+Feature contracts such as `files.py`, `terminals.py`, and `dev_servers.py` share the wire-model configuration in
+`base.py`. Their method tables are included by `messages.py`; schema generation follows those endpoint models and
+their nested types.
+
 Every method follows three rules (see `python/src/alpine_protocol/__init__.py`): the server owns session state,
 session events carry a sequence number, and answers name the question they answer.

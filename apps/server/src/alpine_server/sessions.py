@@ -384,6 +384,7 @@ class SessionManager:
         """Cancels the run, if any, and waits until the session has saved itself."""
         task = live.task
         if task is None or task.done():
+            await live.session.stop_processes()
             return
         task.cancel()
         await asyncio.wait({task})

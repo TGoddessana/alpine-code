@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
-import { DockLayout, type DockTab } from '@/features/dock/Dock';
+import { WorkspaceDock } from '@/app/WorkspaceDock';
+import { type DockTab } from '@/features/dock/Dock';
 import { messages as dockMessages } from '@/features/dock/messages';
 import { showDockTab, useDockExpanded, useDockOpen } from '@/features/dock/state';
 import { ProductMap } from '@/features/product-map/ProductMap';
@@ -39,14 +40,16 @@ function BoardRoute() {
           id: CONVERSATION_TAB,
           label: t.conversation,
           bare: true,
-          content: <Session key={session} sessionId={session} compact />,
+          content: (
+            <Session key={session} sessionId={session} compact onInspectProcesses={() => showDockTab('processes')} />
+          ),
         },
         resultTab,
       ]
     : [resultTab];
   if (!project) return <div className="p-8 text-body text-fg-muted">{projects.isLoading ? '…' : (chosen ?? '—')}</div>;
   return (
-    <DockLayout scope={scope} tabs={tabs}>
+    <WorkspaceDock cwd={project.path} sessionId={attachedHere ? session : undefined} scope={scope} tabs={tabs}>
       <ProductMap
         key={project.path}
         cwd={project.path}
@@ -59,6 +62,6 @@ function BoardRoute() {
           void navigate({ to: '/board', search: { project: project.path, session: id }, replace: true })
         }
       />
-    </DockLayout>
+    </WorkspaceDock>
   );
 }

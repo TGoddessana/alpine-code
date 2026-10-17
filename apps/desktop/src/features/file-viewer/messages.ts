@@ -1,0 +1,33 @@
+import { defineMessages } from '@/shared/i18n';
+export const messages = defineMessages({
+  ko: {
+    title: '파일 원본',
+    empty: '파일 경로를 누르면 원본을 볼 수 있어요',
+    loading: '파일을 읽고 있어요',
+    editor: '외부 에디터로 열기',
+    reveal: '폴더에서 보기',
+    copy: '경로 복사',
+    copied: '복사됨',
+    refresh: '새로고침',
+    previous: '이전 줄',
+    next: '다음 줄',
+    line: '이동할 줄',
+    search: '프로젝트 파일 검색',
+    failure: '파일을 열 수 없어요',
+  },
+  en: {
+    title: 'Source file',
+    empty: 'Select a file path to view its source',
+    loading: 'Reading file',
+    editor: 'Open in external editor',
+    reveal: 'Reveal in folder',
+    copy: 'Copy path',
+    copied: 'Copied',
+    refresh: 'Refresh',
+    previous: 'Previous lines',
+    next: 'Next lines',
+    line: 'Go to line',
+    search: 'Search project files',
+    failure: 'Could not open file',
+  },
+});

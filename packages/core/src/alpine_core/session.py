@@ -29,6 +29,7 @@ from . import shell
 from .agents import AgentConfig, AgentList
 from .approval import ApprovalRequest, Approver, Decision, build_permissions
 from .bridge import EventReporter
+from .cancellation import current_cancellation, current_session, executions, track_user_tool
 from .chatgpt import PlanUsageOff, SignInNeeded, UsageLimitError
 from .config import ConfigError, Settings
 from .events import (
@@ -339,7 +340,9 @@ class Session:
         agents, all of them)."""
         offered = gather(self._tool_sources(self.workspace.root))
         self._always = {o.tool.name for o in offered if not o.optional}
-        return pick(offered, self._applied.tools if self._applied is not None else None)
+        selected = pick(offered, self._applied.tools if self._applied is not None else None)
+        user = {id(o.tool) for o in offered if o.origin == "user"}
+        return [track_user_tool(t) if id(t) in user else t for t in selected]
 
     # ------------------------------------------------------------ actions
 
@@ -366,6 +369,9 @@ class Session:
             self._state.add_message(Message.user(said))
         self._recorder.add_user_message(text)
         self._begin_run("thinking")
+        self._cancel_event = threading.Event()
+        cancellation_token = current_cancellation.set(self._cancel_event)
+        token = current_session.set(self.id)
         try:
             answer = await self._agent.arun(self._state)
             reminded: set[str] = set()
@@ -378,6 +384,7 @@ class Session:
                 self._remind(failed)
                 answer = await self._agent.arun(self._state)
         except asyncio.CancelledError:
+            await self.stop_processes()
             self._dispatch(Interrupted())
             self._end_run("idle")
             raise
@@ -393,6 +400,9 @@ class Session:
             self._dispatch(_failed(e))
             self._end_run("failed")
             raise
+        finally:
+            current_session.reset(token)
+            current_cancellation.reset(cancellation_token)
         stopped = self._state.stopped
         if isinstance(stopped, StoppedByPermission):  # the user declined a call without saying what to do instead
             self._dispatch(Interrupted())
@@ -404,6 +414,18 @@ class Session:
                 self._recorder.add_memory_review(source, count)
         self._end_run("idle")
         return answer if isinstance(answer, str) else None
+
+    async def stop_processes(self) -> None:
+        """Request real process termination and mark worker calls still executing."""
+        from .processes import process_manager
+
+        if event := getattr(self, "_cancel_event", None):
+            event.set()
+        executions.cancel(self.id)
+        await asyncio.gather(
+            *(p.stop() for p in process_manager().list(session_id=self.id) if p.status in ("running", "stopping")),
+            return_exceptions=True,
+        )
 
     def send(self, text: str) -> str | None:
         """``asend`` on a new event loop, for a frontend without one. Ctrl+C stops the run and keeps the

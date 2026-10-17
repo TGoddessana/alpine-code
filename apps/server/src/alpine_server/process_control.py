@@ -1,0 +1,41 @@
+"""Process stop operations never equate a cancellation request with actual exit."""
+
+import asyncio
+
+from alpine_core.cancellation import executions
+from alpine_core.processes import process_manager
+from alpine_protocol.process_control import (
+    ProcessesListParams,
+    ProcessesListResult,
+    ProcessesStopParams,
+    ToolExecution,
+)
+from alpine_protocol.terminals import TerminalProcess
+
+from .methods import INVALID_PARAMS, MethodError
+
+
+async def list_processes(params: ProcessesListParams) -> ProcessesListResult:
+    return ProcessesListResult(
+        processes=[TerminalProcess(**p.snapshot()) for p in process_manager().list(params.cwd, params.session_id)],
+        # User tool records carry a session, so project-only callers cannot accidentally see other projects.
+        tools=[ToolExecution(**c) for c in executions.list(params.session_id)] if params.session_id else [],
+    )
+
+
+async def stop_processes(params: ProcessesStopParams) -> ProcessesListResult:
+    if not params.cwd and not params.session_id:
+        raise MethodError(INVALID_PARAMS, "Choose a project or a session to stop")
+    if params.session_id:
+        executions.cancel(params.session_id)
+    await asyncio.gather(
+        *(
+            p.stop(force=params.force)
+            for p in process_manager().list(params.cwd, params.session_id)
+            if p.status in ("running", "stopping")
+        )
+    )
+    return await list_processes(params)
+
+
+HANDLERS = {"processes/list": list_processes, "processes/stop": stop_processes}

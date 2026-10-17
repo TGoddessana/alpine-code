@@ -119,7 +119,18 @@ def test_a_session_without_agents_has_the_builtin_tools_and_no_agent(tmp_path, m
     Models(monkeypatch)
     session = Session(Settings(model="fake"), approver=_NoApprover(), cwd=tmp_path)
     assert session.agent_id is None and session.info.agent is None and session.info.agent_applied is None
-    assert tools_of(session) == ["bash", "edit", "glob", "grep", "read", "write"]
+    assert tools_of(session) == [
+        "bash",
+        "edit",
+        "glob",
+        "grep",
+        "process_list",
+        "process_read",
+        "process_stop",
+        "process_write",
+        "read",
+        "write",
+    ]
     with pytest.raises(LookupError):
         session.set_agent("default")
 

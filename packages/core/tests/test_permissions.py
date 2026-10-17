@@ -86,6 +86,10 @@ def test_kinds_come_from_hints(tmp_path):
         "write": "edit",
         "edit": "edit",
         "bash": "exec",
+        "process_list": "read",
+        "process_read": "read",
+        "process_write": "exec",
+        "process_stop": "exec",
     }
     assert kind_of(lookup) == "read"
     assert kind_of(fetch) == "exec"  # read-only, but it reaches the network

@@ -36,7 +36,15 @@ const FOLLOW_PX = 80;
  * `compact`: shown in the dock beside another page (the product map), so it fits the dock's width instead of keeping
  * the width of a page of its own.
  */
-export function Session({ sessionId, compact = false }: { sessionId: string; compact?: boolean }) {
+export function Session({
+  sessionId,
+  compact = false,
+  onInspectProcesses,
+}: {
+  sessionId: string;
+  compact?: boolean;
+  onInspectProcesses?: () => void;
+}) {
   const t = useMessages(messages);
   const session = useSession(sessionId);
   const send = useSendMessage();
@@ -150,7 +158,10 @@ export function Session({ sessionId, compact = false }: { sessionId: string; com
             following.current = true;
             return send.mutateAsync({ sessionId, text });
           }}
-          onStop={() => cancel.mutate(sessionId)}
+          onStop={() => {
+            onInspectProcesses?.();
+            cancel.mutate(sessionId);
+          }}
           mode={{ value: info.mode, onChange: (mode) => setMode.mutate({ sessionId, mode }) }}
         />
       </div>

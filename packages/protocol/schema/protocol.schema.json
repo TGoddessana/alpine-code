@@ -3,6 +3,70 @@
   "title": "AlpineProtocol",
   "description": "alpine-code protocol version 2. Generated; do not edit.",
   "x-methods": {
+    "devServers/list": {
+      "params": "DevServersListParams",
+      "result": "DevServersListResult"
+    },
+    "devServers/start": {
+      "params": "DevServersStartParams",
+      "result": "DevServersStartResult"
+    },
+    "devServers/stop": {
+      "params": "DevServersStopParams",
+      "result": "DevServersStopResult"
+    },
+    "devServers/restart": {
+      "params": "DevServersRestartParams",
+      "result": "DevServersRestartResult"
+    },
+    "devServers/logs": {
+      "params": "DevServersLogsParams",
+      "result": "DevServersLogsResult"
+    },
+    "files/read": {
+      "params": "FilesReadParams",
+      "result": "FilesReadResult"
+    },
+    "files/action": {
+      "params": "FilesActionParams",
+      "result": "FilesActionResult"
+    },
+    "files/search": {
+      "params": "FilesSearchParams",
+      "result": "FilesSearchResult"
+    },
+    "processes/list": {
+      "params": "ProcessesListParams",
+      "result": "ProcessesListResult"
+    },
+    "processes/stop": {
+      "params": "ProcessesStopParams",
+      "result": "ProcessesListResult"
+    },
+    "terminals/list": {
+      "params": "TerminalsListParams",
+      "result": "TerminalsListResult"
+    },
+    "terminals/start": {
+      "params": "TerminalsStartParams",
+      "result": "TerminalsProcessResult"
+    },
+    "terminals/read": {
+      "params": "TerminalsReadParams",
+      "result": "TerminalsReadResult"
+    },
+    "terminals/write": {
+      "params": "TerminalsWriteParams",
+      "result": "TerminalsProcessResult"
+    },
+    "terminals/resize": {
+      "params": "TerminalsResizeParams",
+      "result": "TerminalsProcessResult"
+    },
+    "terminals/stop": {
+      "params": "TerminalsStopParams",
+      "result": "TerminalsProcessResult"
+    },
     "initialize": {
       "params": "InitializeParams",
       "result": "InitializeResult"
@@ -1453,6 +1517,306 @@
       "title": "DeletedEvent",
       "type": "object"
     },
+    "DevServerConflict": {
+      "properties": {
+        "port": {
+          "type": "integer"
+        },
+        "pid": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cwd": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "canReuse": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "port"
+      ],
+      "title": "DevServerConflict",
+      "type": "object"
+    },
+    "DevServerInfo": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "processId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "enum": [
+            "starting",
+            "running",
+            "stopping",
+            "stopped",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "external": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "cwd",
+        "command",
+        "port",
+        "status"
+      ],
+      "title": "DevServerInfo",
+      "type": "object"
+    },
+    "DevServersListParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "title": "DevServersListParams",
+      "type": "object"
+    },
+    "DevServersListResult": {
+      "properties": {
+        "servers": {
+          "items": {
+            "$ref": "#/$defs/DevServerInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "servers"
+      ],
+      "title": "DevServersListResult",
+      "type": "object"
+    },
+    "DevServersLogsParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "offset": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "default": 65536,
+          "maximum": 262144,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "DevServersLogsParams",
+      "type": "object"
+    },
+    "DevServersLogsResult": {
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "nextOffset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "text",
+        "nextOffset",
+        "total"
+      ],
+      "title": "DevServersLogsResult",
+      "type": "object"
+    },
+    "DevServersRestartParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "DevServersRestartParams",
+      "type": "object"
+    },
+    "DevServersRestartResult": {
+      "properties": {
+        "server": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DevServerInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "conflict": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DevServerConflict"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "DevServersRestartResult",
+      "type": "object"
+    },
+    "DevServersStartParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "command": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "sessionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reuse": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "cwd",
+        "command",
+        "port"
+      ],
+      "title": "DevServersStartParams",
+      "type": "object"
+    },
+    "DevServersStartResult": {
+      "properties": {
+        "server": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DevServerInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "conflict": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DevServerConflict"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "DevServersStartResult",
+      "type": "object"
+    },
+    "DevServersStopParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "DevServersStopParams",
+      "type": "object"
+    },
+    "DevServersStopResult": {
+      "properties": {
+        "server": {
+          "$ref": "#/$defs/DevServerInfo"
+        }
+      },
+      "required": [
+        "server"
+      ],
+      "title": "DevServersStopResult",
+      "type": "object"
+    },
     "ErrorData": {
       "description": "``data`` of an error the app can act on, beyond its message.",
       "properties": {
@@ -1709,6 +2073,161 @@
         "diff"
       ],
       "title": "FileChange",
+      "type": "object"
+    },
+    "FilesActionParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "line": {
+          "default": 1,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "action": {
+          "enum": [
+            "editor",
+            "reveal"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "path",
+        "action"
+      ],
+      "title": "FilesActionParams",
+      "type": "object"
+    },
+    "FilesActionResult": {
+      "properties": {
+        "ok": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "title": "FilesActionResult",
+      "type": "object"
+    },
+    "FilesReadParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "line": {
+          "default": 1,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "startLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "limit": {
+          "default": 400,
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cwd",
+        "path"
+      ],
+      "title": "FilesReadParams",
+      "type": "object"
+    },
+    "FilesReadResult": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "relativePath": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "startLine": {
+          "type": "integer"
+        },
+        "totalLines": {
+          "type": "integer"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path",
+        "relativePath",
+        "content",
+        "startLine",
+        "totalLines",
+        "line",
+        "truncated"
+      ],
+      "title": "FilesReadResult",
+      "type": "object"
+    },
+    "FilesSearchParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "limit": {
+          "default": 50,
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cwd",
+        "query"
+      ],
+      "title": "FilesSearchParams",
+      "type": "object"
+    },
+    "FilesSearchResult": {
+      "properties": {
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "truncated": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "paths"
+      ],
+      "title": "FilesSearchResult",
       "type": "object"
     },
     "FlowChange": {
@@ -3966,6 +4485,88 @@
       "title": "PackageInfo",
       "type": "object"
     },
+    "ProcessesListParams": {
+      "properties": {
+        "cwd": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sessionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "ProcessesListParams",
+      "type": "object"
+    },
+    "ProcessesListResult": {
+      "properties": {
+        "processes": {
+          "items": {
+            "$ref": "#/$defs/TerminalProcess"
+          },
+          "type": "array"
+        },
+        "tools": {
+          "items": {
+            "$ref": "#/$defs/ToolExecution"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "processes",
+        "tools"
+      ],
+      "title": "ProcessesListResult",
+      "type": "object"
+    },
+    "ProcessesStopParams": {
+      "properties": {
+        "cwd": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sessionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "force": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "title": "ProcessesStopParams",
+      "type": "object"
+    },
     "ProductFlow": {
       "additionalProperties": false,
       "properties": {
@@ -5923,6 +6524,297 @@
       "title": "StatusLineItem",
       "type": "object"
     },
+    "TerminalProcess": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "sessionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "title": {
+          "type": "string"
+        },
+        "pty": {
+          "type": "boolean"
+        },
+        "pid": {
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "running",
+            "stopping",
+            "exited",
+            "failed",
+            "cancelled"
+          ],
+          "type": "string"
+        },
+        "exitCode": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stopError": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cancelled": {
+          "default": false,
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "number"
+        },
+        "outputSize": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "command",
+        "cwd",
+        "title",
+        "pty",
+        "pid",
+        "status",
+        "createdAt",
+        "outputSize"
+      ],
+      "title": "TerminalProcess",
+      "type": "object"
+    },
+    "TerminalsListParams": {
+      "properties": {
+        "cwd": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sessionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "TerminalsListParams",
+      "type": "object"
+    },
+    "TerminalsListResult": {
+      "properties": {
+        "processes": {
+          "items": {
+            "$ref": "#/$defs/TerminalProcess"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "processes"
+      ],
+      "title": "TerminalsListResult",
+      "type": "object"
+    },
+    "TerminalsProcessResult": {
+      "properties": {
+        "process": {
+          "$ref": "#/$defs/TerminalProcess"
+        }
+      },
+      "required": [
+        "process"
+      ],
+      "title": "TerminalsProcessResult",
+      "type": "object"
+    },
+    "TerminalsReadParams": {
+      "properties": {
+        "processId": {
+          "type": "string"
+        },
+        "offset": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "default": 65536,
+          "maximum": 262144,
+          "minimum": 4,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "processId"
+      ],
+      "title": "TerminalsReadParams",
+      "type": "object"
+    },
+    "TerminalsReadResult": {
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "nextOffset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "process": {
+          "$ref": "#/$defs/TerminalProcess"
+        }
+      },
+      "required": [
+        "text",
+        "nextOffset",
+        "total",
+        "process"
+      ],
+      "title": "TerminalsReadResult",
+      "type": "object"
+    },
+    "TerminalsResizeParams": {
+      "properties": {
+        "processId": {
+          "type": "string"
+        },
+        "cols": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "rows": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "processId",
+        "cols",
+        "rows"
+      ],
+      "title": "TerminalsResizeParams",
+      "type": "object"
+    },
+    "TerminalsStartParams": {
+      "properties": {
+        "command": {
+          "maxLength": 65536,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "sessionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pty": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "command",
+        "cwd"
+      ],
+      "title": "TerminalsStartParams",
+      "type": "object"
+    },
+    "TerminalsStopParams": {
+      "properties": {
+        "processId": {
+          "type": "string"
+        },
+        "force": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "processId"
+      ],
+      "title": "TerminalsStopParams",
+      "type": "object"
+    },
+    "TerminalsWriteParams": {
+      "properties": {
+        "processId": {
+          "type": "string"
+        },
+        "data": {
+          "maxLength": 65536,
+          "type": "string"
+        }
+      },
+      "required": [
+        "processId",
+        "data"
+      ],
+      "title": "TerminalsWriteParams",
+      "type": "object"
+    },
     "ToolCallItem": {
       "properties": {
         "id": {
@@ -6006,6 +6898,51 @@
         "fileChanges"
       ],
       "title": "ToolCallItem",
+      "type": "object"
+    },
+    "ToolExecution": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sessionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "name": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "number"
+        },
+        "status": {
+          "enum": [
+            "running",
+            "stopping",
+            "finished",
+            "cancelled"
+          ],
+          "type": "string"
+        },
+        "cancellable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "createdAt",
+        "status",
+        "cancellable"
+      ],
+      "title": "ToolExecution",
       "type": "object"
     },
     "ToolFileInfo": {

@@ -134,6 +134,7 @@ def test_bash_output_exit_code_and_timeout(ws):
         run(tool, command="echo partial_progress; sleep 5", timeout=1)
     timeout = json.loads(str(expired.value))
     assert timeout["timed_out"] and timeout["stdout"] == "partial_progress"
+    assert not timeout["cancelled"]
 
 
 def test_bash_empty_output_and_both_streams_are_structured_and_bounded(ws):

@@ -4,6 +4,7 @@ export const messages = defineMessages({
   ko: {
     title: '작업 결과',
     files: '바뀐 파일',
+    openSource: '원본 파일 열기',
     commands: '실행한 명령',
     notConnected: '아직 연결된 작업이 없어요',
     nothingYet: '아직 바뀐 파일이나 실행한 명령이 없어요',
@@ -16,6 +17,7 @@ export const messages = defineMessages({
   en: {
     title: 'Work result',
     files: 'Changed files',
+    openSource: 'Open source file',
     commands: 'Commands run',
     notConnected: 'No work is connected yet',
     nothingYet: 'No files changed and no commands run yet',

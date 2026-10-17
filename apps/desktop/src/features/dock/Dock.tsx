@@ -94,7 +94,12 @@ export function Dock({ scope = '', tabs }: { scope?: string; tabs: DockTab[] }) 
     >
       {!expanded && <PanelResizer panel={width} edge="left" label={t.resize} />}
       <header className="flex min-h-14 shrink-0 items-center gap-2 pr-3 pl-3">
-        <div role="tablist" aria-label={t.title} onKeyDown={onKeyDown} className="flex min-w-0 grow items-center gap-1">
+        <div
+          role="tablist"
+          aria-label={t.title}
+          onKeyDown={onKeyDown}
+          className="flex min-w-0 grow items-center gap-1 overflow-x-auto"
+        >
           {tabs.map((tab) => {
             const selected = tab.id === active?.id;
             return (
@@ -102,6 +107,7 @@ export function Dock({ scope = '', tabs }: { scope?: string; tabs: DockTab[] }) 
                 key={tab.id}
                 id={`dock-tab-${tab.id}`}
                 type="button"
+                title={tab.label}
                 role="tab"
                 aria-selected={selected}
                 // Only the selected tab's panel is rendered, so only it has something to point at.
@@ -109,7 +115,7 @@ export function Dock({ scope = '', tabs }: { scope?: string; tabs: DockTab[] }) 
                 tabIndex={selected ? 0 : -1}
                 onClick={() => choose(tab.id)}
                 className={clsx(
-                  'cursor-pointer truncate rounded-lg px-2.5 py-1 text-lead',
+                  'shrink-0 cursor-pointer rounded-lg px-2.5 py-1 text-lead whitespace-nowrap',
                   selected ? 'bg-hover text-fg' : 'text-fg-muted hover:bg-hover hover:text-fg',
                 )}
               >

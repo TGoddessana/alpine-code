@@ -5,9 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
+
+from .base import Message
+from .dev_servers import DEV_SERVER_METHODS
+from .files import FILE_METHODS
+from .process_control import PROCESS_METHODS
+from .terminals import TERMINAL_METHODS
 
 #: Bumped on every change an older app or server cannot read.
 PROTOCOL_VERSION = 2
@@ -15,10 +20,6 @@ PROTOCOL_VERSION = 2
 #: JSON-RPC error codes of the session methods.
 SESSION_NOT_FOUND = -32001
 SESSION_RUNNING = -32002
-
-
-class Message(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True, frozen=True)
 
 
 # JSON-RPC envelope
@@ -1992,6 +1993,10 @@ class FlowPrepareResult(Message):
 
 #: Every method an app can call: name -> (params, result).
 METHODS: dict[str, tuple[type[Message], type[Message]]] = {
+    **DEV_SERVER_METHODS,
+    **FILE_METHODS,
+    **PROCESS_METHODS,
+    **TERMINAL_METHODS,
     "initialize": (InitializeParams, InitializeResult),
     "flow/get": (FlowGetParams, FlowGetResult),
     "flow/prepare": (FlowPrepareParams, FlowPrepareResult),

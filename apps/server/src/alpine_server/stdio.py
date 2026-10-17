@@ -20,6 +20,7 @@ from typing import Any, TextIO
 from pydantic import ValidationError
 
 from alpine_core import migrate_projects
+from alpine_core.processes import process_manager
 from alpine_protocol import (
     METHODS,
     ChatGPTSignInFinishedParams,
@@ -35,13 +36,17 @@ from alpine_protocol import (
 from .agents import HANDLERS as AGENT_HANDLERS
 from .chatgpt import ChatGPTSignIns
 from .clones import Clones
+from .dev_servers import DevelopmentServers
+from .files import FILE_HANDLERS
 from .flow import HANDLERS as FLOW_HANDLERS
 from .github import GitHubSignIns
 from .memory import MemoryMethods
 from .methods import HANDLERS as METHOD_HANDLERS
 from .methods import INVALID_PARAMS, MethodError
+from .process_control import HANDLERS as PROCESS_HANDLERS
 from .sessions import SessionManager
 from .skills import HANDLERS as SKILL_HANDLERS
+from .terminals import HANDLERS as TERMINAL_HANDLERS
 from .tools import HANDLERS as TOOL_HANDLERS
 
 PARSE_ERROR = -32700
@@ -52,7 +57,7 @@ INTERNAL_ERROR = -32603
 Write = Callable[[str], None]
 
 
-HANDLERS = {**METHOD_HANDLERS, **TOOL_HANDLERS, **AGENT_HANDLERS, **SKILL_HANDLERS, **FLOW_HANDLERS}
+HANDLERS = {**METHOD_HANDLERS, **TOOL_HANDLERS, **AGENT_HANDLERS, **SKILL_HANDLERS, **FLOW_HANDLERS, **FILE_HANDLERS}
 
 
 class _Failure(Exception):
@@ -74,12 +79,16 @@ class Server:
         self.memory = MemoryMethods(self.sessions.memories, self._send_memory_changed)
         self.clones = Clones(self._send_clone_changed)
         self.github = GitHubSignIns(self._send_github_sign_in_finished)
+        self.dev_servers = DevelopmentServers()
         self._async_handlers = (
             self.sessions.handlers()
             | self.sign_ins.handlers()
             | self.memory.handlers()
             | self.clones.handlers()
             | self.github.handlers()
+            | self.dev_servers.handlers()
+            | TERMINAL_HANDLERS
+            | PROCESS_HANDLERS
         )
 
     def _send_event(self, params: SessionEventParams) -> None:
@@ -158,6 +167,7 @@ class Server:
         await self.github.shutdown()
         await self.clones.shutdown()
         await self.sessions.shutdown()
+        await process_manager().shutdown()
 
 
 async def serve_async(lines: AsyncIterator[str], write: Write, manager: SessionManager | None = None) -> None:

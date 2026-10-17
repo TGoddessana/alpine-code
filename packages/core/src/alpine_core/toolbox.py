@@ -24,8 +24,10 @@ import contextlib
 import difflib
 import hashlib
 import json
+import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -41,8 +43,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 import tomllib
-from alpineagents import Agent, AlpineAgentsError, State, Tool
-from alpineagents.tool import collect_tools, format_result
+from alpineagents import Agent, AlpineAgentsError, Tool
+from alpineagents.tool import collect_tools
 
 from .config import Settings
 from .home import home_dir
@@ -75,7 +77,7 @@ REVIEWED = frozenset(
     }
 )
 
-#: Longest a test run may take before the app stops waiting for it.
+#: Longest a test run may take before its worker process group is terminated.
 TEST_TIMEOUT = 30.0
 
 FileStatus = Literal["ready", "unconfirmed", "error"]
@@ -294,36 +296,49 @@ class Toolbox:
         self._install(names, approve=True)
 
     def test(self, source: str, tool_name: str, args: dict[str, Any]) -> TestResult:
-        """Runs one tool of ``source`` once with ``args``, as the agent would. Waits at most ``TEST_TIMEOUT``."""
+        """Runs one tool in a disposable worker. Timeout terminates its process group, including children."""
         started = time.monotonic()
-        loaded = self._execute(source, "alpine_user_tool_test", "<test>")
-        if loaded.error:
-            return TestResult(False, loaded.error, time.monotonic() - started)
-        tool = loaded.tools.get(tool_name)
-        if tool is None:
-            return TestResult(False, f"No tool named {tool_name}", time.monotonic() - started)
-        outcome: dict[str, Any] = {}
-
-        def target() -> None:
-            try:
-                value = tool.run(args, State())
-                if tool.is_async:
-                    import asyncio
-
-                    value = asyncio.run(value)
-                outcome["value"] = format_result(value)
-            except BaseException as e:  # the tool's own failure is the result
-                outcome["error"] = f"{type(e).__name__}: {e}"
-
-        worker = threading.Thread(target=target, name="alpine-tool-test", daemon=True)
-        worker.start()
-        worker.join(TEST_TIMEOUT)
-        seconds = time.monotonic() - started
-        if worker.is_alive():
-            return TestResult(False, f"Still running after {TEST_TIMEOUT:.0f}s", seconds)
-        if "error" in outcome:
-            return TestResult(False, outcome["error"], seconds)
-        return TestResult(True, _as_text(outcome["value"]), seconds)
+        with tempfile.TemporaryDirectory(prefix="alpine-tool-test-") as folder:
+            request, result = Path(folder) / "request.json", Path(folder) / "result.json"
+            request.write_text(
+                json.dumps({"source": source, "name": tool_name, "args": args, "home": str(self.home)}), "utf-8"
+            )
+            with tempfile.TemporaryFile() as output:
+                worker = subprocess.Popen(
+                    [sys.executable, "-u", "-m", "alpine_core.tool_worker", str(request), str(result)],
+                    stdout=output,
+                    stderr=output,
+                    start_new_session=True,
+                )
+                try:
+                    worker.wait(timeout=TEST_TIMEOUT)
+                except subprocess.TimeoutExpired:
+                    # Terminate the entire group, including children launched by the test tool.
+                    try:
+                        os.killpg(worker.pid, signal.SIGTERM)
+                        worker.wait(timeout=0.5)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(worker.pid, signal.SIGKILL)
+                        worker.wait()
+                    except ProcessLookupError:
+                        worker.wait()
+                    # A child may ignore SIGTERM even if the worker already exited.
+                    try:
+                        os.killpg(worker.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    output.seek(0)
+                    partial = output.read().decode("utf-8", errors="replace")[-4000:]
+                    message = f"Stopped after {TEST_TIMEOUT:g}s"
+                    return TestResult(False, message + ("\n" + partial if partial else ""), time.monotonic() - started)
+                if result.is_file():
+                    value = json.loads(result.read_text("utf-8"))
+                    return TestResult(value["ok"], value["output"], time.monotonic() - started)
+                output.seek(0)
+                error = output.read().decode("utf-8", errors="replace")[-4000:]
+                return TestResult(
+                    False, error or f"Tool worker exited ({worker.returncode})", time.monotonic() - started
+                )
 
     # ------------------------------------------------------------ internals
 

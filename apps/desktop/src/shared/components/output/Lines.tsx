@@ -1,6 +1,8 @@
 import clsx from 'clsx';
 import type { ReactNode } from 'react';
 
+import { FileReferences } from '@/shared/files';
+
 /** A command's output or a diff in mono, a diff's added and removed lines tinted. */
 export function Lines({
   lines,
@@ -21,7 +23,11 @@ export function Lines({
         scroll && 'max-h-96 overflow-y-auto',
       )}
     >
-      {kind === 'diff' ? lines.map((line, i) => <DiffLine key={i} line={line} />) : lines.join('\n')}
+      {kind === 'diff' ? (
+        lines.map((line, i) => <DiffLine key={i} line={line} />)
+      ) : (
+        <FileReferences text={lines.join('\n')} />
+      )}
     </pre>
   );
 }

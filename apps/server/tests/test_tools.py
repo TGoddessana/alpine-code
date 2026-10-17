@@ -52,13 +52,41 @@ def test_saving_a_tool_turns_it_on_in_the_agent_being_viewed(tmp_path):
     assert saved["tools"][0]["ask"] == "ask"
     agents = call("agents/list")["result"]["agents"]
     assert [(a["name"], a["tools"]) for a in agents] == [
-        ("", ["read", "glob", "grep", "write", "edit", "bash"]),
+        (
+            "",
+            [
+                "read",
+                "glob",
+                "grep",
+                "write",
+                "edit",
+                "bash",
+                "process_list",
+                "process_read",
+                "process_write",
+                "process_stop",
+            ],
+        ),
         ("shop", ["read", "fetch"]),
     ]
 
     listed = call("tools/list", cwd=str(tmp_path))["result"]
     assert [(t["tool"]["name"], t["origin"], t["optional"]) for t in listed["tools"]] == [
-        *((name, "builtin", True) for name in ["read", "glob", "grep", "write", "edit", "bash"]),
+        *(
+            (name, "builtin", True)
+            for name in [
+                "read",
+                "glob",
+                "grep",
+                "write",
+                "edit",
+                "bash",
+                "process_list",
+                "process_read",
+                "process_write",
+                "process_stop",
+            ]
+        ),
         ("propose_memory", "memory", False),
         ("fetch", "user", True),
     ]

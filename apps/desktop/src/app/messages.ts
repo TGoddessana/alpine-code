@@ -12,6 +12,10 @@ export const messages = defineMessages({
     pages: '프로젝트 화면',
     pageMap: '지도',
     pageMemory: '기억',
+    source: '파일 원본',
+    terminal: '터미널',
+    servers: '개발 서버',
+    processes: '실행 관리',
   },
   en: {
     productMap: 'Product map',
@@ -24,6 +28,10 @@ export const messages = defineMessages({
     pages: 'Project pages',
     pageMap: 'Map',
     pageMemory: 'Memory',
+    source: 'Source',
+    terminal: 'Terminal',
+    servers: 'Dev servers',
+    processes: 'Processes',
   },
 });
 

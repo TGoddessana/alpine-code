@@ -18,6 +18,9 @@ MODELS: list[type[BaseModel]] = [
     for obj in vars(messages).values()
     if isinstance(obj, type) and issubclass(obj, messages.Message) and obj is not messages.Message
 ]
+# Feature modules keep their wire contracts together. Include their endpoint models;
+# Pydantic follows references to nested result types when it builds the schema.
+MODELS = list(dict.fromkeys([*MODELS, *(model for pair in messages.METHODS.values() for model in pair)]))
 
 
 def build() -> dict:

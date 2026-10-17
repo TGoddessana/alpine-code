@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { FileText, Terminal } from 'lucide-react';
 import { useState } from 'react';
 
+import { FileReference } from '@/shared/files';
 import { Lines } from '@/shared/components/output';
 import { useFormat, useMessages } from '@/shared/i18n';
 
@@ -78,7 +79,7 @@ function FileRow({ file }: { file: ChangedFile }) {
   if (!file.diff) {
     return (
       <div className={row} title={file.path}>
-        {body}
+        <FileReference value={file.path}>{body}</FileReference>
       </div>
     );
   }
@@ -93,6 +94,11 @@ function FileRow({ file }: { file: ChangedFile }) {
       >
         {body}
       </button>
+      {open && (
+        <div className="px-2 py-1 text-meta">
+          <FileReference value={file.path}>{t.openSource}</FileReference>
+        </div>
+      )}
       {open && (
         <div
           aria-label={t.showChanges(name)}

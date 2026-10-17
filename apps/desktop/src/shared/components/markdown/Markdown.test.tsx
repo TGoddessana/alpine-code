@@ -1,6 +1,7 @@
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { FileNavigationProvider } from '@/shared/files';
 import { LocaleProvider } from '@/shared/i18n';
 
 import { Markdown } from './Markdown';
@@ -44,6 +45,20 @@ describe('Markdown', () => {
     draw('[문서](https://example.com) [파일](file:///etc/passwd) [스크립트](javascript:alert(1))');
     expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(['문서']);
     expect(screen.getByText('파일')).toBeTruthy();
+  });
+
+  it('opens local markdown and inline-code source references through workspace navigation', () => {
+    const opened = vi.fn();
+    render(
+      <LocaleProvider locale="ko">
+        <FileNavigationProvider cwd="/project" onOpen={opened}>
+          <Markdown text={'[소스](/project/src/a.ts:42) `src/b.ts:8`'} streaming={false} />
+        </FileNavigationProvider>
+      </LocaleProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '소스' }));
+    fireEvent.click(screen.getByRole('button', { name: 'src/b.ts:8' }));
+    expect(opened).toHaveBeenCalledTimes(2);
   });
 
   it('closes what is still open while streaming', () => {

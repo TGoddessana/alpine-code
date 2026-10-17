@@ -12,8 +12,8 @@ const chip =
   'inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-canvas pr-2 pl-1.5 text-meta whitespace-nowrap text-fg-muted hover:bg-canvas-sunken hover:text-fg data-popup-open:bg-canvas-sunken disabled:cursor-default disabled:opacity-60';
 
 /**
- * The agent doing the work, as a chip in the input bar: its face and name (its model only on hover: the agent is what
- * I pick, the model is its business). It opens the agents to pick from,
+ * The agent doing the work, as a chip in the input bar: its face and name, with the current model beside it in a
+ * session (only on hover for a new conversation). It opens the agents to pick from,
  * each with its model and what its tools let it do, then 새 에이전트 and the settings of this one. `context` says
  * what a pick means: `new` puts it on the session about to start (and marks the one this project used last),
  * `session` hands the running conversation to it. `model` is the model the agent works with now; `disabled` while a
@@ -52,16 +52,18 @@ export function AgentChip({
   if (!agents || !current) return null;
   const shownId = current.id;
   const size = context === 'new' ? 36 : 32;
+  const label = `${agentName(current, a)}${context === 'session' && model ? ` · ${shortModel(model)}` : ''}`;
   return (
     <Menu.Root>
       <Menu.Trigger
         disabled={disabled}
         className={chip}
-        aria-label={t.chipLabel(agentName(current, a))}
+        aria-label={t.chipLabel(label)}
         title={model ? shortModel(model) : undefined}
       >
         <Character look={current.look} color={current.color} size={22} />
         <span className="text-fg">{agentName(current, a)}</span>
+        {context === 'session' && model && <span>· {shortModel(model)}</span>}
         <ChevronDown size={16} strokeWidth={1.5} aria-hidden="true" />
       </Menu.Trigger>
       <Menu.Popup side="top" align="start" className="w-100">

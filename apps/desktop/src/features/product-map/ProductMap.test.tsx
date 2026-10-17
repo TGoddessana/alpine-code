@@ -973,6 +973,34 @@ describe('map upkeep', () => {
     expect(request.mock.calls.some(([method]) => method === 'session/send')).toBe(true);
   });
 
+  it('shows what the AI has not mapped yet, and continues the map from it', async () => {
+    const { request } = mount(
+      withBoard((board) => {
+        board.coverage = { git: true, uncovered: ['src/gift.ts'], uncoveredCount: 1 };
+        board.unmapped = [
+          { title: '운영자 콘솔에서 회원 정지하기', why: '이번에 다 보지 못함', paths: ['admin/'] },
+          { title: '쿠폰 발급하기', paths: [] },
+        ];
+      }),
+    );
+    await loaded();
+    // A row of its own below the code changes, counting the parts.
+    const row = within(flowList()).getByRole('button', { name: /^아직 그리지 않은 것/ });
+    expect(within(flowList()).getAllByRole('button').at(-1)).toBe(row);
+    expect(row.textContent).toContain('2');
+    fireEvent.click(row);
+    expect(await screen.findByText('운영자 콘솔에서 회원 정지하기')).toBeTruthy();
+    expect(screen.getByText('이번에 다 보지 못함')).toBeTruthy();
+    expect(screen.getByText('admin/')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '이어서 그리기' }));
+    await waitFor(() =>
+      expect(lastPrepare(request)).toMatchObject({
+        action: 'discover',
+        request: '지도에 아직 그리지 않은 것으로 남은 부분부터 이어서 지도를 그려 주세요.',
+      }),
+    );
+  });
+
   it('shows no row for code changes without git, or when all is covered', async () => {
     mount(
       withBoard((board) => {

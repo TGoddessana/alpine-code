@@ -369,6 +369,7 @@ export function flowScript(initial: ProductMap | ((cwd: string) => ProductMap) =
       exclude: meta.exclude,
       problems: meta.problems,
       schedule: meta.schedule,
+      unmapped: meta.unmapped,
     };
     return { ...result, etag: hash(JSON.stringify(result)) };
   };

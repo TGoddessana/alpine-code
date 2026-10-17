@@ -26,6 +26,7 @@ import { FlowList } from './FlowList';
 import { Inspector } from './Inspector';
 import { DeleteMap, MapMenu, ScopeEditor } from './MapSettings';
 import { promiseCounts, Summary } from './Summary';
+import { Unmapped } from './Unmapped';
 import { messages } from './messages';
 import { isWorking, mapOf, matchingIds, numbers, searchOrder, summary, verification } from './model';
 
@@ -265,6 +266,7 @@ export function ProductMap({
   const verifyFlow = (flow: ProductFlow) =>
     void start('verify', { node: null, flowId: flow.id, request: t.flowVerifyRequest(flow.title) });
   const syncMap = () => void start('sync', { node: null, flowId: null, request: t.syncRequest });
+  const continueMap = () => void start('discover', { node: null, flowId: null, request: t.continueRequest });
   const recheck = useMemo(() => (data ? recheckIds(data) : []), [data]);
   // Promises the user rewrote that nothing has checked since: one run checks them all (decision 16).
   const edited = useMemo(() => {
@@ -673,15 +675,23 @@ export function ProductMap({
               active={focusFlow}
               onToggle={toggleFlow}
               extra={
-                // Only a row that renders: an element that draws nothing would still keep the list's border.
-                !!data?.coverage?.git &&
-                !!data.coverage.uncoveredCount && (
-                  <Coverage
-                    coverage={data.coverage}
-                    exclude={data.exclude ?? []}
-                    disabled={busy || active || readOnly}
-                    onSync={syncMap}
-                  />
+                // Only rows that render: an element that draws nothing would still keep the list's border.
+                ((!!data?.coverage?.git && !!data.coverage.uncoveredCount) || !!data?.unmapped?.length) && (
+                  <>
+                    {!!data?.coverage?.git && !!data.coverage.uncoveredCount && (
+                      <Coverage
+                        coverage={data.coverage}
+                        exclude={data.exclude ?? []}
+                        disabled={busy || active || readOnly}
+                        onSync={syncMap}
+                      />
+                    )}
+                    <Unmapped
+                      parts={data?.unmapped ?? []}
+                      disabled={busy || active || readOnly}
+                      onContinue={continueMap}
+                    />
+                  </>
                 )
               }
             />

@@ -122,6 +122,19 @@ def test_edit_unique_and_replace_all(ws):
     assert f.read_text() == "a = 0\na = 0\nb = 5\n"
 
 
+def test_a_json_file_left_invalid_is_reported_at_once(ws):
+    card = ws.root / "card.json"
+    card.write_text('{\n "title": "Refund",\n "checks": []\n}\n')
+    edit = Edit(ws).edit
+    # The slip seen in map upkeep runs: the replacement repeats the file's tail, so old text trails the new end.
+    broken = run(edit, path="card.json", old_string=' "checks": []\n}', new_string=' "checks": []\n}\n "checks": []\n}')
+    assert broken.startswith("Edited card.json") and "not valid JSON now: Extra data (line 5, column 2)" in broken
+    fixed = run(edit, path="card.json", old_string='}\n "checks": []\n}', new_string="}")
+    assert fixed == "Edited card.json (1 occurrence replaced)"
+    assert "not valid JSON" in run(Write(ws).write, path="flow.json", content='{"nodeIds": [}')
+    assert run(Write(ws).write, path="notes.txt", content="{") == "Created notes.txt (1 lines)"
+
+
 def test_bash_output_exit_code_and_timeout(ws):
     tool = Bash(ws).bash
     success = json.loads(run(tool, command="echo hi && pwd"))

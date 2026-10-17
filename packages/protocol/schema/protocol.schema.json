@@ -2131,6 +2131,12 @@
             }
           ],
           "default": null
+        },
+        "unmapped": {
+          "items": {
+            "$ref": "#/$defs/UnmappedPart"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -3216,6 +3222,13 @@
             "type": "string"
           },
           "maxItems": 200,
+          "type": "array"
+        },
+        "unmapped": {
+          "items": {
+            "$ref": "#/$defs/UnmappedPart"
+          },
+          "maxItems": 100,
           "type": "array"
         }
       },
@@ -6475,6 +6488,34 @@
         "seconds"
       ],
       "title": "ToolsTestResult",
+      "type": "object"
+    },
+    "UnmappedPart": {
+      "additionalProperties": false,
+      "description": "A part of the product the agent knows exists but has not mapped yet.",
+      "properties": {
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "why": {
+          "default": "",
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "UnmappedPart",
       "type": "object"
     },
     "Usage": {

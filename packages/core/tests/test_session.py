@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import signal
 import threading
@@ -98,6 +99,21 @@ def test_edit_asks_and_shows_a_diff(tmp_path, monkeypatch):
     assert (tmp_path / "f.py").read_text() == "x = 2\n"
     request = approver.requests[0]
     assert request.title == "Edit f.py" and "-x = 1" in request.preview and "+x = 2" in request.preview
+
+
+def test_several_edits_to_one_file_in_one_turn_all_land(tmp_path, monkeypatch):
+    # Models send several edits to one file in one reply. Run at once, they overwrote each other and left a
+    # longer write's tail after a shorter one (seen as broken JSON in map upkeep runs).
+    card = tmp_path / "card.json"
+    keys = [f"k{i}" for i in range(8)]
+    card.write_text("{\n" + ",\n".join(f'  "{k}": "{"x" * (40 - i * 4)}"' for i, k in enumerate(keys)) + "\n}\n")
+    edits = [
+        tool_call("edit", path="card.json", old_string=f'"{k}": "{"x" * (40 - i * 4)}"', new_string=f'"{k}": "y"')
+        for i, k in enumerate(keys)
+    ]
+    session, _, _ = make_session(tmp_path, monkeypatch, [edits, "Done"], mode=Mode.YOLO)
+    session.send("update every key")
+    assert json.loads(card.read_text()) == {k: "y" for k in keys}
 
 
 def test_deny_with_feedback_continues(tmp_path, monkeypatch):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -75,3 +76,17 @@ def run_rg(args: list[str], cwd: Path, timeout: int = 60) -> list[str]:
     if done.returncode == 2 and not done.stdout:
         raise ToolError(done.stderr.strip() or "ripgrep failed")
     return done.stdout.splitlines()
+
+
+def json_note(file: Path, text: str) -> str:
+    """For a ``.json`` file, a line saying the text written is not valid JSON, else ``""``. Models editing JSON by
+    exact-text replacement sometimes leave a duplicated tail; telling them at once lets them fix it in the same run."""
+    if file.suffix.lower() != ".json":
+        return ""
+    try:
+        json.loads(text)
+    except ValueError as e:
+        where = f" (line {e.lineno}, column {e.colno})" if isinstance(e, json.JSONDecodeError) else ""
+        msg = e.msg if isinstance(e, json.JSONDecodeError) else str(e)
+        return f"\nThe file is not valid JSON now: {msg}{where}. Read it and fix it."
+    return ""

@@ -1650,6 +1650,19 @@ class FlowFile(ProductFlow):
     """``.alpine-code/map/flows/<id>.json``: one journey and the transitions between its cards, written by the agent."""
 
 
+class UnmappedPart(Message):
+    """A part of the product the agent knows exists but has not mapped yet."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=1, max_length=200)
+    """What it is, in the user's words, e.g. "운영자 콘솔에서 사용자 정지·복구하기"."""
+    why: str = Field(default="", max_length=1000)
+    """Why it is not mapped yet (not reached, too large for this session, unclear what it promises)."""
+    paths: list[str] = Field(default_factory=list, max_length=20)
+    """Project-relative files or folders where it lives."""
+
+
 class MapFile(Message):
     """``.alpine-code/map/map.json``, written by the agent."""
 
@@ -1661,6 +1674,8 @@ class MapFile(Message):
     """Maps made before 2026-10-13 listed areas here: read (their titles become tags of old cards), never written."""
     exclude: list[str] = Field(default_factory=list, max_length=200)
     """Glob patterns (gitignore style) of files unrelated to the map, e.g. "**/*.lock". The agent's call."""
+    unmapped: list[UnmappedPart] = Field(default_factory=list, max_length=100)
+    """Parts of the product the agent knows exist but has not mapped yet; entries go once they are mapped."""
     proposed_include: SkipJsonSchema[list[str]] = Field(default_factory=list, exclude=True)
     """No longer used: maps made before 2026-10-13 may carry it, and it is read and ignored, never written."""
 
@@ -1872,6 +1887,8 @@ class FlowGetResult(Message):
     schedule: MapSchedule = Field(default_factory=MapSchedule)
     removed_cards: list[RemovedCard] = Field(default_factory=list)
     review: MapReview | None = None
+    unmapped: list[UnmappedPart] = Field(default_factory=list)
+    """What the agent knows it has not mapped yet (map.json ``unmapped``)."""
     """A finished "지도 고치기" session whose changes the user has not accepted or undone yet."""
 
 

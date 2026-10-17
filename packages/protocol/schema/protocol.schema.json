@@ -343,6 +343,14 @@
       "params": "SessionAnswerParams",
       "result": "SessionAnswerResult"
     },
+    "session/search": {
+      "params": "SessionSearchParams",
+      "result": "SessionSearchResult"
+    },
+    "session/setDetails": {
+      "params": "SessionSetDetailsParams",
+      "result": "SessionSetDetailsResult"
+    },
     "session/setMode": {
       "params": "SessionSetModeParams",
       "result": "SessionSetModeResult"
@@ -5784,6 +5792,18 @@
         "title": {
           "type": "string"
         },
+        "pinned": {
+          "default": false,
+          "type": "boolean"
+        },
+        "archived": {
+          "default": false,
+          "type": "boolean"
+        },
+        "summary": {
+          "default": "",
+          "type": "string"
+        },
         "cwd": {
           "type": "string"
         },
@@ -6136,6 +6156,55 @@
       "title": "SessionOpenResult",
       "type": "object"
     },
+    "SessionSearchHit": {
+      "properties": {
+        "info": {
+          "$ref": "#/$defs/SessionInfo"
+        },
+        "excerpt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "info",
+        "excerpt"
+      ],
+      "title": "SessionSearchHit",
+      "type": "object"
+    },
+    "SessionSearchParams": {
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "limit": {
+          "default": 50,
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "SessionSearchParams",
+      "type": "object"
+    },
+    "SessionSearchResult": {
+      "properties": {
+        "hits": {
+          "items": {
+            "$ref": "#/$defs/SessionSearchHit"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "hits"
+      ],
+      "title": "SessionSearchResult",
+      "type": "object"
+    },
     "SessionSendParams": {
       "properties": {
         "sessionId": {
@@ -6184,6 +6253,63 @@
         "info"
       ],
       "title": "SessionSetAgentResult",
+      "type": "object"
+    },
+    "SessionSetDetailsParams": {
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pinned": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "archived": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "title": "SessionSetDetailsParams",
+      "type": "object"
+    },
+    "SessionSetDetailsResult": {
+      "properties": {
+        "info": {
+          "$ref": "#/$defs/SessionInfo"
+        }
+      },
+      "required": [
+        "info"
+      ],
+      "title": "SessionSetDetailsResult",
       "type": "object"
     },
     "SessionSetModeParams": {

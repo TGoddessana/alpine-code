@@ -125,7 +125,7 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
   function setInfo(context: ScriptContext, live: Live, changes: Partial<SessionInfo>) {
     emit(context, live, {
       type: 'info_changed',
-      info: { ...live.state.info, ...changes, updatedAt: new Date().toISOString() },
+      info: { ...live.state.info, updatedAt: new Date().toISOString(), ...changes },
     });
   }
 
@@ -363,7 +363,14 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
   function finish(context: ScriptContext, live: Live, status: SessionInfo['status']) {
     live.run = null;
     live.waiting = null;
-    setInfo(context, live, { status, activity: null, runStartedAt: null, runUsage: null });
+    const lastAnswer = [...live.state.items].reverse().find((item) => item.kind === 'agent_message');
+    setInfo(context, live, {
+      status,
+      activity: null,
+      runStartedAt: null,
+      runUsage: null,
+      ...(lastAnswer?.kind === 'agent_message' ? { summary: lastAnswer.text.replace(/\s+/g, ' ').slice(0, 240) } : {}),
+    });
   }
 
   return {
@@ -452,6 +459,36 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         if (live.waiting?.id !== requestId) return { accepted: false };
         live.waiting.answer(decision, feedback ?? null);
         return { accepted: true };
+      },
+      'session/search': ({ query, limit = 50 }) => ({
+        hits: [...sessions.values()]
+          .flatMap(({ state }) => {
+            const needle = query.trim().toLocaleLowerCase();
+            const metadata = [state.info.title, state.info.cwd, state.info.summary ?? ''].join(' ').toLocaleLowerCase();
+            if (metadata.includes(needle)) return [{ info: state.info, excerpt: state.info.summary ?? '' }];
+            const text = [...state.items]
+              .reverse()
+              .flatMap((item) => (item.kind === 'user_message' || item.kind === 'agent_message' ? [item.text] : []))
+              .find((text) => text.toLocaleLowerCase().includes(needle));
+            if (text === undefined) return [];
+            const index = text.toLocaleLowerCase().indexOf(needle);
+            return [{ info: state.info, excerpt: text.slice(Math.max(0, index - 60), index + 180) }];
+          })
+          .slice(0, limit),
+      }),
+      'session/setDetails': ({ sessionId, title, pinned, archived }, context) => {
+        const live = find(sessionId);
+        if (archived && (live.run || live.state.info.status === 'running' || live.state.info.status === 'waiting'))
+          throw new ServerError(SESSION_RUNNING, 'The session is running');
+        if (title !== undefined && title !== null && (!title.trim() || title.trim().length > 120))
+          throw new ServerError(-32000, 'Invalid title');
+        const changes = {
+          ...(title != null ? { title: title.trim() } : {}),
+          ...(pinned != null ? { pinned } : {}),
+          ...(archived != null ? { archived } : {}),
+        };
+        setInfo(context, live, { ...changes, updatedAt: live.state.info.updatedAt });
+        return { info: live.state.info };
       },
       'session/setMode': ({ sessionId, mode }, context) => {
         const live = find(sessionId);

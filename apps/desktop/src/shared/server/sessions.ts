@@ -6,6 +6,7 @@ import type {
   SessionNewParams,
   SessionSendParams,
   SessionSetAgentParams,
+  SessionSetDetailsParams,
   SessionSetModelParams,
   SessionSetModeParams,
 } from '@alpine/protocol';
@@ -139,5 +140,30 @@ export function useDeleteSession() {
       removeSession(client, sessionId);
       client.removeQueries({ queryKey: sessionKey(sessionId) });
     },
+  });
+}
+
+/** Organizes a session; the server persists changes and announces the new info. */
+export function useSetSessionDetails() {
+  const server = useServer();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: SessionSetDetailsParams) => (await server.request('session/setDetails', params)).info,
+    onSuccess: (info) => {
+      upsertSession(client, info);
+      client.setQueryData<SessionState>(sessionKey(info.id), (state) => state && { ...state, info });
+      void client.invalidateQueries({ queryKey: ['session-search'] });
+    },
+  });
+}
+
+export function useSearchSessions(query: string) {
+  const server = useServer();
+  return useQuery({
+    queryKey: ['session-search', query],
+    queryFn: () => server.request('session/search', { query, limit: 50 }),
+    enabled: query.trim().length > 0,
+    staleTime: 0,
+    retry: false,
   });
 }

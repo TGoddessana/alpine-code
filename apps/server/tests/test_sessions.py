@@ -154,6 +154,12 @@ def test_approval_allow_and_first_answer_wins(folder, monkeypatch):
             assert busy["error"]["code"] == -32002
             busy = await client.call("session/setModel", sessionId=sid, model="x/other")
             assert busy["error"]["code"] == -32002
+            busy = await client.call("session/setDetails", sessionId=sid, archived=True)
+            assert busy["error"]["code"] == -32002
+            busy_project = await client.call("projects/archive", path=str(folder))
+            assert busy_project["error"]["code"] == -32002
+            renamed = await client.call("session/setDetails", sessionId=sid, title="Still working", pinned=True)
+            assert renamed["result"]["info"]["status"] == "waiting"
             first = await client.call("session/answer", sessionId=sid, requestId=request, decision="allow")
             second = await client.call("session/answer", sessionId=sid, requestId=request, decision="deny")
             assert first["result"] == {"accepted": True} and second["result"] == {"accepted": False}
@@ -737,3 +743,35 @@ def test_checkpoint_comparisons_use_saved_versions_and_never_expose_snapshot_sto
             assert saved["files"] == recorded["files"]
 
     run(check())
+
+
+def test_session_details_survive_restart_and_search_messages(folder, monkeypatch):
+    fake_model(monkeypatch, "A hidden phrase: glacier rabbits")
+
+    async def scenario():
+        async with Client([]) as client:
+            sid = await client.new(folder)
+            await client.call("session/send", sessionId=sid, text="Check the checkout")
+            await client.status(sid, "idle")
+            before = (await client.call("session/list"))["result"]["sessions"][0]
+            info = (await client.call(
+                "session/setDetails", sessionId=sid, title="Checkout review", pinned=True, archived=True
+            ))["result"]["info"]
+            assert info["updatedAt"] == before["updatedAt"]
+            assert info["summary"] == "A hidden phrase: glacier rabbits"
+            assert info["archived"] and info["pinned"]
+            bad = await client.call("session/setDetails", sessionId=sid, title="   ")
+            assert "error" in bad
+        async with Client([]) as client:
+            listed = (await client.call("session/list"))["result"]["sessions"]
+            assert listed[0]["title"] == "Checkout review"
+            assert listed[0]["pinned"] and listed[0]["archived"]
+            # The first user message is no longer the title or the answer preview: search the transcript.
+            hits = (await client.call("session/search", query="check the checkout"))["result"]["hits"]
+            assert hits[0]["info"]["id"] == sid
+            assert "Check the checkout" in hits[0]["excerpt"]
+            restored = (await client.call("session/setDetails", sessionId=sid, archived=False))["result"]["info"]
+            assert not restored["archived"] and restored["pinned"]
+            assert (await client.call("session/search", query="no such phrase"))["result"]["hits"] == []
+
+    run(scenario())

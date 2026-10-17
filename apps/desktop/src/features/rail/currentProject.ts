@@ -1,10 +1,8 @@
 import { useMatch, useSearch } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
+import { useNavigation } from '@/shared/navigation';
 import { useProjects, useSessions } from '@/shared/server';
-
-/** The project shown last, for pages that have none (settings, agents). Not kept across restarts. */
-let remembered: string | null = null;
 
 /**
  * The project the window is in, whose sessions and pages the rail shows: the open session's, else the one in the
@@ -12,6 +10,8 @@ let remembered: string | null = null;
  * used one. A clone on its way counts as a project. `null` only when there is none.
  */
 export function useCurrentProject(): string | null {
+  const remembered = useNavigation((s) => s.lastProject);
+  const remember = useNavigation((s) => s.rememberProject);
   const projects = useProjects().data;
   const sessions = useSessions().data;
   const session = useMatch({ from: '/session/$sessionId', shouldThrow: false });
@@ -24,8 +24,8 @@ export function useCurrentProject(): string | null {
   const routed = fromRoute && known.has(fromRoute) ? fromRoute : null;
 
   useEffect(() => {
-    if (routed) remembered = routed;
-  }, [routed]);
+    if (routed && routed !== remembered) remember(routed);
+  }, [routed, remembered, remember]);
 
   if (routed) return routed;
   if (remembered && known.has(remembered)) return remembered;

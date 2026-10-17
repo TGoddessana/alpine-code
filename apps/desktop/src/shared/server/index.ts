@@ -15,6 +15,8 @@ export {
   useSession,
   useSessions,
   useSetSessionAgent,
+  useSetSessionDetails,
+  useSearchSessions,
   useSetSessionMode,
   useSetSessionModel,
 } from './sessions';

@@ -105,6 +105,11 @@ class SessionInfo:
     """``{"source", "id", "updated_at"}`` of the other app's conversation the session was carried over from, so the
     same one is not imported twice. Core only, not on the wire."""
 
+    pinned: bool = False
+    archived: bool = False
+    summary: str = ""
+    """A short excerpt of the latest answer, for finding and resuming work."""
+
     work_history: dict[str, Any] = field(default_factory=dict)
     """Core-only request checkpoints and deduplicated file versions."""
 
@@ -116,6 +121,9 @@ class SessionInfo:
         return {
             "id": self.id,
             "title": self.title,
+            "pinned": self.pinned,
+            "archived": self.archived,
+            "summary": self.summary,
             "cwd": self.cwd,
             "model": self.model,
             "mode": self.mode,
@@ -146,6 +154,9 @@ class SessionInfo:
         return cls(
             id=data["id"],
             title=data.get("title", ""),
+            pinned=data.get("pinned", False),
+            archived=data.get("archived", False),
+            summary=data.get("summary", ""),
             cwd=data.get("cwd", ""),
             model=data.get("model", ""),
             mode=data.get("mode", ""),

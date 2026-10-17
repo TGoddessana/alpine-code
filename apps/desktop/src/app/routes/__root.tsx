@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 
 import { FirstRun } from '@/features/first-run/FirstRun';
 import { Rail } from '@/features/rail/Rail';
+import { NavigationController } from '@/features/rail/NavigationController';
 import { useCloneUpdates } from '@/shared/server';
 
 import { DroppedSkillsDialog } from '../DroppedSkills';
@@ -58,6 +59,7 @@ function Root() {
           <Outlet />
         </div>
       </div>
+      <NavigationController />
       <FirstRun />
       <DroppedSkillsDialog outcome={dropped} onClose={closeDropped} />
     </div>

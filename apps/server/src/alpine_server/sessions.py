@@ -41,6 +41,8 @@ from alpine_protocol import (
     SESSION_NOT_FOUND,
     SESSION_RUNNING,
     ExternalSessionInfo,
+    ProjectsArchiveParams,
+    ProjectsArchiveResult,
     SessionAnswerParams,
     SessionAnswerResult,
     SessionCancelParams,
@@ -60,10 +62,15 @@ from alpine_protocol import (
     SessionNewResult,
     SessionOpenParams,
     SessionOpenResult,
+    SessionSearchHit,
+    SessionSearchParams,
+    SessionSearchResult,
     SessionSendParams,
     SessionSendResult,
     SessionSetAgentParams,
     SessionSetAgentResult,
+    SessionSetDetailsParams,
+    SessionSetDetailsResult,
     SessionSetModelParams,
     SessionSetModelResult,
     SessionSetModeParams,
@@ -144,6 +151,7 @@ class SessionManager:
 
     def handlers(self) -> dict[str, Callable[[Any], Awaitable[Any]]]:
         return {
+            "projects/archive": self.archive_project,
             "session/new": self.new,
             "session/list": self.list,
             "session/open": self.open,
@@ -151,6 +159,8 @@ class SessionManager:
             "session/send": self.send,
             "session/cancel": self.cancel,
             "session/answer": self.answer,
+            "session/search": self.search,
+            "session/setDetails": self.set_details,
             "session/setMode": self.set_mode,
             "session/setAgent": self.set_agent,
             "session/setModel": self.set_model,
@@ -170,6 +180,13 @@ class SessionManager:
         await asyncio.gather(*(self._stop(live) for live in list(self._live.values())))
 
     # ------------------------------------------------------------ methods
+
+    async def archive_project(self, params: ProjectsArchiveParams) -> ProjectsArchiveResult:
+        folder = Path(params.path).expanduser().resolve()
+        if any(live.running and live.session.workspace.root == folder for live in self._live.values()):
+            raise MethodError(SESSION_RUNNING, "A session in this project is running")
+        ProjectList.default().archive(folder)
+        return ProjectsArchiveResult()
 
     async def new(self, params: SessionNewParams) -> SessionNewResult:
         folder = Path(params.cwd)
@@ -258,6 +275,51 @@ class SessionManager:
         live = self._get(params.session_id)
         decision = Decision(params.decision, params.feedback)
         return SessionAnswerResult(accepted=live.approver.answer(params.request_id, decision))
+
+    async def search(self, params: SessionSearchParams) -> SessionSearchResult:
+        query = " ".join(params.query.casefold().split())
+        if not query:
+            return SessionSearchResult(hits=[])
+        listed = await self.list(SessionListParams())
+
+        def find() -> SessionSearchResult:
+            hits = []
+            for info in listed.sessions:
+                excerpt = info.summary
+                if query not in " ".join(f"{info.title} {info.cwd} {info.summary}".casefold().split()):
+                    try:
+                        _, records = self.storage.log.read(info.id)
+                    except LookupError:
+                        continue
+                    matched = None
+                    for _, item in reversed(records):
+                        if item.get("kind") not in ("user_message", "agent_message"):
+                            continue
+                        text = " ".join(str(item.get("text", "")).split())
+                        index = text.casefold().find(query)
+                        if index >= 0:
+                            start = max(0, index - 60)
+                            matched = ("…" if start else "") + text[start : start + 240]
+                            break
+                    if matched is None:
+                        continue
+                    excerpt = matched
+                hits.append(SessionSearchHit(info=info, excerpt=excerpt))
+                if len(hits) >= params.limit:
+                    break
+            return SessionSearchResult(hits=hits)
+
+        return await asyncio.to_thread(find)
+
+    async def set_details(self, params: SessionSetDetailsParams) -> SessionSetDetailsResult:
+        live = self._get(params.session_id)
+        if params.archived and live.running:
+            raise MethodError(SESSION_RUNNING, "The session is running")
+        try:
+            live.session.set_details(title=params.title, pinned=params.pinned, archived=params.archived)
+        except ValueError as exc:
+            raise MethodError(APP_ERROR, str(exc), "invalid_details") from exc
+        return SessionSetDetailsResult(info=to_info(live.session.info))
 
     async def set_mode(self, params: SessionSetModeParams) -> SessionSetModeResult:
         live = self._get(params.session_id)

@@ -2124,6 +2124,9 @@ export interface InfoChangedEvent {
 export interface SessionInfo {
   id: string;
   title: string;
+  pinned?: boolean;
+  archived?: boolean;
+  summary?: string;
   cwd: string;
   model: string;
   mode: 'default' | 'accept_edits' | 'auto' | 'yolo';
@@ -2963,6 +2966,29 @@ export interface SessionOpenResult {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionSearchHit".
+ */
+export interface SessionSearchHit {
+  info: SessionInfo;
+  excerpt: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionSearchParams".
+ */
+export interface SessionSearchParams {
+  query: string;
+  limit?: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionSearchResult".
+ */
+export interface SessionSearchResult {
+  hits: SessionSearchHit[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "SessionSendParams".
  */
 export interface SessionSendParams {
@@ -2990,6 +3016,23 @@ export interface SessionSetAgentParams {
  * via the `definition` "SessionSetAgentResult".
  */
 export interface SessionSetAgentResult {
+  info: SessionInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionSetDetailsParams".
+ */
+export interface SessionSetDetailsParams {
+  sessionId: string;
+  title?: string | null;
+  pinned?: boolean | null;
+  archived?: boolean | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "SessionSetDetailsResult".
+ */
+export interface SessionSetDetailsResult {
   info: SessionInfo;
 }
 /**
@@ -3538,6 +3581,8 @@ export interface Methods {
   'session/send': { params: SessionSendParams; result: SessionSendResult };
   'session/cancel': { params: SessionCancelParams; result: SessionCancelResult };
   'session/answer': { params: SessionAnswerParams; result: SessionAnswerResult };
+  'session/search': { params: SessionSearchParams; result: SessionSearchResult };
+  'session/setDetails': { params: SessionSetDetailsParams; result: SessionSetDetailsResult };
   'session/setMode': { params: SessionSetModeParams; result: SessionSetModeResult };
   'session/setModel': { params: SessionSetModelParams; result: SessionSetModelResult };
   'session/setAgent': { params: SessionSetAgentParams; result: SessionSetAgentResult };

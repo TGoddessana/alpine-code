@@ -5,6 +5,7 @@ import { ask, message } from '@tauri-apps/plugin-dialog';
 import { useEffect, useRef } from 'react';
 
 import { useLocale, useMessages } from '@/shared/i18n';
+import { useNavigation } from '@/shared/navigation';
 import { checkForUpdate, inTauri, openInBrowser, restartToUpdate } from '@/shared/platform';
 
 import appIcon from '../../src-tauri/icons/128x128@2x.png';
@@ -99,6 +100,11 @@ async function buildMenu(railOpen: boolean, get: () => Latest): Promise<Menu> {
         text: t.file,
         items: [
           { text: t.newSession, accelerator: 'CmdOrCtrl+N', action: () => get().newSession() },
+          {
+            text: t.searchConversations,
+            accelerator: 'CmdOrCtrl+K',
+            action: () => useNavigation.getState().setSearchOpen(true),
+          },
           { text: t.addProject, accelerator: 'CmdOrCtrl+O', action: () => get().openFolder() },
           { item: 'Separator' },
           { item: 'CloseWindow', text: t.closeWindow },

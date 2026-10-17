@@ -932,6 +932,10 @@ class SessionInfo(Message):
     id: str
     title: str
     """The first user message, shortened."""
+    pinned: bool = False
+    archived: bool = False
+    summary: str = ""
+    """Short excerpt of the latest answer; empty for conversations saved before this field existed."""
     cwd: str
     model: str
     mode: Mode
@@ -1263,6 +1267,31 @@ class SessionSetAgentParams(Message):
 
 
 class SessionSetAgentResult(Message):
+    info: SessionInfo
+
+
+class SessionSearchParams(Message):
+    query: str
+    limit: int = Field(default=50, ge=1, le=100)
+
+
+class SessionSearchHit(Message):
+    info: SessionInfo
+    excerpt: str
+
+
+class SessionSearchResult(Message):
+    hits: list[SessionSearchHit]
+
+
+class SessionSetDetailsParams(Message):
+    session_id: str
+    title: str | None = None
+    pinned: bool | None = None
+    archived: bool | None = None
+
+
+class SessionSetDetailsResult(Message):
     info: SessionInfo
 
 
@@ -2082,6 +2111,8 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "session/send": (SessionSendParams, SessionSendResult),
     "session/cancel": (SessionCancelParams, SessionCancelResult),
     "session/answer": (SessionAnswerParams, SessionAnswerResult),
+    "session/search": (SessionSearchParams, SessionSearchResult),
+    "session/setDetails": (SessionSetDetailsParams, SessionSetDetailsResult),
     "session/setMode": (SessionSetModeParams, SessionSetModeResult),
     "session/setModel": (SessionSetModelParams, SessionSetModelResult),
     "session/setAgent": (SessionSetAgentParams, SessionSetAgentResult),

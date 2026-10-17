@@ -182,6 +182,8 @@ class Session:
         self._agent = self._build_agent(settings)
         self._closed = False
         self._id = ""
+        self._pinned = self._archived = False
+        self._summary = ""
         self._title = NEW_TITLE
         self._status: SessionStatus = "idle"
         self._created = self._updated = ""
@@ -350,12 +352,30 @@ class Session:
 
     # ------------------------------------------------------------ actions
 
+    def set_details(
+        self, *, title: str | None = None, pinned: bool | None = None, archived: bool | None = None
+    ) -> None:
+        """Organizes a conversation without changing its activity time or sending anything to the model."""
+        if archived and self._status in ("running", "waiting"):
+            raise ValueError("A working session cannot be archived")
+        if title is not None:
+            title = " ".join(title.split())
+            if not title or len(title) > 120:
+                raise ValueError("A title must contain 1 to 120 characters")
+            self._title = title
+        if pinned is not None:
+            self._pinned = pinned
+        if archived is not None:
+            self._archived = archived
+        self._save_info()
+
     async def asend(self, text: str) -> str | None:
         """Sends a user message and runs the agent until it answers. Returns the answer, or ``None`` if the run
         was interrupted or failed (a ``Interrupted`` or ``Failed`` event says which).
 
         Cancelling the task stops the run and keeps the conversation: ``Interrupted`` is emitted, the unfinished
         items are closed and ``CancelledError`` propagates."""
+        self._archived = False
         self._refresh_agent()
         self._refresh_skills()
         # "/<skill> ..." comes with the skill's instructions; the screen keeps what the user typed.
@@ -604,6 +624,9 @@ class Session:
         return SessionInfo(
             id=self._id,
             title=self._title,
+            pinned=self._pinned,
+            archived=self._archived,
+            summary=self._summary,
             cwd=str(self.workspace.root),
             model=self.model_name,
             mode=self.policy.mode.value,
@@ -786,7 +809,10 @@ class Session:
             case TextDelta():
                 if activity.kind == "thinking":
                     self._set_activity("writing")
-            case AssistantDone() | ContextCompacted():
+            case AssistantDone(text=text):
+                self._summary = " ".join(text.split())[:240]
+                self._touch()
+            case ContextCompacted():
                 self._touch()
             case ToolStarted(id, name):
                 self._running_tools[id] = name
@@ -833,6 +859,9 @@ class Session:
     def _touch(self) -> None:
         """Stamps ``updated_at``, saves the info and announces it."""
         self._updated = _now()
+        self._save_info()
+
+    def _save_info(self) -> None:
         # The info_changed event below takes the next seq; saving it keeps seq growing after a restart.
         info = dataclasses.replace(self.info, last_seq=self._recorder.seq + 1)
         if self._storage is not None and not self._closed:
@@ -847,6 +876,8 @@ class Session:
         """A new session id and an empty screen record (a new session, or ``clear``)."""
         self._work_changes.clear()
         self._id = uuid.uuid4().hex
+        self._pinned = self._archived = False
+        self._summary = ""
         self._title = NEW_TITLE
         self._status = "idle"
         self._activity = self._run_started_at = None
@@ -860,6 +891,7 @@ class Session:
     def _restore(self, saved: _Saved) -> None:
         info = saved.info
         self._id, self._title = info.id, info.title
+        self._pinned, self._archived, self._summary = info.pinned, info.archived, info.summary
         self._created, self._updated = info.created_at, info.updated_at
         self._imported_from = info.imported_from
         self._state = saved.state

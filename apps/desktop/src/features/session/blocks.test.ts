@@ -144,6 +144,9 @@ describe('toolSummary', () => {
       unit: 'files',
       count: 12,
     });
+    expect(
+      toolSummary(row({ name: 'grep', result: 'a:1:x\nb:2:x\n[More than 2 matches, first 2 shown. Narrow]' })),
+    ).toMatchObject({ unit: 'matches', count: 2, more: true });
     expect(toolSummary(row({ name: 'grep', result: 'No matches for TODO' }))).toMatchObject({
       unit: 'matches',
       count: 0,

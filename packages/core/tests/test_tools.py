@@ -7,11 +7,11 @@ from pathlib import Path
 import pytest
 from alpineagents import Image, ToolError
 
-from alpine_core.tools import Workspace
+from alpine_core.tools import Workspace, _common
 from alpine_core.tools.bash import Bash
 from alpine_core.tools.edit import Edit
-from alpine_core.tools.glob_files import Glob
-from alpine_core.tools.grep import Grep
+from alpine_core.tools.glob_files import MAX_RESULTS, Glob
+from alpine_core.tools.grep import MAX_MATCHES, Grep
 from alpine_core.tools.read import Read
 from alpine_core.tools.write import Write
 
@@ -201,6 +201,38 @@ def test_grep(ws):
         run(tool, pattern="(")
     with pytest.raises(ToolError, match="nope does not exist"):
         run(tool, pattern="x", path="nope")
+
+
+def test_grep_stops_at_the_limit_and_says_there_are_more(ws):
+    (ws.root / "big.txt").write_text("hit\n" * 50_000)
+    out = run(Grep(ws).grep, pattern="hit").splitlines()
+    assert len(out) == MAX_MATCHES + 1
+    assert out[-1] == (
+        f"[More than {MAX_MATCHES} matches, first {MAX_MATCHES} shown. Narrow the pattern, path or glob]"
+    )
+
+
+def test_glob_stops_at_the_limit_and_says_there_are_more(ws):
+    for i in range(MAX_RESULTS + 5):
+        (ws.root / f"f{i}.py").write_text("")
+    out = run(Glob(ws).glob, pattern="*.py").splitlines()
+    assert len(out) == MAX_RESULTS + 1
+    assert out[-1].startswith(f"[More than {MAX_RESULTS} files")
+
+
+def test_run_rg_stops_the_search_at_the_limit(ws, monkeypatch):
+    # `yes hit` prints forever: without stopping at the limit this would end only at the timeout.
+    monkeypatch.setattr(_common, "rg_path", lambda: "yes")
+    assert _common.run_rg(["hit"], cwd=ws.root, timeout=10, limit=3) == ["hit", "hit", "hit"]
+
+
+def test_run_rg_failures(ws, monkeypatch):
+    assert _common.run_rg(["--regexp", "nothing-here", "."], cwd=ws.root) == []
+    with pytest.raises(ToolError, match="unrecognized flag|unexpected argument|--nope"):
+        _common.run_rg(["--nope"], cwd=ws.root)
+    monkeypatch.setattr(_common, "rg_path", lambda: "sleep")
+    with pytest.raises(ToolError, match="timed out after 1s"):
+        _common.run_rg(["5"], cwd=ws.root, timeout=1)
 
 
 def test_bash_title_is_retained_with_the_actual_command(ws):

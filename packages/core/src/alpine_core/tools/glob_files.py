@@ -21,10 +21,10 @@ class Glob(WorkspaceTool):
         if not root.is_dir():
             raise ToolError(f"{path} is not a directory")
         args = ["--files", "--hidden", "--sortr=modified", f"--glob={pattern}", *RG_EXCLUDES]
-        lines = run_rg(args, cwd=root)
+        lines = run_rg(args, cwd=root, limit=MAX_RESULTS + 1)
         if not lines:
             return f"No files match {pattern}"
         shown = [self.workspace.display(root / line) for line in lines[:MAX_RESULTS]]
         if len(lines) > MAX_RESULTS:
-            shown.append(f"[{len(lines) - MAX_RESULTS} more files. Use a narrower pattern or path]")
+            shown.append(f"[More than {MAX_RESULTS} files, first {MAX_RESULTS} shown. Use a narrower pattern or path]")
         return "\n".join(shown)

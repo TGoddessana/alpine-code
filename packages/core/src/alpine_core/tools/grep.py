@@ -35,7 +35,7 @@ class Grep(WorkspaceTool):
         if glob:
             args.append(f"--glob={glob}")
         args += ["--regexp", pattern, str(target)]
-        lines = run_rg(args, cwd=self.workspace.root)
+        lines = run_rg(args, cwd=self.workspace.root, limit=MAX_MATCHES + 1)
         if not lines:
             return f"No matches for {pattern}"
         prefix = str(self.workspace.root) + "/"
@@ -44,5 +44,7 @@ class Grep(WorkspaceTool):
             line = line.removeprefix(prefix)
             shown.append(line if len(line) <= MAX_LINE_CHARS else line[:MAX_LINE_CHARS] + "…")
         if len(lines) > MAX_MATCHES:
-            shown.append(f"[{len(lines) - MAX_MATCHES} more matches. Narrow the pattern, path or glob]")
+            shown.append(
+                f"[More than {MAX_MATCHES} matches, first {MAX_MATCHES} shown. Narrow the pattern, path or glob]"
+            )
         return "\n".join(shown)

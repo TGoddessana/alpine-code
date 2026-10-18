@@ -57,8 +57,9 @@ export function toBlocks(items: Item[], activeIds: readonly string[]): Block[] {
 export type ToolSummary =
   /** Not finished, did not run, or failed without a message: the state in words (a denied call adds what I said). */
   | { type: 'state' }
-  /** Read or searched: how much it found; what it found opens on a click. `count` 0 is "nothing found". */
-  | { type: 'count'; unit: 'lines' | 'entries' | 'files' | 'matches'; count: number; text: string }
+  /** Read or searched: how much it found; what it found opens on a click. `count` 0 is "nothing found". `more`: a
+   * search stopped at its limit, so there are more than `count`. */
+  | { type: 'count'; unit: 'lines' | 'entries' | 'files' | 'matches'; count: number; more?: boolean; text: string }
   /** Ran a command, changed a file or failed: the output itself, its first lines shown. */
   | { type: 'output'; text: string; kind: 'diff' | 'text'; failed: boolean; added: number; removed: number }
   /** Finished without anything to show. */
@@ -70,6 +71,8 @@ export const PREVIEW_LINES = { text: 4, diff: 10 } as const;
 const NUMBERED = /^\s*\d+\t/;
 /** The tools' own "[N more files...]" notes at the end of a cut list. */
 const MORE = /^\[(\d+) more /;
+/** A search's note when it stopped at its limit without counting the rest: "[More than 200 matches, ...]". */
+const MORE_THAN = /^\[More than \d+ /;
 
 /** How many things a list result names, counting the ones its "[N more ...]" note left out. */
 function countListed(lines: string[]): number {
@@ -92,7 +95,10 @@ export function toolSummary({ call, approval }: ToolRow): ToolSummary {
   if (!failed && kind === 'search' && text) {
     const none = /^No (files match|matches for) /.test(text);
     const unit = /^glob/.test(call.name) ? 'files' : 'matches';
-    return { type: 'count', unit, count: none ? 0 : countListed(text.split('\n')), text };
+    const lines = text.split('\n');
+    const more = MORE_THAN.test(lines.at(-1) ?? '');
+    const count = none ? 0 : countListed(more ? lines.slice(0, -1) : lines);
+    return { type: 'count', unit, count, ...(more && { more }), text };
   }
   const diff = !failed && kind === 'edit' ? editDiff(approval) : null;
   if (diff) {

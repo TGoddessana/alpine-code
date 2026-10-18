@@ -139,7 +139,7 @@ function Summary({ row, summary }: { row: ToolRow; summary: ToolSummary }) {
     case 'done':
       return <span>{t.toolDone}</span>;
     case 'count': {
-      const count = format.number(summary.count);
+      const count = format.number(summary.count) + (summary.more ? '+' : '');
       const label =
         summary.count === 0 && summary.unit !== 'lines' && summary.unit !== 'entries'
           ? t.foundNothing

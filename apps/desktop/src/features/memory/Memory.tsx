@@ -1,3 +1,4 @@
+import { Collapse } from '@alpine/ui/primitives';
 import type { MemoryEvidence, MemoryInfo } from '@alpine/protocol';
 import { Button, LinkButton } from '@alpine/ui/primitives';
 import clsx from 'clsx';
@@ -128,7 +129,7 @@ function Row({ cwd, memory }: { cwd: string; memory: MemoryInfo }) {
           ›
         </span>
       </button>
-      {open && (
+      <Collapse open={open}>
         <div className="flex flex-col gap-3 px-3 pb-3 pl-22">
           {memory.body && <p className="text-body whitespace-pre-wrap text-fg-muted">{memory.body}</p>}
           {(memory.check || memory.guard) && (
@@ -175,7 +176,7 @@ function Row({ cwd, memory }: { cwd: string; memory: MemoryInfo }) {
             </button>
           )}
         </div>
-      )}
+      </Collapse>
     </li>
   );
 }

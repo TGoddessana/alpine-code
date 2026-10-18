@@ -1,5 +1,5 @@
 import type { ReviewBlockedItem, ToolCallItem } from '@alpine/protocol';
-import { LinkButton } from '@alpine/ui/primitives';
+import { Collapse, LinkButton } from '@alpine/ui/primitives';
 import clsx from 'clsx';
 import { memo, useState } from 'react';
 
@@ -62,13 +62,13 @@ export function ToolCalls({ rows }: { rows: ToolRow[] }) {
           ›
         </span>
       </button>
-      {(open || running.length > 0) && (
+      <Collapse open={open || running.length > 0}>
         <ul className="flex flex-col gap-3 border-l border-line-subtle pl-3">
-          {(open ? rows : running).map((row) => (
+          {(open || running.length === 0 ? rows : running).map((row) => (
             <Call key={row.call.id} row={row} />
           ))}
         </ul>
-      )}
+      </Collapse>
     </div>
   );
 }
@@ -176,7 +176,9 @@ function Opens({ label, text }: { label: string; text: string }) {
           ›
         </span>
       </button>
-      {open && <Lines lines={text.split('\n')} kind="text" failed={false} scroll />}
+      <Collapse open={open}>
+        <Lines lines={text.split('\n')} kind="text" failed={false} scroll />
+      </Collapse>
     </>
   );
 }

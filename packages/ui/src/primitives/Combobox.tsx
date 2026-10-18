@@ -5,7 +5,7 @@ import type { ComponentProps, ElementType, ReactNode } from 'react';
 type WithClass<T extends ElementType> = Omit<ComponentProps<T>, 'className'> & { className?: string };
 
 const row =
-  'flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-body font-medium outline-none select-none data-highlighted:bg-hover data-selected:bg-selected';
+  'motion-popup flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-body font-medium outline-none select-none data-highlighted:bg-hover data-selected:bg-selected';
 
 interface PopupProps {
   side?: 'top' | 'bottom';

@@ -1,5 +1,5 @@
 import type { MemorySuggestionInfo } from '@alpine/protocol';
-import { Button, LinkButton } from '@alpine/ui/primitives';
+import { Button, Collapse, LinkButton } from '@alpine/ui/primitives';
 import clsx from 'clsx';
 import { useState } from 'react';
 
@@ -75,12 +75,12 @@ export function SuggestionCard({ cwd, suggestion }: { cwd: string; suggestion: M
           )}
         </div>
       )}
-      {open && (
+      <Collapse open={open}>
         <div className="flex flex-col gap-2 rounded-lg bg-canvas-sunken px-3 py-2 text-body text-fg-muted">
           {suggestion.body && <p className="whitespace-pre-wrap">{suggestion.body}</p>}
           <Rules check={suggestion.check} guard={suggestion.guard} />
         </div>
-      )}
+      </Collapse>
       {error && (
         <p role="alert" className="text-meta text-danger">
           {full ? t.full : t.failed}

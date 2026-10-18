@@ -72,11 +72,13 @@ export function PanelResizer({ panel, edge, label }: PanelResizerProps) {
     const x = event.clientX;
     handle.setPointerCapture(event.pointerId);
     setDragging(true);
+    handle.parentElement?.setAttribute('data-resizing', 'true');
     // Keep the resize cursor while the pointer runs ahead of the handle.
     document.body.style.cursor = 'col-resize';
     const move = (e: globalThis.PointerEvent) => panel.setWidth(start + sign * (e.clientX - x));
     const up = () => {
       setDragging(false);
+      handle.parentElement?.removeAttribute('data-resizing');
       document.body.style.cursor = '';
       handle.removeEventListener('pointermove', move);
       handle.removeEventListener('pointerup', up);

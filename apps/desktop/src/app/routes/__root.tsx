@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet } from '@tanstack/react-router';
+import { createRootRoute, Outlet, useRouterState } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 
 import { FirstRun } from '@/features/first-run/FirstRun';
@@ -47,6 +47,7 @@ export const Route = createRootRoute({
 function Root() {
   const [dropped, closeDropped, openFolder] = useFolderOpening();
   const [railOpen, toggleRail] = useRailOpen();
+  const page = useRouterState({ select: (state) => state.location.pathname + (state.location.search.project ?? '') });
   useCloneUpdates();
   const newSession = useNewSessionShortcut();
   useAppMenu(railOpen, { newSession, openFolder, toggleRail });
@@ -54,9 +55,11 @@ function Root() {
     <div className="flex h-screen flex-col overflow-hidden bg-canvas-sunken">
       <TopBar railOpen={railOpen} onToggleRail={toggleRail} />
       <div className="flex min-h-0 grow">
-        {railOpen && <Rail />}
+        <Rail open={railOpen} />
         <div className="mr-2 mb-2 flex min-w-0 grow overflow-hidden rounded-xl border border-line bg-canvas">
-          <Outlet />
+          <div key={page} className="motion-page flex min-h-0 min-w-0 grow">
+            <Outlet />
+          </div>
         </div>
       </div>
       <NavigationController />

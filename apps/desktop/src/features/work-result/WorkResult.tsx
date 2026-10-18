@@ -1,3 +1,4 @@
+import { Collapse } from '@alpine/ui/primitives';
 import type { ToolCallItem } from '@alpine/protocol';
 import clsx from 'clsx';
 import { ChevronRight, FileText, Terminal } from 'lucide-react';
@@ -136,9 +137,13 @@ function FileRow({ file, open, onToggle }: { file: ChangedFile; open: boolean; o
         className={clsx(row, 'cursor-pointer hover:bg-hover', open && 'bg-hover')}
       >
         {body}
-        <ChevronRight size={14} aria-hidden="true" className={clsx('shrink-0 text-fg-faint', open && 'rotate-90')} />
+        <ChevronRight
+          size={14}
+          aria-hidden="true"
+          className={clsx('shrink-0 text-fg-faint transition-transform', open && 'rotate-90')}
+        />
       </button>
-      {open && (
+      <Collapse open={open}>
         <div id={panelId} className="border-t border-line-subtle">
           <div aria-label={t.showChanges(name)} role="region">
             {file.diff ? (
@@ -159,7 +164,7 @@ function FileRow({ file, open, onToggle }: { file: ChangedFile; open: boolean; o
             </div>
           )}
         </div>
-      )}
+      </Collapse>
     </article>
   );
 }

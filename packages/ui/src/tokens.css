@@ -111,6 +111,12 @@
 
   --shadow-*: initial;
   --shadow-overlay: 0 8px 24px rgb(27 45 64 / 0.12); /* modals, menus */
+  --motion-fast: 140ms;
+  --motion-normal: 220ms;
+  --motion-panel: 360ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --default-transition-duration: var(--motion-fast);
+  --default-transition-timing-function: var(--motion-ease);
   /* Spacing keeps Tailwind's 4px step, which is the canvas's grid. */
 }
 
@@ -156,4 +162,147 @@
     outline: 2px solid var(--color-interactive);
     outline-offset: 2px;
   }
+}
+
+/* Motion belongs to shared surfaces, so dialogs and menus also behave the same in Storybook. */
+@layer base {
+  :where(button, a, input, textarea, select, [role='tab'], [role='treeitem'] > div, summary) {
+    transition-property: color, background-color, border-color, box-shadow, opacity;
+    transition-duration: var(--motion-fast);
+    transition-timing-function: var(--motion-ease);
+  }
+
+  :where(button, summary) > svg {
+    transition: transform var(--motion-normal) var(--motion-ease);
+  }
+}
+
+@utility motion-popup {
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity var(--motion-fast) var(--motion-ease),
+    transform var(--motion-normal) var(--motion-ease);
+}
+.motion-popup[data-starting-style],
+.motion-popup[data-ending-style] {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}
+.motion-popup[data-side='top'][data-starting-style],
+.motion-popup[data-side='top'][data-ending-style] {
+  transform: translateY(4px) scale(0.98);
+}
+.motion-popup[data-side='left'][data-starting-style],
+.motion-popup[data-side='left'][data-ending-style] {
+  transform: translateX(4px) scale(0.98);
+}
+.motion-popup[data-side='right'][data-starting-style],
+.motion-popup[data-side='right'][data-ending-style] {
+  transform: translateX(-4px) scale(0.98);
+}
+@utility motion-backdrop {
+  transition: opacity var(--motion-normal) var(--motion-ease);
+}
+@utility motion-dialog {
+  transition:
+    opacity var(--motion-normal) var(--motion-ease),
+    transform var(--motion-panel) var(--motion-ease);
+}
+.motion-backdrop[data-starting-style],
+.motion-backdrop[data-ending-style] {
+  opacity: 0;
+}
+.motion-dialog[data-starting-style],
+.motion-dialog[data-ending-style] {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+}
+
+@utility motion-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--motion-panel) var(--motion-ease),
+    opacity var(--motion-normal) var(--motion-ease),
+    visibility var(--motion-panel);
+}
+.motion-collapse[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+}
+@utility motion-collapse-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@utility motion-content {
+  animation: motion-enter var(--motion-normal) var(--motion-ease);
+}
+@keyframes motion-enter {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* Native disclosures progressively gain intrinsic-height transitions on supporting engines. */
+@supports (interpolate-size: allow-keywords) {
+  details::details-content {
+    interpolate-size: allow-keywords;
+    block-size: 0;
+    opacity: 0;
+    overflow: clip;
+    transition:
+      block-size var(--motion-panel) var(--motion-ease),
+      opacity var(--motion-normal) var(--motion-ease),
+      content-visibility var(--motion-panel) allow-discrete;
+  }
+  details[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  details::details-content {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@utility motion-side-panel {
+  flex-shrink: 0;
+  min-width: 0;
+  overflow: clip;
+  transition:
+    width var(--motion-panel) var(--motion-ease),
+    opacity var(--motion-normal) var(--motion-ease),
+    visibility var(--motion-panel);
+  &[data-open='false'] {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+@utility motion-side-panel-body {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
+.motion-popup[data-ending-style],
+.motion-dialog[data-ending-style] {
+  pointer-events: none;
 }

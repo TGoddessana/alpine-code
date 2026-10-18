@@ -1,7 +1,7 @@
 import { PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
 import clsx from 'clsx';
 import { Maximize2, Minimize2, PanelRight, X } from 'lucide-react';
-import { useLayoutEffect, type KeyboardEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { useFormat, useMessages } from '@/shared/i18n';
 
@@ -35,8 +35,14 @@ export function DockLayout({ scope, tabs, children }: { scope: string; tabs: Doc
   }, [scope]);
   return (
     <div className="relative flex min-w-0 grow">
-      <div className={clsx('flex min-w-0 grow', open && expanded && 'hidden')}>{children}</div>
-      {open && <Dock scope={scope} tabs={tabs} />}
+      <div
+        className={clsx('motion-dock-page flex min-w-0', open && expanded && 'motion-page-hidden')}
+        aria-hidden={open && expanded}
+        inert={open && expanded}
+      >
+        {children}
+      </div>
+      <Dock scope={scope} tabs={tabs} open={open} />
     </div>
   );
 }
@@ -46,12 +52,14 @@ export function DockLayout({ scope, tabs, children }: { scope: string; tabs: Doc
  * result); a surface (web, terminal, phone) later is one more entry in `tabs`. Its width is only ever changed by
  * dragging its edge, and it is remembered.
  */
-export function Dock({ scope = '', tabs }: { scope?: string; tabs: DockTab[] }) {
+export function Dock({ scope = '', tabs, open = true }: { scope?: string; tabs: DockTab[]; open?: boolean }) {
   const t = useMessages(messages);
   const [, setOpen] = useDockOpen();
   const [expanded, setExpanded] = useDockExpanded(scope);
   const width = usePanelWidth({ storageKey: 'alpine.work-result.width', initial: 360, min: 280, max: 900 });
   const [chosen, choose] = useDockTab();
+  const [visited, setVisited] = useState(open);
+  if (open && !visited) setVisited(true);
   const active = tabs.find((tab) => tab.id === chosen) ?? tabs[0];
 
   // Arrows wrap around; Home and End jump to the first and last tab, as the WAI-ARIA tabs pattern asks.
@@ -86,86 +94,91 @@ export function Dock({ scope = '', tabs }: { scope?: string; tabs: DockTab[] }) 
   return (
     <aside
       aria-label={t.title}
-      style={expanded ? undefined : { width: width.width }}
+      aria-hidden={!open}
+      inert={!open}
+      data-open={open}
+      data-expanded={expanded}
+      style={expanded ? undefined : { width: open ? width.width : 0 }}
       // Shrinks first when the window gets narrow, so the page keeps its room.
-      className={clsx(
-        'relative flex flex-col bg-canvas',
-        expanded ? 'min-w-0 grow' : 'min-w-70 shrink-[1000] border-l border-line',
-      )}
+      className={clsx('motion-dock relative flex flex-col bg-canvas')}
     >
-      {!expanded && <PanelResizer panel={width} edge="left" label={t.resize} />}
-      <header className="flex min-h-14 shrink-0 items-center gap-2 pr-3 pl-3">
-        <div
-          role="tablist"
-          aria-label={t.title}
-          onKeyDown={onKeyDown}
-          className="flex min-w-0 grow items-center gap-1 overflow-x-auto"
-        >
-          {tabs.map((tab) => {
-            const selected = tab.id === active?.id;
-            return (
-              <button
+      {open && !expanded && <PanelResizer panel={width} edge="left" label={t.resize} />}
+      {visited && (
+        <div className="motion-dock-body flex min-h-0 grow flex-col">
+          <header className="flex min-h-14 shrink-0 items-center gap-2 pr-3 pl-3">
+            <div
+              role="tablist"
+              aria-label={t.title}
+              onKeyDown={onKeyDown}
+              className="flex min-w-0 grow items-center gap-1 overflow-x-auto"
+            >
+              {tabs.map((tab) => {
+                const selected = tab.id === active?.id;
+                return (
+                  <button
+                    key={tab.id}
+                    id={`dock-tab-${tab.id}`}
+                    type="button"
+                    title={tab.label}
+                    role="tab"
+                    aria-selected={selected}
+                    // Only the selected tab's panel is rendered, so only it has something to point at.
+                    aria-controls={selected ? `dock-panel-${tab.id}` : undefined}
+                    tabIndex={selected ? 0 : -1}
+                    onClick={() => choose(tab.id)}
+                    className={clsx(
+                      'shrink-0 cursor-pointer rounded-lg px-2.5 py-1 text-lead whitespace-nowrap',
+                      selected ? 'bg-hover text-fg' : 'text-fg-muted hover:bg-hover hover:text-fg',
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              aria-pressed={expanded}
+              aria-label={expanded ? t.shrink : t.expand}
+              title={expanded ? t.shrink : t.expand}
+              onClick={() => setExpanded(!expanded)}
+              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted hover:bg-hover hover:text-fg aria-pressed:bg-hover aria-pressed:text-fg"
+            >
+              {expanded ? (
+                <Minimize2 size={16} strokeWidth={1.5} aria-hidden="true" />
+              ) : (
+                <Maximize2 size={16} strokeWidth={1.5} aria-hidden="true" />
+              )}
+            </button>
+            <button
+              type="button"
+              aria-label={t.close}
+              onClick={() => setOpen(false)}
+              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted hover:bg-hover hover:text-fg"
+            >
+              <X size={16} strokeWidth={1.5} aria-hidden="true" />
+            </button>
+          </header>
+          {tabs
+            .filter((tab) => tab.id === active?.id || tab.keepMounted)
+            .map((tab) => (
+              <div
                 key={tab.id}
-                id={`dock-tab-${tab.id}`}
-                type="button"
-                title={tab.label}
-                role="tab"
-                aria-selected={selected}
-                // Only the selected tab's panel is rendered, so only it has something to point at.
-                aria-controls={selected ? `dock-panel-${tab.id}` : undefined}
-                tabIndex={selected ? 0 : -1}
-                onClick={() => choose(tab.id)}
+                hidden={tab.id !== active?.id}
+                id={`dock-panel-${tab.id}`}
+                role="tabpanel"
+                aria-labelledby={`dock-tab-${tab.id}`}
                 className={clsx(
-                  'shrink-0 cursor-pointer rounded-lg px-2.5 py-1 text-lead whitespace-nowrap',
-                  selected ? 'bg-hover text-fg' : 'text-fg-muted hover:bg-hover hover:text-fg',
+                  'motion-content min-h-0 grow flex-col',
+                  tab.id === active?.id ? 'flex' : 'hidden',
+                  !tab.bare && 'overflow-y-auto px-5 pb-5',
                 )}
               >
-                {tab.label}
-              </button>
-            );
-          })}
+                {tab.content}
+              </div>
+            ))}
         </div>
-        <button
-          type="button"
-          aria-pressed={expanded}
-          aria-label={expanded ? t.shrink : t.expand}
-          title={expanded ? t.shrink : t.expand}
-          onClick={() => setExpanded(!expanded)}
-          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted hover:bg-hover hover:text-fg aria-pressed:bg-hover aria-pressed:text-fg"
-        >
-          {expanded ? (
-            <Minimize2 size={16} strokeWidth={1.5} aria-hidden="true" />
-          ) : (
-            <Maximize2 size={16} strokeWidth={1.5} aria-hidden="true" />
-          )}
-        </button>
-        <button
-          type="button"
-          aria-label={t.close}
-          onClick={() => setOpen(false)}
-          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted hover:bg-hover hover:text-fg"
-        >
-          <X size={16} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-      </header>
-      {tabs
-        .filter((tab) => tab.id === active?.id || tab.keepMounted)
-        .map((tab) => (
-          <div
-            key={tab.id}
-            hidden={tab.id !== active?.id}
-            id={`dock-panel-${tab.id}`}
-            role="tabpanel"
-            aria-labelledby={`dock-tab-${tab.id}`}
-            className={clsx(
-              'min-h-0 grow flex-col',
-              tab.id === active?.id ? 'flex' : 'hidden',
-              !tab.bare && 'overflow-y-auto px-5 pb-5',
-            )}
-          >
-            {tab.content}
-          </div>
-        ))}
+      )}
     </aside>
   );
 }

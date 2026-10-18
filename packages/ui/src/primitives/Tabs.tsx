@@ -25,7 +25,7 @@ function Tab({ className, ...props }: WithClass<typeof BaseTabs.Tab>) {
 }
 
 function Panel({ className, ...props }: WithClass<typeof BaseTabs.Panel>) {
-  return <BaseTabs.Panel className={clsx('pt-6', className)} {...props} />;
+  return <BaseTabs.Panel className={clsx('motion-content pt-6', className)} {...props} />;
 }
 
 /** Underlined tabs, as on the settings page. */

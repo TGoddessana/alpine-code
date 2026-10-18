@@ -33,7 +33,7 @@ export function Toast({
   return (
     <div
       role="status"
-      className="fixed bottom-6 left-1/2 z-20 flex min-h-10 -translate-x-1/2 items-center gap-2 rounded-lg bg-fg py-1 pr-2 pl-3 text-body whitespace-nowrap text-on-fill"
+      className="motion-content fixed bottom-6 left-1/2 z-20 flex min-h-10 -translate-x-1/2 items-center gap-2 rounded-lg bg-fg py-1 pr-2 pl-3 text-body whitespace-nowrap text-on-fill"
     >
       <Character look={agent.look} color={agent.color} size={24} label="" />
       <span>{text}</span>

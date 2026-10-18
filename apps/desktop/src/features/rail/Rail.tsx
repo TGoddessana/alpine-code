@@ -1,12 +1,11 @@
 import type { CloneInfo, ProjectInfo, SessionInfo } from '@alpine/protocol';
-import { ContextMenu, Menu, PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
+import { Collapse, ContextMenu, Menu, PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
 import { Link, useMatch, useNavigate } from '@tanstack/react-router';
 import clsx from 'clsx';
 import {
   Archive,
   BookMarked,
   Bot,
-  ChevronDown,
   ChevronRight,
   Ellipsis,
   Map,
@@ -38,7 +37,7 @@ const iconButton =
 type Undo = { kind: 'session'; id: string; archived: boolean } | { kind: 'project'; path: string };
 
 /** Browse folders independently of the conversation on screen. Important sessions never fall behind “more”. */
-export function Rail() {
+export function Rail({ open = true }: { open?: boolean }) {
   const t = useMessages(messages);
   const added = useMessages(projectAddMessages);
   const projects = useProjects();
@@ -128,218 +127,231 @@ export function Rail() {
   };
 
   return (
-    <nav
-      aria-label={t.label}
-      style={{ width: width.width }}
-      className="relative flex min-w-60 shrink flex-col gap-3 bg-canvas-sunken px-3 pb-4"
+    <div
+      className="motion-rail"
+      data-open={open}
+      style={{ width: open ? width.width : 0 }}
+      aria-hidden={!open}
+      inert={!open}
     >
-      <PanelResizer panel={width} edge="right" label={t.resize} />
-      <div className="mt-1 flex shrink-0 flex-col gap-2">
-        <button
-          type="button"
-          onClick={() => prefs.setSearchOpen(true)}
-          className="flex min-h-9 w-full cursor-pointer items-center gap-2 rounded-lg border border-line bg-canvas px-2 text-left text-body text-fg-muted outline-none hover:border-interactive focus-visible:ring-2 focus-visible:ring-interactive"
-        >
-          <Search size={16} aria-hidden="true" />
-          <span className="min-w-0 grow truncate">{t.search}</span>
-          <kbd className="text-meta text-fg-faint">⌘K</kbd>
-        </button>
-        <Link
-          to="/"
-          search={current ? { project: current } : {}}
-          className="flex min-h-9 items-center gap-2 rounded-lg bg-interactive px-3 text-body font-medium text-on-fill outline-none hover:bg-interactive-hover focus-visible:ring-2 focus-visible:ring-interactive"
-        >
-          <SquarePen size={16} aria-hidden="true" />
-          <span className="grow">{t.newSession}</span>
-          <kbd className="text-meta">⌘N</kbd>
-        </Link>
-        <div role="group" className="flex flex-wrap gap-1" aria-label={t.filter}>
-          {(['all', 'attention', 'running', 'unread'] as const).map((key) => (
-            <button
-              key={key}
-              type="button"
-              aria-label={key === 'all' ? t.all : `${t[key]} ${counts[key]}`}
-              aria-pressed={view === key}
-              onClick={() => setView(view === key ? 'all' : key)}
-              className={clsx(
-                'flex min-h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-meta outline-none focus-visible:ring-2 focus-visible:ring-interactive',
-                view === key ? 'bg-selected font-medium text-interactive' : 'text-fg-muted hover:bg-hover',
-              )}
-            >
-              {t[key]}
-              {key !== 'all' && <span className="font-semibold tabular-nums">{counts[key]}</span>}
-            </button>
-          ))}
-        </div>
-      </div>
-      <section
-        aria-label={view === 'archived' ? t.archived : t.projects}
-        className="flex min-h-0 grow flex-col gap-1 overflow-y-auto"
+      <nav
+        aria-label={t.label}
+        style={{ width: width.width }}
+        className="relative flex h-full min-w-60 shrink-0 flex-col gap-3 bg-canvas-sunken px-3 pb-4"
       >
-        <div className="flex min-h-7 shrink-0 items-center gap-2 px-2 text-meta text-fg-muted">
-          {view === 'archived' && <Archive size={14} aria-hidden="true" />}
-          <span className="grow">{view === 'all' ? t.projects : t[view]}</span>
-          <Menu.Root>
-            <Menu.Trigger aria-label={t.sort} className={iconButton}>
-              <Ellipsis size={16} aria-hidden="true" />
-            </Menu.Trigger>
-            <Menu.Popup align="end">
-              <Menu.RadioGroup value={prefs.sort} onValueChange={(value) => prefs.setSort(value as 'recent' | 'name')}>
-                <Menu.RadioItem value="recent">{t.sortRecent}</Menu.RadioItem>
-                <Menu.RadioItem value="name">{t.sortName}</Menu.RadioItem>
-              </Menu.RadioGroup>
-            </Menu.Popup>
-          </Menu.Root>
+        <PanelResizer panel={width} edge="right" label={t.resize} />
+        <div className="mt-1 flex shrink-0 flex-col gap-2">
           <button
             type="button"
-            onClick={() => setAdding(true)}
-            aria-label={added.addProject}
-            title={added.addProject}
-            className={iconButton}
+            onClick={() => prefs.setSearchOpen(true)}
+            className="flex min-h-9 w-full cursor-pointer items-center gap-2 rounded-lg border border-line bg-canvas px-2 text-left text-body text-fg-muted outline-none hover:border-interactive focus-visible:ring-2 focus-visible:ring-interactive"
           >
-            <Plus size={16} aria-hidden="true" />
+            <Search size={16} aria-hidden="true" />
+            <span className="min-w-0 grow truncate">{t.search}</span>
+            <kbd className="text-meta text-fg-faint">⌘K</kbd>
           </button>
+          <Link
+            to="/"
+            search={current ? { project: current } : {}}
+            className="flex min-h-9 items-center gap-2 rounded-lg bg-interactive px-3 text-body font-medium text-on-fill outline-none hover:bg-interactive-hover focus-visible:ring-2 focus-visible:ring-interactive"
+          >
+            <SquarePen size={16} aria-hidden="true" />
+            <span className="grow">{t.newSession}</span>
+            <kbd className="text-meta">⌘N</kbd>
+          </Link>
+          <div role="group" className="flex flex-wrap gap-1" aria-label={t.filter}>
+            {(['all', 'attention', 'running', 'unread'] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                aria-label={key === 'all' ? t.all : `${t[key]} ${counts[key]}`}
+                aria-pressed={view === key}
+                onClick={() => setView(view === key ? 'all' : key)}
+                className={clsx(
+                  'flex min-h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-meta outline-none focus-visible:ring-2 focus-visible:ring-interactive',
+                  view === key ? 'bg-selected font-medium text-interactive' : 'text-fg-muted hover:bg-hover',
+                )}
+              >
+                {t[key]}
+                {key !== 'all' && <span className="font-semibold tabular-nums">{counts[key]}</span>}
+              </button>
+            ))}
+          </div>
         </div>
-        {(projects.isPending || sessionsQuery.isPending) && (
-          <p role="status" className="px-2 text-meta text-fg-muted">
-            {t.loading}
-          </p>
-        )}
-        {(projects.isError || sessionsQuery.isError) && (
-          <div role="alert" className="px-2 text-meta text-danger">
-            {t.loadFailed}
+        <section
+          aria-label={view === 'archived' ? t.archived : t.projects}
+          className="flex min-h-0 grow flex-col gap-1 overflow-y-auto"
+        >
+          <div className="flex min-h-7 shrink-0 items-center gap-2 px-2 text-meta text-fg-muted">
+            {view === 'archived' && <Archive size={14} aria-hidden="true" />}
+            <span className="grow">{view === 'all' ? t.projects : t[view]}</span>
+            <Menu.Root>
+              <Menu.Trigger aria-label={t.sort} className={iconButton}>
+                <Ellipsis size={16} aria-hidden="true" />
+              </Menu.Trigger>
+              <Menu.Popup align="end">
+                <Menu.RadioGroup
+                  value={prefs.sort}
+                  onValueChange={(value) => prefs.setSort(value as 'recent' | 'name')}
+                >
+                  <Menu.RadioItem value="recent">{t.sortRecent}</Menu.RadioItem>
+                  <Menu.RadioItem value="name">{t.sortName}</Menu.RadioItem>
+                </Menu.RadioGroup>
+              </Menu.Popup>
+            </Menu.Root>
             <button
               type="button"
-              className={item}
-              onClick={() => {
-                void projects.refetch();
-                void sessionsQuery.refetch();
-              }}
+              onClick={() => setAdding(true)}
+              aria-label={added.addProject}
+              title={added.addProject}
+              className={iconButton}
             >
-              {t.retry}
+              <Plus size={16} aria-hidden="true" />
             </button>
           </div>
-        )}
-        {view === 'all' &&
-          [...(projects.data?.clones ?? [])]
-            .reverse()
-            .map((clone) => <CloneRow key={clone.id} clone={clone} current={clone.path === current} />)}
-        {listed.map((project) => {
-          const projectSessions = sessions
-            .filter((s) => s.cwd === project.path && matches(s, project))
-            .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt.localeCompare(a.updatedAt));
-          return (
-            <ProjectGroup
-              key={project.path}
-              project={project}
-              sessions={projectSessions}
-              current={current === project.path}
-              currentId={currentId}
-              expanded={prefs.expanded[project.path] ?? current === project.path}
-              filtered={view !== 'all'}
-              all={fullLists[project.path] ?? false}
-              onToggleAll={() => setFullLists((lists) => ({ ...lists, [project.path]: !lists[project.path] }))}
-              pinned={prefs.pinnedProjects.includes(project.path)}
-              onToggle={() =>
-                prefs.toggleProject(project.path, prefs.expanded[project.path] ?? current === project.path)
-              }
-              onGo={() => go(project.path)}
-              onPin={() => prefs.pinProject(project.path)}
-              onArchive={() => archive(project)}
-              onRestore={() => restore(project)}
-              onDelete={() => setDeleting(project)}
-              onDeleteSession={setDeletingSession}
-              onArchiveSession={archiveSession}
-              pending={pending}
-              busy={sessions.some((s) => s.cwd === project.path && (s.status === 'running' || s.status === 'waiting'))}
-            />
-          );
-        })}
-        {projects.isSuccess && sessionsQuery.isSuccess && listed.length === 0 && (
-          <div className="flex flex-col items-start gap-2 px-2 py-3">
-            <p className="text-body text-fg-muted">{t.emptyView}</p>
-            {view !== 'all' && (
+          {(projects.isPending || sessionsQuery.isPending) && (
+            <p role="status" className="px-2 text-meta text-fg-muted">
+              {t.loading}
+            </p>
+          )}
+          {(projects.isError || sessionsQuery.isError) && (
+            <div role="alert" className="px-2 text-meta text-danger">
+              {t.loadFailed}
               <button
                 type="button"
-                onClick={() => setView('all')}
-                className="min-h-8 cursor-pointer rounded-md border border-line bg-canvas px-3 text-body font-medium text-interactive outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-interactive"
+                className={item}
+                onClick={() => {
+                  void projects.refetch();
+                  void sessionsQuery.refetch();
+                }}
               >
-                {t.showAllConversations}
+                {t.retry}
+              </button>
+            </div>
+          )}
+          {view === 'all' &&
+            [...(projects.data?.clones ?? [])]
+              .reverse()
+              .map((clone) => <CloneRow key={clone.id} clone={clone} current={clone.path === current} />)}
+          {listed.map((project) => {
+            const projectSessions = sessions
+              .filter((s) => s.cwd === project.path && matches(s, project))
+              .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt.localeCompare(a.updatedAt));
+            return (
+              <ProjectGroup
+                key={project.path}
+                project={project}
+                sessions={projectSessions}
+                current={current === project.path}
+                currentId={currentId}
+                expanded={prefs.expanded[project.path] ?? current === project.path}
+                filtered={view !== 'all'}
+                all={fullLists[project.path] ?? false}
+                onToggleAll={() => setFullLists((lists) => ({ ...lists, [project.path]: !lists[project.path] }))}
+                pinned={prefs.pinnedProjects.includes(project.path)}
+                onToggle={() =>
+                  prefs.toggleProject(project.path, prefs.expanded[project.path] ?? current === project.path)
+                }
+                onGo={() => go(project.path)}
+                onPin={() => prefs.pinProject(project.path)}
+                onArchive={() => archive(project)}
+                onRestore={() => restore(project)}
+                onDelete={() => setDeleting(project)}
+                onDeleteSession={setDeletingSession}
+                onArchiveSession={archiveSession}
+                pending={pending}
+                busy={sessions.some(
+                  (s) => s.cwd === project.path && (s.status === 'running' || s.status === 'waiting'),
+                )}
+              />
+            );
+          })}
+          {projects.isSuccess && sessionsQuery.isSuccess && listed.length === 0 && (
+            <div className="flex flex-col items-start gap-2 px-2 py-3">
+              <p className="text-body text-fg-muted">{t.emptyView}</p>
+              {view !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setView('all')}
+                  className="min-h-8 cursor-pointer rounded-md border border-line bg-canvas px-3 text-body font-medium text-interactive outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-interactive"
+                >
+                  {t.showAllConversations}
+                </button>
+              )}
+            </div>
+          )}
+          {projects.isSuccess && known.length === 0 && (
+            <button type="button" className={item} onClick={() => setAdding(true)}>
+              <Plus size={16} aria-hidden="true" />
+              {added.addProjectItem}
+            </button>
+          )}
+        </section>
+        {(notice || error) && (
+          <div className="flex shrink-0 flex-col gap-1 rounded-lg border border-line bg-canvas p-2 text-meta">
+            {notice && (
+              <div className="flex items-center gap-2">
+                <p role="status" className="grow">
+                  {notice}
+                </p>
+                <button
+                  type="button"
+                  aria-label={t.dismissNotice}
+                  className={iconButton}
+                  onClick={() => {
+                    setNotice('');
+                    setUndo(null);
+                  }}
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </div>
+            )}
+            {error && (
+              <p role="alert" className="text-danger">
+                {error.message}
+              </p>
+            )}
+            {undo && (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={undoLast}
+                className="min-h-7 cursor-pointer text-left font-medium text-interactive disabled:opacity-50"
+              >
+                {t.undo}
               </button>
             )}
           </div>
         )}
-        {projects.isSuccess && known.length === 0 && (
-          <button type="button" className={item} onClick={() => setAdding(true)}>
-            <Plus size={16} aria-hidden="true" />
-            {added.addProjectItem}
+        <div className="flex shrink-0 flex-col gap-0.5 border-t border-line pt-2">
+          <button
+            type="button"
+            onClick={() => setView(view === 'archived' ? 'all' : 'archived')}
+            aria-pressed={view === 'archived'}
+            className={clsx(item, view === 'archived' && 'bg-selected')}
+          >
+            <Archive size={16} aria-hidden="true" />
+            {t.archived}
           </button>
-        )}
-      </section>
-      {(notice || error) && (
-        <div className="flex shrink-0 flex-col gap-1 rounded-lg border border-line bg-canvas p-2 text-meta">
-          {notice && (
-            <div className="flex items-center gap-2">
-              <p role="status" className="grow">
-                {notice}
-              </p>
-              <button
-                type="button"
-                aria-label={t.dismissNotice}
-                className={iconButton}
-                onClick={() => {
-                  setNotice('');
-                  setUndo(null);
-                }}
-              >
-                <X size={14} aria-hidden="true" />
-              </button>
-            </div>
-          )}
-          {error && (
-            <p role="alert" className="text-danger">
-              {error.message}
-            </p>
-          )}
-          {undo && (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={undoLast}
-              className="min-h-7 cursor-pointer text-left font-medium text-interactive disabled:opacity-50"
-            >
-              {t.undo}
-            </button>
-          )}
+          <Link to="/agents" className={item} activeProps={{ className: 'bg-selected font-medium' }}>
+            <Bot size={16} aria-hidden="true" />
+            {t.agents}
+          </Link>
+          <Link to="/settings" className={item} activeProps={{ className: 'bg-selected font-medium' }}>
+            <Settings size={16} aria-hidden="true" />
+            {t.settings}
+          </Link>
         </div>
-      )}
-      <div className="flex shrink-0 flex-col gap-0.5 border-t border-line pt-2">
-        <button
-          type="button"
-          onClick={() => setView(view === 'archived' ? 'all' : 'archived')}
-          aria-pressed={view === 'archived'}
-          className={clsx(item, view === 'archived' && 'bg-selected')}
-        >
-          <Archive size={16} aria-hidden="true" />
-          {t.archived}
-        </button>
-        <Link to="/agents" className={item} activeProps={{ className: 'bg-selected font-medium' }}>
-          <Bot size={16} aria-hidden="true" />
-          {t.agents}
-        </Link>
-        <Link to="/settings" className={item} activeProps={{ className: 'bg-selected font-medium' }}>
-          <Settings size={16} aria-hidden="true" />
-          {t.settings}
-        </Link>
-      </div>
-      <ProjectAddDialog
-        open={adding}
-        onOpenChange={setAdding}
-        onDone={(path) => void navigate({ to: '/', search: { project: path } })}
-      />
-      <DeleteProjectDialog project={deleting} onClose={() => setDeleting(null)} />
-      <DeleteSessionDialog session={deletingSession} onClose={() => setDeletingSession(null)} />
-    </nav>
+        <ProjectAddDialog
+          open={adding}
+          onOpenChange={setAdding}
+          onDone={(path) => void navigate({ to: '/', search: { project: path } })}
+        />
+        <DeleteProjectDialog project={deleting} onClose={() => setDeleting(null)} />
+        <DeleteSessionDialog session={deletingSession} onClose={() => setDeletingSession(null)} />
+      </nav>
+    </div>
   );
 }
 
@@ -432,7 +444,7 @@ function ProjectGroup({
             className={iconButton}
             disabled={filtered}
           >
-            {open ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
+            <ChevronRight size={16} aria-hidden="true" className={clsx('transition-transform', open && 'rotate-90')} />
           </button>
           <button
             type="button"
@@ -489,7 +501,7 @@ function ProjectGroup({
           {t.restore}
         </button>
       )}
-      {open && (
+      <Collapse open={open}>
         <div className="ml-3.5 flex flex-col gap-0.5 border-l border-line pl-2">
           {current && !filtered && (
             <nav aria-label={t.projectPages(project.name)} className="mb-1 flex gap-1">
@@ -526,7 +538,7 @@ function ProjectGroup({
             </button>
           )}
         </div>
-      )}
+      </Collapse>
     </div>
   );
 }

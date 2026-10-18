@@ -1,3 +1,4 @@
+import { Collapse } from '@alpine/ui/primitives';
 import type { FileEntry } from '@alpine/protocol';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
@@ -34,7 +35,7 @@ export function FileTree({ cwd, active, onOpen }: { cwd: string; active: boolean
     const element = (event.target as HTMLElement).closest<HTMLElement>('[role="treeitem"]');
     if (!element || !tree.current) return;
     const rows = [...tree.current.querySelectorAll<HTMLElement>('[role="treeitem"]')].filter(
-      (row) => row.getAttribute('aria-disabled') !== 'true',
+      (row) => row.getAttribute('aria-disabled') !== 'true' && !row.closest('[inert]'),
     );
     const index = rows.indexOf(element);
     const path = element.dataset.path!;
@@ -120,7 +121,7 @@ export function FileTree({ cwd, active, onOpen }: { cwd: string; active: boolean
             <ChevronRight
               size={13}
               aria-hidden="true"
-              className={clsx('shrink-0 text-fg-faint', open && 'rotate-90')}
+              className={clsx('shrink-0 text-fg-faint transition-transform', open && 'rotate-90')}
             />
           ) : (
             <span className="w-3.5 shrink-0" />
@@ -132,13 +133,15 @@ export function FileTree({ cwd, active, onOpen }: { cwd: string; active: boolean
           />
           <span className="truncate">{entry.name}</span>
         </div>
-        {open && (
-          <DirectoryContents
-            cwd={cwd}
-            path={entry.path}
-            active={active}
-            renderEntry={(child) => row(child, entry.path, level + 1)}
-          />
+        {directory && (
+          <Collapse open={open}>
+            <DirectoryContents
+              cwd={cwd}
+              path={entry.path}
+              active={active && open}
+              renderEntry={(child) => row(child, entry.path, level + 1)}
+            />
+          </Collapse>
         )}
       </li>
     );

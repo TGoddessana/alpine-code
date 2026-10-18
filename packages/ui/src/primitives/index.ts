@@ -16,3 +16,6 @@ export {
 } from './PanelResizer';
 export { Popover } from './Popover';
 export { Tabs } from './Tabs';
+
+export { Collapse } from './Collapse';
+export { SlidingPanel } from './SlidingPanel';

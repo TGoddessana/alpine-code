@@ -1,7 +1,7 @@
 import type { FlowGetResult, FlowNode, ProductFlow, SessionInfo } from '@alpine/protocol';
-import { Button } from '@alpine/ui/primitives';
+import { Button, Collapse } from '@alpine/ui/primitives';
 import clsx from 'clsx';
-import { ChevronDown, ChevronRight, ImageOff, Maximize2, Minus, Play, Plus, Workflow } from 'lucide-react';
+import { ChevronRight, ImageOff, Maximize2, Minus, Play, Plus, Workflow } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { useMessages } from '@/shared/i18n';
@@ -211,7 +211,7 @@ export function FlowCanvas({
                   key={flow.id}
                   aria-label={flow.title}
                   data-flow={flow.id}
-                  className="absolute rounded-xl border border-line bg-canvas/85"
+                  className="motion-map-frame absolute overflow-hidden rounded-xl border border-line bg-canvas/85"
                   style={{ left: 24, top, width: frame, height: frameHeight }}
                 >
                   <header className="flex flex-col justify-center px-4" style={{ height: header }}>
@@ -221,7 +221,7 @@ export function FlowCanvas({
                         onClick={() => toggle(flow.id)}
                         aria-expanded={!closed}
                       >
-                        {closed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                        <ChevronRight size={16} className={clsx('transition-transform', !closed && 'rotate-90')} />
                         {flow.title}
                       </button>
                       <span className="text-meta text-fg-muted">{t.featureTotal(nodes.length)}</span>
@@ -244,7 +244,7 @@ export function FlowCanvas({
                       </p>
                     )}
                   </header>
-                  {!closed && (
+                  <Collapse open={!closed}>
                     <div className="relative" style={{ height: graph.height }}>
                       <svg className="absolute inset-0" width={graph.width} height={graph.height} aria-hidden>
                         <defs>
@@ -489,7 +489,7 @@ export function FlowCanvas({
                         );
                       })}
                     </div>
-                  )}
+                  </Collapse>
                 </section>
               );
             })}

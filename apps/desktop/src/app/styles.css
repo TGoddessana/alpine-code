@@ -3,3 +3,77 @@
 
 /* Tailwind only scans this app by default; the primitives' classes live in packages/ui. */
 @source '../../../../packages/ui/src';
+
+@utility motion-rail {
+  flex-shrink: 0;
+  overflow: clip;
+  transition:
+    width var(--motion-panel) var(--motion-ease),
+    opacity var(--motion-normal) var(--motion-ease),
+    visibility var(--motion-panel);
+}
+.motion-rail[data-open='false'] {
+  opacity: 0;
+  visibility: hidden;
+}
+.motion-rail:has([data-resizing]) {
+  transition: none;
+}
+
+@utility motion-page {
+  animation: motion-enter var(--motion-normal) var(--motion-ease);
+}
+@utility motion-dock-page {
+  flex-grow: 1;
+  flex-basis: 0;
+  overflow: clip;
+  transition:
+    flex-grow var(--motion-panel) var(--motion-ease),
+    opacity var(--motion-normal) var(--motion-ease);
+}
+@utility motion-page-hidden {
+  flex-grow: 0;
+  flex-basis: 0;
+  opacity: 0;
+}
+@utility motion-dock {
+  width: 0;
+  min-width: 0;
+  flex-grow: 0;
+  flex-shrink: 1000;
+  max-width: 60%;
+  overflow: clip;
+  transition:
+    width var(--motion-panel) var(--motion-ease),
+    max-width var(--motion-panel) var(--motion-ease),
+    flex-grow var(--motion-panel) var(--motion-ease),
+    opacity var(--motion-normal) var(--motion-ease),
+    visibility var(--motion-panel);
+}
+.motion-dock[data-open='true']:not([data-expanded='true']) {
+  border-left: 1px solid var(--color-line);
+}
+.motion-dock[data-expanded='true'] {
+  max-width: 100%;
+  flex-grow: 1;
+}
+.motion-dock[data-open='false'] {
+  opacity: 0;
+  visibility: hidden;
+}
+@utility motion-dock-body {
+  min-width: 0;
+}
+.motion-dock[data-resizing] {
+  transition: none;
+}
+.motion-dock[data-expanded='true'] .motion-dock-body {
+  min-width: 0;
+}
+
+@utility motion-map-frame {
+  transition:
+    top var(--motion-panel) var(--motion-ease),
+    height var(--motion-panel) var(--motion-ease),
+    width var(--motion-panel) var(--motion-ease);
+}

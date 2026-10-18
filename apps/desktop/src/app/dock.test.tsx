@@ -267,7 +267,7 @@ describe('right dock on the routes', () => {
     mount(board());
     fireEvent.click(await screen.findByRole('button', { name: /장바구니/ }));
     const panel = await screen.findByRole('complementary', { name: /장바구니/ });
-    expect(panel.parentElement!.hasAttribute('data-overlay')).toBe(overlaid);
+    expect(panel.closest('[data-overlay]') !== null).toBe(overlaid);
     expect(screen.getByRole('complementary', { name: '오른쪽 창' })).toBeTruthy();
   });
 });

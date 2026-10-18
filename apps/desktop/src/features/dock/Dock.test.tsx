@@ -46,6 +46,21 @@ describe('dock', () => {
     expect(screen.queryByRole('complementary')).toBeNull();
   });
 
+  it('preserves unfinished input when closed and immediately reopened', () => {
+    render(
+      <Page list={[{ id: 'draft', label: '초안', content: <textarea aria-label="초안 내용" defaultValue="" /> }]} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /오른쪽 창 열기/ }));
+    const input = screen.getByRole('textbox', { name: '초안 내용' }) as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: '아직 작성 중인 내용' } });
+    fireEvent.click(screen.getByRole('button', { name: '오른쪽 창 닫기', pressed: true }));
+    expect(screen.queryByRole('textbox', { name: '초안 내용' })).toBeNull();
+    expect(input.closest('[inert]')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /오른쪽 창 열기/ }));
+    expect(screen.getByRole('textbox', { name: '초안 내용' })).toBe(input);
+    expect(input.value).toBe('아직 작성 중인 내용');
+  });
+
   it('closes from its own close button', () => {
     render(<Page />);
     fireEvent.click(screen.getByRole('button', { name: /오른쪽 창 열기/ }));

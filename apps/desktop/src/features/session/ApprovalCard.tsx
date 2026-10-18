@@ -12,7 +12,8 @@ import { CallTitle } from './ToolCalls';
  * A call that waits for my answer, in the chat where the call will be: the call as the chat draws calls, the command
  * or diff it would run, and why it asks. Allow, always allow, or skip it: a skipped call is not run and the agent
  * carries on without it. To have it do something else instead, I write that in the input (see `Session`). The first
- * answer wins, so a click after another window answered does nothing.
+ * answer wins, so a click after another window answered does nothing. When a TF's agents ask, the card says how many
+ * wait for this one answer and what they work on.
  */
 export function ApprovalCard({ sessionId, approval }: { sessionId: string; approval: ApprovalItem }) {
   const t = useMessages(messages);
@@ -41,9 +42,13 @@ export function ApprovalCard({ sessionId, approval }: { sessionId: string; appro
         </div>
         <span className="inline-flex shrink-0 items-center gap-1 text-meta text-attention">
           <span aria-hidden="true">●</span>
-          {t.approvalWaiting}
+          {approval.askedBy.length ? t.askedByAgents(approval.askedBy.length) : t.approvalWaiting}
         </span>
       </div>
+      {approval.askedBy.length > 0 && (
+        // A TF's agents asked this; one answer goes to every one of them (TF decision 3).
+        <p className="text-meta text-fg-muted">{approval.askedBy.join(' · ')}</p>
+      )}
       {preview && (
         <div className="max-h-60 overflow-auto rounded-lg bg-canvas-sunken px-3 py-2">
           <Lines

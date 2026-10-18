@@ -2312,6 +2312,7 @@ export interface TaskForceItem {
   log: string | null;
   needed: number | null;
   error: string | null;
+  startedAt: string | null;
 }
 /**
  * One step of the plan the card shows.

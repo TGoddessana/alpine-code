@@ -7009,6 +7009,18 @@
             }
           ],
           "default": null
+        },
+        "startedAt": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -7022,7 +7034,8 @@
         "step",
         "log",
         "needed",
-        "error"
+        "error",
+        "startedAt"
       ],
       "title": "TaskForceItem",
       "type": "object"

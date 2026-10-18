@@ -53,6 +53,7 @@ export const messages = defineMessages({
 
     // Approval
     approvalLabel: '승인 요청',
+    askedByAgents: (count: number) => `에이전트 ${count}명이 묻고 있어요`,
     approvalWaiting: '내 차례',
     allow: '허용',
     allowAlways: '항상 허용',
@@ -173,6 +174,7 @@ export const messages = defineMessages({
     changed: (added: string, removed: string) => `${added} added · ${removed} removed`,
 
     approvalLabel: 'Approval request',
+    askedByAgents: (count: number) => (count === 1 ? 'An agent is asking' : `${count} agents are asking`),
     approvalWaiting: 'Your turn',
     allow: 'Allow',
     allowAlways: 'Always allow',

@@ -217,6 +217,8 @@ class TaskForceItem:
     needed: int | None = None
     """While ``over``: how many agents the script wants in all."""
     error: str | None = None
+    started_at: str | None = None
+    """When the user pressed 시작 (or 이어 하기); ``None`` before."""
     kind: ClassVar[str] = "taskforce"
 
 

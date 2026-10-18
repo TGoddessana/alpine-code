@@ -81,6 +81,7 @@ class _Run:
     script: str
     status: TaskForceStatus = "proposed"
     created_at: str = ""
+    started_at: str | None = None
     cache: dict[str, Any] = field(default_factory=dict)
     members: list[dict[str, Any]] = field(default_factory=list)
     """The last view of the members, kept for the screens after the job is gone."""
@@ -111,6 +112,7 @@ class _Run:
             "script": self.script,
             "status": self.status,
             "created_at": self.created_at,
+            "started_at": self.started_at,
             "cache": self.cache,
             "members": self.members,
             "step": self.step,
@@ -129,6 +131,7 @@ class _Run:
             script=str(data.get("script", "")),
             status=data.get("status", "interrupted"),
             created_at=str(data.get("created_at", "")),
+            started_at=data.get("started_at"),
             cache=dict(data.get("cache", {})),
             members=list(data.get("members", [])),
             step=str(data.get("step", "")),
@@ -429,7 +432,7 @@ class TaskForce:
     # ------------------------------------------------------------ running
 
     def _launch(self, run: _Run) -> None:
-        run.status, run.error, run.needed = "running", None, None
+        run.status, run.error, run.needed, run.started_at = "running", None, None, _now()
         run.job = ScriptRun(
             run.script,
             lambda member: self._spawn(run, member),
@@ -614,6 +617,7 @@ class TaskForce:
             run.log,
             run.needed if run.status == "over" else None,
             run.error,
+            run.started_at,
         )
 
     def _show(self, run: _Run) -> None:

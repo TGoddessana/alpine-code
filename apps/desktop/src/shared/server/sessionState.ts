@@ -44,7 +44,10 @@ export function toSnapshot(state: SessionState): SessionOpenResult {
 /** The approval the dock should show, if one is active. */
 export function activeApproval(state: SessionState): ApprovalItem | null {
   const active = new Set(state.activeIds);
-  const found = state.items.find((item) => item.kind === 'approval' && active.has(item.id));
+  // A TF's agents asking do not hold the input: I keep talking to the session while its TF runs.
+  const found = state.items.find(
+    (item) => item.kind === 'approval' && active.has(item.id) && item.askedBy.length === 0,
+  );
   return found?.kind === 'approval' ? found : null;
 }
 

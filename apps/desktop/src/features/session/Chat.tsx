@@ -5,6 +5,7 @@ import { memo, useMemo } from 'react';
 import { agentMessages, agentName, Character, toolLabel } from '@/shared/components/agent';
 import { Markdown } from '@/shared/components/markdown';
 import { skillTitle } from '@/shared/components/skills';
+import { TaskForceCard } from '@/shared/components/taskforce';
 import { useFormat, useLocale, useMessages } from '@/shared/i18n';
 import { productMapMessage } from '@/shared/productMapMessage';
 import { openInBrowser } from '@/shared/platform';
@@ -31,12 +32,15 @@ export function Chat({
   cwd,
   items,
   activeIds,
+  onShowTaskForce,
 }: {
   sessionId: string;
   /** The project the session works in, whose memory the suggestions go to. */
   cwd: string;
   items: Item[];
   activeIds: readonly string[];
+  /** Opens the dock on the TF's agents (its 에이전트 보기). */
+  onShowTaskForce?: () => void;
 }) {
   const answered = useMemo(() => answers(items), [items]);
   return (
@@ -52,6 +56,8 @@ export function Chat({
           <MemoryCard key={`memory-${block.call.id}`} sessionId={sessionId} cwd={cwd} call={block.call} />
         ) : block.item.kind === 'memory_review' ? (
           <MemoryReviewLine key={block.item.id} cwd={cwd} item={block.item} />
+        ) : block.item.kind === 'taskforce' ? (
+          <TaskForceCard key={block.item.id} sessionId={sessionId} item={block.item} onShowAgents={onShowTaskForce} />
         ) : (
           <ItemView
             key={block.item.id}

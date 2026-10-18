@@ -42,6 +42,7 @@ export function toBlocks(items: Item[], activeIds: readonly string[]): Block[] {
       blocks.push({ type: 'blocked', item });
     } else if (item.kind === 'tool_call') {
       if (blocked.has(item.id) && item.status === 'denied') continue;
+      if (item.name === 'task_force') continue; // the TF's card is what it did
       const row = { call: item, approval: approvals.get(item.id) ?? null };
       const last = blocks.at(-1);
       if (last?.type === 'tools') last.rows.push(row);

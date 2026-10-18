@@ -1,27 +1,27 @@
 import clsx from 'clsx';
-import { Check, FileText } from 'lucide-react';
+import { Check, FileText, X } from 'lucide-react';
 
 import { Character } from '@/shared/components/agent';
 import { useMessages } from '@/shared/i18n';
 
 import { messages } from './messages';
-import type { RunAgent, RunSnapshot } from './run';
+import type { Room, RoomAgent } from './room';
 
 const HEADER = 30;
 
 /**
- * The run as a room: one area per step of the script, a hare per agent. Working hares hop, a hare waiting for an
- * approval raises a question, a hare that finished walks its result over to whoever takes it next. Nothing here
- * needs explaining: agents working together on something, step by step.
+ * A TF as a room: one area per step, a hare per agent. Working hares hop, a hare waiting for an approval raises a
+ * question, a hare that finished walks its result over to whoever takes it next. Nothing here needs explaining:
+ * agents working together on something, step by step (decision 6).
  */
 export function Workshop({
-  run,
+  room,
   size = 40,
   labels = true,
   selected,
   onSelect,
 }: {
-  run: RunSnapshot;
+  room: Room;
   size?: number;
   labels?: boolean;
   selected?: string | null;
@@ -29,20 +29,25 @@ export function Workshop({
 }) {
   const t = useMessages(messages);
   const rowHeight = size + (labels ? 34 : 14);
-  const rows = Math.max(...run.phases.map((_, phase) => rowsOf(run.agents.filter((a) => a.phase === phase).length)));
+  const layout = room.steps.map((_, phase) => {
+    const count = room.agents.filter((a) => a.phase === phase).length;
+    const columns = count <= 1 ? 1 : count <= 8 ? 2 : labels ? 3 : 4;
+    return { count, columns, rows: Math.ceil(count / columns) };
+  });
+  const rows = Math.max(1, ...layout.map((l) => l.rows));
   const height = HEADER + rows * rowHeight + 8;
-  const width = 100 / run.phases.length;
-  const spots = new Map(run.agents.map((agent) => [agent.id, spot(run, agent, rowHeight)]));
+  const width = 100 / Math.max(1, room.steps.length);
+  const spots = new Map(room.agents.map((agent) => [agent.id, spot(room, agent, layout, rows, rowHeight)]));
 
   return (
     <div className="relative w-full select-none" style={{ height }}>
-      {run.phases.map((phase, i) => {
-        const agents = run.agents.filter((a) => a.phase === i);
+      {room.steps.map((step, i) => {
+        const agents = room.agents.filter((a) => a.phase === i);
         const done = agents.filter((a) => a.state === 'done').length;
         const active = agents.some((a) => a.state === 'working' || a.state === 'asking');
         return (
           <div
-            key={phase.title}
+            key={`${i}-${step.title}`}
             className={clsx(
               'absolute top-0 bottom-0 rounded-lg border transition-colors',
               active ? 'border-line bg-canvas-sunken' : 'border-line-subtle bg-canvas-sunken/50',
@@ -50,16 +55,17 @@ export function Workshop({
             style={{ left: `calc(${i * width}% + 2px)`, width: `calc(${width}% - 4px)` }}
           >
             <div className="flex items-center gap-1 px-2 pt-1.5 text-meta">
-              <span className={active ? 'text-fg' : 'text-fg-muted'}>{phase.title}</span>
-              {labels && <span className="text-fg-faint">· {phase.model}</span>}
+              <span className={clsx('truncate', active ? 'text-fg' : 'text-fg-muted')}>{step.title}</span>
+              {labels && step.model && <span className="shrink-0 text-fg-faint">· {step.model}</span>}
               <span className="grow" />
-              <span className="text-fg-faint tabular-nums">{t.progress(done, agents.length)}</span>
+              <span className="shrink-0 text-fg-faint tabular-nums">{t.progress(done, agents.length)}</span>
             </div>
           </div>
         );
       })}
-      {run.agents.map((agent) => {
-        const { x, y } = agent.handing ? handOver(run, agent, spots) : spots.get(agent.id)!;
+      {room.agents.map((agent) => {
+        const { x, y } = agent.handing ? handOver(room, agent, spots, width) : spots.get(agent.id)!;
+        const columns = layout[agent.phase]?.columns ?? 1;
         return (
           <Hare
             key={agent.id}
@@ -68,7 +74,7 @@ export function Workshop({
             label={labels}
             x={x}
             y={y}
-            span={width / 2}
+            span={width / columns}
             selected={selected === agent.id}
             onSelect={onSelect}
           />
@@ -88,7 +94,7 @@ function Hare({
   selected,
   onSelect,
 }: {
-  agent: RunAgent;
+  agent: RoomAgent;
   size: number;
   label: boolean;
   x: number;
@@ -98,25 +104,18 @@ function Hare({
   selected: boolean;
   onSelect?: (id: string) => void;
 }) {
-  const t = useMessages(messages);
-  const status =
-    agent.state === 'working'
-      ? agent.activity
-      : agent.state === 'asking'
-        ? t.asking
-        : agent.state === 'queued'
-          ? t.queued
-          : agent.state === 'done'
-            ? t.done
-            : t.stopped;
+  const status = useStatus(agent);
+  const placeholder = agent.task === '';
   return (
     <button
       type="button"
-      title={`${agent.task} · ${status}`}
+      title={placeholder ? undefined : `${agent.task} · ${status}`}
+      disabled={placeholder || !onSelect}
       onClick={() => onSelect?.(agent.id)}
       className={clsx(
-        'motion-walk absolute flex cursor-pointer flex-col items-center',
-        agent.state === 'queued' && 'opacity-35',
+        'motion-walk absolute flex flex-col items-center',
+        !placeholder && onSelect && 'cursor-pointer',
+        (agent.state === 'queued' || agent.state === 'stopped' || agent.state === 'failed') && 'opacity-35',
         agent.handing && 'z-10',
       )}
       style={{ left: `${x - span / 2}%`, top: y, width: `${span}%` }}
@@ -125,14 +124,14 @@ function Hare({
         <span
           className={clsx(
             'block rounded-lg',
-            agent.state === 'working' && (agent.handing ? 'motion-hop' : 'motion-hop-slow'),
+            agent.state === 'working' && 'motion-hop-slow',
             agent.handing && 'motion-hop',
             selected && 'outline-2 outline-offset-2 outline-interactive',
           )}
         >
           <Character look={agent.look} color={agent.color} size={size} label="" />
         </span>
-        {agent.state === 'working' && !agent.handing && (
+        {agent.state === 'working' && (
           <span className="absolute -top-2 -right-3 flex gap-0.5 rounded-full border border-line bg-canvas-raised px-1 py-0.5">
             {[0, 1, 2].map((i) => (
               <span key={i} className="motion-dot size-1 rounded-full bg-fg-muted" />
@@ -149,38 +148,61 @@ function Hare({
             <Check size={10} strokeWidth={3} />
           </span>
         )}
+        {agent.state === 'failed' && (
+          <span className="absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full border border-canvas-raised bg-danger text-on-fill">
+            <X size={10} strokeWidth={3} />
+          </span>
+        )}
         {agent.handing && (
           <span className="absolute -right-3 bottom-0 flex size-5 items-center justify-center rounded-md border border-line bg-canvas-raised text-fg-muted">
             <FileText size={12} />
           </span>
         )}
       </span>
-      {label && <span className="mt-1 max-w-full truncate text-meta text-fg-muted">{agent.task}</span>}
+      {label && <span className="mt-1 max-w-full truncate px-0.5 text-meta text-fg-muted">{agent.task}</span>}
     </button>
   );
 }
 
-function rowsOf(count: number) {
-  return Math.ceil(count / (count > 1 ? 2 : 1));
+/** What a member is doing, in words. */
+export function useStatus(agent: Pick<RoomAgent, 'state' | 'activity'>): string {
+  const t = useMessages(messages);
+  switch (agent.state) {
+    case 'working':
+      return t[`activity_${agent.activity ?? 'thinking'}`];
+    case 'asking':
+      return t.asking;
+    case 'queued':
+      return t.queued;
+    case 'done':
+      return t.done;
+    case 'failed':
+      return t.failed;
+    case 'stopped':
+      return t.stopped;
+  }
 }
 
-function spot(run: RunSnapshot, agent: RunAgent, rowHeight: number) {
-  const mates = run.agents.filter((a) => a.phase === agent.phase);
+function spot(
+  room: Room,
+  agent: RoomAgent,
+  layout: { count: number; columns: number; rows: number }[],
+  rows: number,
+  rowHeight: number,
+) {
+  const mates = room.agents.filter((a) => a.phase === agent.phase);
   const index = mates.indexOf(agent);
-  const columns = mates.length > 1 ? 2 : 1;
-  const width = 100 / run.phases.length;
+  const { columns, rows: own } = layout[agent.phase] ?? { columns: 1, rows: 1 };
+  const width = 100 / Math.max(1, room.steps.length);
   const column = index % columns;
   const row = Math.floor(index / columns);
-  const rows = rowsOf(mates.length);
-  const all = Math.max(...run.phases.map((_, phase) => rowsOf(run.agents.filter((a) => a.phase === phase).length)));
-  const offset = ((all - rows) * rowHeight) / 2;
+  const offset = ((rows - own) * rowHeight) / 2;
   return { x: agent.phase * width + ((column + 0.5) / columns) * width, y: HEADER + offset + row * rowHeight };
 }
 
 /** Where a hare stands while handing its result over: just left of the agent that takes it. */
-function handOver(run: RunSnapshot, agent: RunAgent, spots: Map<string, { x: number; y: number }>) {
-  const taker =
-    run.agents.find((a) => a.from === agent.id) ?? run.agents.find((a) => a.phase === agent.phase + 1) ?? agent;
+function handOver(room: Room, agent: RoomAgent, spots: Map<string, { x: number; y: number }>, width: number) {
+  const taker = room.agents.find((a) => a.source === agent.id) ?? agent;
   const target = spots.get(taker.id)!;
-  return { x: target.x - 100 / run.phases.length / 5, y: target.y };
+  return { x: target.x - width / 5, y: target.y };
 }

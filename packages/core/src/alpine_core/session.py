@@ -16,6 +16,7 @@ from typing import Any, TypeVar
 from alpineagents import (
     Agent,
     AlpineAgentsError,
+    CutOffError,
     Message,
     State,
     StoppedByFinish,
@@ -165,6 +166,7 @@ class Session:
             self._refusal if self._memory is not None else None,
             reviewer=self._reviewer,
             trusted=[GlobalAgentsMd()],
+            conversation=lambda: self._state,
         )
         self._projects = projects
         self._agents = agents
@@ -419,6 +421,10 @@ class Session:
             self._dispatch(Interrupted())
             self._end_run("idle")
             return None
+        except CutOffError:  # nothing came of the run's last reply: say so, not "answered"
+            self._dispatch(Failed(self._cut_off_message()))
+            self._end_run("failed")
+            return None
         except AlpineAgentsError as e:
             self._dispatch(_failed(e))
             self._end_run("failed")
@@ -436,10 +442,6 @@ class Session:
             self._end_run("idle")
             return None
         if isinstance(stopped, StoppedByUntil) and self._cut_off:
-            if not self._state.messages[-1].text:  # nothing came of the run's last reply: say so, not "answered"
-                self._dispatch(Failed(self._cut_off_message()))
-                self._end_run("failed")
-                return None
             self._dispatch(Notice("The answer stopped at the model's output limit, so its end is missing."))
         self._dispatch(RunFinished(_stop_reason(stopped), self.usage))
         if self._memory is not None:

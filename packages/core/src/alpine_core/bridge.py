@@ -25,8 +25,6 @@ from .work_changes import WorkChanges
 
 T = TypeVar("T")
 _READ_ONLY = {"read", "glob", "grep", "skill", "propose_memory"}
-#: Stop reasons of a reply cut off at the output limit: Anthropic's, and OpenAI-compatible servers'.
-_CUT_OFF = {"max_tokens", "length"}
 
 
 class EventReporter(Reporter):
@@ -53,7 +51,7 @@ class EventReporter(Reporter):
         self._send(TextDelta(chunk))
 
     def on_think_end(self, state: State, reply: Reply) -> None:
-        self._send(AssistantDone(reply.text, reply.stop_reason in _CUT_OFF))
+        self._send(AssistantDone(reply.text, reply.cut_off))
 
     def on_tool_start(self, state: State, call: ToolCall) -> None:
         if self._changes is not None and call.name not in _READ_ONLY:

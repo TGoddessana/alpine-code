@@ -7,7 +7,7 @@ Config file: ``~/.alpine-code/config.toml`` (see ``home_dir``)::
     # review_model = "openrouter/qwen3"           # auto mode's reviewer; unset: the session's model
     # clone_folder = "~/Developments"              # where the app puts repositories; unset: ~/AlpineCode
     # context_window = 128000
-    # output_limit = 64000                         # most tokens one reply may write; unset: models.py picks
+    # output_limit = 64000                         # most tokens one reply may write; unset: alpineagents picks
 
     [connections.anthropic]
     provider = "anthropic"                         # a provider from providers.py

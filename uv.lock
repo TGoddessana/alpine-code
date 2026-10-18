@@ -36,7 +36,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "alpineagents", specifier = ">=0.5.0,<0.6" },
+    { name = "alpineagents", specifier = ">=0.7.1,<0.8" },
     { name = "anthropic", specifier = ">=1.8.0" },
     { name = "openai", specifier = ">=3.19.2" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10" },
@@ -74,7 +74,7 @@ requires-dist = [
 
 [[package]]
 name = "alpineagents"
-version = "0.5.0"
+version = "0.7.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anthropic" },
@@ -82,9 +82,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/90/fc/a48e27d03b7c75dd805c3eb837049875f3f9db86937d65907c94e83a0ea5/alpineagents-0.5.0.tar.gz", hash = "sha256:76a47c45d6ecd8e24982e8eb3fc8b5037f6a3589ec0ba403c7ce4481e1b52807", size = 471764, upload-time = "2026-10-03T14:59:38.882Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/fc/5f9caa330809c80193cbde8e5d664cb05b0d90702c0105d635883e877272/alpineagents-0.7.1.tar.gz", hash = "sha256:0313e576e5b07c3554108ad602b24b7191c8e54dd21bd6fe540661a3192dd63c", size = 547771, upload-time = "2026-10-18T13:22:31.429Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e0/c1/211f208951841ccf1ceec9eb99c59eadcfb383333eb078164229759f6cb2/alpineagents-0.5.0-py3-none-any.whl", hash = "sha256:7947990972e81833421f40cc5347ce50b0987ffa19742d30a6ceb61c9f957434", size = 165432, upload-time = "2026-10-03T14:59:37.172Z" },
+    { url = "https://files.pythonhosted.org/packages/55/0a/42d17dbab3d7600512f647d73687ac47490903970d995e84d9918fdc5521/alpineagents-0.7.1-py3-none-any.whl", hash = "sha256:e482536f13562f95525ae64bc1245ba2fec2d6ab8c916b9e906d3aefdb94f4cd", size = 187651, upload-time = "2026-10-18T13:22:29.728Z" },
 ]
 
 [[package]]

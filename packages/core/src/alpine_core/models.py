@@ -9,7 +9,6 @@ import anthropic
 import openai
 from alpineagents import Anthropic, Model, OpenAICompatible
 
-from .catalog import output_limit, saved_catalog
 from .chatgpt import ChatGPTError, ChatGPTModel, ChatGPTTokens, PlanUsageOff, SignInNeeded, fetch_models, is_chatgpt
 from .config import ConfigError, Connection, Settings
 from .providers import Api
@@ -24,11 +23,6 @@ _HOW_TO_SET = (
     "  export ALPINE_MODEL=<model> ALPINE_BASE_URL=https://.../v1 ALPINE_API_KEY=...\n"
     "or pass --model."
 )
-
-#: Most tokens one reply of a Claude model may write, unless the model allows fewer. The adapter's own default
-#: (8192) runs out when a reply thinks and then writes several files at once, as a product map's cards do; the
-#: adapter streams, so a larger limit does not run into request timeouts.
-ANTHROPIC_OUTPUT_LIMIT = 64000
 
 
 def make_model(settings: Settings) -> Model | str:
@@ -50,23 +44,13 @@ def make_model(settings: Settings) -> Model | str:
             return ChatGPTModel(model, chatgpt_tokens(settings, connection), context_window=settings.context_window)
         key = settings.api_key_for(connection)
         if connection.api is Api.ANTHROPIC:
-            limit = _anthropic_output_limit(settings, model)
-            return Anthropic(model, api_key=key, base_url=connection.url, max_tokens=limit, **window)
+            return Anthropic(model, api_key=key, base_url=connection.url, max_tokens=settings.output_limit, **window)
         return OpenAICompatible(model, base_url=connection.url, api_key=key, max_tokens=settings.output_limit, **window)
     if prefix == "anthropic" and model:
-        return Anthropic(model, max_tokens=_anthropic_output_limit(settings, model), **window)
+        return Anthropic(model, max_tokens=settings.output_limit, **window)
     if prefix == "openai" and model:
         return OpenAICompatible(model, max_tokens=settings.output_limit, **window)
     return name
-
-
-def _anthropic_output_limit(settings: Settings, model: str) -> int:
-    """``output_limit`` when set, else ``ANTHROPIC_OUTPUT_LIMIT``, or less for a model the saved catalog knows to
-    allow less (an older Claude rejects a larger ``max_tokens``)."""
-    if settings.output_limit:
-        return settings.output_limit
-    allowed = output_limit("anthropic", model, saved_catalog())
-    return min(allowed, ANTHROPIC_OUTPUT_LIMIT) if allowed else ANTHROPIC_OUTPUT_LIMIT
 
 
 def chatgpt_tokens(settings: Settings, connection: Connection) -> ChatGPTTokens:

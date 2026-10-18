@@ -163,6 +163,7 @@ export interface ApprovalItem {
   };
   review: ('blocked_in_a_row' | 'failed') | null;
   reviewError: string | null;
+  askedBy: string[];
 }
 /**
  * The ChatGPT account behind a connection that signs in instead of using a key. Tokens never leave the server.
@@ -563,7 +564,9 @@ export interface ErrorData {
     | 'bad_name'
     | 'not_owned'
     | 'invalid'
-    | 'import_failed';
+    | 'import_failed'
+    | 'taskforce_not_found'
+    | 'taskforce_state';
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -2196,7 +2199,8 @@ export interface ItemCompletedEvent {
     | RunStoppedItem
     | AgentSwitchedItem
     | AgentChangedItem
-    | ImportedItem;
+    | ImportedItem
+    | TaskForceItem;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -2290,6 +2294,69 @@ export interface RunStoppedItem {
   message: string | null;
 }
 /**
+ * A TF: the session's model proposed it, then the user starts it and its agents work. Sent again with the same
+ * id (``item_started``) as it changes; completed when it is over.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TaskForceItem".
+ */
+export interface TaskForceItem {
+  id: string;
+  kind: 'taskforce';
+  title: string;
+  steps: TaskForceStep[];
+  minutes: number;
+  status: 'proposed' | 'declined' | 'running' | 'over' | 'stopping' | 'done' | 'stopped' | 'failed' | 'interrupted';
+  members: TaskForceMember[];
+  step: string;
+  log: string | null;
+  needed: number | null;
+  error: string | null;
+}
+/**
+ * One step of the plan the card shows.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TaskForceStep".
+ */
+export interface TaskForceStep {
+  title: string;
+  count: number;
+  model: string;
+}
+/**
+ * One agent of a TF, as the room and the agent list draw it.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TaskForceMember".
+ */
+export interface TaskForceMember {
+  id: string;
+  step: string;
+  task: string;
+  agent: string;
+  look:
+    | 'antenna'
+    | 'hardhat'
+    | 'glasses'
+    | 'beret'
+    | 'headphones'
+    | 'cap'
+    | 'chef'
+    | 'sprout'
+    | 'ribbon'
+    | 'beanie'
+    | 'bowtie'
+    | 'grad';
+  color: number;
+  model: string;
+  state: 'queued' | 'working' | 'asking' | 'done' | 'failed' | 'stopped';
+  activity?: ('thinking' | 'writing' | 'read' | 'search' | 'edit' | 'run' | 'tool') | null;
+  turn?: number;
+  source?: string | null;
+  cached?: boolean;
+}
+/**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ItemDeltaEvent".
  */
@@ -2332,7 +2399,8 @@ export interface ItemStartedEvent {
     | RunStoppedItem
     | AgentSwitchedItem
     | AgentChangedItem
-    | ImportedItem;
+    | ImportedItem
+    | TaskForceItem;
 }
 /**
  * ``.alpine-code/map/map.json``, written by the agent.
@@ -2947,6 +3015,7 @@ export interface SessionOpenResult {
     | AgentSwitchedItem
     | AgentChangedItem
     | ImportedItem
+    | TaskForceItem
   )[];
   active: (
     | UserMessageItem
@@ -2962,6 +3031,7 @@ export interface SessionOpenResult {
     | AgentSwitchedItem
     | AgentChangedItem
     | ImportedItem
+    | TaskForceItem
   )[];
 }
 /**
@@ -3248,6 +3318,73 @@ export interface SkillsSearchParams {
  */
 export interface SkillsSearchResult {
   hits: SkillHit[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TaskForceAgentParams".
+ */
+export interface TaskForceAgentParams {
+  sessionId: string;
+  runId: string;
+  memberId: string;
+}
+/**
+ * Names a TF of a session. ``taskforce/start`` (시작), ``taskforce/decline`` (혼자 하기), ``taskforce/stop``
+ * (멈추기, 여기까지 결과 받기), ``taskforce/allowMore`` (more agents than planned) and ``taskforce/takeResults``
+ * (after the app closed mid-run) take only this. A TF not in a state for the action fails with
+ * ``taskforce_state``; an unknown one with ``taskforce_not_found``.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TaskForceParams".
+ */
+export interface TaskForceParams {
+  sessionId: string;
+  runId: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TaskForceRecordResult".
+ */
+export interface TaskForceRecordResult {
+  items: (
+    | UserMessageItem
+    | AgentMessageItem
+    | ToolCallItem
+    | ApprovalItem
+    | ReviewBlockedItem
+    | NoticeItem
+    | StatusLineItem
+    | MemoryReviewItem
+    | CompactionItem
+    | RunStoppedItem
+    | AgentSwitchedItem
+    | AgentChangedItem
+    | ImportedItem
+    | TaskForceItem
+  )[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TaskForceResult".
+ */
+export interface TaskForceResult {}
+/**
+ * 이어 하기 after the app closed mid-run.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TaskForceResumeParams".
+ */
+export interface TaskForceResumeParams {
+  sessionId: string;
+  runId: string;
+  fresh?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "TaskForceStopAgentResult".
+ */
+export interface TaskForceStopAgentResult {
+  stopped: boolean;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -3589,6 +3726,14 @@ export interface Methods {
   'session/delete': { params: SessionDeleteParams; result: SessionDeleteResult };
   'session/importable': { params: SessionImportableParams; result: SessionImportableResult };
   'session/import': { params: SessionImportParams; result: SessionImportResult };
+  'taskforce/start': { params: TaskForceParams; result: TaskForceResult };
+  'taskforce/decline': { params: TaskForceParams; result: TaskForceResult };
+  'taskforce/stop': { params: TaskForceParams; result: TaskForceResult };
+  'taskforce/allowMore': { params: TaskForceParams; result: TaskForceResult };
+  'taskforce/resume': { params: TaskForceResumeParams; result: TaskForceResult };
+  'taskforce/takeResults': { params: TaskForceParams; result: TaskForceResult };
+  'taskforce/stopAgent': { params: TaskForceAgentParams; result: TaskForceStopAgentResult };
+  'taskforce/record': { params: TaskForceAgentParams; result: TaskForceRecordResult };
 }
 
 export interface Notifications {

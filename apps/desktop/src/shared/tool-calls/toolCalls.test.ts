@@ -42,6 +42,7 @@ describe('editDiff', () => {
     feedback: null,
     review: null,
     reviewError: null,
+    askedBy: [],
     tool: 'edit',
     args: { path: 'a.ts' },
     ...over,

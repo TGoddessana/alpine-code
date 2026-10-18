@@ -287,6 +287,7 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         feedback: null,
         review: null,
         reviewError: null,
+        askedBy: [],
         tool: pending.name,
         args: pending.args,
       };

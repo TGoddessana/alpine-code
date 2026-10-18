@@ -21,6 +21,7 @@ const asked: ApprovalItem = {
   args: { command: 'rm -rf ~/projects/old-site' },
   review: null,
   reviewError: null,
+  askedBy: [],
 };
 
 const meta = {

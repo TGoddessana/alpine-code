@@ -7,11 +7,11 @@ import { LAST_STEP, overPlanned, snapshotAt } from './run';
 import { Workshop } from './Workshop';
 
 /**
- * Prototype of ultracode's screens (decisions 4-6 in alpine-code-archive/docs/ultracode.md), played from a scripted
+ * Prototype of TF's screens (decisions 4-6 in alpine-code-archive/docs/taskforce.md), played from a scripted
  * PostgreSQL map run: 조사 1 → 작성 6 → 검토 6 → 조립 1, at most 6 at once. No server yet.
  */
 const meta = {
-  title: 'Ultracode/Prototype',
+  title: 'TaskForce/Prototype',
   parameters: { server: {}, layout: 'fullscreen' },
 } satisfies Meta;
 

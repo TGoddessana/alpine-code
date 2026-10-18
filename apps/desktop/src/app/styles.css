@@ -78,7 +78,7 @@
     width var(--motion-panel) var(--motion-ease);
 }
 
-/* Ultracode's room: hares walk between steps, hop while working, raise a question while waiting. */
+/* TF's room: hares walk between steps, hop while working, raise a question while waiting. */
 @utility motion-walk {
   transition:
     left 900ms var(--motion-ease),

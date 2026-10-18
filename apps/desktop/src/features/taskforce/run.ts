@@ -1,5 +1,5 @@
 /**
- * What the progress views show of one ultracode run. Prototype: the server has no runs yet, so `snapshotAt` plays a
+ * What the progress views show of one TF run. Prototype: the server has no runs yet, so `snapshotAt` plays a
  * scripted PostgreSQL map run (조사 1 → 작성 6 → 검토 6 → 조립 1, at most 6 at once) one step at a time.
  */
 

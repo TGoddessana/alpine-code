@@ -77,3 +77,58 @@
     height var(--motion-panel) var(--motion-ease),
     width var(--motion-panel) var(--motion-ease);
 }
+
+/* Ultracode's room: hares walk between steps, hop while working, raise a question while waiting. */
+@utility motion-walk {
+  transition:
+    left 900ms var(--motion-ease),
+    top 900ms var(--motion-ease),
+    opacity var(--motion-normal) var(--motion-ease);
+}
+@utility motion-hop {
+  animation: motion-hop 900ms ease-in-out infinite;
+}
+@utility motion-hop-slow {
+  animation: motion-hop 1400ms ease-in-out infinite;
+}
+@utility motion-raise {
+  animation: motion-raise 700ms ease-in-out infinite;
+}
+@utility motion-dot {
+  animation: motion-dot 1200ms ease-in-out infinite;
+  &:nth-child(2) {
+    animation-delay: 200ms;
+  }
+  &:nth-child(3) {
+    animation-delay: 400ms;
+  }
+}
+@keyframes motion-hop {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes motion-raise {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(6deg);
+  }
+}
+@keyframes motion-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}

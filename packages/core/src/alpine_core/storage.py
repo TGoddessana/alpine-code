@@ -5,6 +5,7 @@ A session is saved in two parts under one id (the alpineagents State id):
 - model memory: an alpineagents ``Store``, exactly as alpineagents writes it (``<home>/states/<id>/``)
 - screen record: a ``SessionLog``, the session's info and its finished items in ``seq`` order
   (``<home>/sessions/<id>/``)
+- TF runs, when kept: ``RunStore`` (``<home>/taskforce/<id>/``)
 
 The two live in sibling folders because alpineagents' ``FileStore`` creates ``<root>/<id>/`` by renaming a staging
 folder into place and refuses an id that already exists, so both cannot own one folder. Frontends only call
@@ -28,6 +29,7 @@ from alpineagents import FileStore, Store
 
 from .events import UsageInfo
 from .home import home_dir
+from .taskforce.store import RunStore
 
 __all__ = [
     "Activity",
@@ -483,6 +485,8 @@ class Storage:
     """The screen record: info and finished items."""
     states: Store
     """Model memory: alpineagents' Store, keyed by the same session id."""
+    runs: RunStore | None = None
+    """The session's TF runs (``<home>/taskforce/<id>/``), so a run can be continued; ``None`` keeps none."""
 
 
 def file_storage(home: Path | None = None) -> Storage:
@@ -492,4 +496,6 @@ def file_storage(home: Path | None = None) -> Storage:
         home: The home folder; defaults to ``home_dir()`` (``$ALPINE_CODE_HOME``, or ``~/.alpine-code``).
     """
     root = home if home is not None else home_dir()
-    return Storage(log=FileSessionLog(root / "sessions"), states=FileStore(root / "states"))
+    return Storage(
+        log=FileSessionLog(root / "sessions"), states=FileStore(root / "states"), runs=RunStore(root / "taskforce")
+    )

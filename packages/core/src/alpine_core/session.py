@@ -70,6 +70,7 @@ from .prompt import build_system_prompt
 from .review import GlobalAgentsMd, ModelReviewer, Review, Reviewer, ReviewRequest
 from .skills import Skill, SkillLibrary, SkillTool, catalog, expand_command
 from .storage import Activity, ActivityKind, Record, SessionInfo, SessionStatus, Storage
+from .taskforce.team import READING, TaskForce, current_member
 from .tool_sources import ToolSources, builtins_only, gather, pick
 from .tools import Workspace
 from .work_changes import WorkChanges
@@ -115,7 +116,8 @@ class Session:
     changes it. Edits to the agent apply from the next message, announced in the items. Without agents the session
     has every tool its sources offer and no instructions. With ``memories``, the prompt carries the project's memory,
     its checks and guards apply, and memories approved through ``memories`` reach it as notices; the memory's tools
-    come from ``tools``, as ``memories.of(folder)``.
+    come from ``tools``, as ``memories.of(folder)``. With ``taskforce`` (and a sandbox to run scripts in), the model
+    may propose a TF: agents that split up a big job (``taskforce``).
 
     The conversation is also kept as items: ``on_item_event(session_id, seq,
     event)`` gets every item event, and ``snapshot()`` returns the items so far. With ``storage``, the session is
@@ -143,6 +145,7 @@ class Session:
         model: str | None = None,
         memories: Memories | None = None,
         skills: SkillLibrary | None = None,
+        taskforce: bool = False,
         _saved: _Saved | None = None,
     ) -> None:
         if mode is not None:
@@ -172,6 +175,14 @@ class Session:
         self._agents = agents
         self._tool_sources = tools
         self._always: set[str] = set()
+        self._taskforce = TaskForce(self, offered=taskforce)
+        self._reading = False
+        """The agent was built with reading tools only, while a TF ran."""
+        self.on_turn: Callable[[str], None] | None = None
+        """Takes a notice the session's model must answer (a TF ended) and runs ``asend(notice, notice=...)`` as a
+        turn of the session; the server sets it so the turn is one it can cancel. Without it the session starts the
+        turn itself."""
+        self._turns: set[asyncio.Task[Any]] = set()
         self._applied = self._pick_agent(_saved.info if _saved else None, agent)
         if _saved is None and (chosen := model or (self._applied.model if self._applied else None)):
             settings = settings.with_model(chosen)
@@ -221,6 +232,7 @@ class Session:
         tools: ToolSources = builtins_only,
         memories: Memories | None = None,
         skills: SkillLibrary | None = None,
+        taskforce: bool = False,
     ) -> Session:
         """Opens a saved session and continues it: the items and ``seq`` from the log, the conversation from the
         store. The session's own model, mode and folder win over ``settings`` and ``cwd``. If the process died
@@ -256,6 +268,7 @@ class Session:
             tools=tools,
             memories=memories,
             skills=skills,
+            taskforce=taskforce,
             _saved=_Saved(info, records, state),
         )
 
@@ -264,6 +277,10 @@ class Session:
         tools = self._tools()
         if skills and not any(getattr(t, "name", None) == "skill" for t in tools):
             tools.append(SkillTool(skills))
+        tools += self._taskforce.tools()
+        self._reading = self._taskforce.active
+        if self._reading:  # a TF is at work: read and answer, change nothing (TF decision 7)
+            tools = [t for t in tools if getattr(t, "name", None) in READING or t.name == "task_force_status"]
         try:
             agent = Agent(
                 make_model(settings),
@@ -373,15 +390,22 @@ class Session:
             self._archived = archived
         self._save_info()
 
-    async def asend(self, text: str) -> str | None:
+    async def asend(self, text: str, *, notice: str | None = None) -> str | None:
         """Sends a user message and runs the agent until it answers. Returns the answer, or ``None`` if the run
-        was interrupted or failed (a ``Interrupted`` or ``Failed`` event says which).
+        was interrupted or failed (a ``Interrupted`` or ``Failed`` event says which). With ``notice`` (its source),
+        ``text`` is a notice from the harness instead, such as a TF's result.
 
         Cancelling the task stops the run and keeps the conversation: ``Interrupted`` is emitted, the unfinished
         items are closed and ``CancelledError`` propagates."""
         self._archived = False
         self._refresh_agent()
         self._refresh_skills()
+        if self._reading != self._taskforce.active:
+            self._agent = self._build_agent(self._settings)
+        if notice is not None and self._state is not None:
+            self._state.add_message(Message.notice(text))
+            self._recorder.add_notice(text, notice)
+            return await self._turn(text)
         # "/<skill> ..." comes with the skill's instructions; the screen keeps what the user typed.
         expanded = expand_command(text, self._skills)
         said = expanded[1] if expanded is not None else text
@@ -396,7 +420,11 @@ class Session:
         else:
             self._state.add_message(Message.user(said))
         self._recorder.add_user_message(text)
-        self._begin_run("thinking", text)
+        return await self._turn(text)
+
+    async def _turn(self, label: str) -> str | None:
+        assert self._state is not None
+        self._begin_run("thinking", label)
         self._cancel_event = threading.Event()
         cancellation_token = current_cancellation.set(self._cancel_event)
         token = current_session.set(self.id)
@@ -608,6 +636,32 @@ class Session:
             delete_session(self._storage, self._id)
         self._recorder.deleted()
 
+    @property
+    def taskforce(self) -> TaskForce:
+        """The session's TFs: start, stop, continue, an agent's record."""
+        return self._taskforce
+
+    async def aclose(self) -> None:
+        """Stops what runs in the background (TFs, a TF's result turn), so it can be continued later."""
+        await self._taskforce.aclose()
+        for task in list(self._turns):
+            task.cancel()
+        await asyncio.gather(*self._turns, return_exceptions=True)
+
+    def _request_turn(self, notice: str) -> None:
+        """The session's model must hear ``notice`` and answer: a turn of its own."""
+        if self.on_turn is not None:
+            self.on_turn(notice)
+            return
+        task = asyncio.get_running_loop().create_task(self.asend(notice, notice="taskforce"))
+        self._turns.add(task)
+        task.add_done_callback(self._turns.discard)
+
+    def _refresh_reading(self) -> None:
+        """A TF started or ended: the tools change from the next turn (reading only while it runs)."""
+        if self._status not in ("running", "waiting") and self._reading != self._taskforce.active:
+            self._agent = self._build_agent(self._settings)
+
     # ------------------------------------------------------------ read-only views
 
     @property
@@ -682,9 +736,10 @@ class Session:
 
     @property
     def usage(self) -> UsageInfo:
+        """What the conversation used, with its TFs' agents."""
         if self._state is None:
             return UsageInfo()
-        u = self._state.usage
+        u = self._state.usage + self._taskforce.usage
         return UsageInfo(
             input_tokens=u.input_tokens,
             output_tokens=u.output_tokens,
@@ -928,6 +983,7 @@ class Session:
             self._touch()
         else:
             self._status = info.status
+        self._taskforce.restore()
 
 
 T = TypeVar("T")
@@ -974,6 +1030,8 @@ def delete_session(storage: Storage, session_id: str) -> None:
     """Removes a saved session: its screen record and its conversation. Does nothing if it does not exist."""
     storage.log.delete(session_id)
     storage.states.delete(session_id)
+    if storage.runs is not None:
+        storage.runs.delete(session_id)
 
 
 class _ItemApprover:
@@ -989,6 +1047,8 @@ class _ItemApprover:
 
     async def aapprove(self, request: ApprovalRequest) -> Decision:
         session = self._session
+        if current_member.get() is not None:  # a TF's agent asks: one card per question (TF decision 3)
+            return await session._taskforce.ask(request, self._ask)
         item = session._recorder.start_approval(
             request.call_id,
             request.title,

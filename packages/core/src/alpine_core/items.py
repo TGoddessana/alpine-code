@@ -35,6 +35,9 @@ RunStopReason = Literal["interrupted", "failed", "limit", "repeating", "permissi
 ApprovalDecision = Literal["allow", "allow_always", "deny"]
 PreviewKind = Literal["diff", "command", "text"]
 ReviewAsk = Literal["blocked_in_a_row", "failed"]
+TaskForceStatus = Literal[
+    "proposed", "declined", "running", "over", "stopping", "done", "stopped", "failed", "interrupted"
+]
 
 
 # ----------------------------------------------------------------------------------------------------- items
@@ -92,6 +95,9 @@ class ApprovalItem:
     """In auto mode, why the user is asked instead of the reviewer (``ApprovalRequest.review``)."""
     review_error: str | None = None
     """What went wrong when ``review`` is ``failed``."""
+    asked_by: list[str] = field(default_factory=list)
+    """The TF agents waiting for this answer, by task; several when they asked the same thing (TF decision 3).
+    Empty when the session's own model asks."""
     kind: ClassVar[str] = "approval"
 
 
@@ -192,6 +198,29 @@ class Imported:
 
 
 @dataclass(frozen=True)
+class TaskForceItem:
+    """A TF: proposed by the session's model, started by the user, its agents at work, then its end. Active while it
+    may still change (``ItemStarted`` again with the same id carries each change); completed when it is over.
+    ``members`` are what the screens draw of each agent (``taskforce.team.member_view``)."""
+
+    id: str
+    title: str
+    steps: list[dict[str, Any]]
+    """The plan as proposed: ``{"title", "count", "model"}`` per step."""
+    minutes: int
+    status: TaskForceStatus = "proposed"
+    members: list[dict[str, Any]] = field(default_factory=list)
+    step: str = ""
+    """The step the script is in."""
+    log: str | None = None
+    """The script's latest ``log()`` line."""
+    needed: int | None = None
+    """While ``over``: how many agents the script wants in all."""
+    error: str | None = None
+    kind: ClassVar[str] = "taskforce"
+
+
+@dataclass(frozen=True)
 class RunStopped:
     """Why a run ended other than by answering."""
 
@@ -214,6 +243,7 @@ Item = (
     | AgentSwitched
     | AgentChanged
     | Imported
+    | TaskForceItem
     | RunStopped
 )
 
@@ -232,6 +262,7 @@ ITEM_KINDS: dict[str, type] = {
         AgentSwitched,
         AgentChanged,
         Imported,
+        TaskForceItem,
         RunStopped,
     )
 }
@@ -299,6 +330,10 @@ def item_to_dict(item: Item) -> dict[str, Any]:
         data["args"] = dict(item.args)
     if isinstance(item, AgentChanged):
         data["added"], data["removed"] = list(item.added), list(item.removed)
+    if isinstance(item, ApprovalItem):
+        data["asked_by"] = list(item.asked_by)
+    if isinstance(item, TaskForceItem):
+        data["steps"], data["members"] = [dict(s) for s in item.steps], [dict(m) for m in item.members]
     return data
 
 
@@ -484,6 +519,7 @@ class ItemRecorder:
         args: dict[str, Any] | None = None,
         review: ReviewAsk | None = None,
         review_error: str | None = None,
+        asked_by: list[str] | None = None,
     ) -> ApprovalItem:
         """The core asks; the item's ``id`` is the request id."""
         item = ApprovalItem(
@@ -498,9 +534,29 @@ class ItemRecorder:
             args=dict(args or {}),
             review=review,
             review_error=review_error,
+            asked_by=list(asked_by or []),
         )
         self._start(item)
         return item
+
+    def ask_also(self, item_id: str, asked_by: str) -> ApprovalItem | None:
+        """Another TF agent waits for the same answer as an active approval."""
+        item = self._active.get(item_id)
+        if not isinstance(item, ApprovalItem):
+            return None
+        item = dataclasses.replace(item, asked_by=[*item.asked_by, asked_by])
+        self._active[item_id] = item
+        self._send(ItemStarted(item))
+        return item
+
+    def show_taskforce(self, item: TaskForceItem) -> None:
+        """Starts the TF's item, or announces its change (``ItemStarted`` again, same id)."""
+        self._active[item.id] = item
+        self._send(ItemStarted(item))
+
+    def end_taskforce(self, item: TaskForceItem) -> None:
+        """Completes the TF's item: it is over."""
+        self._complete(item)
 
     def add_review_blocked(self, call_id: str, tool: str, args: dict[str, Any], reason: str | None) -> ReviewBlocked:
         """Auto mode's reviewer blocked a call."""
@@ -548,6 +604,10 @@ class ItemRecorder:
         discarded), running tool calls become ``interrupted`` and an active approval is denied."""
         for item_id, item in list(self._active.items()):
             match item:
+                case TaskForceItem():
+                    continue  # it outlives the turn that proposed it
+                case ApprovalItem(asked_by=asked_by) if asked_by:
+                    continue  # a TF agent asks: its run goes on after the session's turn
                 case AgentMessage():
                     self._finish_message(item_id, "".join(self._text[item_id]))
                 case ToolCallItem():
@@ -679,6 +739,8 @@ __all__ = [
     "AgentSwitched",
     "AgentChanged",
     "Imported",
+    "TaskForceItem",
+    "TaskForceStatus",
     "RunStopped",
     "ItemEvent",
     "EVENT_TYPES",

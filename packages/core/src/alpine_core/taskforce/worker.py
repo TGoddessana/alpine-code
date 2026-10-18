@@ -8,8 +8,10 @@ real agent runs in Alpine, under the session's permissions, never here. The scri
 
 The script gets these names, nothing to import:
 
-- ``await agent(prompt, agent=None, model=None, tools=None, returns=None, label=None)``: the answer, the parsed JSON
-  with ``returns``, or ``None`` when the agent failed or was stopped.
+- ``await agent(prompt, agent=None, model=None, tools=None, returns=None, label=None, phase=None)``: the answer, the
+  parsed JSON with ``returns``, or ``None`` when the agent failed or was stopped. ``phase`` is the step it counts in
+  (default: the latest ``phase()``). Once the user stopped the whole TF it raises ``Stopped`` instead, which ends
+  the script.
 - ``await parallel(awaitables)``: their results, in order.
 - ``await pipeline(items, *stages)``: each item through the stages in turn (``await stage(value)``), items at once.
 - ``phase(title)``: the step the next agents belong to (조사, 작성, 검토...).
@@ -28,6 +30,11 @@ import sys
 import threading
 import traceback
 from typing import Any
+
+
+class Stopped(BaseException):
+    """The user stopped the TF: the script ends where it is (a ``BaseException``, so ``except Exception`` in a script
+    does not keep it going)."""
 
 
 class _Channel:
@@ -64,7 +71,11 @@ class _Channel:
         if "remaining" in answer:
             self.remaining = int(answer["remaining"])
         future = self._waiting.pop(answer.get("id", -1), None)
-        if future is not None and not future.done():
+        if future is None or future.done():
+            return
+        if answer.get("stopped"):
+            future.set_exception(Stopped("The user stopped the TF"))
+        else:
             future.set_result(answer.get("value"))
 
 
@@ -77,6 +88,7 @@ def _api(channel: _Channel, args: Any) -> dict[str, Any]:
         tools: list[str] | None = None,
         returns: Any = None,
         label: str | None = None,
+        phase: str | None = None,
     ) -> Any:
         if not isinstance(prompt, str) or not prompt.strip():
             raise TypeError("agent() needs a prompt: what this agent should do, with everything it needs to know")
@@ -88,6 +100,7 @@ def _api(channel: _Channel, args: Any) -> dict[str, Any]:
             "tools": list(tools) if tools is not None else None,
             "returns": returns,
             "label": label,
+            "phase": phase,
         }
         return await channel.ask(request)
 
@@ -127,6 +140,14 @@ def _api(channel: _Channel, args: Any) -> dict[str, Any]:
     }
 
 
+def _plain(result: Any) -> Any:
+    try:
+        json.dumps(result)
+    except (TypeError, ValueError):
+        return repr(result)
+    return result
+
+
 def main() -> None:
     start = json.loads(sys.stdin.readline())
     loop = asyncio.new_event_loop()
@@ -139,12 +160,9 @@ def main() -> None:
         outcome = eval(code, scope)  # a coroutine when the script awaits at the top level
         if asyncio.iscoroutine(outcome):
             loop.run_until_complete(outcome)
-        result = scope.get("result")
-        try:
-            json.dumps(result)
-        except (TypeError, ValueError):
-            result = repr(result)
-        channel.send({"op": "done", "result": result})
+        channel.send({"op": "done", "result": _plain(scope.get("result"))})
+    except Stopped:
+        channel.send({"op": "done", "result": _plain(scope.get("result"))})
     except BaseException as e:  # the script's own error: the model fixes the script
         frames = [frame for frame in traceback.extract_tb(e.__traceback__) if frame.filename == "<script>"]
         shown = traceback.format_list(frames) + traceback.format_exception_only(type(e), e)

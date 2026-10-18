@@ -157,6 +157,7 @@ function Record({
           </Button>
         )}
       </div>
+      {agent.state === 'failed' && agent.error && <p className="text-meta text-danger">{agent.error}</p>}
       {items.length === 0 ? (
         <p className="text-meta text-fg-faint">{t.nothingYet}</p>
       ) : (

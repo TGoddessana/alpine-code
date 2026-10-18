@@ -277,6 +277,7 @@ class TaskForce:
                 lines.append(f"  latest log: {run.log}")
             for member in members:
                 doing = f", {member['activity']}" if member.get("activity") else ""
+                doing += f" ({member['error']})" if member.get("error") else ""
                 lines.append(f"  - {member['id']} [{member['step']}] {member['task']}: {member['state']}{doing}")
             out.append("\n".join(lines))
         return "\n\n".join(out)
@@ -613,6 +614,7 @@ class TaskForce:
             "turn": member.turn,
             "source": member.source,
             "cached": member.cached,
+            "error": member.error,
         }
 
     def _item(self, run: _Run) -> TaskForceItem:
@@ -679,7 +681,11 @@ class TaskForce:
             ]
             if answers:
                 lines.append("The agents' answers (the script set no result):\n" + _clip("\n".join(answers)))
-        failed = [f"{m['id']} {m['task']}: {m['state']}" for m in members if m["state"] in ("failed", "stopped")]
+        failed = [
+            f"{m['id']} {m['task']}: {m['state']}" + (f" ({m['error']})" if m.get("error") else "")
+            for m in members
+            if m["state"] in ("failed", "stopped")
+        ]
         if failed:
             lines.append("Did not finish: " + "; ".join(failed))
         lines.append("Tell the user what came of it, in their words.")
@@ -702,12 +708,13 @@ questions (task_force_status shows its progress). When it ends its result comes 
 
 The script is Python with top-level await. It cannot read files, run commands or reach the network: agents do that.
 Allowed imports: json, re, math, itertools, collections, functools, textwrap, statistics. Built-in names:
-- await agent(prompt, agent=None, model=None, tools=None, returns=None, label=None): runs one agent to the end and
-  returns its answer; with returns (a JSON shape, e.g. {{"topics": ["..."]}}) the parsed JSON. None if it failed or
-  was stopped. The prompt is all it knows: put in everything it needs. agent= picks one of the user's agents by name
-  ({agents or "only the session's agent"}); default is the session's agent. model= picks a model, e.g. one of
-  {", ".join(sorted(m for m in models if m))}. tools= narrows its tools (never widens). label= is what the user sees
-  for it (a topic, a file).
+- await agent(prompt, agent=None, model=None, tools=None, returns=None, label=None, phase=None): runs one agent to the
+  end and returns its answer; with returns (a JSON shape, e.g. {{"topics": ["..."]}}) the parsed JSON. None if it
+  failed or was stopped. The prompt is all it knows: put in everything it needs. agent= picks one of the user's
+  agents by name ({agents or "only the session's agent"}); default is the session's agent. model= picks a model,
+  e.g. one of {", ".join(sorted(m for m in models if m))}. tools= narrows its tools (never widens). label= is what
+  the user sees for it (a topic, a file). phase= is the plan step it counts in (default: the latest phase()); give
+  it inside parallel() and pipeline(), where stages of different steps run at once.
 - await parallel([agent(...), ...]): runs them at the same time (at most 6 work at once); results in order.
 - await pipeline(items, stage1, stage2, ...): each item through async stages in turn, items at once.
 - phase("작성"): the step the next agents belong to; use the step titles of your plan.

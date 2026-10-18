@@ -1193,6 +1193,9 @@ class TaskForceMember(Message):
     """The member whose answer it got: it walks over to hand it."""
     cached: bool = False
     """Answered from an earlier run of the script."""
+    error: str | None = None
+    """Why a ``failed`` member did not finish, as the error said it (a provider error, an answer that was not the
+    JSON asked for)."""
 
 
 class TaskForceItem(ItemModel):

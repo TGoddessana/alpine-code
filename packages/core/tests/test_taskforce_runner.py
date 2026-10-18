@@ -55,9 +55,10 @@ def test_pipeline_runs_each_item_through_the_stages():
     job, outcome = run(
         """
         async def write(topic):
-            return await agent(f"write {topic}")
+            return await agent(f"write {topic}", phase="작성")
         async def review(draft):
-            return await agent(f"review this draft carefully: {draft}")
+            return await agent(f"review this draft carefully: {draft}", phase="검토")
+        phase("작성")
         result = await pipeline(["a", "b"], write, review)
         """
     )
@@ -66,6 +67,8 @@ def test_pipeline_runs_each_item_through_the_stages():
         "done: review this draft carefully: done: write a",
         "done: review this draft carefully: done: write b",
     ]
+    # Stages of a pipeline run at once, so phase() alone would put the reviewers under 작성.
+    assert sorted(m.step for m in job.members) == ["검토", "검토", "작성", "작성"]
 
 
 @pytest.mark.parametrize(
@@ -94,6 +97,15 @@ def test_the_check_tells_the_model_what_a_script_may_not_do():
     assert "`import os`" in message and "`import time`" in message
     assert "built-in names" in message and "`open()`" in message and "never calls agent()" in message
     check_script("import json\nresult = await agent('x')\n")
+
+
+def test_the_check_finds_a_module_used_without_its_import():
+    # The PostgreSQL run's script used collections.OrderedDict() after 36 agents had finished.
+    script = "import json\nr = await agent('x')\ndef f(re):\n    return re\nresult = collections.OrderedDict()\n"
+    with pytest.raises(ScriptError) as e:
+        check_script(script)
+    assert str(e.value) == "line 5: `collections` is used but never imported; add `import collections`"
+    check_script("import collections as c\nfrom json import dumps\nresult = await agent(dumps(c.Counter()))\n")
 
 
 def test_a_script_error_names_its_own_line():
@@ -153,7 +165,18 @@ def test_stopping_ends_the_run_with_what_finished():
                 await asyncio.sleep(0.01)
             return None
 
-        text = script("a = await agent('first')\nb = await agent('second')\nresult = [a, b]")
+        text = script(
+            """
+            a = await agent('first')
+            result = [a]
+            try:
+                b = await agent('second')
+            except Exception:
+                b = 'caught'
+            log('went on')
+            result = [a, b, await agent('third')]
+            """
+        )
         job = ScriptRun(text, spawn, planned=5)
         task = asyncio.create_task(job.run())
         while len(job.members) < 2 or job.members[1].state != "working":
@@ -162,8 +185,10 @@ def test_stopping_ends_the_run_with_what_finished():
         return job, await task
 
     job, outcome = asyncio.run(go())
-    assert outcome.status == "stopped" and outcome.result == ["kept", None]
+    # The script ends at the agent it was waiting for: no log line and no agent after it (decision 5).
+    assert outcome.status == "stopped" and outcome.result == ["kept"]
     assert [m.state for m in job.members] == ["done", "stopped"]
+    assert job.log is None
 
 
 def test_a_rerun_answers_finished_calls_at_once():

@@ -227,19 +227,21 @@ class ScriptRun:
             returns=message.get("returns"),
             label=message.get("label"),
         )
+        phase = message.get("phase")
         key = request.key()
         self._seen[key] = self._seen.get(key, 0) + 1
         key = f"{key}:{self._seen[key]}"  # the same call made twice is two agents
         member = Member(
             id=f"a{len(self.members) + 1}",
-            step=self.step,
+            step=str(phase) if phase else self.step,
             task=_task(request),
             request=request,
             source=self._source(request.prompt),
         )
         self.members.append(member)
         value = await self._answer(member, key)
-        self._reply(message["id"], value)
+        # After 멈추기 the script ends at the agent it waits for, instead of going on with nothing (decision 5).
+        self._reply(message["id"], value, stopped=value is None and self._stopping)
 
     async def _answer(self, member: Member, key: str) -> Any:
         if key in self.cache:
@@ -269,7 +271,7 @@ class ScriptRun:
         if member.stop_asked:
             member.state = "stopped"
         elif value is None:
-            member.state = "failed"
+            member.state, member.error = "failed", member.error or "The agent ended without an answer."
         else:
             member.state, member.answer = "done", value
             self.cache[key] = value
@@ -293,11 +295,13 @@ class ScriptRun:
         self._started += 1
         return True
 
-    def _reply(self, request_id: Any, value: Any) -> None:
+    def _reply(self, request_id: Any, value: Any, *, stopped: bool = False) -> None:
         process = self._process
         if process is None or process.stdin is None or process.stdin.is_closing():
             return
         answer = {"id": request_id, "value": value, "remaining": self.remaining}
+        if stopped:
+            answer["stopped"] = True
         with contextlib.suppress(ConnectionError, RuntimeError):
             process.stdin.write((json.dumps(answer, ensure_ascii=False) + "\n").encode())
 

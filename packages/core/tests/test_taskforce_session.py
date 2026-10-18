@@ -252,3 +252,27 @@ def test_agents_of_a_script_without_phase_fill_the_plan_in_order(tmp_path, monke
         await until(lambda: not session._turns)
 
     asyncio.run(go())
+
+
+def test_why_an_agent_failed_reaches_the_screen_and_the_model(tmp_path, monkeypatch):
+    # In the PostgreSQL run a reviewer failed and nothing anywhere said why.
+    def answer(prompt):
+        if prompt.startswith("review"):
+            raise RuntimeError("overloaded")
+        return f"ok({prompt})"
+
+    async def go():
+        heard = []
+        lead = [propose(), "제안했어요", lambda request: heard.append(request.messages[-1].text) or "끝"]
+        session = make(tmp_path, monkeypatch, lead, members=member_model(answer))
+        await session.asend("지도 그려 줘")
+        [card] = taskforce_items(session)
+        session.taskforce.start(card.id)
+        await until(lambda: taskforce_items(session, active=False))
+        await until(lambda: not session._turns)
+        [done] = taskforce_items(session, active=False)
+        assert [m["state"] for m in done.members] == ["done", "done", "failed", "failed"]
+        assert "overloaded" in done.members[2]["error"]
+        assert "a3 review ok(write 저장소): failed (" in heard[0] and "overloaded" in heard[0]
+
+    asyncio.run(go())

@@ -65,10 +65,31 @@ def check_script(source: str) -> None:
             problems.append(f"line {node.lineno}: `{node.id}` is one of the script's built-in names")
         elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in _UNAVAILABLE:
             problems.append(f"line {node.lineno}: `{node.func.id}()` is not available in a script")
+    # A module the script uses but never imports fails only when that line runs, maybe after an hour of agents.
+    bound = _bound_names(tree)
+    for name in sorted(ALLOWED_IMPORTS - bound):
+        used = [n.lineno for n in ast.walk(tree) if isinstance(n, ast.Name) and n.id == name]
+        if used:
+            problems.append(f"line {used[0]}: `{name}` is used but never imported; add `import {name}`")
     if not any(_calls_agent(node) for node in ast.walk(tree)):
         problems.append("the script never calls agent(): it has nothing to hand out")
     if problems:
         raise ScriptError("\n".join(problems))
+
+
+def _bound_names(tree: ast.AST) -> set[str]:
+    """Every name the script imports, assigns or defines anywhere."""
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            names.update((alias.asname or alias.name).split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del):
+            names.add(node.id)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            names.add(node.name)
+        elif isinstance(node, ast.arg):
+            names.add(node.arg)
+    return names
 
 
 def _calls_agent(node: ast.AST) -> bool:

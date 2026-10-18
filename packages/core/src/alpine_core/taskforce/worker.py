@@ -13,7 +13,7 @@ The script gets these names, nothing to import:
 - ``await parallel(awaitables)``: their results, in order.
 - ``await pipeline(items, *stages)``: each item through the stages in turn (``await stage(value)``), items at once.
 - ``phase(title)``: the step the next agents belong to (조사, 작성, 검토...).
-- ``log(text)``: one line for the user.
+- ``log(text)``: one line for the user; ``print`` does the same.
 - ``budget()``: how many more agents the plan allows.
 - ``args``: what the call passed.
 - ``result = ...``: what the session's model gets when the script ends.
@@ -108,6 +108,10 @@ def _api(channel: _Channel, args: Any) -> dict[str, Any]:
     def log(text: Any) -> None:
         channel.send({"op": "log", "text": str(text)})
 
+    def show(*values: Any, **_: Any) -> None:
+        """``print`` would break the lines to Alpine: what a script prints is a ``log`` line."""
+        log(" ".join(str(value) for value in values))
+
     def budget() -> int:
         return channel.remaining
 
@@ -117,6 +121,7 @@ def _api(channel: _Channel, args: Any) -> dict[str, Any]:
         "pipeline": pipeline,
         "phase": phase,
         "log": log,
+        "print": show,
         "budget": budget,
         "args": args,
     }

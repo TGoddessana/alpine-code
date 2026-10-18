@@ -35,6 +35,7 @@ def test_a_script_hands_out_agents_in_steps_and_returns_a_result():
         topics = await agent("나눠 줘", returns={"topics": ["str"]}, label="주제 나누기")
         phase("작성")
         drafts = await parallel([agent(f"{t} 카드 쓰기") for t in ["저장소", "복제"]])
+        print("ignored by the protocol")
         log(f"{len(drafts)}개 썼어요")
         result = {"drafts": drafts, "left": budget()}
         """

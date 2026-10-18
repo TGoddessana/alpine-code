@@ -583,7 +583,17 @@ class TaskForce:
     def _members(self, run: _Run) -> list[dict[str, Any]]:
         if run.job is None:
             return run.members
-        return [self._member_view(member) for member in run.job.members]
+        views = [self._member_view(member) for member in run.job.members]
+        # A script that never calls phase(): its agents fill the plan's steps in order, as many as each counts.
+        slots, index, used = [(str(s["title"]), int(s["count"])) for s in run.steps], 0, 0
+        for view in views:
+            if view["step"]:
+                continue
+            while index < len(slots) and used >= slots[index][1]:
+                index, used = index + 1, 0
+            if index < len(slots):
+                view["step"], used = slots[index][0], used + 1
+        return views
 
     def _member_view(self, member: Member) -> dict[str, Any]:
         try:
@@ -701,7 +711,7 @@ Allowed imports: json, re, math, itertools, collections, functools, textwrap, st
 - await parallel([agent(...), ...]): runs them at the same time (at most 6 work at once); results in order.
 - await pipeline(items, stage1, stage2, ...): each item through async stages in turn, items at once.
 - phase("작성"): the step the next agents belong to; use the step titles of your plan.
-- log("주제 6개로 나눴어요"): one line for the user, in their language.
+- log("주제 6개로 나눴어요"): one line for the user, in their language (print does the same).
 - budget(): how many more agents the plan allows. args: unused.
 - result = ...: what you get back at the end.
 The script must make the same calls when it runs again (no clock, no randomness): a rerun reuses finished agents.

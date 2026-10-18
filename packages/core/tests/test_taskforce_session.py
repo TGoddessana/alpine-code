@@ -223,3 +223,32 @@ def test_a_run_cut_short_by_a_restart_continues_with_its_finished_agents(tmp_pat
         await until(lambda: not session._turns)
 
     asyncio.run(second())
+
+
+def test_agents_of_a_script_without_phase_fill_the_plan_in_order(tmp_path, monkeypatch):
+    async def go():
+        script = 'a = await agent("one")\nb = await agent("two")\nc = await agent(f"sum {a} {b}")\n'
+        session = make(
+            tmp_path,
+            monkeypatch,
+            [
+                propose(
+                    script=script,
+                    steps=[
+                        {"title": "읽기", "count": 2, "model": "fake"},
+                        {"title": "모으기", "count": 1, "model": "fake"},
+                    ],
+                ),
+                "제안했어요",
+                "끝",
+            ],
+        )
+        await session.asend("go")
+        [card] = taskforce_items(session)
+        session.taskforce.start(card.id)
+        await until(lambda: taskforce_items(session, active=False))
+        [done] = taskforce_items(session, active=False)
+        assert [m["step"] for m in done.members] == ["읽기", "읽기", "모으기"]
+        await until(lambda: not session._turns)
+
+    asyncio.run(go())

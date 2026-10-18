@@ -7,8 +7,9 @@ import time
 from pathlib import Path
 
 import pytest
-from alpineagents import Image, ProviderError
+from alpineagents import Image, Message, ProviderError, Reply, Usage
 from alpineagents.testing import FakeModel, tool_call
+from alpineagents.types import RawBlock, TextBlock
 
 from alpine_core import (
     ApprovalRequest,
@@ -17,6 +18,7 @@ from alpine_core import (
     Failed,
     Interrupted,
     Mode,
+    Notice,
     RunFinished,
     Session,
     Settings,
@@ -183,6 +185,33 @@ def test_provider_error_becomes_failed_event(tmp_path, monkeypatch):
     session, events, _ = make_session(tmp_path, monkeypatch, [ProviderError("server down")])
     assert session.send("hi") is None
     assert isinstance(events[-1], Failed) and "server down" in events[-1].message
+
+
+def cut_off(*blocks) -> Reply:
+    """A reply that stopped at the output limit: thinking, then whatever ``blocks`` got written."""
+    thinking = RawBlock("anthropic", {"type": "thinking", "thinking": "", "signature": "sig"})
+    usage = Usage(input_tokens=10, output_tokens=8192, requests=1)
+    return Reply(Message("assistant", (thinking, *blocks)), usage, 8202, stop_reason="max_tokens")
+
+
+def test_a_reply_cut_off_before_any_answer_fails_with_why(tmp_path, monkeypatch):
+    session, events, _ = make_session(tmp_path, monkeypatch, [cut_off(), "going on"])
+    assert session.send("map this project") is None
+    assert isinstance(events[-1], Failed) and "output limit" in events[-1].message
+    assert not any(isinstance(e, RunFinished) for e in events)
+    assert session.info.status == "failed"
+    assert session.usage.output_tokens == 8192  # the tokens it spent still count
+
+    # The conversation is kept: the next message goes on from it.
+    assert session.send("go on") == "going on"
+    assert isinstance(events[-1], RunFinished) and events[-1].stopped_by == "answered"
+
+
+def test_an_answer_cut_off_midway_is_kept_with_a_notice(tmp_path, monkeypatch):
+    session, events, _ = make_session(tmp_path, monkeypatch, [cut_off(TextBlock("The project has three par"))])
+    assert session.send("map this project") == "The project has three par"
+    assert any(isinstance(e, Notice) and "output limit" in e.text for e in events)
+    assert isinstance(events[-1], RunFinished) and events[-1].stopped_by == "answered"
 
 
 def test_clear_starts_over(tmp_path, monkeypatch):

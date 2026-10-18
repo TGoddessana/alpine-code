@@ -7,6 +7,7 @@ Config file: ``~/.alpine-code/config.toml`` (see ``home_dir``)::
     # review_model = "openrouter/qwen3"           # auto mode's reviewer; unset: the session's model
     # clone_folder = "~/Developments"              # where the app puts repositories; unset: ~/AlpineCode
     # context_window = 128000
+    # output_limit = 64000                         # most tokens one reply may write; unset: models.py picks
 
     [connections.anthropic]
     provider = "anthropic"                         # a provider from providers.py
@@ -21,6 +22,7 @@ Keys are not in this file: a connection's key comes from its provider's environm
 
 Environment: ``ALPINE_MODEL`` overrides ``default_model``. ``ALPINE_BASE_URL``, ``ALPINE_API_KEY`` and
 ``ALPINE_CONTEXT_WINDOW`` point at a one-off OpenAI-compatible server that is not a connection (scripts, benchmarks).
+``ALPINE_OUTPUT_LIMIT`` overrides ``output_limit``.
 """
 
 from __future__ import annotations
@@ -49,6 +51,7 @@ _ENV = {
     "base_url": "ALPINE_BASE_URL",
     "api_key": "ALPINE_API_KEY",
     "context_window": "ALPINE_CONTEXT_WINDOW",
+    "output_limit": "ALPINE_OUTPUT_LIMIT",
 }
 
 #: Keys of config.toml -> Settings fields.
@@ -58,6 +61,7 @@ _FILE_KEYS = {
     "review_model": "review_model",
     "clone_folder": "clone_folder",
     "context_window": "context_window",
+    "output_limit": "output_limit",
 }
 
 _CONNECTION_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
@@ -118,6 +122,8 @@ class Settings:
     api_key: str | None = None
     """The key for ``base_url``."""
     context_window: int | None = None
+    output_limit: int | None = None
+    """Most tokens one reply may write; ``None``: ``make_model`` picks for the model."""
     mode: Mode = Mode.DEFAULT
     review_model: str | None = None
     """``<connection>/<model>`` of auto mode's reviewer; ``None``: the session's model."""
@@ -281,11 +287,12 @@ def _from_file(file: Path) -> dict[str, Any]:
 
 def _convert(values: dict[str, Any]) -> None:
     """Turns the text values of the file and the environment into their types, in place."""
-    if values.get("context_window") is not None:
-        try:
-            values["context_window"] = int(values["context_window"])
-        except ValueError as e:
-            raise ConfigError(f"context_window must be an integer (got {values['context_window']!r})") from e
+    for key in ("context_window", "output_limit"):
+        if values.get(key) is not None:
+            try:
+                values[key] = int(values[key])
+            except ValueError as e:
+                raise ConfigError(f"{key} must be an integer (got {values[key]!r})") from e
     if values.get("clone_folder") is not None:
         values["clone_folder"] = Path(values["clone_folder"]).expanduser()
     try:

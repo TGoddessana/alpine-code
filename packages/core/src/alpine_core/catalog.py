@@ -49,7 +49,6 @@ def load_catalog(*, timeout: float = 10) -> Catalog:
 
 
 def _load(timeout: float) -> Catalog:
-    global _loaded
     file = catalog_file()
     try:
         age = time.time() - file.stat().st_mtime
@@ -69,6 +68,20 @@ def _load(timeout: float) -> Catalog:
         except (OSError, urllib.error.URLError, ValueError):
             if age is None:
                 return {}
+    return _read(file)
+
+
+def saved_catalog() -> Catalog:
+    """The catalog saved on this computer as it is, never fetched: for a caller that must not wait on the network.
+    Empty when there is no copy yet. It does not wait for a fetch under way."""
+    try:
+        return _read(catalog_file())
+    except OSError:
+        return {}
+
+
+def _read(file: Path) -> Catalog:
+    global _loaded
     mtime = file.stat().st_mtime
     if _loaded is None or _loaded[0] != mtime:
         try:
@@ -90,6 +103,17 @@ def hidden_models(
         shown_by_default = _newest_of_each_family(models, entries, today or date.today())
     shown = (shown_by_default | set(connection.show)) - set(connection.hide)
     return [m for m in models if m not in shown]
+
+
+def output_limit(provider: str, model: str, catalog: Catalog) -> int | None:
+    """The most tokens one reply of the provider's model may write, as the catalog says; ``None`` if it does not
+    know."""
+    listed = catalog.get(provider)
+    entries = listed.get("models") if isinstance(listed, dict) else None
+    entry = entries.get(model) if isinstance(entries, dict) else None
+    limit = entry.get("limit") if isinstance(entry, dict) else None
+    output = limit.get("output") if isinstance(limit, dict) else None
+    return output if isinstance(output, int) and output > 0 else None
 
 
 def is_local(url: str | None) -> bool:

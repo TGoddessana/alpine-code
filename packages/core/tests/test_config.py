@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from alpineagents import Anthropic, OpenAICompatible
 
@@ -15,7 +17,8 @@ from alpine_core import (
     set_default_model,
     show_model,
 )
-from alpine_core.models import make_model
+from alpine_core.catalog import catalog_file
+from alpine_core.models import ANTHROPIC_OUTPUT_LIMIT, make_model
 
 
 def test_priority_file_env_override(home, monkeypatch):
@@ -113,6 +116,38 @@ def test_models_come_from_connections_with_their_keys(home, monkeypatch):
 
     # Not a connection: alpineagents resolves it with its own environment variables.
     assert make_model(settings.with_model("ollama/qwen3-coder")) == "ollama/qwen3-coder"
+
+
+def test_claude_writes_long_replies_unless_the_model_allows_less(home, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    settings = Settings.load()
+    assert make_model(settings.with_model("anthropic/claude-haiku-5-5")).max_tokens == ANTHROPIC_OUTPUT_LIMIT
+
+    # The saved models.dev catalog knows an older model that rejects more.
+    catalog_file().parent.mkdir(parents=True)
+    models = {"claude-old": {"limit": {"output": 4096}}, "claude-haiku-5-5": {"limit": {"output": 128000}}}
+    catalog_file().write_text(json.dumps({"anthropic": {"models": models}}))
+    assert make_model(settings.with_model("anthropic/claude-old")).max_tokens == 4096
+    assert make_model(settings.with_model("anthropic/claude-haiku-5-5")).max_tokens == ANTHROPIC_OUTPUT_LIMIT
+
+    save_connection("anthropic", provider="anthropic")
+    connected = Settings.load().with_model("anthropic/claude-old")
+    assert make_model(connected).max_tokens == 4096
+
+
+def test_output_limit_setting_wins(home, monkeypatch):
+    home.mkdir()
+    config_file().write_text('output_limit = 32000\n[connections.local]\nbase_url = "http://localhost:11434/v1"\n')
+    settings = Settings.load()
+    assert settings.output_limit == 32000
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    assert make_model(settings.with_model("anthropic/claude-haiku-5-5")).max_tokens == 32000
+    assert make_model(settings.with_model("local/qwen3")).max_tokens == 32000
+    monkeypatch.setenv("ALPINE_OUTPUT_LIMIT", "100000")
+    assert Settings.load().output_limit == 100000
+    monkeypatch.setenv("ALPINE_OUTPUT_LIMIT", "lots")
+    with pytest.raises(ConfigError, match="output_limit"):
+        Settings.load()
 
 
 def test_saved_keys_are_private(home):

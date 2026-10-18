@@ -177,6 +177,8 @@ class Session:
             self.workspace, _saved.info.work_baseline if _saved else None, _saved.info.work_history if _saved else None
         )
         self._reporter = EventReporter(self._dispatch, self._work_changes)
+        self._cut_off = False
+        """The model's latest reply in this run stopped at its output limit."""
         self._state: State | None = None
         self._settings = settings
         self._agent = self._build_agent(settings)
@@ -400,7 +402,8 @@ class Session:
             answer = await self._agent.arun(self._state)
             reminded: set[str] = set()
             # A check of what the run did reminds the agent once and lets it go on; it never ends the run itself.
-            while isinstance(self._state.stopped, StoppedByUntil):  # it answered (not stopped, not out of turns)
+            # Only after an answer (not stopped, not out of turns, not cut off at the output limit).
+            while isinstance(self._state.stopped, StoppedByUntil) and not self._cut_off:
                 failed = [say for say in self._run_end_checks() if say not in reminded]
                 if not failed:
                     break
@@ -432,6 +435,12 @@ class Session:
             self._dispatch(Interrupted())
             self._end_run("idle")
             return None
+        if isinstance(stopped, StoppedByUntil) and self._cut_off:
+            if not self._state.messages[-1].text:  # nothing came of the run's last reply: say so, not "answered"
+                self._dispatch(Failed(self._cut_off_message()))
+                self._end_run("failed")
+                return None
+            self._dispatch(Notice("The answer stopped at the model's output limit, so its end is missing."))
         self._dispatch(RunFinished(_stop_reason(stopped), self.usage))
         if self._memory is not None:
             for source, count in self._memory.on_run_end(self._state).items():
@@ -732,6 +741,8 @@ class Session:
 
     def _dispatch(self, event: Event) -> None:
         """A core event: the item recorder first (so ``snapshot()`` is current), then the frontend's callback."""
+        if isinstance(event, AssistantDone):
+            self._cut_off = event.cut_off
         self._recorder.handle(event)
         self._track(event)
         self._check_change(event)
@@ -782,6 +793,15 @@ class Session:
             failed = self._checks.after_change(self._facts(), self._change(event.id, dict(event.args)))
             if failed:
                 self._remind(failed)
+
+    def _cut_off_message(self) -> str:
+        limit = getattr(self._agent.model, "max_tokens", None)
+        size = f" ({limit:,} tokens)" if isinstance(limit, int) else ""
+        return (
+            f"The model used up its output limit{size} before it wrote an answer or called a tool, so this reply "
+            "came to nothing. Send a message to let it go on; asking for smaller steps (fewer files at a time) "
+            "helps. The limit is output_limit in ~/.alpine-code/config.toml."
+        )
 
     def _run_end_checks(self) -> list[str]:
         return self._checks.at_run_end(self._facts()) if self._checks is not None and self._state else []
@@ -839,6 +859,7 @@ class Session:
             self._dispatch(Notice(f"Checkpoint could not be captured: {exc}"))
         self._run_started_at = _now()
         self._run_base = self.usage
+        self._cut_off = False
         self._running_tools.clear()
         self._activity = Activity(kind, None, self._run_started_at)
         self._set_status("running")

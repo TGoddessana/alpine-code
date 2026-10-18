@@ -52,6 +52,8 @@ class AssistantDone:
     """The model finished its reply. ``text`` is the full text (may be empty when it only calls tools)."""
 
     text: str
+    cut_off: bool = False
+    """The reply stopped at the model's output limit, so its end is missing."""
 
 
 @dataclass(frozen=True)

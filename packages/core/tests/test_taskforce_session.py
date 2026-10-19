@@ -486,3 +486,32 @@ def test_stopping_an_agent_that_waits_for_approval_takes_its_card_down(tmp_path,
         await until(lambda: not session._turns)
 
     asyncio.run(go())
+
+
+def test_an_agent_stopped_while_others_wait_leaves_the_card_to_them(tmp_path, monkeypatch):
+    async def go():
+        asked = []
+        gate = asyncio.Event()
+        approver = Approver(decision="deny", gate=gate)
+        script = 'phase("작성")\nresult = await parallel([agent("wait 1"), agent("wait 2")])\n'
+        steps = [{"title": "작성", "count": 2, "model": "fake"}]
+        lead = [propose(script=script, steps=steps), "제안했어요", "끝"]
+        session = make(tmp_path, monkeypatch, lead, approver=approver, members=stoppable(asked))
+        await session.asend("해 줘")
+        [card] = taskforce_items(session)
+        session.taskforce.start(card.id)
+
+        def approval():
+            found = [i for i in session.snapshot().active if isinstance(i, ApprovalItem)]
+            return found[0] if found else None
+
+        await until(lambda: approval() is not None and len(approval().asked_by) == 2)
+        session.taskforce.stop_member(card.id, "a1")
+        await until(lambda: approval().asked_by == ["wait 2"])
+        gate.set()
+        await until(lambda: taskforce_items(session, active=False))
+        [done] = taskforce_items(session, active=False)
+        assert [m["state"] for m in done.members] == ["stopped", "done"]
+        await until(lambda: not session._turns)
+
+    asyncio.run(go())

@@ -456,6 +456,8 @@ class TaskForce:
             return group.answer.result()
         if group.waiting == 0:
             group.answer.cancel()
+        else:
+            self._session._recorder.ask_no_more(group.item_id, member.task)
         return Decision("deny", "The user stopped this agent.")
 
     # ------------------------------------------------------------ the tools

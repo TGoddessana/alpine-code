@@ -557,6 +557,18 @@ class ItemRecorder:
         self._send(ItemStarted(item))
         return item
 
+    def ask_no_more(self, item_id: str, asked_by: str) -> ApprovalItem | None:
+        """A TF agent stopped waiting for an active approval (the user stopped it)."""
+        item = self._active.get(item_id)
+        if not isinstance(item, ApprovalItem) or asked_by not in item.asked_by:
+            return None
+        left = list(item.asked_by)
+        left.remove(asked_by)
+        item = dataclasses.replace(item, asked_by=left)
+        self._active[item_id] = item
+        self._send(ItemStarted(item))
+        return item
+
     def show_taskforce(self, item: TaskForceItem) -> None:
         """Starts the TF's item, or announces its change (``ItemStarted`` again, same id)."""
         self._active[item.id] = item

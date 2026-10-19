@@ -88,7 +88,7 @@ from alpine_protocol import (
 
 from . import map_state
 from .agents import agents
-from .methods import APP_ERROR, MethodError
+from .methods import APP_ERROR, INVALID_PARAMS, MethodError
 from .skills import skills
 from .tools import list_tools, toolbox
 from .wire import to_event_params, to_info, to_item
@@ -291,6 +291,10 @@ class SessionManager:
 
     async def answer(self, params: SessionAnswerParams) -> SessionAnswerResult:
         live = self._get(params.session_id)
+        if params.agent is not None:
+            if params.decision != "deny":
+                raise MethodError(INVALID_PARAMS, "Only a decline can answer one agent's call")
+            return SessionAnswerResult(accepted=live.session.taskforce.decline_one(params.request_id, params.agent))
         decision = Decision(params.decision, params.feedback)
         return SessionAnswerResult(accepted=live.approver.answer(params.request_id, decision))
 

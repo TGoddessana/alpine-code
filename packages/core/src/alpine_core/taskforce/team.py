@@ -42,7 +42,7 @@ from ..chatgpt import is_chatgpt
 from ..config import Connection, Settings
 from ..context import limits_for
 from ..events import Event, TextDelta, ToolFinished, ToolStarted, TurnStarted
-from ..items import Item, ItemRecorder, TaskForceItem, TaskForceStatus, item_to_dict
+from ..items import AgentAsk, Item, ItemRecorder, TaskForceItem, TaskForceStatus, item_to_dict
 from ..loop import coding_until
 from ..models import make_model
 from ..permissions import Mode
@@ -189,8 +189,9 @@ class _Group:
 
     item_id: str
     answer: asyncio.Task[Decision]
-    waiting: int = 0
-    """Members still waiting for the answer."""
+    waiting: dict[str, asyncio.Future[Decision]] = field(default_factory=dict)
+    """The members still waiting for the answer, by id; a member's own future is set when the user declines only
+    its call."""
 
 
 class TaskForce:
@@ -201,6 +202,8 @@ class TaskForce:
         self._offered = offered
         self._runs: dict[str, _Run] = {}
         self._groups: dict[tuple[str, str], _Group] = {}
+        self._cards: dict[str, _Group] = {}
+        """The unanswered cards by item id, for declining one agent's call."""
         self._proposer: Tool | None = None
         self._killing: set[asyncio.Task[None]] = set()
 
@@ -403,11 +406,21 @@ class TaskForce:
         recorder = self._session._recorder
         member.state = "asking"
         self._changed(run)
+        mine = AgentAsk(
+            member.id,
+            member.task,
+            request.call_id,
+            request.title,
+            request.preview,
+            request.preview_kind,
+            request.tool,
+            dict(request.args),
+        )
         try:
             key = (request.tool, request.remember) if request.remember else None
             group = self._groups.get(key) if key is not None else None
             if group is not None and not group.answer.done():
-                recorder.ask_also(group.item_id, member.task)
+                recorder.ask_also(group.item_id, mine)
                 return await self._wait(member, group)
             item = recorder.start_approval(
                 request.call_id,
@@ -420,7 +433,7 @@ class TaskForce:
                 args=request.args,
                 review=request.review,
                 review_error=request.review_error,
-                asked_by=[member.task],
+                asked_by=[mine],
             )
             asked = dataclasses.replace(request, request_id=item.id)
 
@@ -436,6 +449,8 @@ class TaskForce:
                 return decision
 
             group = _Group(item.id, asyncio.get_running_loop().create_task(answer()))
+            self._cards[item.id] = group
+            group.answer.add_done_callback(lambda _: self._cards.pop(item.id, None))
             if key is not None:
                 self._groups[key] = group
             return await self._wait(member, group)
@@ -445,22 +460,34 @@ class TaskForce:
             self._changed(run)
 
     async def _wait(self, member: Member, group: _Group) -> Decision:
-        """The answer to the card, or a refusal once the user stops the member; a card nobody waits for any more
-        is taken down."""
-        group.waiting += 1
+        """The answer to the card, a decline of this member's call alone, or a refusal once the user stops the
+        member; a card nobody waits for any more is taken down."""
+        own = group.waiting[member.id] = asyncio.get_running_loop().create_future()
         stopped = asyncio.ensure_future(member.stopped.wait())
         try:
-            await asyncio.wait({group.answer, stopped}, return_when=asyncio.FIRST_COMPLETED)
+            await asyncio.wait({group.answer, own, stopped}, return_when=asyncio.FIRST_COMPLETED)
         finally:
             stopped.cancel()
-            group.waiting -= 1
+            group.waiting.pop(member.id, None)
         if group.answer.done():
             return group.answer.result()
-        if group.waiting == 0:
+        decision = own.result() if own.done() else Decision("deny", "The user stopped this agent.")
+        own.cancel()
+        if not group.waiting:
             group.answer.cancel()
         else:
-            self._session._recorder.ask_no_more(group.item_id, member.task)
-        return Decision("deny", "The user stopped this agent.")
+            self._session._recorder.ask_no_more(group.item_id, member.id)
+        return decision
+
+    def decline_one(self, item_id: str, member_id: str) -> bool:
+        """The line's 거절 on a card several agents ask: only this member's call is declined, as a decline of a card
+        of its own would be; the others still wait for the card. ``False`` when it no longer waits there."""
+        group = self._cards.get(item_id)
+        own = group.waiting.get(member_id) if group is not None else None
+        if own is None or own.done():
+            return False
+        own.set_result(Decision("deny"))
+        return True
 
     # ------------------------------------------------------------ the tools
 

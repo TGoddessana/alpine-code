@@ -55,6 +55,7 @@ from .git import status as git_status
 from .home import home_dir
 from .imports import SOURCE_NAMES, ExternalSession, ImportSource, find_external_sessions, import_session
 from .items import (
+    AgentAsk,
     AgentChanged,
     AgentMessage,
     AgentSwitched,
@@ -257,6 +258,7 @@ __all__ = [
     "AgentMessage",
     "AgentSwitched",
     "AgentChanged",
+    "AgentAsk",
     "ApprovalItem",
     "ReviewBlocked",
     "Compaction",

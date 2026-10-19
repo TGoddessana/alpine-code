@@ -75,6 +75,29 @@ class ToolCallItem:
 
 
 @dataclass(frozen=True)
+class AgentAsk:
+    """One TF agent's call waiting on an approval card (TF decision 6): a card groups the agents asking the same
+    question, shows each call under its task, and one of them can be declined alone."""
+
+    agent: str
+    """The member's id in its run; ``session/answer`` names it to decline only this call."""
+    task: str
+    call_id: str
+    title: str
+    preview: str | None = None
+    preview_kind: PreviewKind = "text"
+    tool: str = ""
+    args: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_data(cls, data: Any) -> AgentAsk:
+        """From ``item_to_dict``'s data; a bare task is how sessions saved before the calls were kept wrote it."""
+        if isinstance(data, str):
+            return cls("", data, "", "")
+        return cls(**{**data, "args": dict(data.get("args") or {})})
+
+
+@dataclass(frozen=True)
 class ApprovalItem:
     """Active while the app asks (``decision`` is ``None``); finished with the user's decision. ``id`` is the
     request id the app answers with. ``tool`` and ``args`` are the call's, so the app can draw it like the call it
@@ -95,9 +118,9 @@ class ApprovalItem:
     """In auto mode, why the user is asked instead of the reviewer (``ApprovalRequest.review``)."""
     review_error: str | None = None
     """What went wrong when ``review`` is ``failed``."""
-    asked_by: list[str] = field(default_factory=list)
-    """The TF agents waiting for this answer, by task; several when they asked the same thing (TF decision 3).
-    Empty when the session's own model asks."""
+    asked_by: list[AgentAsk] = field(default_factory=list)
+    """The TF agents waiting for this answer, each with its own call; several when they asked the same thing (TF
+    decision 3: the same "don't ask again" rule). Empty when the session's own model asks."""
     kind: ClassVar[str] = "approval"
 
 
@@ -339,7 +362,7 @@ def item_to_dict(item: Item) -> dict[str, Any]:
     if isinstance(item, AgentChanged):
         data["added"], data["removed"] = list(item.added), list(item.removed)
     if isinstance(item, ApprovalItem):
-        data["asked_by"] = list(item.asked_by)
+        data["asked_by"] = [dataclasses.asdict(ask) for ask in item.asked_by]
     if isinstance(item, TaskForceItem):
         data["steps"], data["members"] = [dict(s) for s in item.steps], [dict(m) for m in item.members]
     return data
@@ -357,6 +380,8 @@ def item_from_dict(data: dict[str, Any]) -> Item:
     if unknown:
         raise ValueError(f"unknown fields for {kind}: {sorted(unknown)}")
     try:
+        if cls is ApprovalItem and "asked_by" in fields:
+            fields["asked_by"] = [AgentAsk.from_data(ask) for ask in fields["asked_by"]]
         return cls(**fields)
     except TypeError as e:
         raise ValueError(f"bad {kind} item: {e}") from e
@@ -527,7 +552,7 @@ class ItemRecorder:
         args: dict[str, Any] | None = None,
         review: ReviewAsk | None = None,
         review_error: str | None = None,
-        asked_by: list[str] | None = None,
+        asked_by: list[AgentAsk] | None = None,
     ) -> ApprovalItem:
         """The core asks; the item's ``id`` is the request id."""
         item = ApprovalItem(
@@ -547,8 +572,8 @@ class ItemRecorder:
         self._start(item)
         return item
 
-    def ask_also(self, item_id: str, asked_by: str) -> ApprovalItem | None:
-        """Another TF agent waits for the same answer as an active approval."""
+    def ask_also(self, item_id: str, asked_by: AgentAsk) -> ApprovalItem | None:
+        """Another TF agent waits for the same answer as an active approval, with its own call."""
         item = self._active.get(item_id)
         if not isinstance(item, ApprovalItem):
             return None
@@ -557,13 +582,12 @@ class ItemRecorder:
         self._send(ItemStarted(item))
         return item
 
-    def ask_no_more(self, item_id: str, asked_by: str) -> ApprovalItem | None:
-        """A TF agent stopped waiting for an active approval (the user stopped it)."""
+    def ask_no_more(self, item_id: str, agent: str) -> ApprovalItem | None:
+        """A TF agent stopped waiting for an active approval: the user stopped it, or declined its call alone."""
         item = self._active.get(item_id)
-        if not isinstance(item, ApprovalItem) or asked_by not in item.asked_by:
+        left = [ask for ask in item.asked_by if ask.agent != agent] if isinstance(item, ApprovalItem) else []
+        if not isinstance(item, ApprovalItem) or len(left) == len(item.asked_by):
             return None
-        left = list(item.asked_by)
-        left.remove(asked_by)
         item = dataclasses.replace(item, asked_by=left)
         self._active[item_id] = item
         self._send(ItemStarted(item))

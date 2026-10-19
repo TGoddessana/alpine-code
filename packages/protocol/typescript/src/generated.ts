@@ -12,6 +12,25 @@ export interface Activity {
   since: string;
 }
 /**
+ * One TF agent's call on an approval card: a card groups the agents that ask the same question, and shows each
+ * one's call under its task.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "AgentAsk".
+ */
+export interface AgentAsk {
+  agent: string;
+  task: string;
+  callId: string;
+  title: string;
+  preview: string | null;
+  previewKind: ('command' | 'diff' | 'text') | null;
+  tool: string;
+  args: {
+    [k: string]: unknown;
+  };
+}
+/**
  * The agent was edited between two turns in a way the model sees.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -163,7 +182,7 @@ export interface ApprovalItem {
   };
   review: ('blocked_in_a_row' | 'failed') | null;
   reviewError: string | null;
-  askedBy: string[];
+  askedBy: AgentAsk[];
 }
 /**
  * The ChatGPT account behind a connection that signs in instead of using a key. Tokens never leave the server.
@@ -2863,6 +2882,7 @@ export interface SessionAnswerParams {
   requestId: string;
   decision: 'allow' | 'allow_always' | 'deny';
   feedback?: string | null;
+  agent?: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema

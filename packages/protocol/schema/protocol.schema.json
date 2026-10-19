@@ -452,6 +452,70 @@
       "title": "Activity",
       "type": "object"
     },
+    "AgentAsk": {
+      "description": "One TF agent's call on an approval card: a card groups the agents that ask the same question, and shows each\none's call under its task.",
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "callId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "preview": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "previewKind": {
+          "anyOf": [
+            {
+              "enum": [
+                "command",
+                "diff",
+                "text"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tool": {
+          "default": "",
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": true,
+          "type": "object"
+        }
+      },
+      "required": [
+        "agent",
+        "task",
+        "callId",
+        "title",
+        "preview",
+        "previewKind",
+        "tool",
+        "args"
+      ],
+      "title": "AgentAsk",
+      "type": "object"
+    },
     "AgentChangedItem": {
       "description": "The agent was edited between two turns in a way the model sees.",
       "properties": {
@@ -874,7 +938,7 @@
         },
         "askedBy": {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/AgentAsk"
           },
           "type": "array"
         }
@@ -5599,6 +5663,17 @@
           "type": "string"
         },
         "feedback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "agent": {
           "anyOf": [
             {
               "type": "string"

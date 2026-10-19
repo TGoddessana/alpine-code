@@ -90,3 +90,64 @@ def test_a_tf_from_card_to_result(tmp_path, monkeypatch):
             await client.status(sid, "idle")
 
     asyncio.run(scenario())
+
+
+def test_a_grouped_card_shows_each_call_and_declines_one(tmp_path, monkeypatch):
+    folder = tmp_path / "project"
+    folder.mkdir()
+    lead = FakeModel(
+        [
+            tool_call(
+                "task_force",
+                title="두 파일",
+                steps=[{"title": "작성", "count": 2, "model": "fake"}],
+                minutes=3,
+                script='result = await parallel([agent("a"), agent("b")])\n',
+            ),
+            "제안했어요",
+            "끝",
+        ]
+    )
+    monkeypatch.setattr(session_module, "make_model", lambda settings: lead)
+
+    def write(request):
+        name = request.messages[0].text
+        return tool_call("write", path=f"{name}.md", content=name)
+
+    monkeypatch.setattr(team_module, "make_model", lambda settings: FakeModel([write, "ok"]))
+
+    async def scenario():
+        async with Client([]) as client:
+            sid = await client.new(folder)
+            await client.call("session/send", sessionId=sid, text="go")
+
+            def latest(kind, check):
+                def found(out):
+                    items = [e["event"].get("item") for e in client.events(sid)]
+                    items = [i for i in items if i and i["kind"] == kind and check(i)]
+                    return items[-1] if items else None
+
+                return found
+
+            proposed = await client.until(latest("taskforce", lambda i: i["status"] == "proposed"))
+            await client.call("taskforce/start", sessionId=sid, runId=proposed["id"])
+            card = await client.until(latest("approval", lambda i: len(i["askedBy"]) == 2))
+            assert [(ask["task"], ask["args"]["path"], ask["previewKind"]) for ask in card["askedBy"]] == [
+                ("a", "a.md", "diff"),
+                ("b", "b.md", "diff"),
+            ]
+            a = card["askedBy"][0]["agent"]
+            wrong = await client.call("session/answer", sessionId=sid, requestId=card["id"], decision="allow", agent=a)
+            assert wrong["error"]["code"] == -32602
+            declined = await client.call(
+                "session/answer", sessionId=sid, requestId=card["id"], decision="deny", agent=a
+            )
+            assert declined["result"] == {"accepted": True}
+            await client.until(latest("approval", lambda i: [ask["task"] for ask in i["askedBy"]] == ["b"]))
+            await client.call("session/answer", sessionId=sid, requestId=card["id"], decision="allow")
+            await client.until(latest("taskforce", lambda i: i["status"] == "done"))
+            await client.until(latest("agent_message", lambda i: i["text"] == "끝"))  # the result turn
+            await client.status(sid, "idle")
+            assert not (folder / "a.md").exists() and (folder / "b.md").read_text() == "b"
+
+    asyncio.run(scenario())

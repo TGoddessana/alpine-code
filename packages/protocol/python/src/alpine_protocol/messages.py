@@ -1034,6 +1034,22 @@ class ToolCallItem(ItemModel):
     """Cumulative actual session changes. None in old records or when collection was unavailable."""
 
 
+class AgentAsk(ItemModel):
+    """One TF agent's call on an approval card: a card groups the agents that ask the same question, and shows each
+    one's call under its task."""
+
+    agent: str
+    """The agent's id in its TF; ``session/answer`` names it to decline only this call."""
+    task: str
+    """What the agent does, in the TF script's words."""
+    call_id: str
+    title: str
+    preview: str | None = None
+    preview_kind: Literal["command", "diff", "text"] | None = None
+    tool: str = ""
+    args: dict[str, Any] = Field(default_factory=dict)
+
+
 class ApprovalItem(ItemModel):
     id: str
     """The ``requestId`` of ``session/answer``."""
@@ -1056,9 +1072,9 @@ class ApprovalItem(ItemModel):
     """In auto mode, why the user is asked instead of the reviewer: it blocked 3 calls in a row, or it failed."""
     review_error: str | None = None
     """What went wrong when ``review`` is ``failed``, in the error's own words."""
-    asked_by: list[str] = Field(default_factory=list)
-    """The TF agents waiting for this answer, by task: several when they asked the same thing. Empty when the
-    session's own model asks."""
+    asked_by: list[AgentAsk] = Field(default_factory=list)
+    """The TF agents waiting for this answer, each with its own call: several when they asked the same thing (the
+    same "don't ask again" rule). Empty when the session's own model asks."""
 
 
 class ReviewBlockedItem(ItemModel):
@@ -1346,6 +1362,9 @@ class SessionAnswerParams(Message):
     decision: Literal["allow", "allow_always", "deny"]
     feedback: str | None = None
     """With ``deny``: tells the model what to do instead; without it a denial stops the turn."""
+    agent: str | None = None
+    """With ``deny`` on a card TF agents ask: declines only this agent's call (an ``AgentAsk.agent``); the agent goes
+    on without it and the card stays for the others."""
 
 
 class SessionAnswerResult(Message):

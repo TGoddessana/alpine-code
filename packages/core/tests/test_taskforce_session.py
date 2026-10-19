@@ -68,7 +68,7 @@ async def until(check, timeout=10.0):
             await asyncio.sleep(0.01)
 
 
-def make(tmp_path, monkeypatch, lead, approver=None, storage=None, members=None, mode=Mode.DEFAULT):
+def make(tmp_path, monkeypatch, lead, approver=None, storage=None, members=None, mode=Mode.DEFAULT, events=None):
     model = FakeModel(lead)  # one model however often the agent is rebuilt
     monkeypatch.setattr(session_module, "make_model", lambda settings: model)
     monkeypatch.setattr(team_module, "make_model", members or member_model())
@@ -78,6 +78,7 @@ def make(tmp_path, monkeypatch, lead, approver=None, storage=None, members=None,
         cwd=tmp_path,
         storage=storage,
         taskforce=True,
+        on_item_event=None if events is None else lambda sid, seq, event: events.append(event),
     )
 
 
@@ -152,28 +153,96 @@ def test_혼자_하기_tells_the_model_to_go_on_alone(tmp_path, monkeypatch):
     asyncio.run(go())
 
 
-def test_agents_asking_the_same_thing_share_one_card(tmp_path, monkeypatch):
+def writers(heard=None):
+    """Every agent writes a file named after its prompt, then answers with what it heard last."""
+
+    def make(settings):
+        def answer(request):
+            if heard is not None:
+                heard[request.messages[0].text] = request.messages[-1]
+            return "ok"
+
+        def write(request):
+            name = request.messages[0].text
+            return tool_call("write", path=f"{name}.md", content=name)
+
+        return FakeModel([write, answer])
+
+    return make
+
+
+def approvals(session):
+    return [i for i in session.snapshot().active if isinstance(i, ApprovalItem)]
+
+
+def start_writers(tmp_path, monkeypatch, names, approver, heard=None, events=None):
+    script = f"await parallel([{', '.join(f'agent({n!r})' for n in names)}])\n"
+    lead = [propose(script=script), "제안했어요", "끝"]
+    session = make(tmp_path, monkeypatch, lead, approver=approver, members=writers(heard), events=events)
+
     async def go():
-        gate = asyncio.Event()
-        approver = Approver(gate=gate)
-        lead = [propose(script='await parallel([agent("a"), agent("b")])\n'), "제안했어요", "끝"]
-        writes = member_model(first=tool_call("write", path="notes.md", content="x"))
-        session = make(tmp_path, monkeypatch, lead, approver=approver, members=writes)
         await session.asend("go")
         [card] = taskforce_items(session)
         session.taskforce.start(card.id)
+        await until(lambda: approvals(session) and len(approvals(session)[0].asked_by) == len(names))
+        return session
 
-        def asking():
-            cards = [i for i in session.snapshot().active if isinstance(i, ApprovalItem)]
-            return cards and len(cards[0].asked_by) == 2
+    return go()
 
-        await until(asking)
-        [approval] = [i for i in session.snapshot().active if isinstance(i, ApprovalItem)]
-        assert approval.asked_by == ["a", "b"] and len(approver.requests) == 1
+
+def test_agents_asking_the_same_thing_share_one_card_showing_each_call(tmp_path, monkeypatch):
+    async def go():
+        gate = asyncio.Event()
+        approver = Approver(gate=gate)
+        session = await start_writers(tmp_path, monkeypatch, ["a", "b"], approver)
+        [approval] = approvals(session)
+        assert [(ask.task, ask.title, ask.args["path"]) for ask in approval.asked_by] == [
+            ("a", "Create a.md", "a.md"),
+            ("b", "Create b.md", "b.md"),
+        ]
+        assert "+b" in approval.asked_by[1].preview and approval.asked_by[1].preview_kind == "diff"
+        assert len(approver.requests) == 1
         assert session.info.status == "idle"  # the session's own turn is not waiting
         gate.set()
         await until(lambda: taskforce_items(session, active=False))
         assert [m["state"] for m in taskforce_items(session, active=False)[0].members] == ["done", "done"]
+
+    asyncio.run(go())
+
+
+def test_one_agents_call_is_declined_alone_and_the_card_stays_for_the_others(tmp_path, monkeypatch):
+    async def go():
+        gate = asyncio.Event()
+        heard = {}
+        session = await start_writers(tmp_path, monkeypatch, ["a", "b", "c"], Approver(gate=gate), heard)
+        [approval] = approvals(session)
+        b = approval.asked_by[1].agent
+        assert session.taskforce.decline_one(approval.id, b)
+        await until(lambda: [ask.task for ask in approvals(session)[0].asked_by] == ["a", "c"])
+        await until(lambda: "b" in heard)  # it goes on without the call
+        assert "The user declined this tool call." in heard["b"].content[0].content
+        assert not session.taskforce.decline_one(approval.id, b)  # once
+        gate.set()
+        await until(lambda: taskforce_items(session, active=False))
+        assert [m["state"] for m in taskforce_items(session, active=False)[0].members] == ["done"] * 3
+        assert (tmp_path / "a.md").exists() and not (tmp_path / "b.md").exists() and (tmp_path / "c.md").exists()
+        [answered] = [i for i in session.snapshot().items if isinstance(i, ApprovalItem)]
+        assert answered.decision == "allow" and [ask.task for ask in answered.asked_by] == ["a", "c"]
+
+    asyncio.run(go())
+
+
+def test_declining_the_last_line_takes_the_card_down(tmp_path, monkeypatch):
+    async def go():
+        session = await start_writers(tmp_path, monkeypatch, ["a", "b"], Approver(gate=asyncio.Event()))
+        [approval] = approvals(session)
+        for ask in approval.asked_by:
+            assert session.taskforce.decline_one(approval.id, ask.agent)
+        await until(lambda: taskforce_items(session, active=False))
+        assert not approvals(session)
+        [answered] = [i for i in session.snapshot().items if isinstance(i, ApprovalItem)]
+        assert answered.decision == "deny" and not list(tmp_path.glob("*.md"))
+        await until(lambda: not session._turns)
 
     asyncio.run(go())
 
@@ -508,7 +577,7 @@ def test_an_agent_stopped_while_others_wait_leaves_the_card_to_them(tmp_path, mo
 
         await until(lambda: approval() is not None and len(approval().asked_by) == 2)
         session.taskforce.stop_member(card.id, "a1")
-        await until(lambda: approval().asked_by == ["wait 2"])
+        await until(lambda: [ask.task for ask in approval().asked_by] == ["wait 2"])
         gate.set()
         await until(lambda: taskforce_items(session, active=False))
         [done] = taskforce_items(session, active=False)

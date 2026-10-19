@@ -20,6 +20,7 @@ from typing import Any, TextIO
 from pydantic import ValidationError
 
 from alpine_core import migrate_projects
+from alpine_core.cloud import runtimes
 from alpine_core.processes import process_manager
 from alpine_protocol import (
     METHODS,
@@ -33,10 +34,12 @@ from alpine_protocol import (
     Response,
     SessionEventParams,
 )
+from alpine_protocol.cloud import CloudChangedParams, CloudSignInFinishedParams, ProjectsNodeToolsChangedParams
 
 from .agents import HANDLERS as AGENT_HANDLERS
 from .chatgpt import ChatGPTSignIns
 from .clones import Clones
+from .cloud import CloudMethods
 from .dev_servers import DevelopmentServers
 from .files import FILE_HANDLERS
 from .flow import HANDLERS as FLOW_HANDLERS
@@ -46,6 +49,7 @@ from .memory import MemoryMethods
 from .methods import HANDLERS as METHOD_HANDLERS
 from .methods import INVALID_PARAMS, MethodError
 from .new_projects import NewProjects
+from .node_tools import NodeTools
 from .process_control import HANDLERS as PROCESS_HANDLERS
 from .sessions import SessionManager
 from .skills import HANDLERS as SKILL_HANDLERS
@@ -90,6 +94,8 @@ class Server:
         self.memory = MemoryMethods(self.sessions.memories, self._send_memory_changed)
         self.clones = Clones(self._send_clone_changed)
         self.github = GitHubSignIns(self._send_github_sign_in_finished)
+        self.cloud = CloudMethods(self._send_cloud_sign_in_finished, self._send_cloud_changed)
+        self.node_tools = NodeTools(self._send_node_tools_changed)
         self.dev_servers = DevelopmentServers()
         self.new_projects = NewProjects(self._send_create_changed, self.sessions)
         self._async_handlers = (
@@ -98,6 +104,8 @@ class Server:
             | self.memory.handlers()
             | self.clones.handlers()
             | self.github.handlers()
+            | self.cloud.handlers()
+            | self.node_tools.handlers()
             | self.dev_servers.handlers()
             | self.new_projects.handlers()
             | TERMINAL_HANDLERS
@@ -118,6 +126,15 @@ class Server:
 
     def _send_clone_changed(self, params: ProjectsCloneChangedParams) -> None:
         self._notify("projects/cloneChanged", params)
+
+    def _send_cloud_sign_in_finished(self, params: CloudSignInFinishedParams) -> None:
+        self._notify("cloud/signInFinished", params)
+
+    def _send_cloud_changed(self, params: CloudChangedParams) -> None:
+        self._notify("cloud/changed", params)
+
+    def _send_node_tools_changed(self, params: ProjectsNodeToolsChangedParams) -> None:
+        self._notify("projects/nodeToolsChanged", params)
 
     def _send_create_changed(self, params: ProjectsCreateChangedParams) -> None:
         self._notify("projects/createChanged", params)
@@ -181,6 +198,8 @@ class Server:
         clones (which remove what they wrote)."""
         await self.sign_ins.shutdown()
         await self.github.shutdown()
+        await self.cloud.shutdown()
+        await self.node_tools.shutdown()
         await self.clones.shutdown()
         await self.sessions.shutdown()
         await process_manager().shutdown()
@@ -254,4 +273,5 @@ def main() -> None:
     protocol = os.fdopen(os.dup(sys.stdout.fileno()), "w", encoding="utf-8")
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
     migrate_projects()
+    runtimes.use_node()  # a Node.js a GUI app's PATH misses, or Alpine's own, is found by sessions and builds
     serve(sys.stdin, protocol)

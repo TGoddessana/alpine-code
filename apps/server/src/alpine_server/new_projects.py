@@ -1,8 +1,9 @@
 """``projects/create``: a project from a stack template, with the agent started on the idea.
 
-Two steps, each announced as ``projects/createChanged`` when it is done: the template becomes a folder (committed, on
-the rail), then a session starts in it and gets the idea. Nothing makes the ``address`` step yet; it comes with Alpine
-sign-in. The request answers after the last step. Copying and git run in a thread.
+Three steps, each announced as ``projects/createChanged`` when it is done: the template becomes a folder (committed, on
+the rail); when signed in to Alpine and the template can be published, its app is made and the web address is announced
+(``address``; a failure skips this step and the project is made anyway); then a session starts in it and gets the idea.
+The request answers after the last step. Copying, git and the app's creation run in a thread.
 
 The folder is picked by ``create_project``, which claims it with ``mkdir``, so two creations that run at once never get
 the same one and the server keeps no list of folders being made.
@@ -12,6 +13,8 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+import sys
+import traceback
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -24,6 +27,17 @@ from alpine_core import (
     available_templates,
     create_project,
     safe_name,
+)
+from alpine_core.cloud import (
+    AlpineTokens,
+    CloudClient,
+    CloudError,
+    SignedOut,
+    account,
+    app_name,
+    create_app,
+    links,
+    read_description,
 )
 from alpine_protocol import (
     ProjectsCreateChangedParams,
@@ -81,12 +95,39 @@ class NewProjects:
             raise
         self._notify(ProjectsCreateChangedParams(id=params.id, step="folder", project=project))
 
+        address = await asyncio.to_thread(_make_app, folder)
+        if address is not None:
+            self._notify(ProjectsCreateChangedParams(id=params.id, step="address", project=project, address=address))
+
         # From here on the project stays whatever happens: a session that cannot start answers with its own error.
         started = await self._sessions.new(SessionNewParams(cwd=str(folder), agent=params.agent, mode=params.mode))
         session_id = started.info.id
         await self._sessions.send(SessionSendParams(session_id=session_id, text=params.idea))
         self._notify(ProjectsCreateChangedParams(id=params.id, step="agent", project=project))
-        return ProjectsCreateResult(project=project, session_id=session_id)
+        return ProjectsCreateResult(project=project, session_id=session_id, address=address)
+
+
+def _make_app(folder: Path) -> str | None:
+    """Makes the project's Alpine app and links it, returning its web address; ``None`` when there is nothing to do
+    (signed out, not published by Alpine, a Pro template on Free) or the app could not be made. A taken name is tried
+    once more with the API's suggestion. The project never fails on this: publishing later makes the app."""
+    description = read_description(folder)
+    if description is None or description.adapter is None:
+        return None
+    try:
+        status = account.status()
+        if not status.signed_in or not status.reachable:
+            return None
+        if description.kind == "web-pro" and not (status.limits or {}).get("web_pro"):
+            return None  # the app shows the trial sheet first
+        app = create_app(CloudClient(AlpineTokens()), app_name(folder.name), description.kind)
+        links.link(folder, app.id)
+        return app.address
+    except (CloudError, SignedOut):  # no room, no network, a sign-in that just ended: skip the step
+        return None
+    except Exception:  # a bug: the project is still made
+        traceback.print_exc(file=sys.stderr)
+        return None
 
 
 def _discard(folder: Path) -> None:

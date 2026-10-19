@@ -39,6 +39,8 @@ from alpine_core import (
     set_review_model as save_review_model,
 )
 from alpine_core.chatgpt import account_of, is_chatgpt
+from alpine_core.cloud import auth as cloud_auth
+from alpine_core.cloud import is_alpine
 from alpine_protocol import (
     PROTOCOL_VERSION,
     ChatGPTAccountInfo,
@@ -251,6 +253,8 @@ def _connection_info(connection: Connection, settings: Settings) -> ConnectionIn
         billing=connection.billing.value,
         has_key=False,
     )
+    if is_alpine(connection):  # signed in instead of keyed
+        return info.model_copy(update={"has_key": cloud_auth.signed_in(settings.secrets)})
     if not is_chatgpt(connection):
         return info.model_copy(update={"has_key": settings.api_key_for(connection) is not None})
     account = account_of(connection, settings.secrets) if hasattr(settings.secrets, "get_oauth") else None

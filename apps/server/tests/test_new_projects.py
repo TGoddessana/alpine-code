@@ -406,3 +406,117 @@ def test_projects_create_over_the_wire(monkeypatch, repos):
             assert invalid["error"]["code"] == -32602
 
     run(scenario())
+
+
+# ---------------------------------------------------------------- the address step (signed in to Alpine)
+
+
+def publishable(home, kind="web-lite", template=None):
+    """The template as Alpine Cloud publishes it: its cloud.toml names an adapter."""
+    folder = home / "alpine-templates" / (template or kind)
+    (folder / ".alpine-code").mkdir(parents=True, exist_ok=True)
+    (folder / ".alpine-code" / "cloud.toml").write_text(
+        f'version = 1\nkind = "{kind}"\nadapter = "cloudflare-workers"\n'
+    )
+    (folder / "package.json").write_text('{"name": "app"}\n')
+
+
+def sign_in():
+    from alpine_core.cloud import complete_sign_in, verify_code
+
+    complete_sign_in(verify_code("haneul@example.com", "123456"))
+
+
+def test_a_signed_in_project_gets_an_app_and_announces_its_address(monkeypatch, repos, home, cloud):
+    publishable(home)
+    sign_in()
+
+    async def scenario():
+        harness = Harness(monkeypatch, "ok")
+        result = await harness.create()
+        assert result.address == "craft-booking.alpinesite.test"
+        assert [(c.step, c.address) for c in harness.changes] == [
+            ("folder", None),
+            ("address", "craft-booking.alpinesite.test"),
+            ("agent", None),
+        ]
+        assert [r["body"] for r in cloud.calls("POST", "/v1/apps")] == [{"name": "craft-booking", "kind": "web-lite"}]
+        from alpine_core.cloud import links
+
+        assert links.get(repos / "craft-booking").app_id == next(iter(cloud.apps))
+        await harness.items(result.session_id)
+        await harness.close()
+
+    run(scenario())
+
+
+def test_a_taken_name_is_retried_with_the_suggestion(monkeypatch, home, cloud):
+    publishable(home)
+    sign_in()
+    cloud.taken_names = {"craft-booking"}
+
+    async def scenario():
+        harness = Harness(monkeypatch, "ok")
+        result = await harness.create()
+        assert result.address == "craft-booking-2.alpinesite.test"
+        await harness.items(result.session_id)
+        await harness.close()
+
+    run(scenario())
+
+
+def test_without_a_sign_in_there_is_no_address_step_and_no_call(monkeypatch, home, cloud):
+    publishable(home)
+
+    async def scenario():
+        harness = Harness(monkeypatch, "ok")
+        result = await harness.create()
+        assert result.address is None and [c.step for c in harness.changes] == ["folder", "agent"]
+        assert cloud.calls("POST", "/v1/apps") == []
+        await harness.items(result.session_id)
+        await harness.close()
+
+    run(scenario())
+
+
+def test_a_template_that_is_not_published_by_alpine_gets_no_app(monkeypatch, home, cloud):
+    sign_in()
+
+    async def scenario():
+        harness = Harness(monkeypatch, "ok")
+        result = await harness.create(template="blank")  # its cloud.toml has no adapter
+        assert result.address is None and cloud.calls("POST", "/v1/apps") == []
+        await harness.items(result.session_id)
+        await harness.close()
+
+    run(scenario())
+
+
+def test_an_app_that_cannot_be_made_skips_the_step_and_the_project_is_made(monkeypatch, repos, home, cloud):
+    publishable(home)
+    sign_in()
+    cloud.apps = {f"app_{n}": {"name": f"other-{n}"} for n in range(3)}  # the free plan's three are used
+
+    async def scenario():
+        harness = Harness(monkeypatch, "ok")
+        result = await harness.create()
+        assert result.address is None and (repos / "craft-booking").is_dir()
+        assert [c.step for c in harness.changes] == ["folder", "agent"]
+        await harness.items(result.session_id)
+        await harness.close()
+
+    run(scenario())
+
+
+def test_a_realtime_web_app_on_free_makes_no_app_until_the_trial(monkeypatch, home, cloud):
+    publishable(home, "web-pro")
+    sign_in()
+
+    async def scenario():
+        harness = Harness(monkeypatch, "ok")
+        result = await harness.create(template="web-pro")
+        assert result.address is None and cloud.calls("POST", "/v1/apps") == []
+        await harness.items(result.session_id)
+        await harness.close()
+
+    run(scenario())

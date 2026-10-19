@@ -316,11 +316,11 @@ class Session:
         off = set(self._applied.skills_off) if self._applied is not None else set()
         return tuple(s for s in self._skill_library.for_project(self.workspace.root) if s.name not in off)
 
-    def _refresh_skills(self) -> None:
+    def _refresh_skills(self, offered: frozenset[str]) -> None:
         """Takes skills installed, removed or turned off, and tools that came or went (a project's app went live), since
-        the last message: the agent is built again."""
+        the last message: the agent is built again. ``offered`` is the tools' names now (``_offered_names``)."""
         skills_changed = self._skill_library is not None and self._available_skills() != self._skills
-        if skills_changed or self._offered_names() != self._tool_names:
+        if skills_changed or offered != self._tool_names:
             self._agent = self._build_agent(self._settings)
 
     def _offered_names(self) -> frozenset[str]:
@@ -411,7 +411,9 @@ class Session:
         items are closed and ``CancelledError`` propagates."""
         self._archived = False
         self._refresh_agent()
-        self._refresh_skills()
+        # Whether a project's app is live is asked of the API (a blocking call, kept for a few seconds), so it is
+        # asked off the event loop; the agent build below then finds the answer in that cache.
+        self._refresh_skills(await asyncio.to_thread(self._offered_names))
         if self._reading != self._taskforce.active:
             self._agent = self._build_agent(self._settings)
         self._taskforce.refresh()  # the models the user switched on may have changed

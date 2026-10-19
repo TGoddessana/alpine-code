@@ -49,8 +49,10 @@ MAX_ROWS = 500
 BUSY_TIMEOUT = 5.0
 
 _PRACTICE_GLOB = ".wrangler/state/v3/d1/miniflare-D1DatabaseObject/*.sqlite"
-_HIDDEN = re.compile(r"^(sqlite_|_cf_|d1_migrations$)")
-_SECRET_WORDS = frozenset({"token", "password", "secret", "hash"})
+# alpine_backup__ and alpine_meta__ stand in locally for the realtime web app's alpine_backup/alpine_meta schemas.
+_HIDDEN = re.compile(r"^(sqlite_|_cf_|d1_migrations$|alpine_backup__|alpine_meta__)")
+# The same words as the API's mask.ts, plurals too: both sides must hide the same columns.
+_SECRET_WORDS = frozenset({"token", "tokens", "password", "passwords", "secret", "secrets", "hash", "hashes"})
 _WORDS = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+")
 
 
@@ -72,8 +74,8 @@ class Table:
 
 
 def is_masked(column: str) -> bool:
-    """Whether the column's name has ``token``, ``password``, ``secret`` or ``hash`` as a word (``_``-separated or a
-    camelCase part: ``accessToken``, ``password_hash``). ``tokens`` and ``hashtag`` are not."""
+    """Whether the column's name has ``token``, ``password``, ``secret`` or ``hash`` (or its plural) as a word
+    (``_``-separated or a camelCase part: ``accessToken``, ``password_hash``, ``api_tokens``). ``hashtag`` is not."""
     return any(word.lower() in _SECRET_WORDS for word in _WORDS.findall(column))
 
 

@@ -56,10 +56,25 @@ def live(cloud, signed_in, folder):
 
 
 def test_masking_follows_whole_words():
-    for name in ("password_hash", "accessToken", "token", "client_secret", "refresh_token_hash", "API_SECRET"):
+    for name in (
+        "password_hash",
+        "accessToken",
+        "token",
+        "client_secret",
+        "refresh_token_hash",
+        "API_SECRET",
+        "api_tokens",
+        "passwords",
+    ):
         assert data.is_masked(name), name
-    for name in ("tokens", "hashtag", "secretary", "id", "email"):
+    for name in ("hashtag", "secretary", "id", "email"):
         assert not data.is_masked(name), name
+
+
+def test_the_platform_tables_are_hidden_like_the_apis():
+    for name in ("sqlite_master", "_cf_KV", "d1_migrations", "alpine_backup__todos_dep1", "alpine_meta__x"):
+        assert data.is_hidden(name), name
+    assert not data.is_hidden("todos")
 
 
 def test_practice_is_available_once_the_plugin_made_its_database(folder):

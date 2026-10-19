@@ -921,6 +921,23 @@ class Session:
         self._activity = Activity(kind, None, self._run_started_at)
         self._set_status("running")
 
+    def _begin_beside(self, label: str) -> str | None:
+        """A checkpoint around a TF's run, beside this session's runs; ``None`` when it could not be taken."""
+        try:
+            return self._work_changes.begin_beside(label)
+        except (OSError, TimeoutError, subprocess.TimeoutExpired) as exc:
+            self._dispatch(Notice(f"Checkpoint could not be captured: {exc}"))
+            return None
+
+    def _end_beside(self, checkpoint: str | None, status: str) -> None:
+        if checkpoint is None:
+            return
+        try:
+            self._work_changes.end_beside(checkpoint, status)
+        except (OSError, TimeoutError, subprocess.TimeoutExpired) as exc:
+            self._dispatch(Notice(f"Checkpoint could not be captured: {exc}"))
+        self._touch()
+
     def _end_run(self, status: SessionStatus) -> None:
         self._work_changes.end(status)
         self._run_started_at = None

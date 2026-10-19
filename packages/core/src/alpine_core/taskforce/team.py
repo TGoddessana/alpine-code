@@ -578,6 +578,8 @@ class TaskForce:
 
     async def _go(self, run: _Run) -> None:
         assert run.job is not None
+        # The agents write between the session model's turns: the run is a checkpoint of its own (변경 사항).
+        checkpoint = self._session._begin_beside(f"TF · {run.title}")
         try:
             outcome = await run.job.run()
         except asyncio.CancelledError:
@@ -585,10 +587,12 @@ class TaskForce:
             run.members = self._members(run)
             self._keep_records(run)
             self._save(run)
+            self._session._end_beside(checkpoint, run.status)
             raise
         except Exception as e:  # the worker could not start
             outcome = RunOutcome("failed", error=f"The TF could not run: {type(e).__name__}: {e}")
         run.status, run.error, run.result = outcome.status, outcome.error, outcome.result
+        self._session._end_beside(checkpoint, run.status)
         run.members = self._members(run)
         self._keep_records(run)
         self._end(run)
@@ -605,6 +609,9 @@ class TaskForce:
         run.recorders[member.id] = recorder
 
         def emit(event: Event) -> None:
+            if isinstance(event, ToolFinished) and event.file_changes is not None:
+                # The session's changes, seen through this call: the 변경 사항 tab shows them, not the agent's record.
+                event = dataclasses.replace(event, file_changes=None)
             recorder.handle(event)
             match event:
                 case TurnStarted(turn):
@@ -631,7 +638,7 @@ class TaskForce:
             tools=self._tools_for(config, request.tools),
             loop=coding_until(stopped_by_the_user),
             permissions=[StopWhenAsked(member), *session._permissions],
-            reporter=EventReporter(emit),
+            reporter=EventReporter(emit, session._work_changes),
             human=None,
             store=None,
         )

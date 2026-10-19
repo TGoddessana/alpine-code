@@ -14,8 +14,19 @@ export function SessionChanges({ sessionId, result }: { sessionId: string | null
   const server = useServer();
   const session = useSession(sessionId);
   const [checkpointId, setCheckpointId] = useState('');
+  // A TF's agents work between the session's turns: their next requests mean their last calls are over.
+  const agentsWorked = session.data?.items
+    .flatMap((item) => (item.kind === 'taskforce' ? item.members.map((m) => `${m.turn}${m.state}`) : []))
+    .join();
   const changes = useQuery({
-    queryKey: ['session-changes', sessionId, checkpointId, session.data?.items.length, session.data?.info.status],
+    queryKey: [
+      'session-changes',
+      sessionId,
+      checkpointId,
+      session.data?.items.length,
+      session.data?.info.status,
+      agentsWorked,
+    ],
     queryFn: () =>
       server.request('session/changes', { sessionId: sessionId!, checkpointId: checkpointId || undefined }),
     enabled: Boolean(sessionId && result && session.data && !session.data.deleted),

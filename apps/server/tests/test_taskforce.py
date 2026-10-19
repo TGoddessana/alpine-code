@@ -149,5 +149,8 @@ def test_a_grouped_card_shows_each_call_and_declines_one(tmp_path, monkeypatch):
             await client.until(latest("agent_message", lambda i: i["text"] == "끝"))  # the result turn
             await client.status(sid, "idle")
             assert not (folder / "a.md").exists() and (folder / "b.md").read_text() == "b"
+            changes = (await client.call("session/changes", sessionId=sid))["result"]
+            assert [c["label"] for c in changes["checkpoints"]][:2] == ["go", "TF · 두 파일"]
+            assert [f["path"] for f in changes["files"]] == ["b.md"]
 
     asyncio.run(scenario())

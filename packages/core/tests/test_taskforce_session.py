@@ -13,6 +13,7 @@ from alpine_core import session as session_module
 from alpine_core.items import ApprovalItem, NoticeItem, TaskForceItem
 from alpine_core.taskforce import available
 from alpine_core.taskforce import team as team_module
+from alpine_core.work_changes import checkpoint_changes
 
 pytestmark = pytest.mark.skipif(not available(), reason="TF runs on macOS only")
 
@@ -243,6 +244,28 @@ def test_declining_the_last_line_takes_the_card_down(tmp_path, monkeypatch):
         [answered] = [i for i in session.snapshot().items if isinstance(i, ApprovalItem)]
         assert answered.decision == "deny" and not list(tmp_path.glob("*.md"))
         await until(lambda: not session._turns)
+
+    asyncio.run(go())
+
+
+def test_a_tf_run_is_a_checkpoint_of_the_changes_tab(tmp_path, monkeypatch):
+    async def go():
+        gate = asyncio.Event()
+        session = await start_writers(tmp_path, monkeypatch, ["a", "b"], Approver(gate=gate))
+        assert session.info.work_history["requests"][-1]["status"] == "running"
+        [approval] = approvals(session)
+        session.taskforce.decline_one(approval.id, approval.asked_by[0].agent)  # b alone writes
+        await until(lambda: approvals(session) and len(approvals(session)[0].asked_by) == 1)
+        gate.set()
+        await until(lambda: taskforce_items(session, active=False))
+        await until(lambda: not session._turns)
+        info = session.info
+        [checkpoint] = [r for r in info.work_history["requests"] if r["label"] == "TF · 지도 그리기"]
+        assert checkpoint["status"] == "done"
+        assert [f["path"] for f in checkpoint_changes(info.work_history, info.work_baseline, checkpoint["id"])] == [
+            "b.md"
+        ]
+        assert [f["path"] for f in checkpoint_changes(info.work_history, info.work_baseline)] == ["b.md"]
 
     asyncio.run(go())
 

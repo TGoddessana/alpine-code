@@ -343,3 +343,32 @@ def test_before_versions_are_saved_before_the_mutating_tool_runs(tmp_path, monke
     session.send("do it")
     assert calls(session)[-1].status == "done"
     assert calls(session)[-1].file_changes[0]["diff"][-1] == "+after execution"
+
+
+def test_a_checkpoint_beside_the_runs_spans_them_and_misses_no_change_between(tmp_path):
+    from alpine_core.work_changes import checkpoint_changes
+
+    (tmp_path / "a.txt").write_text("a\n")
+    tracker = WorkChanges(ToolWorkspace(tmp_path))
+    tf = tracker.begin_beside("TF · two files")
+    tracker.start("write", {"path": "a.txt"})  # an agent's call, still going when a run begins
+    (tmp_path / "a.txt").write_text("a by an agent\n")
+    tracker.begin("the lead reads")
+    tracker.finish()
+    tracker.end("idle")
+    tracker.start("bash", {})
+    (tmp_path / "b.txt").write_text("b\n")
+    tracker.finish()
+    tracker.end_beside(tf, "done")
+    request = next(r for r in tracker.history["requests"] if r["id"] == tf)
+    assert request["status"] == "done"
+    assert [c["path"] for c in checkpoint_changes(tracker.history, tracker.baseline, tf)] == ["a.txt", "b.txt"]
+    assert [c["path"] for c in checkpoint_changes(tracker.history, tracker.baseline)] == ["a.txt", "b.txt"]
+
+
+def test_a_checkpoint_saved_while_it_ran_opens_as_interrupted(tmp_path):
+    tracker = WorkChanges(ToolWorkspace(tmp_path))
+    tracker.begin_beside("TF · closed with the app")
+    baseline, history = tracker.saved_state()
+    reopened = WorkChanges(ToolWorkspace(tmp_path), baseline, history)
+    assert [r["status"] for r in reopened.history["requests"]] == ["interrupted"]

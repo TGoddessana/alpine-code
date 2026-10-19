@@ -75,7 +75,8 @@ function Source({
   onExport?: (name: string, csv: string) => void;
 }) {
   const tablesQuery = useDataTables(cwd, source);
-  const live = kinds.includes('live');
+  // The AI reads only the live data, so its read log belongs to that view and not to the practice data.
+  const live = source === 'live';
   const reads = useDataReads(cwd, live);
   const { save, remove } = useDataWrites(cwd, source);
   const [picked, pick] = useState<string | null>(null);

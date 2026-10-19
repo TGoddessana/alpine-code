@@ -90,7 +90,7 @@ describe('올리기 sheet', () => {
     const button = await sheetPublish();
     const boxes = screen.getAllByRole('checkbox');
     expect(boxes).toHaveLength(5);
-    expect(screen.getByText(/알아낼 수 없는 변경/)).toBeTruthy();
+    expect(screen.getByText(/무엇을 바꾸는지 알 수 없는 변경/)).toBeTruthy();
     expect(screen.getByText('확인할 변경 5개가 남았어요')).toBeTruthy();
     boxes.slice(0, 4).forEach((box) => fireEvent.click(box));
     expect(button as HTMLButtonElement).toHaveProperty('disabled', true);

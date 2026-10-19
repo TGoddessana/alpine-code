@@ -186,7 +186,7 @@ export const messages = defineMessages({
         : `"${table}" 표 이름이 바뀌어요. 이름이 바뀌면 기존 내용이 이어지지 않을 수 있어요.`,
     confirmDataChange: (table: string | null) =>
       table ? `"${table}" 표의 내용이 바뀌어요.` : '데이터의 내용이 바뀌어요.',
-    confirmUnknown: '무엇을 하는지 알아낼 수 없는 변경이 있어요. 아는 것만 믿고 지나가지 않고 물어봐요.',
+    confirmUnknown: '무엇을 바꾸는지 알 수 없는 변경이 있어요. 올리기 전에 한 번 확인해 주세요.',
     confirmOther: '확인이 필요한 변경이 있어요.',
     confirmRows: (count: number) => `지금 ${count}행이 들어 있어요`,
     confirmOk: '괜찮아요',
@@ -327,7 +327,7 @@ export const messages = defineMessages({
         : `The "${table}" table is renamed. What it held may not carry over under the new name.`,
     confirmDataChange: (table: string | null) =>
       table ? `The contents of the "${table}" table change.` : 'The contents of the data change.',
-    confirmUnknown: 'There is a change that cannot be understood. It asks instead of letting it pass.',
+    confirmUnknown: "There's a change we can't read. Please take a look before publishing.",
     confirmOther: 'A change needs your OK.',
     confirmRows: (count: number) => `${count} rows in it now`,
     confirmOk: 'OK',

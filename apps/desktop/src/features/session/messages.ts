@@ -85,7 +85,7 @@ export const messages = defineMessages({
     stopped_repeating: '같은 동작을 반복해서 멈췄어요',
     stopped_permission: '허용되지 않아서 멈췄어요',
     stopped_plan_limit: 'ChatGPT 사용량 한도에 닿아 멈췄어요',
-    stopped_signed_out: 'ChatGPT 로그인이 끝나서 멈췄어요 · 설정 › 모델 연결에서 다시 로그인해 주세요',
+    stopped_signed_out: '모델 로그인이 끝나서 멈췄어요 · 설정 › 모델 연결에서 다시 로그인해 주세요',
     stopped_credits_exhausted: (refill: string | null) =>
       refill
         ? `Alpine 크레딧을 다 써서 멈췄어요 · ${refill}에 다시 채워져요. 지금 쓰려면 설정 › 모델 연결에서 다른 모델을 연결해 주세요`
@@ -222,7 +222,7 @@ export const messages = defineMessages({
     stopped_repeating: 'Stopped because it kept repeating itself',
     stopped_permission: 'Stopped because it was not allowed',
     stopped_plan_limit: 'Stopped: the ChatGPT usage limit was reached',
-    stopped_signed_out: 'Stopped: the ChatGPT sign-in ended · sign in again in Settings › Model connection',
+    stopped_signed_out: 'Stopped: the sign-in for this model ended · sign in again in Settings › Model connection',
     stopped_credits_exhausted: (refill: string | null) =>
       refill
         ? `Stopped: Alpine credits ran out · they fill up again on ${refill}. To go on now, connect another model in Settings › Model connection`

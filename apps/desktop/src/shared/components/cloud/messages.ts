@@ -21,7 +21,7 @@ export const messages = defineMessages({
     emailPlaceholder: 'name@example.com',
     sendCode: '코드 받기',
     codeTitle: '메일로 받은 6자리 숫자를 넣어 주세요',
-    codeLead: (email: string) => `${email}(으)로 보냈어요. 몇 분 안에 오지 않으면 스팸함도 봐 주세요.`,
+    codeLead: (email: string) => `${email} 주소로 보냈어요. 몇 분 안에 오지 않으면 스팸함도 봐 주세요.`,
     codeLabel: '6자리 숫자',
     resend: '다시 보내기',
     sentAgain: '다시 보냈어요',

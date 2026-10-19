@@ -1,12 +1,13 @@
 """What the ``task_force`` tool tells the session's model: the models the user's picker shows with their prices,
-windows and price steps (TF items 1 and 2) and what happens to a long result (item 3)."""
+windows and price steps (TF items 1 and 2), what happens to a long result (item 3), and how commands and approvals
+work in a TF (item 4)."""
 
 import json
 
 import pytest
 from alpineagents.testing import FakeModel
 
-from alpine_core import PROVIDERS, Connection, Decision, Session, Settings, picker
+from alpine_core import PROVIDERS, Connection, Decision, Mode, Session, Settings, picker
 from alpine_core import session as session_module
 from alpine_core.catalog import catalog_file
 from alpine_core.taskforce import available
@@ -113,7 +114,13 @@ def test_a_list_read_later_is_in_the_next_request(tmp_path, monkeypatch):
     assert "anthropic/claude-haiku-5-5: $1 / $5" in description(session)
 
 
-def test_the_lead_learns_what_happens_to_a_long_result(tmp_path, monkeypatch):
+def test_the_lead_learns_about_long_results_commands_and_the_safety_setting(tmp_path, monkeypatch):
     session = make(tmp_path, monkeypatch, Settings(model="fake"))
     text = description(session)
     assert "cut\nat 40,000 characters" in text and "task_force_status(run=..., start=...)" in text
+    assert "reading code is not verifying it; running the tests is" in text
+    assert "now default (물어보고 하기" in text
+    assert "no reason to take bash from every agent" in text
+    assert "share a build folder, a database or a port collide" in text
+    session.mode = Mode.ACCEPT_EDITS
+    assert "now accept_edits (파일 수정은 바로" in description(session)

@@ -33,6 +33,7 @@ from ..events import Event, TextDelta, ToolFinished, ToolStarted, TurnStarted
 from ..items import Item, ItemRecorder, TaskForceItem, TaskForceStatus, item_to_dict
 from ..loop import coding
 from ..models import make_model
+from ..permissions import Mode
 from ..prompt import build_system_prompt
 from ..skills import SkillTool, catalog
 from ..tool_sources import gather, pick
@@ -744,6 +745,7 @@ class TaskForce:
 
 def _describe(session: Session) -> str:
     agents = ", ".join(sorted({c.name for c in session._agents.list() if c.name})) if session._agents else ""
+    mode = session.policy.mode
     return f"""Put together a TF (task force): several agents that split up work too big for one conversation, run by a
 Python script you write. Use it when doing the work alone would make you cover only part of it: drawing or re-fitting
 the product map of a large codebase, auditing whether promises hold, a first review of many patches, a refactor
@@ -777,6 +779,12 @@ What happens to the result: result (or, without one, every agent's answer) goes 
 at {RESULT_LIMIT:,} characters; the rest can be read with task_force_status(run=..., start=...). The agents' work is
 in the files they wrote, so a result that says what was done and where serves you better than everything they found.
 
+Commands and approvals: reading code is not verifying it; running the tests is. Agents' commands and edits follow the
+session's safety setting, now {mode.value} ({_MODE_WORDS[mode]}), and when several agents need the same approval the
+user is asked once for all of them, so one declined command is no reason to take bash from every agent. Commands
+that share a build folder, a database or a port collide when they run at once: give such work to one agent, or run
+it in order (one step after another, not in parallel()).
+
 What worked (a PostgreSQL product map: one session stopped near 17 cards; a TF of 14 agents drew 103, yet an
 audit found only 77% of its promises exact):
 - Split the work wide enough, and by what can break as well as by who uses it: splitting only by kind of user lost
@@ -793,6 +801,15 @@ Args:
     minutes: Expected minutes.
     script: The script.
     resume: The id of a TF whose script failed, to run the fixed script reusing its finished agents."""
+
+
+#: The safety settings as the user's screen says them, for the lead to tell the user what to expect.
+_MODE_WORDS = {
+    Mode.DEFAULT: "물어보고 하기: the user approves every file change and command",
+    Mode.ACCEPT_EDITS: "파일 수정은 바로: files change without asking, commands wait for the user's approval",
+    Mode.AUTO: "알아서 하기: a reviewer model blocks what looks risky, the user is not asked",
+    Mode.YOLO: "묻지 않고 다 하기: nothing is asked",
+}
 
 
 def _models_facts(session: Session) -> str:

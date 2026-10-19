@@ -674,6 +674,7 @@ class Session:
     def mode(self, mode: Mode) -> None:
         """Changes the permission mode from the next tool call on, and announces the new info."""
         self.policy.mode = mode
+        self._taskforce.refresh()  # its description names the safety setting
         self._touch()
 
     @property

@@ -2703,7 +2703,7 @@ export interface ProjectsCloneResult {
  */
 export interface ProjectsCreateChangedParams {
   id: string;
-  step: 'folder' | 'agent';
+  step: 'folder' | 'address' | 'agent';
   project: ProjectInfo;
 }
 /**

@@ -2112,9 +2112,10 @@ class ProjectsCreateResult(Message):
     """The session working on the idea."""
 
 
-CreateStep = Literal["folder", "agent"]
-"""``folder``: the template is in its folder, committed, and on the rail. ``agent``: the session started and has the
-idea. (A web address step comes with Alpine sign-in, decision 23.)"""
+CreateStep = Literal["folder", "address", "agent"]
+"""``folder``: the template is in its folder, committed, and on the rail. ``address``: its web address, only when
+signed in to Alpine (decision 23); nothing makes addresses yet, so the server does not send it. ``agent``: the session
+started and has the idea."""
 
 
 class ProjectsCreateChangedParams(Message):

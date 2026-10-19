@@ -5021,6 +5021,7 @@
         "step": {
           "enum": [
             "folder",
+            "address",
             "agent"
           ],
           "type": "string"

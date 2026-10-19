@@ -80,6 +80,7 @@ from .items import (
     item_from_dict,
     item_to_dict,
 )
+from .judge import JudgeError, Judgement, NewApp, WorkOnProject, judge
 from .memory import Evidence, Memories, Memory, MemoryNotes, Refused, Scope, Suggestion
 from .migrate import migrate_projects
 from .models import ModelListError, chatgpt_tokens, list_models
@@ -103,6 +104,7 @@ from .storage import (
     Storage,
     file_storage,
 )
+from .templates import TemplateNotFound, available_templates, create_project, safe_name, templates_dir
 from .tool_sources import Builtins, Offered, Origin, ToolSource, ToolSources, builtins_only, gather, pick
 from .toolbox import (
     REVIEWED,
@@ -160,6 +162,16 @@ __all__ = [
     "SOURCE_NAMES",
     "find_external_sessions",
     "import_session",
+    "JudgeError",
+    "Judgement",
+    "NewApp",
+    "WorkOnProject",
+    "judge",
+    "TemplateNotFound",
+    "available_templates",
+    "create_project",
+    "safe_name",
+    "templates_dir",
     "config_file",
     "Connection",
     "remove_connection",

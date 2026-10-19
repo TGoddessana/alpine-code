@@ -143,18 +143,11 @@ def test_an_unreachable_api_is_reachable_false_not_signed_out(cloud):
     asyncio.run(scenario())
 
 
-def test_plans_come_from_the_api_and_later_methods_say_not_available(cloud):
+def test_plans_come_from_the_api(cloud):
     async def scenario():
         h = Harness()
         plans = (await h.call("cloud/plans"))["result"]["plans"]
         assert [p["id"] for p in plans] == ["free", "pro"] and plans[1]["trialDays"] == 7
-        for method, params in (
-            ("publish/domains", {"cwd": "/x"}),
-            ("publish/setBadge", {"cwd": "/x", "badge": False}),
-            ("cloud/startTrial", {}),
-        ):
-            error = (await h.call(method, params))["error"]
-            assert error["data"] == {"reason": "not_available"}
         await h.server.close()
 
     asyncio.run(scenario())

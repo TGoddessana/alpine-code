@@ -4,7 +4,8 @@
 prepared. Both answer after the work and announce each phase on the way as ``publish/changed``. The blocking work runs
 in a thread (``alpine_core.cloud.publish``); its progress comes back to the loop with ``call_soon_threadsafe``.
 
-The rest of the ``publish/`` family (domains, badge) stays ``not_available`` in ``cloud.py`` until it is built.
+Custom domains and the badge (Pro) are thin: the API's answer is the result, and its refusals (``payment_required`` on
+Free) reach the app as the reason.
 """
 
 from __future__ import annotations
@@ -15,22 +16,29 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
-from alpine_core.cloud import App, CloudError, SignedOut, publish
+from alpine_core.cloud import App, CloudError, SignedOut, pro, publish
 from alpine_core.cloud.build import BuildFailed
 from alpine_core.dev_servers import DevelopmentServerManager
 from alpine_protocol.cloud import (
     AppInfo,
+    PublishAddDomainParams,
     PublishCancelParams,
     PublishCancelResult,
     PublishChangedParams,
     PublishCwdParams,
+    PublishDomainParams,
+    PublishDomainResult,
+    PublishDomainsResult,
     PublishPlan,
     PublishPrepareParams,
+    PublishRemoveDomainResult,
     PublishRestoreParams,
     PublishRestorePointsResult,
     PublishRestoreResult,
     PublishRunParams,
     PublishRunResult,
+    PublishSetBadgeParams,
+    PublishSetBadgeResult,
     PublishStatus,
 )
 
@@ -54,6 +62,11 @@ class PublishMethods:
             "publish/cancel": self.cancel,
             "publish/restorePoints": self.restore_points,
             "publish/restore": self.restore,
+            "publish/domains": self.domains,
+            "publish/addDomain": self.add_domain,
+            "publish/checkDomain": self.check_domain,
+            "publish/removeDomain": self.remove_domain,
+            "publish/setBadge": self.set_badge,
         }
 
     async def shutdown(self) -> None:
@@ -149,6 +162,28 @@ class PublishMethods:
             raise method_error(e) from e
         return PublishRestoreResult()
 
+    # ---- Pro: custom domains and the badge
+
+    async def domains(self, params: PublishCwdParams) -> PublishDomainsResult:
+        found = await _pro(pro.domains, _folder(params.cwd))
+        return PublishDomainsResult.model_validate({"domains": found})
+
+    async def add_domain(self, params: PublishAddDomainParams) -> PublishDomainResult:
+        found = await _pro(pro.add_domain, _folder(params.cwd), params.domain, params.mail)
+        return PublishDomainResult.model_validate({"domain": found})
+
+    async def check_domain(self, params: PublishDomainParams) -> PublishDomainResult:
+        found = await _pro(pro.check_domain, _folder(params.cwd), params.id)
+        return PublishDomainResult.model_validate({"domain": found})
+
+    async def remove_domain(self, params: PublishDomainParams) -> PublishRemoveDomainResult:
+        await _pro(pro.remove_domain, _folder(params.cwd), params.id)
+        return PublishRemoveDomainResult()
+
+    async def set_badge(self, params: PublishSetBadgeParams) -> PublishSetBadgeResult:
+        app = await _pro(pro.set_badge, _folder(params.cwd), params.badge)
+        return PublishSetBadgeResult(app=app_info(app))
+
     # ---- helpers
 
     async def _dev_url(self, cwd: str) -> str | None:
@@ -167,6 +202,15 @@ class PublishMethods:
             loop.call_soon_threadsafe(self._notify, changed)
 
         return progress
+
+
+async def _pro(function: Callable[..., Any], *args: Any) -> Any:
+    try:
+        return await asyncio.to_thread(function, *args)
+    except publish.NotLinked as e:
+        raise MethodError(APP_ERROR, "This project has no app yet.", "not_found") from e
+    except (CloudError, SignedOut) as e:
+        raise method_error(e) from e
 
 
 def app_info(app: App) -> AppInfo:

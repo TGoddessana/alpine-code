@@ -41,6 +41,7 @@ def test_every_protocol_method_has_a_handler():
     from alpine_server.new_projects import NewProjects
     from alpine_server.node_tools import NodeTools
     from alpine_server.process_control import HANDLERS as PROCESS_HANDLERS
+    from alpine_server.publish import PublishMethods
     from alpine_server.sessions import SessionManager
     from alpine_server.stdio import HANDLERS
     from alpine_server.terminals import HANDLERS as TERMINAL_HANDLERS
@@ -56,6 +57,7 @@ def test_every_protocol_method_has_a_handler():
         | NewProjects(lambda params: None, sessions).handlers()
         | CloudMethods(lambda params: None, lambda params: None).handlers()
         | NodeTools(lambda params: None).handlers()
+        | PublishMethods(lambda params: None, DevelopmentServers().manager).handlers()
         | DataMethods().handlers()
         | TERMINAL_HANDLERS
         | PROCESS_HANDLERS

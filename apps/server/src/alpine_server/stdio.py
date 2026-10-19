@@ -46,6 +46,7 @@ from .chatgpt import ChatGPTSignIns
 from .clones import Clones
 from .cloud import CloudMethods
 from .data import DataMethods
+from .dev_branches import DevBranches
 from .dev_servers import DevelopmentServers
 from .files import FILE_HANDLERS
 from .flow import HANDLERS as FLOW_HANDLERS
@@ -106,6 +107,9 @@ class Server:
         self.dev_servers = DevelopmentServers()
         self.publish = PublishMethods(self._send_publish_changed, self.dev_servers.manager)
         self.data = DataMethods()
+        self.dev_branches = DevBranches()
+        self.sessions.on_start = self.dev_branches.start
+        self.sessions.before_run = self.dev_branches.ready
         self.new_projects = NewProjects(self._send_create_changed, self.sessions)
         self._async_handlers = (
             self.sessions.handlers()
@@ -215,6 +219,7 @@ class Server:
         await self.cloud.shutdown()
         await self.node_tools.shutdown()
         await self.publish.shutdown()
+        await self.dev_branches.shutdown()
         await self.clones.shutdown()
         await self.sessions.shutdown()
         await process_manager().shutdown()

@@ -1,10 +1,11 @@
-"""The ``cloud/*`` methods: signing in to Alpine, the account, and what later steps add (publish, data, plans).
+"""The ``cloud/*`` methods: signing in to Alpine, the account, and its plan (plans, the Pro trial, payment).
 
 ``cloud/signIn`` answers at once with the sign-in page's address; the wait for the browser runs as a task, and its end
 goes out as ``cloud/signInFinished``. One sign-in waits at a time: a new one cancels the old. ``cloud/changed``
 follows every change of the status (sign-in, plan, credits), whichever thread caused it.
 
-Methods a later step builds answer ``not_available`` until then.
+``cloud/checkout`` answers with the payment page's address; core listens on a loopback address for the browser's return
+and then announces the new status as ``cloud/changed``.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from alpine_core.cloud import (
     SignedOut,
     SignInError,
     account,
+    billing,
     complete_sign_in,
     send_code,
     sign_out,
@@ -31,12 +33,13 @@ from alpine_core.cloud import (
 )
 from alpine_protocol import ErrorData
 from alpine_protocol.cloud import (
-    CLOUD_METHODS,
     CloudCancelSignInParams,
     CloudCancelSignInResult,
     CloudChangedParams,
+    CloudCheckoutParams,
     CloudPlansParams,
     CloudPlansResult,
+    CloudPortalParams,
     CloudSendCodeParams,
     CloudSendCodeResult,
     CloudSignInFinishedParams,
@@ -44,7 +47,9 @@ from alpine_protocol.cloud import (
     CloudSignInResult,
     CloudSignOutParams,
     CloudSignOutResult,
+    CloudStartTrialParams,
     CloudStatusParams,
+    CloudUrlResult,
     CloudVerifyCodeParams,
 )
 from alpine_protocol.cloud import CloudStatus as CloudStatusModel
@@ -69,11 +74,8 @@ class CloudMethods:
         self._unsubscribe: Callable[[], None] | None = None
 
     def handlers(self) -> dict[str, Callable[[Any], Awaitable[Any]]]:
-        later = {name: _not_available(name) for name in CLOUD_METHODS if name.split("/")[0] == "publish"}
-        # publish/status, prepare, run, cancel, restorePoints and restore are PublishMethods's (publish.py), the
-        # data/ family DataMethods's (data.py).
-        later |= {name: _not_available(name) for name in ("cloud/startTrial", "cloud/checkout", "cloud/portal")}
-        return later | {
+        # The publish/ family is PublishMethods's (publish.py), the data/ family DataMethods's (data.py).
+        return {
             "cloud/status": self.status,
             "cloud/signIn": self.sign_in,
             "cloud/cancelSignIn": self.cancel_sign_in,
@@ -81,6 +83,9 @@ class CloudMethods:
             "cloud/verifyCode": self.verify_code,
             "cloud/signOut": self.sign_out,
             "cloud/plans": self.plans,
+            "cloud/startTrial": self.start_trial,
+            "cloud/checkout": self.checkout,
+            "cloud/portal": self.portal,
         }
 
     async def shutdown(self) -> None:
@@ -138,6 +143,27 @@ class CloudMethods:
         except CloudError as e:
             raise method_error(e) from e
         return CloudPlansResult.model_validate(body)
+
+    async def start_trial(self, params: CloudStartTrialParams) -> CloudStatusModel:
+        self._attach()
+        try:
+            return wire_status(await asyncio.to_thread(billing.start_trial))
+        except (CloudError, SignedOut) as e:
+            raise method_error(e) from e
+
+    async def checkout(self, params: CloudCheckoutParams) -> CloudUrlResult:
+        self._attach()
+        try:
+            return CloudUrlResult(url=await asyncio.to_thread(billing.checkout, params.plan))
+        except (CloudError, SignedOut) as e:
+            raise method_error(e) from e
+
+    async def portal(self, params: CloudPortalParams) -> CloudUrlResult:
+        self._attach()
+        try:
+            return CloudUrlResult(url=await asyncio.to_thread(billing.portal))
+        except (CloudError, SignedOut) as e:
+            raise method_error(e) from e
 
     # ---- announcements
 
@@ -199,10 +225,3 @@ def method_error(e: CloudError | SignedOut, *, invalid: str = "invalid") -> Meth
         return MethodError(APP_ERROR, str(e), "signed_out")
     reason = invalid if e.code == "invalid" else e.code
     return MethodError(APP_ERROR, e.message, reason if reason in _KNOWN else "other")
-
-
-def _not_available(name: str) -> Callable[[Any], Awaitable[Any]]:
-    async def handler(params: Any) -> Any:
-        raise MethodError(APP_ERROR, f"{name} is not available yet", "not_available")
-
-    return handler

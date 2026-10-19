@@ -154,6 +154,10 @@ class SessionManager:
         self._storage = storage
         self._settings = settings or (lambda: Settings.load())
         self._live: dict[str, _Live] = {}
+        #: Set by the server: called with the folder when a session starts in it, and awaited before each run in it.
+        #: (The web-pro dev branch, ``dev_branches.py``.)
+        self.on_start: Callable[[Path], None] | None = None
+        self.before_run: Callable[[Path], Awaitable[None]] | None = None
         # The map reads sessions from disk; a running status there with no live session is a crashed process.
         map_state.live_ids = lambda: set(self._live)
 
@@ -233,6 +237,8 @@ class SessionManager:
         except ConfigError as e:
             raise MethodError(APP_ERROR, str(e), "invalid_config") from e
         self._live[session.id] = self._keep(session, approver)
+        if self.on_start is not None:
+            self.on_start(folder)
         # The constructor announces nothing, so this is what tells the windows the session exists.
         self._on_item_event(session.id, session.seq, InfoChanged(session.info))
         return SessionNewResult(info=to_info(session.info))
@@ -555,6 +561,8 @@ class SessionManager:
 
     async def _run(self, live: _Live, text: str, *, notice: str | None = None) -> None:
         try:
+            if self.before_run is not None:
+                await self.before_run(live.session.workspace.root)
             await live.session.asend(text, notice=notice)
         except asyncio.CancelledError:
             pass  # the session closed its items and saved itself; the task simply ends

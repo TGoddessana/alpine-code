@@ -3,10 +3,13 @@
 
 It answers what the app side needs so far: ``/v1/meta``, the sign-in (authorize -> consent -> callback -> token, the
 email code, refresh with rotation, sign-out), ``/v1/me``, apps, the model gateway (SSE, credits, ``402``) and plans.
-Later steps add their endpoints here. Nothing leaves the computer: every address is the loopback.
+deploys (start, upload, check, publish, watch), restore points and restores. Later steps add their endpoints here.
+Nothing leaves the computer: every address is the loopback.
 
 Knobs a test turns: ``access_ttl`` (seconds an access token lives), ``revoke_access_tokens()``, ``fail_refresh``,
-``consent`` (``approve`` or ``deny``), ``credits``, ``reply``, ``taken_names``. ``requests`` records every call.
+``consent`` (``approve`` or ``deny``), ``credits``, ``reply``, ``taken_names``, ``confirms`` (what a check asks the
+person to confirm), ``fail_step`` (the publish step that fails), ``fail_restore``. ``requests`` records every call.
+The check blocks an uploaded asset that holds ``sk_live_`` followed by letters or digits, like the real secret scan.
 """
 
 from __future__ import annotations
@@ -42,6 +45,15 @@ class FakeCloud:
         self.apps: dict[str, dict[str, Any]] = {}
         self.taken_names: set[str] = set()
         self.accounts: dict[str, dict[str, Any]] = {}
+        self.confirms: list[dict[str, Any]] = []
+        self.pending_migrations: list[str] = []
+        self.fail_step: str | None = None
+        self.fail_restore = False
+        self.blobs: dict[str, bytes] = {}
+        self.deploys: dict[str, dict[str, Any]] = {}
+        self.points: dict[str, list[dict[str, Any]]] = {}
+        self.live: dict[str, str] = {}  # app id -> the deploy that serves
+        self.restores: dict[str, dict[str, Any]] = {}
         self._access: dict[str, tuple[str, float]] = {}  # token -> (account id, expires at)
         self._refresh: dict[str, str] = {}  # refresh token -> account id
         self._pending: dict[str, dict[str, str]] = {}
@@ -162,6 +174,7 @@ def _handler(cloud: FakeCloud) -> type[BaseHTTPRequestHandler]:
         def _body(self) -> Any:
             length = int(self.headers.get("Content-Length") or 0)
             raw = self.rfile.read(length) if length else b""
+            self._raw = raw
             try:
                 return json.loads(raw) if raw else None
             except ValueError:
@@ -196,12 +209,14 @@ def _handler(cloud: FakeCloud) -> type[BaseHTTPRequestHandler]:
             target = urllib.parse.urlsplit(self.path)
             query = {k: v[0] for k, v in urllib.parse.parse_qs(target.query).items()}
             body = self._body() if method in ("POST", "PUT", "PATCH") else None
+            if method == "PUT":
+                body = self._raw  # an upload: the bytes
             cloud.requests.append(
                 {
                     "method": method,
                     "path": target.path,
                     "query": query,
-                    "body": body,
+                    "body": body if not isinstance(body, bytes) else f"<{len(body)} bytes>",
                     "headers": {k.title(): v for k, v in self.headers.items()},
                 }
             )
@@ -389,6 +404,180 @@ def _handler(cloud: FakeCloud) -> type[BaseHTTPRequestHandler]:
                 app["badge"] = bool((body or {}).get("badge", app["badge"]))
             self._send(200, {"app": app})
 
+        # ---- deploys
+
+        def _deploy_state(self, deploy: dict[str, Any]) -> dict[str, Any]:
+            """A deploy as the API shows it. Each look while publishing moves one step on."""
+            if deploy["status"] == "publishing":
+                order = ["restore", "files", "shape", "live"]
+                deploy["polls"] += 1
+                steps = []
+                for index, name in enumerate(order):
+                    if deploy["polls"] > index + 1:
+                        state = "done"
+                    elif deploy["polls"] == index + 1:
+                        state = "running"
+                    else:
+                        state = "waiting"
+                    if name == cloud.fail_step and state != "waiting":
+                        state = "failed"
+                    steps.append({"step": name, "state": state})
+                deploy["steps"] = steps
+                if any(s["state"] == "failed" for s in steps):
+                    deploy["status"], deploy["error"] = "failed", f"The {cloud.fail_step} step failed."
+                elif deploy["polls"] > len(order):
+                    deploy["status"] = "live"
+                    app = cloud.apps[deploy["app_id"]]
+                    app["status"], app["published"] = "live", {"deploy_id": deploy["id"], "at": "2026-10-20T02:00:00Z"}
+                    deploy["published_at"] = "2026-10-20T02:00:00Z"
+                    cloud.live[app["id"]] = deploy["id"]
+            return {
+                "id": deploy["id"], "status": deploy["status"], "steps": deploy["steps"],
+                "restore_point": deploy.get("restore_point"), "error": deploy["error"],
+                "url": cloud.apps[deploy["app_id"]]["url"], "published_at": deploy.get("published_at"),
+            }  # fmt: skip
+
+        def _point(self, app_id: str, reason: str, deploy_id: str | None = None) -> dict[str, Any]:
+            point = {"id": cloud._next("rp_"), "at": "2026-10-20T01:30:00Z", "reason": reason, "deploy_id": deploy_id}
+            cloud.points.setdefault(app_id, []).append(point)
+            return point
+
+        def _deploy_for(self, match: re.Match) -> dict[str, Any] | None:
+            if self._signed() is None:
+                return None
+            deploy = cloud.deploys.get(match["dep"])
+            if deploy is None or deploy["app_id"] != match["id"]:
+                self._send(*_error(404, "not_found", "No such deploy."))
+                return None
+            return deploy
+
+        def _POST_deploys(self, match: re.Match, query: dict, body: Any) -> None:
+            if self._signed() is None:
+                return
+            if match["id"] not in cloud.apps:
+                return self._send(*_error(404, "not_found", "No such app."))
+            body = body or {}
+            wanted = [m["hash"] for m in body["worker"]["modules"]] + [a["hash"] for a in body.get("assets") or []]
+            wanted += [m["hash"] for m in body.get("migrations") or []]
+            deploy = {
+                "id": cloud._next("dep_"), "app_id": match["id"], "status": "uploading", "manifest": body,
+                "steps": [], "error": None, "polls": 0,
+            }  # fmt: skip
+            cloud.deploys[deploy["id"]] = deploy
+            missing = list(dict.fromkeys(h for h in wanted if h not in cloud.blobs))
+            self._send(201, {"deploy": {"id": deploy["id"], "status": "uploading"}, "missing": missing})
+
+        def _PUT_file(self, match: re.Match, query: dict, body: Any) -> None:
+            if self._deploy_for(match) is None:
+                return
+            if hashlib.sha256(body).hexdigest() != match["hash"]:
+                return self._send(*_error(400, "invalid", "The bytes do not match the hash.", field="hash"))
+            cloud.blobs[match["hash"]] = body
+            self._send(204)
+
+        def _POST_check(self, match: re.Match, query: dict, body: Any) -> None:
+            deploy = self._deploy_for(match)
+            if deploy is None:
+                return
+            manifest = deploy["manifest"]
+            findings = []
+            for asset in manifest.get("assets") or []:
+                text = cloud.blobs.get(asset["hash"], b"").decode("utf-8", "replace")
+                hit = re.search(r"sk_live_[A-Za-z0-9]{8,}", text)
+                if hit:
+                    value = hit.group(0)
+                    findings.append(
+                        {"check": "secret", "code": "secret.stripe_live", "severity": "block",
+                         "file": asset["path"].lstrip("/"), "line": 1,
+                         "params": {"kind": "Stripe live key", "redacted": value[:8] + "…" + value[-4:]},
+                         "fallback": "A Stripe live key is in the page.", "fix": "Remove the key from the frontend."}
+                    )  # fmt: skip
+            blocked = bool(findings)
+            missing = [h for h in [m["hash"] for m in manifest["worker"]["modules"]] if h not in cloud.blobs]
+            if missing:
+                return self._send(*_error(409, "conflict", "Files are still missing.", missing=missing))
+            deploy["status"], deploy["blocked"] = "checked", blocked
+            deploy["confirms"] = list(cloud.confirms)
+            self._send(
+                200,
+                {"deploy": {"id": deploy["id"], "status": "checked"},
+                 "checks": [{"id": "secret", "state": "blocked" if blocked else "ok", "findings": findings}],
+                 "blocked": blocked,
+                 "shape": {"pending": list(cloud.pending_migrations),
+                           "added": {"tables": [], "columns": []}, "confirms": list(cloud.confirms)},
+                 "restore_point_first": True},
+            )  # fmt: skip
+
+        def _POST_publish(self, match: re.Match, query: dict, body: Any) -> None:
+            deploy = self._deploy_for(match)
+            if deploy is None:
+                return
+            if deploy["status"] != "checked":
+                return self._send(*_error(409, "conflict", "The deploy is not checked."))
+            if deploy.get("blocked"):
+                return self._send(*_error(422, "blocked", "The check found something that blocks publishing."))
+            confirmed = set((body or {}).get("confirm") or [])
+            unconfirmed = [c for c in deploy["confirms"] if c["id"] not in confirmed]
+            if unconfirmed:
+                return self._send(*_error(409, "needs_confirm", "Confirm these first.", confirms=unconfirmed))
+            deploy["status"] = "publishing"
+            deploy["restore_point"] = self._point(match["id"], "publish", deploy["id"])
+            self._send(202, {"deploy": {"id": deploy["id"], "status": "publishing", "steps": []}})
+
+        def _GET_deploy(self, match: re.Match, query: dict, body: Any) -> None:
+            deploy = self._deploy_for(match)
+            if deploy is not None:
+                self._send(200, {"deploy": self._deploy_state(deploy)})
+
+        # ---- restore
+
+        def _restore_app(self, match: re.Match) -> dict[str, Any] | None:
+            if self._signed() is None:
+                return None
+            app = cloud.apps.get(match["id"])
+            if app is None:
+                self._send(*_error(404, "not_found", "No such app."))
+            return app
+
+        def _GET_restore_points(self, match: re.Match, query: dict, body: Any) -> None:
+            app = self._restore_app(match)
+            if app is not None:
+                self._send(200, {"points": cloud.points.get(app["id"], []), "window_days": app["restore_days"]})
+
+        def _POST_restore_points(self, match: re.Match, query: dict, body: Any) -> None:
+            app = self._restore_app(match)
+            if app is not None:
+                self._send(201, {"point": self._point(app["id"], "manual")})
+
+        def _POST_restore(self, match: re.Match, query: dict, body: Any) -> None:
+            app = self._restore_app(match)
+            if app is None:
+                return
+            point = (body or {}).get("point")
+            if point not in [p["id"] for p in cloud.points.get(app["id"], [])]:
+                return self._send(*_error(404, "not_found", "No such restore point."))
+            self._point(app["id"], "before_restore")
+            restore = {"id": cloud._next("rs_"), "app_id": app["id"], "point": point, "looks": 0}
+            cloud.restores[restore["id"]] = restore
+            self._send(202, {"restore": {"id": restore["id"], "status": "running"}})
+
+        def _GET_restore(self, match: re.Match, query: dict, body: Any) -> None:
+            app = self._restore_app(match)
+            restore = cloud.restores.get(match["rs"])
+            if app is None:
+                return
+            if restore is None:
+                return self._send(*_error(404, "not_found", "No such restore."))
+            restore["looks"] += 1
+            if restore["looks"] < 2:
+                return self._send(200, {"restore": {"id": restore["id"], "status": "running", "error": None}})
+            failed = cloud.fail_restore
+            self._send(
+                200,
+                {"restore": {"id": restore["id"], "status": "failed" if failed else "done",
+                             "error": "The restore failed." if failed else None}},
+            )  # fmt: skip
+
         # ---- the model gateway
 
         def _GET_v1_gateway_models(self, query: dict, body: Any) -> None:
@@ -453,4 +642,14 @@ def _handler(cloud: FakeCloud) -> type[BaseHTTPRequestHandler]:
 
 
 #: Routes with a path parameter: ``(pattern of "METHOD /path", handler name)``.
-_PATTERNS = [(rf"{m} /v1/apps/(?P<id>[^/]+)", "_app_by_id") for m in ("GET", "PATCH", "DELETE")]
+_PATTERNS = [(rf"{m} /v1/apps/(?P<id>[^/]+)", "_app_by_id") for m in ("GET", "PATCH", "DELETE")] + [
+    (r"POST /v1/apps/(?P<id>[^/]+)/deploys", "_POST_deploys"),
+    (r"PUT /v1/apps/(?P<id>[^/]+)/deploys/(?P<dep>[^/]+)/files/(?P<hash>[0-9a-f]+)", "_PUT_file"),
+    (r"POST /v1/apps/(?P<id>[^/]+)/deploys/(?P<dep>[^/]+)/check", "_POST_check"),
+    (r"POST /v1/apps/(?P<id>[^/]+)/deploys/(?P<dep>[^/]+)/publish", "_POST_publish"),
+    (r"GET /v1/apps/(?P<id>[^/]+)/deploys/(?P<dep>[^/]+)", "_GET_deploy"),
+    (r"GET /v1/apps/(?P<id>[^/]+)/restore-points", "_GET_restore_points"),
+    (r"POST /v1/apps/(?P<id>[^/]+)/restore-points", "_POST_restore_points"),
+    (r"POST /v1/apps/(?P<id>[^/]+)/restore", "_POST_restore"),
+    (r"GET /v1/apps/(?P<id>[^/]+)/restores/(?P<rs>[^/]+)", "_GET_restore"),
+]

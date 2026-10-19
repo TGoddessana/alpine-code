@@ -1,35 +1,67 @@
-import type { CloneInfo, ProjectInfo } from '@alpine/protocol';
+import type { CloneInfo, JudgedNew, ProjectInfo } from '@alpine/protocol';
 import { AutoHeight, Button, LinkButton } from '@alpine/ui/primitives';
-import { useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { BrandMark } from '@/shared/components/brand';
 
 import { AgentChip, Composer, useSlashSkills, type Mode } from '@/shared/components/composer';
 import { CloneDialog, projectAddMessages } from '@/shared/components/project-add';
 import { useLocale, useMessages } from '@/shared/i18n';
-import { useAgents, useCancelClone, useConnections, useNewSession, useSendMessage, useSettings } from '@/shared/server';
-
-import { ImportLink } from './ImportLink';
-import { Creating } from './Creating';
-import { messages } from './messages';
 import {
-  previewNewProject,
+  ServerError,
+  useAgents,
+  useCancelClone,
+  useConnections,
+  useCreateProject,
+  useJudgeNewProject,
+  useNewSession,
+  useSendMessage,
+  useSettings,
   type CreateStep,
-  type NewProjectApi,
-  type Recommendation,
+  type Judgement,
   type TemplateId,
-} from './preview';
+} from '@/shared/server';
+
+import { Creating, type CreateFailure } from './Creating';
+import { ImportLink } from './ImportLink';
+import { messages } from './messages';
 import { Receiving } from './Receiving';
 import { TemplateCards, useTemplates } from './TemplateCards';
 
 const DEFAULT_AGENT = 'default';
 
+/** After sending: the agent judging it, then (for a new app) its pick of a setup, then the project being made. */
+type Stage =
+  | { name: 'judging'; text: string }
+  | { name: 'choosing'; text: string; judged: JudgedNew; template: TemplateId }
+  | CreatingStage;
+
+interface CreatingStage {
+  name: 'creating';
+  text: string;
+  judged: JudgedNew;
+  template: TemplateId;
+  /** The steps the server has announced, and the project they are about. */
+  steps: CreateStep[];
+  project: ProjectInfo | null;
+  outcome: { status: 'working' } | { status: 'done'; sessionId: string } | { status: 'failed'; error: unknown };
+}
+
+/** What a rejected `projects/create` means for the person: nothing made, or the project made without the AI started. */
+function failureOf(creating: CreatingStage, error: unknown): CreateFailure {
+  const detail = error instanceof Error && error.message ? error.message : null;
+  if (creating.steps.includes('folder')) return { kind: 'not_started', detail };
+  const reason = error instanceof ServerError ? error.data?.reason : undefined;
+  return { kind: reason === 'not_found' || reason === 'invalid_config' ? reason : 'other', detail };
+}
+
 /**
- * Board NewSession: write and send, and the agent judges what it is (decision 13 in docs/alpine-cloud.md). Work on
- * this project starts a session as before. A new app shows the four setups with the agent's pick chosen and why; 만들기
- * makes the project (its web address too when signed in to Alpine) and starts the AI on the idea. When unsure, it is
- * work on this project, so a new project is never made by mistake. Or go on with a conversation another app (Claude
- * Code, Codex, …) had in the project. The project is the one the rail shows; it is picked there, not here. No header and no work
+ * Board NewSession: write and send, and the agent judges what it is (decision 13 in docs/alpine-cloud.md; the server asks
+ * the default model, `projects/judge`). Work on this project starts a session as before. A new app shows the four
+ * setups with the agent's pick chosen and why; 만들기 makes the project (`projects/create`: its folder, its web address
+ * too when signed in to Alpine) and starts the AI on the idea. When unsure, or when the judging fails, it is work on this
+ * project, so a new project is never made by mistake. Or go on with a conversation another app (Claude Code, Codex, …)
+ * had in the project. The project is the one the rail shows; it is picked there, not here. No header and no work
  * result panel yet: they belong to a session and appear with the first message, while the input stays where it is
  * (as wide as in the session).
  *
@@ -48,13 +80,10 @@ export function NewSession({
   onProjectChange,
   onStarted,
   cloud = { signedIn: false },
-  api = previewNewProject,
 }: {
   project: ProjectInfo;
   /** Alpine sign-in and whether 웹앱 Pro is open yet (decision 6 and 8). */
   cloud?: { signedIn: boolean; proReady?: boolean };
-  /** Until the agent and Alpine Cloud answer, the recommendation and creation are stand-ins. */
-  api?: NewProjectApi;
   /** The project's clone, while it is on its way or after it failed. */
   clone?: CloneInfo;
   /** The agent to start with, unless one is picked here for this project. */
@@ -80,41 +109,33 @@ export function NewSession({
   const [mode, setMode] = useState<Mode | null>(null);
   const shownMode = mode ?? defaultMode;
   const { locale } = useLocale();
+  const judge = useJudgeNewProject();
+  const createProject = useCreateProject();
   const templates = useTemplates(cloud.proReady ?? false);
-  // After sending: the agent judging it, then (for a new app) its pick of a setup, then the project being made.
-  const [stage, setStage] = useState<
-    | { name: 'judging'; text: string }
-    | { name: 'choosing'; text: string; recommendation: Recommendation; template: TemplateId }
-    | { name: 'creating'; text: string; steps: CreateStep[]; project: string | null }
-    | null
-  >(null);
-
-  // Sending hands the text over at once (the input empties) and the agent judges it; sending again while it judges
-  // or while the setups are shown starts over with the new text.
-  const judging = useRef(0);
-  const send = (text: string) => {
-    const turn = ++judging.current;
-    setStage({ name: 'judging', text });
-    void api.judge(text, locale, cloud.proReady ?? false).then((judgement) => {
-      if (turn !== judging.current) return;
-      if (judgement.kind === 'change') {
-        setStage(null);
-        void start(text);
-        return;
-      }
-      setStage({ name: 'choosing', text, recommendation: judgement, template: judgement.template });
-    });
-    return Promise.resolve();
-  };
-
-  const create = (text: string, template: TemplateId) => {
-    setStage({ name: 'creating', text, steps: [], project: null });
-    void api
-      .create({ idea: text.trim(), template, online: cloud.signedIn }, (step) =>
-        setStage((last) => (last?.name === 'creating' ? { ...last, steps: [...last.steps, step] } : last)),
-      )
-      .then((name) => setStage((last) => (last?.name === 'creating' ? { ...last, project: name } : last)));
-  };
+  const [stage, setStage] = useState<Stage | null>(null);
+  // Putting a message back in the input: after a session that would not start, or on the project that was made.
+  const [prefill, setPrefill] = useState<{ text: string; key: number } | undefined>();
+  const [startFailed, setStartFailed] = useState(false);
+  // Which send or create is the latest: a slower answer to an earlier one is ignored, and so is any once I have left.
+  const turn = useRef(0);
+  useEffect(
+    () => () => {
+      turn.current++;
+    },
+    [],
+  );
+  // The judging whose answer is still wanted (its turn). It is about the project it was sent on, so moving to another
+  // project drops it, and drops the setups shown for it: they must not start a session or make a project there. A
+  // project being made goes on, so `turn` is left alone.
+  const judging = useRef<number | null>(null);
+  const seen = useRef(project.path);
+  useLayoutEffect(() => {
+    if (seen.current === project.path) return;
+    seen.current = project.path;
+    judging.current = null;
+    setStage((last) => (last?.name === 'creating' ? last : null));
+    setStartFailed(false);
+  }, [project.path]);
 
   const wanted = (picked?.path === project.path ? picked.id : null) ?? agent ?? project.lastAgent ?? DEFAULT_AGENT;
   // Until the agents are read (or when they cannot be), no agent is sent, so the server applies its own choice
@@ -138,6 +159,68 @@ export function NewSession({
     made.current = null;
     setMode(null);
     onStarted(id);
+  };
+
+  // Work on this project: starts the session. If that fails the message is back in the input, and a line says so.
+  const work = (text: string) => {
+    setStage(null);
+    start(text).catch(() => {
+      setPrefill({ text, key: Date.now() });
+      setStartFailed(true);
+    });
+  };
+
+  // Sending hands the text over at once (the input empties) and the agent judges it; sending again while it judges
+  // or while the setups are shown starts over with the new text.
+  const send = (text: string) => {
+    const mine = ++turn.current;
+    judging.current = mine;
+    setStartFailed(false);
+    setStage({ name: 'judging', text });
+    judge
+      .mutateAsync({ text: text.trim(), locale, cwd: project.path })
+      // A question that failed is not an answer: the message goes to the project, where the session shows what is wrong.
+      .catch((): Judgement => ({ kind: 'change' }))
+      .then((judgement) => {
+        if (mine !== turn.current || judging.current !== mine) return;
+        judging.current = null;
+        if (judgement.kind === 'change') work(text);
+        else setStage({ name: 'choosing', text, judged: judgement, template: judgement.template });
+      });
+    return Promise.resolve();
+  };
+
+  const create = (chosen: Extract<Stage, { name: 'choosing' }>) => {
+    const mine = ++turn.current;
+    const update = (change: (creating: CreatingStage) => CreatingStage) =>
+      setStage((last) => (mine === turn.current && last?.name === 'creating' ? change(last) : last));
+    setStage({ ...chosen, name: 'creating', steps: [], project: null, outcome: { status: 'working' } });
+    createProject
+      .mutateAsync({
+        idea: chosen.text.trim(),
+        template: chosen.template,
+        name: chosen.judged.name,
+        ...(sent ? { agent: sent } : {}),
+        ...(mode ? { mode } : {}),
+        onStep: (step, made) =>
+          update((creating) => ({ ...creating, steps: [...creating.steps, step], project: made })),
+      })
+      .then(
+        ({ project: made, sessionId }) => {
+          setMode(null);
+          update((creating) => ({ ...creating, project: made, outcome: { status: 'done', sessionId } }));
+        },
+        (error: unknown) => update((creating) => ({ ...creating, outcome: { status: 'failed', error } })),
+      );
+  };
+
+  // After a failure: back to the setups, or (the project exists, only the AI did not start) on to that project with
+  // the message in the input.
+  const back = (creating: CreatingStage, failure: CreateFailure) => {
+    if (failure.kind !== 'not_started' || !creating.project) return setStage({ ...creating, name: 'choosing' });
+    setStage(null);
+    setPrefill({ text: creating.text, key: Date.now() });
+    onProjectChange(creating.project.path);
   };
 
   return (
@@ -171,32 +254,25 @@ export function NewSession({
                   templates={templates}
                   value={stage.template}
                   onChange={(template) => setStage({ ...stage, template })}
-                  recommendation={stage.recommendation}
+                  recommendation={stage.judged}
                 />
                 <div className="flex items-center justify-between gap-3">
-                  <LinkButton
-                    onClick={() => {
-                      setStage(null);
-                      void start(stage.text);
-                    }}
-                  >
-                    {t.notNew}
-                  </LinkButton>
+                  <LinkButton onClick={() => work(stage.text)}>{t.notNew}</LinkButton>
                   <div className="flex items-center gap-3">
                     <span className="text-meta text-fg-muted">{cloud.signedIn ? t.liveNote : t.localNote}</span>
-                    <Button variant="primary" autoFocus onClick={() => create(stage.text, stage.template)}>
+                    <Button variant="primary" autoFocus onClick={() => create(stage)}>
                       {t.create}
                     </Button>
                   </div>
                 </div>
               </div>
             ) : stage?.name === 'creating' ? (
-              <Creating
+              <CreatingFrom
                 key="creating"
+                stage={stage}
                 online={cloud.signedIn}
-                steps={stage.steps}
-                name={stage.project}
-                onOpen={() => stage.project && onStarted(stage.project)}
+                onOpen={(sessionId) => onStarted(sessionId)}
+                onBack={back}
               />
             ) : (
               <div key="start" className="motion-step flex flex-col items-center gap-6">
@@ -204,6 +280,11 @@ export function NewSession({
                   <BrandMark size={56} />
                   <h1 className="text-display font-semibold">{t.heading}</h1>
                 </div>
+                {startFailed && (
+                  <p role="alert" className="text-body text-danger">
+                    {t.startFailed}
+                  </p>
+                )}
                 <ImportLink cwd={project.path} onOpen={onStarted} />
               </div>
             )}
@@ -216,6 +297,7 @@ export function NewSession({
           locked={clone?.state === 'failed' || stage?.name === 'creating'}
           waiting={clone?.state === 'receiving' ? added.waitToSend : undefined}
           onSend={send}
+          prefill={prefill}
           slash={slash}
           mode={shownMode ? { value: shownMode, onChange: setMode } : undefined}
           agent={
@@ -240,6 +322,33 @@ export function NewSession({
         }}
       />
     </main>
+  );
+}
+
+/** The Creating screen for a stage: what the server announced, and how the request ended. */
+function CreatingFrom({
+  stage,
+  online,
+  onOpen,
+  onBack,
+}: {
+  stage: CreatingStage;
+  online: boolean;
+  onOpen: (sessionId: string) => void;
+  onBack: (stage: CreatingStage, failure: CreateFailure) => void;
+}) {
+  const { outcome } = stage;
+  const failure = outcome.status === 'failed' ? failureOf(stage, outcome.error) : null;
+  return (
+    <Creating
+      online={online}
+      steps={stage.steps}
+      project={stage.project}
+      done={outcome.status === 'done'}
+      failure={failure}
+      onOpen={() => outcome.status === 'done' && onOpen(outcome.sessionId)}
+      onBack={() => failure && onBack(stage, failure)}
+    />
   );
 }
 

@@ -9,9 +9,11 @@ export interface ScriptContext {
 export interface Script {
   /**
    * What each request returns, by method. A function may throw a `ServerError` to script a failure, and may use the
-   * context to send notifications, before or after it answers.
+   * context to send notifications, before or after it answers. It may be async, to answer after a while.
    */
-  results?: { [M in Method]?: Result<M> | ((params: Params<M>, context: ScriptContext) => Result<M>) };
+  results?: {
+    [M in Method]?: Result<M> | ((params: Params<M>, context: ScriptContext) => Result<M> | Promise<Result<M>>);
+  };
   /** Sent in order to each new subscriber, like a recorded session. */
   events?: Notification[];
 }

@@ -1,42 +1,83 @@
+import type { ProjectInfo } from '@alpine/protocol';
 import { Button } from '@alpine/ui/primitives';
 import clsx from 'clsx';
 import { Check } from 'lucide-react';
 
 import { appAddress } from '@/shared/components/cloud';
 import { useMessages } from '@/shared/i18n';
+import { tildePath, useHomeDir } from '@/shared/platform';
+import type { CreateStep } from '@/shared/server';
 
 import { messages } from './messages';
-import type { CreateStep } from './preview';
 
 const ORDER: CreateStep[] = ['folder', 'address', 'agent'];
 
-/** 만들기 with a template: the folder, the web address when signed in, then the AI starts on the idea. */
+/**
+ * Why making the project stopped. `not_started`: the project was made and is on the rail, but the AI could not start
+ * on the idea. The others made nothing: the setup is not there, the settings cannot be read, or something else.
+ */
+export interface CreateFailure {
+  kind: 'not_found' | 'invalid_config' | 'other' | 'not_started';
+  /** What the server said, for whoever has to look into it. */
+  detail: string | null;
+}
+
+/**
+ * 만들기 with a template: the folder, the web address when signed in, then the AI starts on the idea. The steps tick
+ * as the server announces them, the folder shows where it is; when the request ends (`done`) the way into the session
+ * opens. When it fails, a short plain message says what happened and the button goes back.
+ */
 export function Creating({
   online,
   steps,
-  name,
+  project,
+  done: finished,
+  failure,
   onOpen,
+  onBack,
 }: {
   online: boolean;
   steps: CreateStep[];
-  name: string | null;
+  /** The project being made, once the folder step has announced it. */
+  project: ProjectInfo | null;
+  /** The request ended well: every step is done and the session can be opened. */
+  done: boolean;
+  failure: CreateFailure | null;
   onOpen: () => void;
+  /** After a failure: back to the setups, or (`not_started`) on to the project that was made. */
+  onBack: () => void;
 }) {
   const t = useMessages(messages);
+  const home = useHomeDir();
   const shown = ORDER.filter((step) => online || step !== 'address');
   const labels: Record<CreateStep, string> = { folder: t.stepFolder, address: t.stepAddress, agent: t.stepAgent };
-  const project = name ?? 'craft-booking';
-  const details: Partial<Record<CreateStep, string>> = {
-    folder: `~/AlpineCode/${project}`,
-    address: appAddress(project),
-  };
+  const details: Partial<Record<CreateStep, string>> = project
+    ? { folder: tildePath(project.path, home), address: appAddress(project.name) }
+    : {};
+  const reached = (step: CreateStep) => finished || steps.includes(step);
+  const body =
+    failure &&
+    {
+      not_found: t.createNoTemplate,
+      invalid_config: t.createBadConfig,
+      other: t.createUnknown,
+      not_started: t.madeButNotStartedBody,
+    }[failure.kind];
   return (
     <div className="motion-step flex flex-col gap-6">
-      <h1 className="text-display font-semibold">{t.creating}</h1>
+      <h1 className="text-display font-semibold">
+        {failure
+          ? failure.kind === 'not_started'
+            ? t.madeButNotStarted
+            : t.createFailed
+          : finished
+            ? t.created
+            : t.creating}
+      </h1>
       <ol className="flex flex-col overflow-hidden rounded-xl border border-line bg-canvas-raised">
         {shown.map((step, index) => {
-          const done = steps.includes(step);
-          const working = !done && shown.slice(0, index).every((before) => steps.includes(before));
+          const done = reached(step);
+          const working = !done && !failure && shown.slice(0, index).every(reached);
           return (
             <li
               key={step}
@@ -56,10 +97,16 @@ export function Creating({
           );
         })}
       </ol>
-      {name && (
+      {failure && (
+        <div role="alert" className="motion-step flex flex-col gap-1">
+          <p className="text-body text-fg">{body}</p>
+          {failure.detail && <p className="font-mono text-meta break-words text-fg-muted">{failure.detail}</p>}
+        </div>
+      )}
+      {(failure || finished) && (
         <div className="motion-step flex justify-end">
-          <Button variant="primary" autoFocus onClick={onOpen}>
-            {t.goToSession}
+          <Button variant="primary" autoFocus onClick={failure ? onBack : onOpen}>
+            {failure ? (failure.kind === 'not_started' ? t.openProject : t.back) : t.goToSession}
           </Button>
         </div>
       )}

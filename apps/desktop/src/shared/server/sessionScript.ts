@@ -3,12 +3,14 @@ import type {
   AgentInfo,
   ApprovalItem,
   ExternalSessionInfo,
+  ProjectInfo,
   SessionInfo,
   ToolCallItem,
   Usage,
 } from '@alpine/protocol';
 
 import { ServerError } from './connection';
+import type { Judgement, TemplateId } from './newProjects';
 import { agentStore, type AgentStore } from './toolsScript';
 import type { Script, ScriptContext } from './scripted';
 import { applyEvent, toSnapshot, type Item, type SessionEvent, type SessionState } from './sessionState';
@@ -32,6 +34,28 @@ export interface SessionScriptOptions {
   agents?: AgentStore;
   /** Conversations Claude Code and Codex had, offered in every folder; importing one makes a short session of it. */
   importable?: ExternalSessionInfo[];
+  /** How `projects/judge` and `projects/create` answer (stand-ins for the model and for making the folder). */
+  newProject?: NewProjectScript;
+}
+
+/**
+ * The new-session screen's two questions to the server. `projects/judge` is a stand-in for the model, not product
+ * code: a few rules decide work on the project or a new app, after a pause so "judging" can be seen. `projects/create`
+ * announces its steps with short pauses, then starts a session on the idea like `session/new` and `session/send`.
+ */
+export interface NewProjectScript {
+  /** The templates the server has: only these are recommended and can be made. Defaults to blank and web-lite. */
+  templates?: TemplateId[];
+  /** Milliseconds the stand-in takes to judge; defaults to 1500. */
+  judgeMs?: number;
+  /** Milliseconds between the steps of creating; defaults to 700. */
+  createMs?: number;
+  /** Judging fails (the model cannot be reached). */
+  judgeFails?: boolean;
+  /** Creating announces the web address too, as a server does when signed in to Alpine. */
+  address?: boolean;
+  /** Creating fails: `folder` before the project exists, `session` after it, when the session cannot start. */
+  createFails?: 'folder' | 'session';
 }
 
 /** A session info with sensible values, for scripts and stories. */
@@ -373,26 +397,55 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
     });
   }
 
+  /** `session/new`: the session exists, idle, and the list of sessions hears of it. */
+  function startSession(
+    context: ScriptContext,
+    {
+      cwd,
+      model,
+      mode,
+      agent,
+    }: { cwd: string; model?: string | null; mode?: SessionInfo['mode'] | null; agent?: string | null },
+  ): SessionInfo {
+    const info = sessionInfo({
+      id: `s-${nextSession++}`,
+      cwd,
+      ...(model ? { model } : {}),
+      ...(mode ? { mode } : {}),
+      agent: agent ?? 'default',
+    });
+    const live: Live = {
+      state: { info, seq: 0, items: [], activeIds: [], deleted: false },
+      run: null,
+      waiting: null,
+      counter: 0,
+    };
+    sessions.set(info.id, live);
+    emit(context, live, { type: 'info_changed', info });
+    return info;
+  }
+
+  /** `session/send`: the scripted turn starts, a moment after this returns. */
+  function sendMessage(context: ScriptContext, sessionId: string, text: string) {
+    const live = find(sessionId);
+    if (live.run) throw new ServerError(SESSION_RUNNING, 'The session is running');
+    live.run = { cancelled: false, wake: null };
+    // Between turns the session takes the agent as it is now; a deleted one is replaced by the default.
+    const current =
+      store.agents.find((a) => a.id === live.state.info.agent) ?? store.agents.find((a) => a.id === 'default');
+    if (current && current.id !== live.state.info.agent) switchAgent(context, live, current);
+    store.lastAgent.set(live.state.info.cwd, live.state.info.agent ?? 'default');
+    // Starts after the answer, so the first events come after `{}` like on the real server.
+    void Promise.resolve().then(() => run(context, live, text));
+  }
+
+  const pickable = new Set<TemplateId>(options.newProject?.templates ?? ['blank', 'web-lite']);
+  /** Folders made by `projects/create` so far, so the same name gets `-2` as on the real server. */
+  const made = new Set<string>();
+
   return {
     results: {
-      'session/new': ({ cwd, model, mode, agent }, context) => {
-        const info = sessionInfo({
-          id: `s-${nextSession++}`,
-          cwd,
-          ...(model ? { model } : {}),
-          ...(mode ? { mode } : {}),
-          agent: agent ?? 'default',
-        });
-        const live: Live = {
-          state: { info, seq: 0, items: [], activeIds: [], deleted: false },
-          run: null,
-          waiting: null,
-          counter: 0,
-        };
-        sessions.set(info.id, live);
-        emit(context, live, { type: 'info_changed', info });
-        return { info };
-      },
+      'session/new': (params, context) => ({ info: startSession(context, params) }),
       'session/importable': () => ({ sessions: importable }),
       'session/import': ({ cwd, source, id: externalId }, context) => {
         const external = importable.find((e) => e.source === source && e.id === externalId);
@@ -434,16 +487,7 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
       }),
       'session/open': ({ sessionId }) => toSnapshot(find(sessionId).state),
       'session/send': ({ sessionId, text }, context) => {
-        const live = find(sessionId);
-        if (live.run) throw new ServerError(SESSION_RUNNING, 'The session is running');
-        live.run = { cancelled: false, wake: null };
-        // Between turns the session takes the agent as it is now; a deleted one is replaced by the default.
-        const current =
-          store.agents.find((a) => a.id === live.state.info.agent) ?? store.agents.find((a) => a.id === 'default');
-        if (current && current.id !== live.state.info.agent) switchAgent(context, live, current);
-        store.lastAgent.set(live.state.info.cwd, live.state.info.agent ?? 'default');
-        // Starts after the answer, so the first events come after `{}` like on the real server.
-        void Promise.resolve().then(() => run(context, live, text));
+        sendMessage(context, sessionId, text);
         return {};
       },
       'session/cancel': ({ sessionId }) => {
@@ -519,7 +563,90 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         sessions.delete(sessionId);
         return {};
       },
+      'projects/judge': async ({ text, locale }) => {
+        const script = options.newProject ?? {};
+        await sleep(script.judgeMs ?? 1500);
+        if (script.judgeFails)
+          throw new ServerError(-32000, 'The model could not be reached', { reason: 'model_failed' });
+        return { judgement: standInJudgement(text, locale, pickable) };
+      },
+      'projects/create': async ({ id, idea, template, name, agent, mode }, context) => {
+        const script = options.newProject ?? {};
+        const pause = () => sleep(script.createMs ?? 700);
+        await pause();
+        if (!pickable.has(template))
+          throw new ServerError(-32000, `No template named ${template}`, { reason: 'not_found' });
+        if (script.createFails === 'folder')
+          throw new ServerError(-32000, 'The project could not be made: Permission denied', { reason: 'other' });
+        const base =
+          name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'new-app';
+        let folder = base;
+        for (let n = 2; made.has(folder); n++) folder = `${base}-${n}`;
+        made.add(folder);
+        const project: ProjectInfo = {
+          path: `/Users/me/AlpineCode/${folder}`,
+          name: folder,
+          branch: 'main',
+          lastUsedAt: new Date().toISOString(),
+          archived: false,
+          lastAgent: null,
+        };
+        context.emit({ method: 'projects/createChanged', params: { id, step: 'folder', project } });
+        if (script.address) {
+          await pause();
+          await pause();
+          context.emit({ method: 'projects/createChanged', params: { id, step: 'address', project } });
+        }
+        await pause();
+        if (script.createFails === 'session')
+          throw new ServerError(-32000, 'The session could not be started', { reason: 'other' });
+        const info = startSession(context, { cwd: project.path, agent, mode });
+        sendMessage(context, info.id, idea);
+        context.emit({ method: 'projects/createChanged', params: { id, step: 'agent', project } });
+        return { project, sessionId: info.id };
+      },
     },
+  };
+}
+
+// The stand-in for the model: a few rules on the words, nothing the real judge does.
+const NEW = /만들|페이지|사이트|앱|서비스|프로그램|자동화|build|make|app|site|page/i;
+const CHANGE = /고쳐|바꿔|수정|크게|작게|설명해|확인해|fix|change|explain|check/i;
+const PRO = /채팅|실시간|함께|같이 편집|사진|영상|기록|로그|chat|realtime|live|photo|video|log/i;
+const BLANK = /자동화|스크립트|엑셀|크롤|파이썬|automat|script|excel|python/i;
+
+function standInJudgement(text: string, locale: string, templates: Set<TemplateId>): Judgement {
+  // When unsure, it is work on the project I am in, so a new project is never made by mistake.
+  if (CHANGE.test(text) || !NEW.test(text)) return { kind: 'change' };
+  const ko = locale.startsWith('ko');
+  const name = /공방|craft/i.test(text) ? 'craft-booking' : 'new-app';
+  if (BLANK.test(text) && templates.has('blank'))
+    return {
+      kind: 'new',
+      template: 'blank',
+      name,
+      reason: ko
+        ? '웹 화면 없이 도는 자동화라서 빈 프로젝트가 맞아요.'
+        : 'It runs without a web page, so an empty project fits.',
+    };
+  if (PRO.test(text) && templates.has('web-pro'))
+    return {
+      kind: 'new',
+      template: 'web-pro',
+      name,
+      reason: ko
+        ? '여럿이 바로바로 주고받는 기능이 있어서 Pro를 추천해요.'
+        : 'People exchange things live in this idea, so Pro fits.',
+    };
+  if (!templates.has('web-lite')) return { kind: 'change' };
+  return {
+    kind: 'new',
+    template: 'web-lite',
+    name,
+    reason: ko ? '로그인과 예약 저장이면 Lite로 충분해요.' : 'Sign-in and saved bookings are well within Lite.',
   };
 }
 

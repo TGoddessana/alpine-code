@@ -29,6 +29,14 @@ export {
   type SessionEvent,
   type SessionState,
 } from './sessionState';
+export {
+  useCreateProject,
+  useJudgeNewProject,
+  type CreateProjectInput,
+  type CreateStep,
+  type Judgement,
+  type TemplateId,
+} from './newProjects';
 export { useGitHub, useGitHubRepos, useGitHubSignIn, useGitHubSignOut, type GitHubSignInState } from './github';
 export {
   useCancelClone,
@@ -89,6 +97,7 @@ export {
   SESSION_RUNNING,
   sessionInfo,
   sessionScript,
+  type NewProjectScript,
   type SessionScriptOptions,
 } from './sessionScript';
 export { tauriConnection } from './tauri';

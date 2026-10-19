@@ -56,6 +56,7 @@ export const Judging: Story = {
 /** With paid plans open, an idea with chat gets Pro chosen, with its trial. */
 export const ProRecommended: Story = {
   args: { signedIn: true, proReady: true },
+  parameters: { server: chatScript({ newProject: { templates: ['blank', 'web-lite', 'web-pro'] } }) },
   play: async () => {
     await send('동호회 사람들이 실시간 채팅으로 모임 장소를 정하고 사진을 올리는 앱을 만들고 싶어');
     await waitFor(() => expect(screen.getByText(/주고받는 기능이 있어서|exchange things live/)).toBeInTheDocument(), {
@@ -67,6 +68,7 @@ export const ProRecommended: Story = {
 /** Work on this project: after the judging it starts a session, as before. */
 export const ChangeJudged: Story = {
   play: async () => {
+    started.mockClear();
     await send('첫 화면 버튼을 더 크게 바꿔 줘');
     await waitFor(() => expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/)), { timeout: 5000 });
   },
@@ -75,13 +77,63 @@ export const ChangeJudged: Story = {
 /** 만들기: the folder, the web address, then the AI starts. */
 export const CreatingFromJudgement: Story = {
   args: { signedIn: true },
+  parameters: { server: chatScript({ newProject: { address: true } }) },
+  play: async () => {
+    started.mockClear();
+    await send('공방 수업 예약 페이지를 만들어 줘');
+    await userEvent.click(await screen.findByRole('button', { name: /^(만들기|Create)$/ }, { timeout: 5000 }));
+    await waitFor(() => expect(screen.getByText(/AlpineCode\/craft-booking/)).toBeInTheDocument(), { timeout: 5000 });
+    const open = await screen.findByRole('button', { name: /세션으로 가기|Go to the session/ }, { timeout: 8000 });
+    await userEvent.click(open);
+    expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/));
+  },
+};
+
+/** 만들기 without signing in to Alpine: the folder, then the AI starts. No web address yet. */
+export const CreatingOnThisMac: Story = {
   play: async () => {
     await send('공방 수업 예약 페이지를 만들어 줘');
     await userEvent.click(await screen.findByRole('button', { name: /^(만들기|Create)$/ }, { timeout: 5000 }));
     await waitFor(
       () => expect(screen.getByRole('button', { name: /세션으로 가기|Go to the session/ })).toBeInTheDocument(),
+      { timeout: 6000 },
+    );
+    expect(screen.queryByText(/인터넷 주소 만들기|Make the web address/)).not.toBeInTheDocument();
+  },
+};
+
+/** The model could not be asked: it counts as work on this project, so the message still starts a session. */
+export const JudgingFailed: Story = {
+  parameters: { server: chatScript({ newProject: { judgeFails: true } }) },
+  play: async () => {
+    started.mockClear();
+    await send('공방 수업 예약 페이지를 만들어 줘');
+    await waitFor(() => expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/)), { timeout: 5000 });
+  },
+};
+
+/** The project could not be made: nothing was made, a plain message says so, and the way back shows the setups again. */
+export const CreatingFailed: Story = {
+  parameters: { server: chatScript({ newProject: { createFails: 'folder' } }) },
+  play: async () => {
+    await send('공방 수업 예약 페이지를 만들어 줘');
+    await userEvent.click(await screen.findByRole('button', { name: /^(만들기|Create)$/ }, { timeout: 5000 }));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument(), { timeout: 5000 });
+    await userEvent.click(screen.getByRole('button', { name: /^(돌아가기|Go back)$/ }));
+    await waitFor(() => expect(screen.getByRole('radiogroup', { name: /구성|Setup/ })).toBeInTheDocument());
+  },
+};
+
+/** The project was made, but the AI could not start on the idea: the project is there, and the button goes to it. */
+export const CreatedButNotStarted: Story = {
+  parameters: { server: chatScript({ newProject: { createFails: 'session' } }) },
+  play: async () => {
+    await send('공방 수업 예약 페이지를 만들어 줘');
+    await userEvent.click(await screen.findByRole('button', { name: /^(만들기|Create)$/ }, { timeout: 5000 }));
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: /프로젝트 열기|Open the project/ })).toBeInTheDocument(),
       {
-        timeout: 6000,
+        timeout: 5000,
       },
     );
   },
@@ -142,6 +194,7 @@ export const NotReceived: Story = {
 /** Sending something that is not a new app: after the judging, the session and the message, then its id. */
 export const Sent: Story = {
   play: async () => {
+    started.mockClear();
     await userEvent.type(await screen.findByLabelText(/^(메시지|Message)$/), '안녕하세요{Enter}');
     await waitFor(() => expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/)), { timeout: 5000 });
   },
@@ -165,6 +218,7 @@ export const FromOtherApps: Story = {
     }),
   },
   play: async () => {
+    started.mockClear();
     await userEvent.click(await screen.findByRole('button', { name: /Claude Code·Codex에서 하던 대화 4개 이어 하기/ }));
     await userEvent.click(await screen.findByRole('button', { name: /결제 페이지 휴대폰 화면 정리/ }));
     await waitFor(() => expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/)));

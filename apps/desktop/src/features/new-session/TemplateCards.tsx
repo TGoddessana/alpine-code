@@ -1,11 +1,12 @@
+import type { JudgedNew } from '@alpine/protocol';
 import { Collapse } from '@alpine/ui/primitives';
 import clsx from 'clsx';
 import { Feather, Layers, Smartphone, SquareDashed, type LucideIcon } from 'lucide-react';
 
 import { useMessages } from '@/shared/i18n';
+import type { TemplateId } from '@/shared/server';
 
 import { messages } from './messages';
-import type { Recommendation, TemplateId } from './preview';
 
 export interface Template {
   id: TemplateId;
@@ -78,7 +79,7 @@ export function TemplateCards({
   templates: Template[];
   value: TemplateId;
   onChange: (value: TemplateId) => void;
-  recommendation: Recommendation;
+  recommendation: Pick<JudgedNew, 'template' | 'reason'>;
 }) {
   const t = useMessages(messages);
   const chosen = templates.find((template) => template.id === value);

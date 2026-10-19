@@ -308,6 +308,7 @@ def test_a_long_result_is_cut_but_kept_and_can_be_read_on(tmp_path, monkeypatch)
     session_id, run_id = asyncio.run(go())
     again = Session.resume(storage, session_id, Settings(model="fake"), approver=Approver(), taskforce=True)
     assert again.taskforce.status_text(run_id, 50000).endswith('끝"')  # the record keeps the whole result
+    assert again.taskforce.usage.requests == 1  # and what its agents used, for the session's usage
 
 
 ONE = [{"title": "작성", "count": 1, "model": "fake"}]

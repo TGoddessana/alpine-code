@@ -145,6 +145,7 @@ class _Run:
             "error": self.error,
             "output": self.output,
             "records": self.records,
+            "usage": dataclasses.asdict(self.usage),
         }
 
     @classmethod
@@ -165,6 +166,7 @@ class _Run:
             error=data.get("error"),
             output=data.get("output"),
             records=dict(data.get("records", {})),
+            usage=_usage(data.get("usage")),
         )
 
 
@@ -976,6 +978,14 @@ def _plan(steps: Any) -> list[dict[str, Any]]:
             raise ToolError(f"A step needs at least one agent: {step!r}")
         plan.append({"title": str(step["title"]).strip(), "count": count, "model": str(step.get("model") or "")})
     return plan
+
+
+def _usage(data: Any) -> Usage:
+    """What a saved run's agents used; nothing for a record from before it was kept."""
+    if not isinstance(data, dict):
+        return Usage()
+    known = {f.name for f in dataclasses.fields(Usage)}
+    return Usage(**{k: v for k, v in data.items() if k in known})
 
 
 def _owner(run: _Run, member: Member) -> str:

@@ -1,9 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useEffect, useState } from 'react';
-import { fn } from 'storybook/test';
 
-import { DataTab } from '@/features/data/DataTab';
-import { ARRIVING, BOOKING_TABLES, useEditableTables } from '@/features/data/preview';
+import { DataPanel } from '@/features/data/DataPanel';
 import { Dock } from '@/features/dock/Dock';
 import { showDockTab } from '@/features/dock/state';
 import { PublishButton } from '@/features/publish/PublishButton';
@@ -12,12 +10,11 @@ import { publishServer } from '@/shared/server';
 
 /**
  * The pieces of docs/alpine-cloud.md together, the way the session screen would hold them: the top bar's 올리기, the
- * AI's offer in the conversation, and the dock's 데이터 tab where a friend's booking arrives (the aha). Stand-in
- * data throughout.
+ * AI's offer in the conversation, and the dock's 데이터 tab where a friend's booking arrives (the aha). All of it
+ * on the scripted server.
  */
 function Workspace() {
   useEffect(() => showDockTab('data'), []);
-  const [tables, writes] = useEditableTables(BOOKING_TABLES, ARRIVING, 3000);
   const [offer, setOffer] = useState(true);
   return (
     <div className="flex h-screen flex-col bg-canvas-sunken">
@@ -50,16 +47,7 @@ function Workspace() {
               id: 'data',
               label: '데이터',
               bare: true,
-              content: (
-                <DataTab
-                  tables={tables}
-                  writes={writes}
-                  aiReads={2}
-                  restorePoints={3}
-                  onAiReads={fn()}
-                  onRestorePoints={fn()}
-                />
-              ),
+              content: <DataPanel cwd="/project" />,
             },
           ]}
         />
@@ -71,7 +59,7 @@ function Workspace() {
 const meta = {
   title: 'Alpine Cloud/Workspace',
   component: Workspace,
-  parameters: { layout: 'fullscreen', server: publishServer() },
+  parameters: { layout: 'fullscreen', server: publishServer({ data: 'live', bookingArrivesMs: 3000 }) },
 } satisfies Meta<typeof Workspace>;
 
 export default meta;

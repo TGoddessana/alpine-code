@@ -171,6 +171,8 @@ const ItemView = memo(function ItemView({
       if (item.source === 'taskforce') return null;
       return <p className={quiet}>{item.text}</p>;
     case 'status_line':
+      // A line the app has its own words for (the core's text is English); an unknown code shows the core's text.
+      if (item.code === 'live_data_first_read') return <p className={quiet}>{t.status_live_data_first_read}</p>;
       return <p className={quiet}>{item.text}</p>;
     case 'memory_review': // drawn by the chat with the project it links to
       return null;

@@ -3,7 +3,7 @@ import type { DataColumn, DataRow, DataTable, DataType, DataValue } from './type
 export const numeric = (type: DataType) => type === 'integer' || type === 'real';
 
 /** The column a table's rows are known by; never edited by hand. */
-export const isKey = (column: DataColumn) => column.key === 'id';
+export const isKey = (column: DataColumn) => column.pk === true;
 
 export function plain(value: DataValue | undefined): string {
   if (value === null || value === undefined) return '';

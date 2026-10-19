@@ -113,7 +113,18 @@ export {
   type PublishFlow,
   type PublishState,
 } from './publish';
+export {
+  DATA_ROW_LIMIT,
+  useDataReads,
+  useDataRows,
+  useDataSources,
+  useDataTables,
+  useDataWrites,
+  type DataSourceKind,
+  type RowRequest,
+} from './data';
 export { cloudScript, type CloudScriptOptions } from './cloudScript';
+export type { DataScriptOptions } from './dataScript';
 export { publishServer } from './publishServer';
 export type { PublishScenario } from './publishScript';
 export { SKILLS, skillsScript, type SkillsScriptOptions } from './skillsScript';

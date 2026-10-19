@@ -1,10 +1,11 @@
 import type { CloudStatus } from '@alpine/protocol';
 
 import { ServerError } from './connection';
+import { dataResults, type DataScriptOptions } from './dataScript';
 import { publishResults, type PublishScriptOptions } from './publishScript';
 import type { Script } from './scripted';
 
-export interface CloudScriptOptions extends PublishScriptOptions {
+export interface CloudScriptOptions extends PublishScriptOptions, DataScriptOptions {
   /** Starts signed in. Signing in and out changes it, and announces `cloud/changed`. */
   signedIn?: boolean;
   /** The plan the account is on; `trial` is Pro on its free week. */
@@ -48,7 +49,7 @@ const refillDate = () => {
 /**
  * Alpine Cloud as the app sees it through the server (docs/alpine-cloud-api.md 6.2): the account, its plan and
  * credits, a browser sign-in that finishes by itself, an email code (`000000` is a wrong one), plans and trial, and
- * the Node.js install, and `publish/*` (see `publishScript`). It remembers who is signed in, so a story can sign in and see the settings change. A scripted
+ * the Node.js install, `publish/*` (see `publishScript`) and `data/*` (see `dataScript`). It remembers who is signed in, so a story can sign in and see the settings change. A scripted
  * stand-in for the server, like `statefulScript`; no cloud runs behind it.
  */
 export function cloudScript(options: CloudScriptOptions = {}): Script {
@@ -82,6 +83,7 @@ export function cloudScript(options: CloudScriptOptions = {}): Script {
 
   return {
     results: {
+      ...dataResults(options),
       ...publishResults(options, { signedIn: () => signedIn, nodeReady: () => node === 'ready' }),
       'cloud/status': () => status(),
       'cloud/signIn': ({ method }, context) => {

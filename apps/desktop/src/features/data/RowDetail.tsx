@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react';
 
 import { useMessages } from '@/shared/i18n';
 
+import { MASK } from './convert';
 import { messages } from './messages';
 import type { DataColumn, DataRow, DataTable, DataValue, DataWrites } from './types';
 import { Value } from './Value';
@@ -14,8 +15,8 @@ type Draft = Record<string, string | null>;
 
 /**
  * One row with every field, its column name and type. 고치기 turns the fields into inputs that fit their type; a
- * value pointing into another table opens that row. A new row (`row` null) starts in the same form, empty. Saving and
- * deleting go through `writes`, which takes a restore point first.
+ * value pointing into another table opens that row. A new row (`row` null) starts in the same form, empty. Without
+ * `writes` (the live data, or a table with no key) it is only looked at; otherwise saving and deleting go through it.
  */
 export function RowDetail({
   table,
@@ -29,42 +30,63 @@ export function RowDetail({
   table: DataTable;
   row: DataRow | null;
   tables: DataTable[];
-  writes: DataWrites;
+  writes?: DataWrites;
   onBack: () => void;
   onFollow: (table: string, row: string) => void;
   /** After a save or delete, with what to tell me. A deleted or new row closes. */
   onDone: (note: string, closed: boolean) => void;
 }) {
   const t = useMessages(messages);
-  const [draft, setDraft] = useState<Draft | null>(row ? null : draftOf(table, null));
+  const [draft, setDraft] = useState<Draft | null>(row || !writes ? null : draftOf(table, null));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [asking, setAsking] = useState(false);
 
+  const editable = writes !== undefined && (row === null ? table.columns.some(isKey) : row.key !== null);
+
+  const fail = (reason: unknown, what: string) => {
+    setBusy(false);
+    setError(`${what} ${reason instanceof Error ? reason.message : ''}`.trim());
+  };
+
   const save = () => {
-    if (!draft) return;
+    if (!draft || !writes) return;
+    // Only what changed goes in (a secret column shown as •••• is never sent back); a new row sends what is filled in.
+    const before = draftOf(table, row);
     const cells: Record<string, DataValue> = {};
     for (const column of table.columns) {
-      if (isKey(column)) continue;
-      const parsed = parse(column, draft[column.key] ?? null);
+      if (row ? isKey(column) : isKey(column) && column.type === 'integer') continue;
+      const text = draft[column.key] ?? null;
+      if (row ? text === before[column.key] : text === null) continue;
+      const parsed = parse(column, text);
       if (parsed === INVALID) {
         setError(t.badJson);
         return;
       }
       cells[column.key] = parsed;
     }
-    setBusy(true);
-    void writes.save(table.id, row?.id ?? null, cells).then(() => {
-      setBusy(false);
+    if (row && Object.keys(cells).length === 0) {
       setDraft(null);
-      onDone(t.saved, row === null);
-    });
+      return;
+    }
+    setBusy(true);
+    void writes
+      .save(table.id, row ? row.key : null, cells)
+      .then(() => {
+        setBusy(false);
+        setDraft(null);
+        onDone(t.saved, row === null);
+      })
+      .catch((reason: unknown) => fail(reason, t.saveFailed));
   };
 
   const remove = () => {
-    if (!row) return;
+    if (!row?.key || !writes) return;
     setBusy(true);
-    void writes.remove(table.id, row.id).then(() => onDone(t.removed, true));
+    void writes
+      .remove(table.id, row.key)
+      .then(() => onDone(t.removed, true))
+      .catch((reason: unknown) => fail(reason, t.removeFailed));
   };
 
   return (
@@ -74,6 +96,7 @@ export function RowDetail({
           {t.back(table.label)}
         </LinkButton>
         {row ? (
+          editable &&
           !draft && (
             <Button className="min-h-7" onClick={() => setDraft(draftOf(table, row))}>
               {t.edit}
@@ -93,7 +116,7 @@ export function RowDetail({
                 <Editor
                   column={column}
                   value={draft[column.key] ?? null}
-                  fixed={isKey(column) ? (row ? plain(value) : t.auto) : null}
+                  fixed={fixedOf(column, row, value, t.auto)}
                   onChange={(next) => {
                     setError(null);
                     setDraft({ ...draft, [column.key]: next });
@@ -115,7 +138,7 @@ export function RowDetail({
             </p>
           )}
           <div className="flex items-center justify-between gap-2">
-            <p className="text-meta text-fg-muted">{t.restoreNote}</p>
+            <p className="text-meta text-fg-muted">{t.practiceNote}</p>
             <div className="flex shrink-0 gap-2">
               <Button onClick={() => (row ? setDraft(null) : onBack())}>{t.cancel}</Button>
               <Button variant="primary" disabled={busy} onClick={save}>
@@ -126,7 +149,7 @@ export function RowDetail({
         </div>
       )}
 
-      {row && !draft && (
+      {row && editable && !draft && (
         <div className="flex flex-col gap-2 border-t border-line-subtle px-3 py-2">
           {asking ? (
             <div className="motion-step flex flex-col gap-2">
@@ -178,7 +201,7 @@ function Shown({
   const target = column.references ? tables.find((candidate) => candidate.id === column.references) : undefined;
   const pointed =
     target && value !== null && value !== undefined
-      ? target.rows.find((candidate) => String(candidate.cells.id) === String(value))
+      ? target.rows.find((candidate) => String(candidate.cells[pointedKey(target)]) === String(value))
       : undefined;
   if (target && pointed)
     return (
@@ -289,6 +312,15 @@ function draftOf(table: DataTable, row: DataRow | null): Draft {
           : String(value);
   }
   return draft;
+}
+
+/** The column another table's value points at: its primary key (a table with none is pointed at by `id`). */
+const pointedKey = (table: DataTable) => table.columns.find(isKey)?.key ?? 'id';
+
+/** What a field shows instead of an input: a row's own key, a key set by the database, a masked secret. */
+function fixedOf(column: DataColumn, row: DataRow | null, value: DataValue | undefined, auto: string): string | null {
+  if (isKey(column)) return row ? plain(value) : column.type === 'integer' ? auto : null;
+  return row && value === MASK ? MASK : null;
 }
 
 const INVALID = Symbol('invalid');

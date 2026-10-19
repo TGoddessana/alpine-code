@@ -166,6 +166,11 @@ def test_compaction_and_notice_events():
     rec.handle(ContextCompacted(100, 20, "what was done", 4))
     rec.handle(Notice("fell back"))
     assert rec.items == (Compaction("i1", 100, 20, "what was done", 4), StatusLine("i2", "fell back"))
+    # a notice with a code keeps it, so an app can use its own words for it
+    rec.handle(Notice("The AI read live data.", "live_data_first_read"))
+    assert rec.items[-1] == StatusLine("i3", "The AI read live data.", "live_data_first_read")
+    assert item_from_dict(item_to_dict(rec.items[-1])) == rec.items[-1]
+    assert item_from_dict({"kind": "status_line", "id": "old", "text": "saved before codes"}).code is None
     # a divider saved before the summary and the count were kept reads as before
     assert item_from_dict({"kind": "compaction", "id": "x", "before_tokens": 9, "after_tokens": 3}) == Compaction(
         "x", 9, 3

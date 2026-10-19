@@ -24,6 +24,8 @@ class Auth(StrEnum):
     """A key the user pastes, or the provider's environment variable."""
     CHATGPT = "chatgpt"
     """Sign in with ChatGPT: the user's ChatGPT plan pays (``alpine_core.chatgpt``)."""
+    ALPINE = "alpine"
+    """Sign in to Alpine: the account's Alpine credits pay (``alpine_core.cloud``)."""
 
 
 class Billing(StrEnum):
@@ -31,6 +33,8 @@ class Billing(StrEnum):
     """A monthly plan with usage windows."""
     USAGE = "usage"
     """Paid per token."""
+    CREDITS = "credits"
+    """Paid from prepaid credits that refill (Alpine's)."""
     NONE = "none"
     """A local or self-run server: nothing to show."""
 
@@ -41,7 +45,8 @@ class Provider:
     name: str
     api: Api
     base_url: str | None
-    """``None`` means the SDK's own default (Anthropic's or OpenAI's API)."""
+    """``None`` means the SDK's own default (Anthropic's or OpenAI's API); Alpine's gateway address is computed from
+    the one API setting (``Connection.url``)."""
     billing: Billing
     key_env: str | None
     """The environment variable that holds its key; it wins over a saved key. ``None`` when it takes no key."""
@@ -93,5 +98,7 @@ PROVIDERS: dict[str, Provider] = {
         Provider(
             "chatgpt", "ChatGPT", Api.RESPONSES, "https://api.openai.com/v1", Billing.SUBSCRIPTION, None, Auth.CHATGPT
         ),
+        # Signed in, not keyed: Alpine credits pay through Alpine's own gateway (address: cloud.settings.gateway_url).
+        Provider("alpine", "Alpine", Api.OPENAI, None, Billing.CREDITS, None, Auth.ALPINE),
     ]
 }

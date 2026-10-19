@@ -7,6 +7,7 @@ Config file: ``~/.alpine-code/config.toml`` (see ``home_dir``)::
     # review_model = "openrouter/qwen3"           # auto mode's reviewer; unset: the session's model
     # clone_folder = "~/Developments"              # where the app puts repositories; unset: ~/AlpineCode
     # output_limit = 64000                         # most tokens one reply may write; unset: alpineagents picks
+    # cloud_url = "https://api.alpinecode.app"     # the Alpine API (cloud/settings.py); ALPINE_CLOUD_URL wins
 
     [connections.anthropic]
     provider = "anthropic"                         # a provider from providers.py
@@ -46,7 +47,7 @@ import tomllib
 from .cloning import default_clone_folder
 from .home import home_dir
 from .permissions import Mode
-from .providers import PROVIDERS, Api, Billing, Provider
+from .providers import PROVIDERS, Api, Auth, Billing, Provider
 from .secrets import FileSecrets, Secrets
 
 #: Settings fields -> the environment variables that override them.
@@ -71,6 +72,9 @@ _FILE_KEYS = {
 _MOVED_KEYS = {
     "context_window": 'context_window is set per model now: [connections.<name>.models."<model>"] context_window = ...',
 }
+
+#: Keys of config.toml that are not ``Settings`` fields: connections, and the Alpine API address (``cloud.settings``).
+_OTHER_KEYS = {"connections", "cloud_url"}
 
 _CONNECTION_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 
@@ -120,6 +124,10 @@ class Connection:
 
     @property
     def url(self) -> str | None:
+        if self.base_url is None and self.provider is not None and self.provider.auth is Auth.ALPINE:
+            from .cloud.settings import gateway_url  # computed, so it follows the one API setting
+
+            return gateway_url()
         return self.base_url or (self.provider.base_url if self.provider else None)
 
     @property
@@ -301,7 +309,7 @@ def _from_file(file: Path) -> dict[str, Any]:
     moved = [hint for key, hint in _MOVED_KEYS.items() if key in data]
     if moved:
         raise ConfigError(f"{file}: " + "; ".join(moved))
-    unknown = sorted(set(data) - set(_FILE_KEYS) - {"connections"})
+    unknown = sorted(set(data) - set(_FILE_KEYS) - _OTHER_KEYS)
     if unknown:
         raise ConfigError(f"Unknown settings in {file}: {', '.join(unknown)}")
     values = {name: data[key] for key, name in _FILE_KEYS.items() if key in data}

@@ -33,6 +33,7 @@ from .approval import ApprovalRequest, Approver, Decision, build_permissions
 from .bridge import EventReporter
 from .cancellation import current_cancellation, current_session, executions, track_user_tool
 from .chatgpt import PlanUsageOff, SignInNeeded, UsageLimitError
+from .cloud import CreditsExhausted, SignedOut
 from .config import ConfigError, Settings
 from .context import limits_of
 from .events import (
@@ -1151,7 +1152,10 @@ def _failed(error: BaseException) -> Failed:
     message is the core's own sentence rather than an exception dump."""
     if isinstance(error, UsageLimitError):
         return Failed(str(error), "plan_limit")
-    if isinstance(error, (SignInNeeded, PlanUsageOff)):
+    if isinstance(error, CreditsExhausted):
+        refills = f" They refill at {error.refills_at}." if error.refills_at else ""
+        return Failed(f"{error}{refills}".strip(), "credits_exhausted")
+    if isinstance(error, (SignInNeeded, PlanUsageOff, SignedOut)):
         return Failed(str(error), "signed_out")
     return Failed(_describe_error(error))
 

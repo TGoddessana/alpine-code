@@ -31,7 +31,9 @@ from .events import (
 )
 
 ToolCallStatus = Literal["running", "done", "error", "input_error", "aborted", "interrupted", "denied", "cancelled"]
-RunStopReason = Literal["interrupted", "failed", "limit", "repeating", "permission", "plan_limit", "signed_out"]
+RunStopReason = Literal[
+    "interrupted", "failed", "limit", "repeating", "permission", "plan_limit", "signed_out", "credits_exhausted"
+]
 ApprovalDecision = Literal["allow", "allow_always", "deny"]
 PreviewKind = Literal["diff", "command", "text"]
 ReviewAsk = Literal["blocked_in_a_row", "failed"]
@@ -153,6 +155,8 @@ class StatusLine:
 
     id: str
     text: str
+    code: str | None = None
+    """As ``Notice.code``."""
     kind: ClassVar[str] = "status_line"
 
 
@@ -681,8 +685,8 @@ class ItemRecorder:
                 self._on_tool_finished(event)
             case ContextCompacted(before, after, summary, cleared):
                 self._born_finished(Compaction(self._new_id(), before, after, summary, cleared))
-            case Notice(text):
-                self._born_finished(StatusLine(self._new_id(), text))
+            case Notice(text, code):
+                self._born_finished(StatusLine(self._new_id(), text, code))
             case RunFinished(stopped_by):
                 self.finalize()
                 if stopped_by == "limit":

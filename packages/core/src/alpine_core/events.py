@@ -101,6 +101,9 @@ class Notice:
     """Something worth a short line, such as a model fallback."""
 
     text: str
+    code: str | None = None
+    """Says which notice this is when an app has its own words for it (``live_data_first_read``); ``text`` is
+    English, for the apps that do not."""
 
 
 @dataclass(frozen=True)
@@ -122,9 +125,10 @@ class Failed:
     """The run ended with an error from the model provider (auth, rate limit, network...)."""
 
     message: str
-    reason: Literal["failed", "plan_limit", "signed_out"] = "failed"
-    """``plan_limit``: the ChatGPT plan (or this app's share of it) is used up. ``signed_out``: the ChatGPT sign-in
-    has ended or does not allow plan usage. Both need the user, not a retry."""
+    reason: Literal["failed", "plan_limit", "signed_out", "credits_exhausted"] = "failed"
+    """``plan_limit``: the ChatGPT plan (or this app's share of it) is used up. ``signed_out``: the ChatGPT or Alpine
+    sign-in has ended or does not allow plan usage. ``credits_exhausted``: the Alpine credits are used up until they
+    refill (the message says when). All need the user, not a retry."""
 
 
 Event = (

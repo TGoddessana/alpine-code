@@ -15,6 +15,8 @@ from alpineagents.models.anthropic import DEFAULT_MAX_TOKENS as ANTHROPIC_DEFAUL
 
 from .catalog import is_local, saved_catalog
 from .chatgpt import ChatGPTError, ChatGPTModel, ChatGPTTokens, PlanUsageOff, SignInNeeded, fetch_models, is_chatgpt
+from .cloud import AlpineModel, AlpineTokens, CloudError, SignedOut, credits_seen, is_alpine
+from .cloud.gateway import list_gateway_models
 from .config import ConfigError, Connection, Settings
 from .context import ContextLimits, limits_for, remember, save_reported
 from .providers import Api
@@ -57,6 +59,13 @@ def make_model(settings: Settings) -> Model | str:
             written = connection.models.get(model)
             window = written.context_window if written else None
             return ChatGPTModel(model, chatgpt_tokens(settings, connection), context_window=window)
+        if is_alpine(connection):
+            limits = limits_for(connection, prefix, model, catalog, reply=settings.output_limit)
+            tokens = AlpineTokens(settings.secrets) if settings.secrets is not None else AlpineTokens()
+            adapter = AlpineModel(
+                model, tokens, max_tokens=settings.output_limit, on_credits=credits_seen, **_window(limits)
+            )
+            return remember(adapter, limits)
         key = settings.api_key_for(connection)
         if connection.api is Api.ANTHROPIC:
             limits = limits_for(connection, prefix, model, catalog, reply=_anthropic_reply(settings))
@@ -220,6 +229,15 @@ def list_models(
             raise ModelListError(kind.AUTH, str(e)) from e
         except ChatGPTError as e:
             raise ModelListError(kind.OTHER, str(e)) from e
+    if is_alpine(connection):
+        try:
+            gateway = list_gateway_models()
+        except SignedOut as e:
+            raise ModelListError(kind.AUTH, str(e)) from e
+        except CloudError as e:
+            raise ModelListError(kind.UNREACHABLE if e.status == 0 else kind.OTHER, str(e)) from e
+        save_reported(connection.name, {m.id: m.context_window for m in gateway})
+        return [m.id for m in gateway]
     try:
         windows = _list(connection, api_key, timeout)
     except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as e:

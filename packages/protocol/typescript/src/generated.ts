@@ -689,7 +689,7 @@ export interface DataColumn {
  */
 export interface DataDeleteParams {
   cwd: string;
-  source: 'practice';
+  source: 'practice' | 'live';
   table: string;
   key: {
     [k: string]: unknown;
@@ -753,7 +753,7 @@ export interface DataRowsResult {
  */
 export interface DataSaveParams {
   cwd: string;
-  source: 'practice';
+  source: 'practice' | 'live';
   table: string;
   key?: {
     [k: string]: unknown;

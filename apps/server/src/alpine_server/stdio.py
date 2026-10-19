@@ -45,6 +45,7 @@ from .agents import HANDLERS as AGENT_HANDLERS
 from .chatgpt import ChatGPTSignIns
 from .clones import Clones
 from .cloud import CloudMethods
+from .data import DataMethods
 from .dev_servers import DevelopmentServers
 from .files import FILE_HANDLERS
 from .flow import HANDLERS as FLOW_HANDLERS
@@ -104,6 +105,7 @@ class Server:
         self.node_tools = NodeTools(self._send_node_tools_changed)
         self.dev_servers = DevelopmentServers()
         self.publish = PublishMethods(self._send_publish_changed, self.dev_servers.manager)
+        self.data = DataMethods()
         self.new_projects = NewProjects(self._send_create_changed, self.sessions)
         self._async_handlers = (
             self.sessions.handlers()
@@ -113,6 +115,7 @@ class Server:
             | self.github.handlers()
             | self.cloud.handlers()
             | self.publish.handlers()
+            | self.data.handlers()
             | self.node_tools.handlers()
             | self.dev_servers.handlers()
             | self.new_projects.handlers()

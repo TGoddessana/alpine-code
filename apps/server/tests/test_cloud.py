@@ -150,7 +150,7 @@ def test_plans_come_from_the_api_and_later_methods_say_not_available(cloud):
         assert [p["id"] for p in plans] == ["free", "pro"] and plans[1]["trialDays"] == 7
         for method, params in (
             ("publish/domains", {"cwd": "/x"}),
-            ("data/sources", {"cwd": "/x"}),
+            ("publish/setBadge", {"cwd": "/x", "badge": False}),
             ("cloud/startTrial", {}),
         ):
             error = (await h.call(method, params))["error"]

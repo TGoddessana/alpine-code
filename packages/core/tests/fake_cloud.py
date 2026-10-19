@@ -3,7 +3,8 @@
 
 It answers what the app side needs so far: ``/v1/meta``, the sign-in (authorize -> consent -> callback -> token, the
 email code, refresh with rotation, sign-out), ``/v1/me``, apps, the model gateway (SSE, credits, ``402``) and plans.
-deploys (start, upload, check, publish, watch), restore points and restores. Later steps add their endpoints here.
+deploys (start, upload, check, publish, watch), restore points and restores, and the live data (tables, rows, query,
+execute, reads, over a real sqlite per app: see ``make_live``). Later steps add their endpoints here.
 Nothing leaves the computer: every address is the loopback.
 
 Knobs a test turns: ``access_ttl`` (seconds an access token lives), ``revoke_access_tokens()``, ``fail_refresh``,
@@ -18,6 +19,7 @@ import base64
 import hashlib
 import json
 import re
+import sqlite3
 import threading
 import time
 import urllib.parse
@@ -54,6 +56,8 @@ class FakeCloud:
         self.points: dict[str, list[dict[str, Any]]] = {}
         self.live: dict[str, str] = {}  # app id -> the deploy that serves
         self.restores: dict[str, dict[str, Any]] = {}
+        self.databases: dict[str, sqlite3.Connection] = {}
+        self.reads: dict[str, list[dict[str, Any]]] = {}
         self._access: dict[str, tuple[str, float]] = {}  # token -> (account id, expires at)
         self._refresh: dict[str, str] = {}  # refresh token -> account id
         self._pending: dict[str, dict[str, str]] = {}
@@ -85,6 +89,15 @@ class FakeCloud:
         return f"http://127.0.0.1:{self._server.server_address[1]}"
 
     # ---- knobs
+
+    def make_live(self, app_id: str, schema: str) -> sqlite3.Connection:
+        """Puts the app live with a database made by ``schema`` (SQL script). Returns it, to fill with rows."""
+        db = sqlite3.connect(":memory:", check_same_thread=False)
+        db.executescript(schema)
+        with self._lock:
+            self.databases[app_id] = db
+            self.apps[app_id]["status"] = "live"
+        return db
 
     def revoke_access_tokens(self) -> None:
         """Every access token stops working (the API answers 401); refresh tokens still do."""
@@ -638,7 +651,109 @@ def _handler(cloud: FakeCloud) -> type[BaseHTTPRequestHandler]:
             self.wfile.flush()
             self.close_connection = True
 
+        # ---- live data
+
+        def _data_app(self, match: re.Match) -> tuple[dict[str, Any], sqlite3.Connection] | None:
+            if self._signed() is None:
+                return None
+            app = cloud.apps.get(match["id"])
+            if app is None:
+                self._send(*_error(404, "not_found", "No such app."))
+                return None
+            db = cloud.databases.get(app["id"])
+            if db is None or app["status"] != "live":
+                self._send(*_error(404, "not_found", "The app has no live data yet."))
+                return None
+            return app, db
+
+        def _GET_data_tables(self, match: re.Match, query: dict, body: Any) -> None:
+            found = self._data_app(match)
+            if found is None:
+                return
+            db, tables = found[1], []
+            for (name,) in db.execute("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"):
+                if _hidden(name):
+                    continue
+                columns = [
+                    {"name": c[1], "type": c[2], "pk": bool(c[5]), "nullable": not (c[3] or c[5]), "references": None}
+                    for c in db.execute(f'PRAGMA table_info("{name}")')
+                ]
+                rows = db.execute(f'SELECT count(*) FROM "{name}"').fetchone()[0]
+                tables.append({"name": name, "rows": rows, "columns": columns})
+            self._send(200, {"tables": tables})
+
+        def _GET_data_rows(self, match: re.Match, query: dict, body: Any) -> None:
+            found = self._data_app(match)
+            if found is None:
+                return
+            table = urllib.parse.unquote(match["table"])
+            if _hidden(table) or not _has_table(found[1], table):
+                return self._send(*_error(404, "not_found", "No such table."))
+            self._send(200, _select(found[1], f'SELECT * FROM "{table}" LIMIT ? OFFSET ?', [
+                min(int(query.get("limit", 100)), 500), int(query.get("offset", 0))]))  # fmt: skip
+
+        def _POST_data_query(self, match: re.Match, query: dict, body: Any) -> None:
+            found = self._data_app(match)
+            if found is None:
+                return
+            sql = (body or {}).get("sql", "")
+            if not re.match(r"\s*(select|with|explain|pragma\s+table_info)\b", sql, re.I) or ";" in sql.strip(" ;"):
+                return self._send(*_error(400, "invalid", "Only one read statement is allowed."))
+            try:
+                result = _select(found[1], sql, (body or {}).get("params") or [])
+            except sqlite3.Error as e:
+                return self._send(*_error(400, "invalid", str(e)))
+            if (body or {}).get("purpose") == "agent":
+                cloud.reads.setdefault(found[0]["id"], []).insert(
+                    0, {"at": "2026-10-20T02:00:00Z", "session": body.get("session"), "sql": sql,
+                        "tables": re.findall(r"(?:from|join)\s+\"?(\w+)", sql, re.I), "rows": len(result["rows"])},
+                )  # fmt: skip
+            self._send(200, result)
+
+        def _POST_data_execute(self, match: re.Match, query: dict, body: Any) -> None:
+            found = self._data_app(match)
+            if found is None:
+                return
+            sql = (body or {}).get("sql", "")
+            if not re.match(r"\s*(insert|update|delete|replace)\b", sql, re.I) or ";" in sql.strip(" ;"):
+                return self._send(*_error(400, "invalid", "Only one INSERT, UPDATE or DELETE is allowed."))
+            point = self._point(found[0]["id"], "data_write")
+            try:
+                changes = found[1].execute(sql, (body or {}).get("params") or []).rowcount
+                found[1].commit()
+            except sqlite3.Error as e:
+                return self._send(*_error(400, "invalid", str(e)))
+            self._send(200, {"changes": changes, "restore_point": {"id": point["id"], "at": point["at"]}})
+
+        def _GET_data_reads(self, match: re.Match, query: dict, body: Any) -> None:
+            found = self._data_app(match)
+            if found is not None:
+                self._send(200, {"reads": cloud.reads.get(found[0]["id"], [])[: int(query.get("limit", 50))]})
+
     return Handler
+
+
+def _hidden(table: str) -> bool:
+    return table.startswith(("sqlite_", "_cf_")) or table == "d1_migrations"
+
+
+def _has_table(db: sqlite3.Connection, table: str) -> bool:
+    return db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone() is not None
+
+
+def _select(db: sqlite3.Connection, sql: str, params: list[Any]) -> dict[str, Any]:
+    """Runs a read and masks the columns the real API masks (token, password, secret, hash words)."""
+    cursor = db.execute(sql, params)
+    columns = [d[0] for d in cursor.description or []]
+    masked = [
+        bool(re.search(r"(?i)(^|_)(token|password|secret|hash)($|_)|[a-z](Token|Password|Secret|Hash)", c))
+        for c in columns
+    ]
+    rows = [
+        [("••••" if m and v is not None else v) for v, m in zip(row, masked, strict=True)]
+        for row in cursor.fetchmany(501)
+    ]
+    return {"columns": columns, "rows": rows[:500], "truncated": len(rows) > 500, "total": len(rows)}
 
 
 #: Routes with a path parameter: ``(pattern of "METHOD /path", handler name)``.
@@ -652,4 +767,9 @@ _PATTERNS = [(rf"{m} /v1/apps/(?P<id>[^/]+)", "_app_by_id") for m in ("GET", "PA
     (r"POST /v1/apps/(?P<id>[^/]+)/restore-points", "_POST_restore_points"),
     (r"POST /v1/apps/(?P<id>[^/]+)/restore", "_POST_restore"),
     (r"GET /v1/apps/(?P<id>[^/]+)/restores/(?P<rs>[^/]+)", "_GET_restore"),
+    (r"GET /v1/apps/(?P<id>[^/]+)/data/tables", "_GET_data_tables"),
+    (r"GET /v1/apps/(?P<id>[^/]+)/data/tables/(?P<table>[^/]+)/rows", "_GET_data_rows"),
+    (r"POST /v1/apps/(?P<id>[^/]+)/data/query", "_POST_data_query"),
+    (r"POST /v1/apps/(?P<id>[^/]+)/data/execute", "_POST_data_execute"),
+    (r"GET /v1/apps/(?P<id>[^/]+)/data/reads", "_GET_data_reads"),
 ]

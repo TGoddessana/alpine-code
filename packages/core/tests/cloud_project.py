@@ -1,6 +1,8 @@
-"""A project with a prebuilt Cloudflare Vite plugin output, for the publish tests of core and the server."""
+"""A project with a prebuilt Cloudflare Vite plugin output and a local D1 as the plugin keeps it, for the cloud tests of
+core and the server."""
 
 import json
+import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -74,3 +76,32 @@ def make_project(tmp_path: Path, *, command: str = "echo building", name: str = 
     git(folder, "add", "-A")
     git(folder, "commit", "-q", "-m", "first")
     return folder
+
+
+SCHEMA = """
+CREATE TABLE bookings (id text PRIMARY KEY, guest text NOT NULL, status text, party integer, created_at text);
+CREATE TABLE user (id text PRIMARY KEY, email text, password_hash text, accessToken text, hashtag text);
+CREATE TABLE d1_migrations (id integer PRIMARY KEY, name text);
+CREATE TABLE _cf_KV (key text PRIMARY KEY, value blob);
+INSERT INTO bookings VALUES ('b1', 'Mina', 'confirmed', 2, '2026-10-01');
+INSERT INTO bookings VALUES ('b2', 'Joon', 'cancelled', 4, '2026-10-02');
+INSERT INTO bookings VALUES ('b3', 'Ara', 'confirmed', 3, '2026-10-03');
+INSERT INTO user VALUES ('u1', 'mina@example.com', 'pbkdf2$secret', 'tok_123', 'fun');
+INSERT INTO user VALUES ('u2', 'joon@example.com', NULL, NULL, NULL);
+INSERT INTO d1_migrations VALUES (1, '0000_init.sql');
+"""
+
+PLUGIN_FOLDER = Path(".wrangler/state/v3/d1/miniflare-D1DatabaseObject")
+
+
+def make_practice(folder: Path, schema: str = SCHEMA) -> Path:
+    """The local D1 as the plugin keeps it: ``<hash>.sqlite`` in the miniflare folder (and a second, empty one)."""
+    where = folder / PLUGIN_FOLDER
+    where.mkdir(parents=True, exist_ok=True)
+    (sqlite3.connect(where / "metadata.sqlite")).close()
+    file = where / "ab12cd34.sqlite"
+    db = sqlite3.connect(file)
+    db.executescript(schema)
+    db.commit()
+    db.close()
+    return file

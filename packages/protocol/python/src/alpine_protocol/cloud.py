@@ -437,7 +437,7 @@ class DataRowsResult(Message):
 
 class DataSaveParams(Message):
     cwd: str
-    source: Literal["practice"]
+    source: DataSourceKind
     table: str
     key: dict[str, Any] | None = None
     """The row's primary key (column -> value); ``None`` adds a row."""
@@ -450,7 +450,7 @@ class DataSaveResult(Message):
 
 class DataDeleteParams(Message):
     cwd: str
-    source: Literal["practice"]
+    source: DataSourceKind
     table: str
     key: dict[str, Any]
 

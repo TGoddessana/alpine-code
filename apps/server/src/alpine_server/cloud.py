@@ -69,8 +69,9 @@ class CloudMethods:
         self._unsubscribe: Callable[[], None] | None = None
 
     def handlers(self) -> dict[str, Callable[[Any], Awaitable[Any]]]:
-        later = {name: _not_available(name) for name in CLOUD_METHODS if name.split("/")[0] in ("publish", "data")}
-        # publish/status, prepare, run, cancel, restorePoints and restore are PublishMethods's (publish.py).
+        later = {name: _not_available(name) for name in CLOUD_METHODS if name.split("/")[0] == "publish"}
+        # publish/status, prepare, run, cancel, restorePoints and restore are PublishMethods's (publish.py), the
+        # data/ family DataMethods's (data.py).
         later |= {name: _not_available(name) for name in ("cloud/startTrial", "cloud/checkout", "cloud/portal")}
         return later | {
             "cloud/status": self.status,

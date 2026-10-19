@@ -34,6 +34,7 @@ def test_every_protocol_method_has_a_handler():
     from alpine_server.chatgpt import ChatGPTSignIns
     from alpine_server.clones import Clones
     from alpine_server.cloud import CloudMethods
+    from alpine_server.data import DataMethods
     from alpine_server.dev_servers import DevelopmentServers
     from alpine_server.github import GitHubSignIns
     from alpine_server.memory import MemoryMethods
@@ -55,6 +56,7 @@ def test_every_protocol_method_has_a_handler():
         | NewProjects(lambda params: None, sessions).handlers()
         | CloudMethods(lambda params: None, lambda params: None).handlers()
         | NodeTools(lambda params: None).handlers()
+        | DataMethods().handlers()
         | TERMINAL_HANDLERS
         | PROCESS_HANDLERS
     )

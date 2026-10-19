@@ -2328,7 +2328,10 @@
           "type": "string"
         },
         "source": {
-          "const": "practice",
+          "enum": [
+            "practice",
+            "live"
+          ],
           "type": "string"
         },
         "table": {
@@ -2511,7 +2514,10 @@
           "type": "string"
         },
         "source": {
-          "const": "practice",
+          "enum": [
+            "practice",
+            "live"
+          ],
           "type": "string"
         },
         "table": {

@@ -4,6 +4,7 @@ import importlib
 import json
 import threading
 import time
+from importlib.resources import files
 
 import pytest
 from alpineagents import ProviderError
@@ -30,11 +31,19 @@ def new(**fields):
     )
 
 
-def ask(monkeypatch, replies, text="공방 예약 앱을 만들어 줘", locale="ko", templates=OFFERED, project=None):
+def ask(
+    monkeypatch,
+    replies,
+    text="공방 예약 앱을 만들어 줘",
+    locale="ko",
+    templates=OFFERED,
+    project=None,
+    new_project=False,
+):
     """The judgement, and the model that was asked."""
     model = FakeModel(replies)
     monkeypatch.setattr(judge_module, "make_model", lambda settings: model)
-    return judge(SETTINGS, text, locale, templates, project), model
+    return judge(SETTINGS, text, locale, templates, project, new_project=new_project), model
 
 
 def judged(monkeypatch, reply, **kwargs):
@@ -228,6 +237,128 @@ def test_an_empty_project_and_an_unreadable_readme_are_fine(monkeypatch, tmp_pat
     (tmp_path / "README.md").write_bytes(b"\xff\xfe\x00 not utf-8 \xff")
     _, model = ask(monkeypatch, [new()], project=tmp_path)
     assert "name: " in model.requests[0].messages[0].text
+
+
+# ------------------------------------------------------------ a new project, chosen on the screen
+
+REASON = "로그인과 예약 저장이면 Lite로 충분해요."
+
+
+def judged_new(monkeypatch, reply, **kwargs):
+    return ask(monkeypatch, [reply], new_project=True, **kwargs)[0]
+
+
+def test_a_new_project_takes_the_template_the_reason_and_the_name(monkeypatch):
+    reply = json.dumps({"template": "blank", "reason": "웹 화면이 없는 자동화예요.", "name": "Photo Renamer"})
+    assert judged_new(monkeypatch, reply) == NewApp("blank", "웹 화면이 없는 자동화예요.", "photo-renamer")
+    assert judged_new(monkeypatch, new()) == NewApp(
+        "web-lite", REASON, "craft-booking"
+    )  # a "kind" is not needed, nor refused
+    assert judged_new(monkeypatch, new(template=" Web-Lite ")).template == "web-lite"
+
+
+def test_a_new_project_reads_the_last_json_object_around_text(monkeypatch):
+    thinking = 'Maybe {"template": "blank"}? No.\n'
+    assert judged_new(monkeypatch, thinking + f"```json\n{new()}\n```\nDone.") == NewApp(
+        "web-lite", REASON, "craft-booking"
+    )
+
+
+def test_a_new_project_may_come_without_a_reason(monkeypatch):
+    reply = json.dumps({"template": "blank", "name": "bot"})
+    assert judged_new(monkeypatch, reply) == NewApp("blank", "", "bot")
+    assert judged_new(monkeypatch, new(template="blank", reason="  \n ")) == NewApp("blank", "", "craft-booking")
+    assert judged_new(monkeypatch, new(template="blank", reason=["a"])).reason == ""
+    assert judged_new(monkeypatch, new(reason="  웹 화면 없이\n도는  ")).reason == "웹 화면 없이 도는"
+
+
+def test_a_new_project_is_never_work_on_the_project_even_if_the_model_says_change(monkeypatch):
+    assert judged_new(monkeypatch, '{"kind": "change"}') == NewApp("web-lite", "", "new-app")
+    # The model changed its mind: "change" is not a new project, the name it gave is still used.
+    assert judged_new(monkeypatch, '{"kind": "change", "template": "blank", "reason": "x", "name": "Gift Shop"}') == (
+        NewApp("web-lite", "", "gift-shop")
+    )
+
+
+@pytest.mark.parametrize(
+    "reply",
+    ["", "I think this is a new app.", "{not json}", '{"template": "web-lite"', "[1, 2]", "{}", '{"template": 3}'],
+)
+def test_a_new_project_with_a_malformed_answer_starts_from_web_lite(monkeypatch, reply):
+    assert judged_new(monkeypatch, reply) == NewApp("web-lite", "", "new-app")
+
+
+def test_a_new_project_with_a_template_that_is_not_offered_starts_from_web_lite(monkeypatch):
+    for template in ("web-pro", "rails", 3, None):
+        found = judged_new(monkeypatch, new(template=template, name="Gift Shop"))
+        assert found == NewApp("web-lite", "", "gift-shop")  # the reason was for the template that cannot be used
+
+
+def test_the_fallback_is_the_first_template_when_web_lite_is_not_offered(monkeypatch):
+    assert judged_new(monkeypatch, "no idea", templates=["web-pro", "blank"]) == NewApp("web-pro", "", "new-app")
+    assert judged_new(monkeypatch, "no idea", templates=["blank"]) == NewApp("blank", "", "new-app")
+    assert judged_new(monkeypatch, new(template="mobile"), templates=["blank", "web-lite"]).template == "web-lite"
+
+
+def test_a_new_project_with_only_blank_offered_is_blank(monkeypatch):
+    assert judged_new(monkeypatch, '{"kind": "change"}', templates=["blank"]) == NewApp("blank", "", "new-app")
+    assert judged_new(monkeypatch, new(template="blank"), templates=["blank"]).reason == REASON
+
+
+def test_the_name_of_a_new_project_is_made_safe(monkeypatch):
+    assert judged_new(monkeypatch, new(name="Craft Booking!!")).name == "craft-booking"
+    assert judged_new(monkeypatch, new(name="../../etc/passwd")).name == "etc-passwd"
+    assert judged_new(monkeypatch, new(name="공방")).name == "new-app"
+    assert judged_new(monkeypatch, new(name=5)).name == "new-app"
+    assert len(judged_new(monkeypatch, new(name="a" * 100)).name) <= 40
+
+
+def test_without_templates_or_text_a_new_project_is_still_nothing_to_ask(monkeypatch):
+    def fail(settings):
+        raise AssertionError("the model must not be made")
+
+    monkeypatch.setattr(judge_module, "make_model", fail)
+    assert judge(SETTINGS, "앱 만들어 줘", "ko", [], new_project=True) == WorkOnProject()
+    assert judge(SETTINGS, "  ", "ko", OFFERED, new_project=True) == WorkOnProject()
+
+
+def test_the_new_project_prompt_describes_the_setups_and_never_offers_change(monkeypatch):
+    _, model = ask(monkeypatch, [new()], new_project=True, templates=["blank", "web-lite"])
+    [request] = model.requests
+    system = request.system
+    assert "`blank`" in system and "`web-lite`" in system and "web-pro" not in system and "`mobile`" not in system
+    assert "{{" not in system
+    assert "change" not in system.lower()
+    assert "make a new project" in system
+    # The reason and the name are asked for as in the other prompt, from the same text.
+    assert "해요체" in system and "`name`" in system
+    assert request.tools == () and model.remaining == 0
+
+
+def test_both_prompts_share_the_rules_for_the_reason_and_the_name(monkeypatch):
+    _, deciding = ask(monkeypatch, [new()])
+    _, making = ask(monkeypatch, [new()], new_project=True)
+    fields = files("alpine_core").joinpath("prompts/judge_fields.md").read_text(encoding="utf-8").strip()
+    assert fields in deciding.requests[0].system and fields in making.requests[0].system
+
+
+def test_the_new_project_message_has_the_locale_and_the_text_but_no_project(monkeypatch, tmp_path):
+    project = tmp_path / "craft-booking"
+    project.mkdir()
+    (project / "package.json").write_text("{}")
+    _, model = ask(monkeypatch, [new()], new_project=True, project=project, text="공방 예약 앱을 만들어 줘")
+    message = model.requests[0].messages[0].text
+    assert "<locale>ko</locale>" in message and "공방 예약 앱을 만들어 줘" in message
+    assert "open_project" not in message and "craft-booking" not in message and "package.json" not in message
+    _, model = ask(monkeypatch, [new()], new_project=True, text="a" * 20000)
+    assert len(model.requests[0].messages[0].text) < 9000
+
+
+def test_the_other_prompt_is_not_changed_by_the_new_project_one(monkeypatch):
+    _, model = ask(monkeypatch, [new()])
+    system = model.requests[0].system
+    assert "If it could be work on the open project, it is `change`" in system and '{"kind": "change"}' in system
+    assert "{{" not in system
 
 
 # ------------------------------------------------------------ failures

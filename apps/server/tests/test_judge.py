@@ -56,8 +56,8 @@ def call(**params) -> dict:
     return json.loads(out.getvalue())
 
 
-def ask(text="공방 예약 앱을 만들어 줘", locale="ko", cwd=None):
-    return judge_project(ProjectsJudgeParams(text=text, locale=locale, cwd=cwd)).judgement
+def ask(text="공방 예약 앱을 만들어 줘", locale="ko", cwd=None, new_project=False):
+    return judge_project(ProjectsJudgeParams(text=text, locale=locale, cwd=cwd, new_project=new_project)).judgement
 
 
 def test_a_change_starts_a_session_on_the_project(templates, monkeypatch):
@@ -193,3 +193,68 @@ def test_nothing_but_the_answer_reaches_stdout(templates, monkeypatch, capfd):
     model_says(monkeypatch, "Thinking about it.\n" + json.dumps(NEW))
     assert call(text="앱 만들어 줘", locale="ko")["result"]["judgement"] == NEW
     assert capfd.readouterr().out == ""
+
+
+# ------------------------------------------------------------ 새로 만들기
+
+
+def test_a_chosen_new_project_is_judged_as_one_on_the_wire(templates, monkeypatch):
+    model = model_says(monkeypatch, json.dumps({k: v for k, v in NEW.items() if k != "kind"}))
+    assert call(text="공방 예약 앱을 만들어 줘", locale="ko", new_project=True)["result"] == {"judgement": NEW}
+    [request] = model.requests
+    assert "make a new project" in request.system and "change" not in request.system.lower()
+
+
+def test_the_flag_is_passed_and_the_project_is_dropped(templates, monkeypatch, tmp_path):
+    project = tmp_path / "craft-booking"
+    project.mkdir()
+    (project / "package.json").write_text("{}")
+    (project / "README.md").write_text("# Craft booking\n\nBookings for a pottery studio.\n")
+    model = model_says(monkeypatch, json.dumps(NEW), json.dumps(NEW))
+    assert ask(cwd=str(project), new_project=True) == JudgedNew(
+        template="web-lite", reason=NEW["reason"], name="craft-booking"
+    )
+    message = model.requests[0].messages[0].text
+    assert "craft-booking" not in message and "package.json" not in message and "pottery studio" not in message
+    assert "open_project" not in message and "<locale>ko</locale>" in message
+    # Without the flag the same call shows the project, and offers change.
+    ask(cwd=str(project))
+    assert "name: craft-booking" in model.requests[1].messages[0].text
+    assert "`change`" in model.requests[1].system
+
+
+def test_a_chosen_new_project_never_comes_back_as_a_change(templates, monkeypatch):
+    for reply in ('{"kind": "change"}', "I am not sure.", json.dumps(NEW | {"template": "web-pro"})):
+        model_says(monkeypatch, reply)
+        found = ask(new_project=True)
+        assert found == JudgedNew(template="web-lite", reason="", name=found.name)
+    model_says(monkeypatch, json.dumps({"template": "blank", "name": "Photo Tool"}))
+    assert call(text="사진 이름 바꾸는 도구", locale="ko", new_project=True)["result"] == {
+        "judgement": {"kind": "new", "template": "blank", "reason": "", "name": "photo-tool"}
+    }
+
+
+def test_only_the_templates_the_server_has_are_offered_to_a_chosen_new_project(templates, monkeypatch):
+    model = model_says(monkeypatch, "no idea")
+    assert ask(new_project=True).template == "web-lite"
+    system = model.requests[0].system
+    assert "`blank`" in system and "`web-lite`" in system and "web-pro" not in system and "`mobile`" not in system
+    (templates / "web-lite").rmdir()
+    model_says(monkeypatch, "no idea")
+    assert ask(new_project=True).template == "blank"
+
+
+def test_a_chosen_new_project_with_nothing_to_make_or_nothing_written_is_a_change(tmp_path, monkeypatch, templates):
+    def fail(settings):
+        raise AssertionError("the model must not be made")
+
+    monkeypatch.setattr(core_judge, "make_model", fail)
+    assert call(text="   ", locale="ko", new_project=True)["result"] == {"judgement": {"kind": "change"}}
+    monkeypatch.setenv("ALPINE_TEMPLATES", str(tmp_path / "nothing-here"))
+    assert call(text="앱 만들어 줘", locale="ko", new_project=True)["result"] == {"judgement": {"kind": "change"}}
+
+
+def test_a_failed_model_call_for_a_chosen_new_project_is_model_failed(templates, monkeypatch):
+    model_says(monkeypatch, ProviderError("The model is overloaded"))
+    error = call(text="앱 만들어 줘", locale="ko", new_project=True)["error"]
+    assert error["data"] == {"reason": "model_failed"}

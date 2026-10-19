@@ -4,6 +4,11 @@ docs/alpine-cloud.md).
 One question to the settings' model, with no tools. The model judges; this only checks the shape of its answer. The
 one product rule: when the answer is unclear, it is work on the project, so a new project is never made by mistake.
 
+When the person chose to make a new project (``new_project``), it is certainly new: the model is asked only for the
+template, the reason and the name and is never offered "change", so the answer is always a ``NewApp``. When its answer
+cannot be used, that is the plain ``web-lite`` (else the first template offered) with no reason, so the person still
+gets a project to start from.
+
 The model may be a weaker or a reasoning one, so its answer can come with text or thinking around the JSON. The answer
 is the last JSON object in the reply that parses.
 """
@@ -86,10 +91,20 @@ TIMEOUT = 45
 
 
 def judge(
-    settings: Settings, text: str, locale: str, templates: Sequence[str], project: Path | None = None
+    settings: Settings,
+    text: str,
+    locale: str,
+    templates: Sequence[str],
+    project: Path | None = None,
+    *,
+    new_project: bool = False,
 ) -> Judgement:
     """Asks the settings' model whether ``text`` is work on ``project`` or a new app, and for a new app which of
     ``templates`` fits, why (in ``locale``'s language) and a folder name.
+
+    With ``new_project`` the person chose to make a new project: ``project`` is not shown, the model only picks the
+    template, and the answer is a ``NewApp`` whatever the model says. A model answer that cannot be used gives the
+    fallback template (``web-lite`` if offered, else the first offered) with an empty reason.
 
     With no templates there is nothing to make, and with nothing written there is nothing to decide, so it is work on
     the project and the model is not asked.
@@ -102,16 +117,17 @@ def judge(
     if not offered or not text.strip():
         return WorkOnProject()
     try:
-        agent = Agent(make_model(settings), system=_system(offered), tools=[], human=None, reporter=None)
+        agent = Agent(make_model(settings), system=_system(offered, new_project), tools=[], human=None, reporter=None)
     except ValueError as e:  # a model name alpineagents cannot resolve
         raise ConfigError(str(e)) from e
     except AlpineAgentsError as e:
         raise JudgeError(str(e)) from e
     try:
-        answer = _run(agent, _message(text, locale, project))
+        answer = _run(agent, _message(text, locale, project, shown=not new_project))
     except AlpineAgentsError as e:
         raise JudgeError(str(e)) from e
-    return _parse(answer if isinstance(answer, str) else str(answer), offered)
+    answer = answer if isinstance(answer, str) else str(answer)
+    return _parse_new(answer, offered) if new_project else _parse(answer, offered)
 
 
 def _run(agent: Agent, message: str) -> Any:
@@ -157,6 +173,22 @@ def _parse(answer: str, templates: Sequence[str]) -> Judgement:
     return NewApp(offered[template.strip().lower()], reason, safe_name(name if isinstance(name, str) else ""))
 
 
+def _parse_new(answer: str, templates: Sequence[str]) -> NewApp:
+    """The new app in a model's reply, when the person chose to make a new project: the last JSON object in it. A
+    template among ``templates`` is taken with its reason, which may be empty. Anything else (no JSON, "change", a
+    template not offered) is the fallback template with no reason, and the name is still the model's."""
+    found = _last_object(answer) or {}
+    name = found.get("name")
+    name = safe_name(name if isinstance(name, str) else "")
+    kind, template, reason = found.get("kind"), found.get("template"), found.get("reason")
+    offered = {t.lower(): t for t in templates}
+    chosen = offered.get(template.strip().lower()) if isinstance(template, str) else None
+    if chosen is None or (isinstance(kind, str) and kind.strip().lower() == "change"):
+        # The template a new project starts from when the model gave none: the one that fits most ideas, else the first.
+        return NewApp(offered.get("web-lite", templates[0]), "", name)
+    return NewApp(chosen, " ".join(reason.split()) if isinstance(reason, str) else "", name)
+
+
 def _last_object(answer: str) -> dict[str, Any] | None:
     """The last top-level JSON object in ``answer`` that parses, wherever it sits in the text (after thinking, inside a
     fenced block, with a sentence around it). An object inside another one does not count on its own."""
@@ -176,9 +208,15 @@ def _last_object(answer: str) -> dict[str, Any] | None:
     return last
 
 
-def _system(templates: Sequence[str]) -> str:
-    prompt = files("alpine_core").joinpath("prompts/judge.md").read_text(encoding="utf-8")
+def _system(templates: Sequence[str], new_project: bool = False) -> str:
+    """The prompt: the one for a new project or the one that also decides, with the setups offered and the rules for
+    the reason and the name (``prompts/judge_fields.md``) that both share."""
+    prompt = _prompt("judge_new" if new_project else "judge").replace("{{fields}}", _prompt("judge_fields").strip())
     return prompt.replace("{{templates}}", "\n".join(_setup(template) for template in templates))
+
+
+def _prompt(name: str) -> str:
+    return files("alpine_core").joinpath(f"prompts/{name}.md").read_text(encoding="utf-8")
 
 
 def _setup(template: str) -> str:
@@ -189,11 +227,14 @@ def _setup(template: str) -> str:
     return f'- `{template}` (shown as "{names}"): {about}'
 
 
-def _message(text: str, locale: str, project: Path | None) -> str:
+def _message(text: str, locale: str, project: Path | None, shown: bool = True) -> str:
+    """The locale, the open project (left out when ``shown`` is off: a new project has nothing to tell apart) and the
+    text."""
     text = text.strip()
     if len(text) > TEXT_LIMIT:
         text = text[:TEXT_LIMIT].rstrip() + "…"
-    return f"<locale>{locale}</locale>\n\n{_glimpse(project)}\n\n<message>\n{text}\n</message>"
+    glimpse = f"{_glimpse(project)}\n\n" if shown else ""
+    return f"<locale>{locale}</locale>\n\n{glimpse}<message>\n{text}\n</message>"
 
 
 def _glimpse(project: Path | None) -> str:

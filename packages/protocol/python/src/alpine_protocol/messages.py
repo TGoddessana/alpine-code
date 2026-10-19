@@ -106,8 +106,31 @@ class ErrorData(Message):
         "import_failed",
         "taskforce_not_found",
         "taskforce_state",
+        "invalid_code",
+        "signed_out",
+        "build_failed",
+        "read_only",
+        "not_available",
+        "unauthorized",
+        "payment_required",
+        "credits_exhausted",
+        "forbidden",
+        "limit_reached",
+        "suspended",
+        "taken_down",
+        "needs_confirm",
+        "conflict",
+        "blocked",
+        "update_required",
+        "rate_limited",
+        "upstream",
     ]
-    """Skills: ``unknown_source`` (not a link, path or ``owner/repo``), ``offline`` (the source cannot be reached),
+    """Alpine Cloud (``cloud.py``): ``invalid_code`` (a wrong sign-in code), ``signed_out`` (needs a sign-in),
+    ``build_failed``, ``read_only`` (live data is read-only in the app), ``not_available`` (this server does not do that
+    yet), and the cloud API's error codes as they are (``payment_required``, ``limit_reached``, ``name_taken``...); a
+    code a newer API adds arrives as ``other``.
+
+    Skills: ``unknown_source`` (not a link, path or ``owner/repo``), ``offline`` (the source cannot be reached),
     ``too_big``, ``bad_archive`` (a damaged or unsafe archive), ``no_skills`` (nothing there, or not the one named),
     ``not_a_skill``, ``bad_name``, ``not_owned`` (another app's skill, which Alpine does not change),
     ``invalid`` (a SKILL.md without front matter and a description).

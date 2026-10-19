@@ -991,7 +991,25 @@ export interface ErrorData {
     | 'invalid'
     | 'import_failed'
     | 'taskforce_not_found'
-    | 'taskforce_state';
+    | 'taskforce_state'
+    | 'invalid_code'
+    | 'signed_out'
+    | 'build_failed'
+    | 'read_only'
+    | 'not_available'
+    | 'unauthorized'
+    | 'payment_required'
+    | 'credits_exhausted'
+    | 'forbidden'
+    | 'limit_reached'
+    | 'suspended'
+    | 'taken_down'
+    | 'needs_confirm'
+    | 'conflict'
+    | 'blocked'
+    | 'update_required'
+    | 'rate_limited'
+    | 'upstream';
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema

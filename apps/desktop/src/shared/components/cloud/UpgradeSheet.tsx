@@ -44,10 +44,14 @@ export function UpgradeSheet({ reason, onBack, onDone }: UpgradeSheetProps) {
     return <AlpineSignIn reason={t.upgradeSignInReason} onBack={onBack} onDone={() => {}} />;
 
   const info = plans?.find((candidate) => candidate.id === 'pro');
+  const free = plans?.find((candidate) => candidate.id === 'free')?.limits;
   const limits = info?.limits;
   const trialDays = info?.trialDays ?? 0;
   const canTry = !plan?.trialUsed && trialDays > 0 && !pro;
   const price = info?.price as { amount?: number | string; currency?: string; interval?: string } | null | undefined;
+
+  // A price of 0 is the API's placeholder until the real one is decided; it is not shown as if it were free.
+  const priceText = price && Number(price.amount) > 0 ? `${price.amount} ${price.currency ?? ''}`.trim() : null;
 
   const pay = () =>
     checkout.mutate(undefined, {
@@ -81,7 +85,11 @@ export function UpgradeSheet({ reason, onBack, onDone }: UpgradeSheetProps) {
     t.perkRealtime,
     t.perkDomain,
     t.perkBadge,
-    ...(limits ? [t.perkCredits(format.number(limits.monthlyCredits)), t.perkRestore(limits.restoreDays)] : []),
+    // Only what Pro really adds over free; a plan with the same number says nothing worth a tick.
+    ...(limits && (!free || limits.monthlyCredits > free.monthlyCredits)
+      ? [t.perkCredits(format.number(limits.monthlyCredits))]
+      : []),
+    ...(limits && (!free || limits.restoreDays > free.restoreDays) ? [t.perkRestore(limits.restoreDays)] : []),
   ];
   return (
     <AutoHeight>
@@ -100,9 +108,7 @@ export function UpgradeSheet({ reason, onBack, onDone }: UpgradeSheetProps) {
             </li>
           ))}
         </ul>
-        <p className="text-meta text-fg-muted">
-          {price?.amount != null ? `${price.amount} ${price.currency ?? ''}`.trim() : t.priceSoon}
-        </p>
+        <p className="text-meta text-fg-muted">{priceText ?? t.priceSoon}</p>
         {(trial.isError || checkout.isError) && (
           <p role="alert" className="text-meta text-danger">
             {trial.isError ? t.trialFailed : t.checkoutFailed}

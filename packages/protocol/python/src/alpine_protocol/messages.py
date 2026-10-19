@@ -9,6 +9,7 @@ from pydantic import ConfigDict, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from .base import Message
+from .cloud import CLOUD_METHODS, CLOUD_NOTIFICATIONS
 from .dev_servers import DEV_SERVER_METHODS
 from .files import FILE_METHODS
 from .process_control import PROCESS_METHODS
@@ -131,9 +132,9 @@ session has no such TF. ``taskforce_state``: the TF is not in a state for that a
 
 # Model connections: where models come from. Keys are write-only; the app never reads one back.
 
-Billing = Literal["subscription", "usage", "none"]
+Billing = Literal["subscription", "usage", "credits", "none"]
 """How a connection is paid for, which decides the limit an app shows: a subscription's time windows, this month's
-spend, or nothing (a local server)."""
+spend, prepaid credits that refill (Alpine's), or nothing (a local server)."""
 
 
 class ProviderInfo(Message):
@@ -1105,6 +1106,9 @@ class StatusLineItem(ItemModel):
     id: str
     kind: Literal["status_line"] = "status_line"
     text: str
+    code: str | None = None
+    """Says which line this is when an app has its own words for it (``live_data_first_read``); ``text`` is
+    English."""
 
 
 class MemoryReviewItem(ItemModel):
@@ -1136,9 +1140,12 @@ class RunStoppedItem(ItemModel):
 
     id: str
     kind: Literal["run_stopped"] = "run_stopped"
-    reason: Literal["interrupted", "failed", "limit", "repeating", "permission", "plan_limit", "signed_out"]
+    reason: Literal[
+        "interrupted", "failed", "limit", "repeating", "permission", "plan_limit", "signed_out", "credits_exhausted"
+    ]
     """``plan_limit``: the ChatGPT plan's usage limit (or this app's share of it) was reached; point to ChatGPT's
-    usage settings. ``signed_out``: the ChatGPT sign-in ended; sign in again (``chatgpt/signIn``)."""
+    usage settings. ``signed_out``: the ChatGPT or Alpine sign-in ended; sign in again (``chatgpt/signIn``,
+    ``cloud/signIn``). ``credits_exhausted``: the Alpine credits are used up; the message says when they refill."""
     message: str | None = None
 
 
@@ -2250,12 +2257,15 @@ class ProjectsCreateResult(Message):
     project: ProjectInfo
     session_id: str
     """The session working on the idea."""
+    address: str | None = None
+    """The project's web address (``craft-booking.alpinesite.app``) when signed in to Alpine and the template can be
+    published; ``None`` when no app was made."""
 
 
 CreateStep = Literal["folder", "address", "agent"]
 """``folder``: the template is in its folder, committed, and on the rail. ``address``: its web address, only when
-signed in to Alpine (decision 23); nothing makes addresses yet, so the server does not send it. ``agent``: the session
-started and has the idea."""
+signed in to Alpine (decision 23) and the template can be published; an app that could not be made skips the step and
+the project is made anyway. ``agent``: the session started and has the idea."""
 
 
 class ProjectsCreateChangedParams(Message):
@@ -2265,10 +2275,13 @@ class ProjectsCreateChangedParams(Message):
     step: CreateStep
     project: ProjectInfo
     """The project being made, so the app can show its folder."""
+    address: str | None = None
+    """With the ``address`` step: the web address the app was made at."""
 
 
 #: Every method an app can call: name -> (params, result).
 METHODS: dict[str, tuple[type[Message], type[Message]]] = {
+    **CLOUD_METHODS,
     **DEV_SERVER_METHODS,
     **FILE_METHODS,
     **PROCESS_METHODS,
@@ -2368,4 +2381,5 @@ NOTIFICATIONS: dict[str, type[Message]] = {
     "projects/cloneChanged": ProjectsCloneChangedParams,
     "projects/createChanged": ProjectsCreateChangedParams,
     "github/signInFinished": GitHubSignInFinishedParams,
+    **CLOUD_NOTIFICATIONS,
 }

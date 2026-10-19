@@ -3,6 +3,122 @@
   "title": "AlpineProtocol",
   "description": "alpine-code protocol version 2. Generated; do not edit.",
   "x-methods": {
+    "cloud/status": {
+      "params": "CloudStatusParams",
+      "result": "CloudStatus"
+    },
+    "cloud/signIn": {
+      "params": "CloudSignInParams",
+      "result": "CloudSignInResult"
+    },
+    "cloud/cancelSignIn": {
+      "params": "CloudCancelSignInParams",
+      "result": "CloudCancelSignInResult"
+    },
+    "cloud/sendCode": {
+      "params": "CloudSendCodeParams",
+      "result": "CloudSendCodeResult"
+    },
+    "cloud/verifyCode": {
+      "params": "CloudVerifyCodeParams",
+      "result": "CloudStatus"
+    },
+    "cloud/signOut": {
+      "params": "CloudSignOutParams",
+      "result": "CloudSignOutResult"
+    },
+    "cloud/plans": {
+      "params": "CloudPlansParams",
+      "result": "CloudPlansResult"
+    },
+    "cloud/startTrial": {
+      "params": "CloudStartTrialParams",
+      "result": "CloudStatus"
+    },
+    "cloud/checkout": {
+      "params": "CloudCheckoutParams",
+      "result": "CloudUrlResult"
+    },
+    "cloud/portal": {
+      "params": "CloudPortalParams",
+      "result": "CloudUrlResult"
+    },
+    "publish/status": {
+      "params": "PublishCwdParams",
+      "result": "PublishStatus"
+    },
+    "publish/prepare": {
+      "params": "PublishPrepareParams",
+      "result": "PublishPlan"
+    },
+    "publish/run": {
+      "params": "PublishRunParams",
+      "result": "PublishRunResult"
+    },
+    "publish/cancel": {
+      "params": "PublishCancelParams",
+      "result": "PublishCancelResult"
+    },
+    "publish/restorePoints": {
+      "params": "PublishCwdParams",
+      "result": "PublishRestorePointsResult"
+    },
+    "publish/restore": {
+      "params": "PublishRestoreParams",
+      "result": "PublishRestoreResult"
+    },
+    "publish/domains": {
+      "params": "PublishCwdParams",
+      "result": "PublishDomainsResult"
+    },
+    "publish/addDomain": {
+      "params": "PublishAddDomainParams",
+      "result": "PublishDomainResult"
+    },
+    "publish/checkDomain": {
+      "params": "PublishDomainParams",
+      "result": "PublishDomainResult"
+    },
+    "publish/removeDomain": {
+      "params": "PublishDomainParams",
+      "result": "PublishRemoveDomainResult"
+    },
+    "publish/setBadge": {
+      "params": "PublishSetBadgeParams",
+      "result": "PublishSetBadgeResult"
+    },
+    "data/sources": {
+      "params": "PublishCwdParams",
+      "result": "DataSourcesResult"
+    },
+    "data/tables": {
+      "params": "DataTablesParams",
+      "result": "DataTablesResult"
+    },
+    "data/rows": {
+      "params": "DataRowsParams",
+      "result": "DataRowsResult"
+    },
+    "data/save": {
+      "params": "DataSaveParams",
+      "result": "DataSaveResult"
+    },
+    "data/delete": {
+      "params": "DataDeleteParams",
+      "result": "DataDeleteResult"
+    },
+    "data/reads": {
+      "params": "DataReadsParams",
+      "result": "DataReadsResult"
+    },
+    "projects/nodeTools": {
+      "params": "ProjectsNodeToolsParams",
+      "result": "ProjectsNodeToolsResult"
+    },
+    "projects/installNodeTools": {
+      "params": "ProjectsInstallNodeToolsParams",
+      "result": "ProjectsInstallNodeToolsResult"
+    },
     "devServers/list": {
       "params": "DevServersListParams",
       "result": "DevServersListResult"
@@ -422,7 +538,11 @@
     "memory/changed": "MemoryChangedParams",
     "projects/cloneChanged": "ProjectsCloneChangedParams",
     "projects/createChanged": "ProjectsCreateChangedParams",
-    "github/signInFinished": "GitHubSignInFinishedParams"
+    "github/signInFinished": "GitHubSignInFinishedParams",
+    "cloud/signInFinished": "CloudSignInFinishedParams",
+    "cloud/changed": "CloudChangedParams",
+    "publish/changed": "PublishChangedParams",
+    "projects/nodeToolsChanged": "ProjectsNodeToolsChangedParams"
   },
   "$defs": {
     "Activity": {
@@ -819,6 +939,42 @@
       "title": "AgentsSaveResult",
       "type": "object"
     },
+    "AppInfo": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "badge": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "address",
+        "url",
+        "status",
+        "kind"
+      ],
+      "title": "AppInfo",
+      "type": "object"
+    },
     "ApprovalItem": {
       "properties": {
         "id": {
@@ -1126,6 +1282,28 @@
       "title": "ChatGPTSignOutResult",
       "type": "object"
     },
+    "Check": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/Finding"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "state"
+      ],
+      "title": "Check",
+      "type": "object"
+    },
     "CheckStamp": {
       "description": "Facts Alpine recorded about one check run (decisions 1 and 2).",
       "properties": {
@@ -1242,6 +1420,458 @@
         "percent"
       ],
       "title": "CloneInfo",
+      "type": "object"
+    },
+    "CloudAccount": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "avatarUrl": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "default": "active",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "CloudAccount",
+      "type": "object"
+    },
+    "CloudCancelSignInParams": {
+      "properties": {
+        "attemptId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attemptId"
+      ],
+      "title": "CloudCancelSignInParams",
+      "type": "object"
+    },
+    "CloudCancelSignInResult": {
+      "properties": {},
+      "title": "CloudCancelSignInResult",
+      "type": "object"
+    },
+    "CloudChangedParams": {
+      "description": "Sign-in, plan or credits changed (after each model answer the credits come with it, at most once a second).",
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/CloudStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "CloudChangedParams",
+      "type": "object"
+    },
+    "CloudCheckoutParams": {
+      "properties": {
+        "plan": {
+          "default": "pro",
+          "type": "string"
+        }
+      },
+      "title": "CloudCheckoutParams",
+      "type": "object"
+    },
+    "CloudCredits": {
+      "description": "1 credit is one US cent.",
+      "properties": {
+        "balance": {
+          "type": "integer"
+        },
+        "monthly": {
+          "type": "integer"
+        },
+        "refillsAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "balance",
+        "monthly"
+      ],
+      "title": "CloudCredits",
+      "type": "object"
+    },
+    "CloudLimits": {
+      "description": "The plan's limits, as ``GET /v1/me`` sends them; a limit a newer server adds is not here until the app knows.",
+      "properties": {
+        "apps": {
+          "type": "integer"
+        },
+        "mailsPerDay": {
+          "type": "integer"
+        },
+        "d1Mb": {
+          "type": "integer"
+        },
+        "monthlyCredits": {
+          "type": "integer"
+        },
+        "restoreDays": {
+          "type": "integer"
+        },
+        "customDomains": {
+          "type": "boolean"
+        },
+        "badge": {
+          "type": "boolean"
+        },
+        "webPro": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "apps",
+        "mailsPerDay",
+        "d1Mb",
+        "monthlyCredits",
+        "restoreDays",
+        "customDomains",
+        "badge",
+        "webPro"
+      ],
+      "title": "CloudLimits",
+      "type": "object"
+    },
+    "CloudPlan": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "trialEndsAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "trialUsed": {
+          "default": false,
+          "type": "boolean"
+        },
+        "renewsAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "status"
+      ],
+      "title": "CloudPlan",
+      "type": "object"
+    },
+    "CloudPlansParams": {
+      "properties": {},
+      "title": "CloudPlansParams",
+      "type": "object"
+    },
+    "CloudPlansResult": {
+      "properties": {
+        "plans": {
+          "items": {
+            "$ref": "#/$defs/PlanInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "plans"
+      ],
+      "title": "CloudPlansResult",
+      "type": "object"
+    },
+    "CloudPortalParams": {
+      "properties": {},
+      "title": "CloudPortalParams",
+      "type": "object"
+    },
+    "CloudSendCodeParams": {
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "locale": {
+          "default": "ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "email"
+      ],
+      "title": "CloudSendCodeParams",
+      "type": "object"
+    },
+    "CloudSendCodeResult": {
+      "properties": {},
+      "title": "CloudSendCodeResult",
+      "type": "object"
+    },
+    "CloudSignInFinishedParams": {
+      "description": "The end of a browser sign-in, whichever way it ended.",
+      "properties": {
+        "attemptId": {
+          "type": "string"
+        },
+        "result": {
+          "enum": [
+            "connected",
+            "cancelled",
+            "timed_out",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CloudStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "attemptId",
+        "result"
+      ],
+      "title": "CloudSignInFinishedParams",
+      "type": "object"
+    },
+    "CloudSignInParams": {
+      "description": "Starts a browser sign-in. The app opens ``url`` and waits for ``cloud/signInFinished``. Starting one cancels\nthe one still waiting.",
+      "properties": {
+        "method": {
+          "enum": [
+            "google",
+            "github"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "method"
+      ],
+      "title": "CloudSignInParams",
+      "type": "object"
+    },
+    "CloudSignInResult": {
+      "properties": {
+        "attemptId": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attemptId",
+        "url"
+      ],
+      "title": "CloudSignInResult",
+      "type": "object"
+    },
+    "CloudSignOutParams": {
+      "properties": {},
+      "title": "CloudSignOutParams",
+      "type": "object"
+    },
+    "CloudSignOutResult": {
+      "properties": {},
+      "title": "CloudSignOutResult",
+      "type": "object"
+    },
+    "CloudStartTrialParams": {
+      "properties": {},
+      "title": "CloudStartTrialParams",
+      "type": "object"
+    },
+    "CloudStatus": {
+      "properties": {
+        "signedIn": {
+          "type": "boolean"
+        },
+        "apiUrl": {
+          "type": "string"
+        },
+        "appDomain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "account": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CloudAccount"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CloudPlan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "limits": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CloudLimits"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "credits": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CloudCredits"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reachable": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "signedIn",
+        "apiUrl"
+      ],
+      "title": "CloudStatus",
+      "type": "object"
+    },
+    "CloudStatusParams": {
+      "properties": {
+        "refresh": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "title": "CloudStatusParams",
+      "type": "object"
+    },
+    "CloudUrlResult": {
+      "properties": {
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "CloudUrlResult",
+      "type": "object"
+    },
+    "CloudVerifyCodeParams": {
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "email",
+        "code"
+      ],
+      "title": "CloudVerifyCodeParams",
       "type": "object"
     },
     "CommandResult": {
@@ -1361,6 +1991,7 @@
           "enum": [
             "subscription",
             "usage",
+            "credits",
             "none"
           ],
           "type": "string"
@@ -1654,6 +2285,360 @@
     "ConnectionsShowModelResult": {
       "properties": {},
       "title": "ConnectionsShowModelResult",
+      "type": "object"
+    },
+    "DataColumn": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "pk": {
+          "default": false,
+          "type": "boolean"
+        },
+        "nullable": {
+          "default": true,
+          "type": "boolean"
+        },
+        "references": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "DataColumn",
+      "type": "object"
+    },
+    "DataDeleteParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "source": {
+          "const": "practice",
+          "type": "string"
+        },
+        "table": {
+          "type": "string"
+        },
+        "key": {
+          "additionalProperties": true,
+          "type": "object"
+        }
+      },
+      "required": [
+        "cwd",
+        "source",
+        "table",
+        "key"
+      ],
+      "title": "DataDeleteParams",
+      "type": "object"
+    },
+    "DataDeleteResult": {
+      "properties": {},
+      "title": "DataDeleteResult",
+      "type": "object"
+    },
+    "DataRead": {
+      "properties": {
+        "at": {
+          "type": "string"
+        },
+        "session": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sql": {
+          "type": "string"
+        },
+        "tables": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "rows": {
+          "default": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "at",
+        "sql"
+      ],
+      "title": "DataRead",
+      "type": "object"
+    },
+    "DataReadsParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "title": "DataReadsParams",
+      "type": "object"
+    },
+    "DataReadsResult": {
+      "properties": {
+        "reads": {
+          "items": {
+            "$ref": "#/$defs/DataRead"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "reads"
+      ],
+      "title": "DataReadsResult",
+      "type": "object"
+    },
+    "DataRowsParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "practice",
+            "live"
+          ],
+          "type": "string"
+        },
+        "table": {
+          "type": "string"
+        },
+        "limit": {
+          "default": 100,
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "order": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "dir": {
+          "anyOf": [
+            {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "cwd",
+        "source",
+        "table"
+      ],
+      "title": "DataRowsParams",
+      "type": "object"
+    },
+    "DataRowsResult": {
+      "properties": {
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "rows": {
+          "items": {
+            "items": {},
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "total": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "columns",
+        "rows",
+        "total"
+      ],
+      "title": "DataRowsResult",
+      "type": "object"
+    },
+    "DataSaveParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "source": {
+          "const": "practice",
+          "type": "string"
+        },
+        "table": {
+          "type": "string"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cells": {
+          "additionalProperties": true,
+          "type": "object"
+        }
+      },
+      "required": [
+        "cwd",
+        "source",
+        "table",
+        "cells"
+      ],
+      "title": "DataSaveParams",
+      "type": "object"
+    },
+    "DataSaveResult": {
+      "properties": {},
+      "title": "DataSaveResult",
+      "type": "object"
+    },
+    "DataSource": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "practice",
+            "live"
+          ],
+          "type": "string"
+        },
+        "available": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "available"
+      ],
+      "title": "DataSource",
+      "type": "object"
+    },
+    "DataSourcesResult": {
+      "properties": {
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/DataSource"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "sources"
+      ],
+      "title": "DataSourcesResult",
+      "type": "object"
+    },
+    "DataTable": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "rows": {
+          "type": "integer"
+        },
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/DataColumn"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "rows",
+        "columns"
+      ],
+      "title": "DataTable",
+      "type": "object"
+    },
+    "DataTablesParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "practice",
+            "live"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "source"
+      ],
+      "title": "DataTablesParams",
+      "type": "object"
+    },
+    "DataTablesResult": {
+      "properties": {
+        "tables": {
+          "items": {
+            "$ref": "#/$defs/DataTable"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "tables"
+      ],
+      "title": "DataTablesResult",
       "type": "object"
     },
     "DeletedEvent": {
@@ -1965,6 +2950,87 @@
         "server"
       ],
       "title": "DevServersStopResult",
+      "type": "object"
+    },
+    "Domain": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "records": {
+          "items": {
+            "$ref": "#/$defs/DomainRecord"
+          },
+          "type": "array"
+        },
+        "domainConnect": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DomainConnect"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "status"
+      ],
+      "title": "Domain",
+      "type": "object"
+    },
+    "DomainConnect": {
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "url"
+      ],
+      "title": "DomainConnect",
+      "type": "object"
+    },
+    "DomainRecord": {
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "ok": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "name",
+        "value",
+        "purpose"
+      ],
+      "title": "DomainRecord",
       "type": "object"
     },
     "ErrorData": {
@@ -2455,6 +3521,69 @@
         "paths"
       ],
       "title": "FilesSearchResult",
+      "type": "object"
+    },
+    "Finding": {
+      "properties": {
+        "check": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "line": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "fallback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "fix": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "check",
+        "code",
+        "severity"
+      ],
+      "title": "Finding",
       "type": "object"
     },
     "FlowChange": {
@@ -4781,6 +5910,45 @@
       "title": "PackageInfo",
       "type": "object"
     },
+    "PlanInfo": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "limits": {
+          "$ref": "#/$defs/CloudLimits"
+        },
+        "price": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "trialDays": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "limits"
+      ],
+      "title": "PlanInfo",
+      "type": "object"
+    },
     "ProcessesListParams": {
       "properties": {
         "kind": {
@@ -5159,6 +6327,17 @@
         },
         "project": {
           "$ref": "#/$defs/ProjectInfo"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -5236,6 +6415,17 @@
         },
         "sessionId": {
           "type": "string"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -5326,6 +6516,17 @@
       "title": "ProjectsInstallGitToolsResult",
       "type": "object"
     },
+    "ProjectsInstallNodeToolsParams": {
+      "description": "Installs Alpine's own Node.js (about 50 MB from nodejs.org, checked against its published checksum). Answers at\nonce; ``projects/nodeToolsChanged`` follows the download.",
+      "properties": {},
+      "title": "ProjectsInstallNodeToolsParams",
+      "type": "object"
+    },
+    "ProjectsInstallNodeToolsResult": {
+      "properties": {},
+      "title": "ProjectsInstallNodeToolsResult",
+      "type": "object"
+    },
     "ProjectsJudgeParams": {
       "description": "Is what was sent on the new-session screen work on a project, or a new app? One question to the default model,\nwith no tools. The model judges; the server only checks the shape of its answer, and when the answer is unclear\nor malformed it is ``change``, so a new project is never made by mistake.",
       "properties": {
@@ -5410,6 +6611,92 @@
         "clones"
       ],
       "title": "ProjectsListResult",
+      "type": "object"
+    },
+    "ProjectsNodeToolsChangedParams": {
+      "properties": {
+        "state": {
+          "enum": [
+            "downloading",
+            "done",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "progress": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "ProjectsNodeToolsChangedParams",
+      "type": "object"
+    },
+    "ProjectsNodeToolsParams": {
+      "properties": {},
+      "title": "ProjectsNodeToolsParams",
+      "type": "object"
+    },
+    "ProjectsNodeToolsResult": {
+      "properties": {
+        "ready": {
+          "type": "boolean"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "required": {
+          "default": "22.12",
+          "type": "string"
+        },
+        "alpineManaged": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ready"
+      ],
+      "title": "ProjectsNodeToolsResult",
       "type": "object"
     },
     "ProjectsOpenParams": {
@@ -5550,6 +6837,7 @@
           "enum": [
             "subscription",
             "usage",
+            "credits",
             "none"
           ],
           "type": "string"
@@ -5565,6 +6853,387 @@
         "keyEnv"
       ],
       "title": "ProviderInfo",
+      "type": "object"
+    },
+    "PublishAddDomainParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "mail": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "cwd",
+        "domain"
+      ],
+      "title": "PublishAddDomainParams",
+      "type": "object"
+    },
+    "PublishCancelParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "PublishCancelParams",
+      "type": "object"
+    },
+    "PublishCancelResult": {
+      "properties": {},
+      "title": "PublishCancelResult",
+      "type": "object"
+    },
+    "PublishChangedParams": {
+      "description": "Where a ``publish/prepare`` or ``publish/run`` is.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "phase": {
+          "type": "string"
+        },
+        "progress": {
+          "default": 0,
+          "type": "number"
+        },
+        "checks": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Check"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "phase"
+      ],
+      "title": "PublishChangedParams",
+      "type": "object"
+    },
+    "PublishCwdParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "title": "PublishCwdParams",
+      "type": "object"
+    },
+    "PublishDomainParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "id"
+      ],
+      "title": "PublishDomainParams",
+      "type": "object"
+    },
+    "PublishDomainResult": {
+      "properties": {
+        "domain": {
+          "$ref": "#/$defs/Domain"
+        }
+      },
+      "required": [
+        "domain"
+      ],
+      "title": "PublishDomainResult",
+      "type": "object"
+    },
+    "PublishDomainsResult": {
+      "properties": {
+        "domains": {
+          "items": {
+            "$ref": "#/$defs/Domain"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "domains"
+      ],
+      "title": "PublishDomainsResult",
+      "type": "object"
+    },
+    "PublishPlan": {
+      "properties": {
+        "deployId": {
+          "type": "string"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/Check"
+          },
+          "type": "array"
+        },
+        "blocked": {
+          "type": "boolean"
+        },
+        "shape": {
+          "$ref": "#/$defs/PublishShape"
+        },
+        "app": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "deployId",
+        "checks",
+        "blocked",
+        "shape"
+      ],
+      "title": "PublishPlan",
+      "type": "object"
+    },
+    "PublishPrepareParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "locale": {
+          "default": "ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "cwd"
+      ],
+      "title": "PublishPrepareParams",
+      "type": "object"
+    },
+    "PublishRemoveDomainResult": {
+      "properties": {},
+      "title": "PublishRemoveDomainResult",
+      "type": "object"
+    },
+    "PublishRestoreParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "point": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "point"
+      ],
+      "title": "PublishRestoreParams",
+      "type": "object"
+    },
+    "PublishRestorePointsResult": {
+      "properties": {
+        "points": {
+          "items": {
+            "$ref": "#/$defs/RestorePoint"
+          },
+          "type": "array"
+        },
+        "windowDays": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "points",
+        "windowDays"
+      ],
+      "title": "PublishRestorePointsResult",
+      "type": "object"
+    },
+    "PublishRestoreResult": {
+      "properties": {},
+      "title": "PublishRestoreResult",
+      "type": "object"
+    },
+    "PublishRunParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "deployId": {
+          "type": "string"
+        },
+        "confirm": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "cwd",
+        "deployId"
+      ],
+      "title": "PublishRunParams",
+      "type": "object"
+    },
+    "PublishRunResult": {
+      "properties": {
+        "app": {
+          "$ref": "#/$defs/AppInfo"
+        },
+        "publishedAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "app",
+        "publishedAt"
+      ],
+      "title": "PublishRunResult",
+      "type": "object"
+    },
+    "PublishSetBadgeParams": {
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "badge": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "cwd",
+        "badge"
+      ],
+      "title": "PublishSetBadgeParams",
+      "type": "object"
+    },
+    "PublishSetBadgeResult": {
+      "properties": {
+        "app": {
+          "$ref": "#/$defs/AppInfo"
+        }
+      },
+      "required": [
+        "app"
+      ],
+      "title": "PublishSetBadgeResult",
+      "type": "object"
+    },
+    "PublishShape": {
+      "properties": {
+        "pending": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "added": {
+          "$ref": "#/$defs/ShapeAdded"
+        },
+        "confirms": {
+          "items": {
+            "$ref": "#/$defs/ShapeConfirm"
+          },
+          "type": "array"
+        }
+      },
+      "title": "PublishShape",
+      "type": "object"
+    },
+    "PublishStatus": {
+      "properties": {
+        "publishable": {
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "app": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "lastPublishedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "changes": {
+          "default": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "publishable"
+      ],
+      "title": "PublishStatus",
       "type": "object"
     },
     "PullRequestInfo": {
@@ -5760,6 +7429,26 @@
       "title": "Response",
       "type": "object"
     },
+    "RestorePoint": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "at": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "at",
+        "reason"
+      ],
+      "title": "RestorePoint",
+      "type": "object"
+    },
     "ReviewBlockedItem": {
       "description": "Auto mode's reviewer blocked a call; the model was told ``reason`` and went on. The call follows as a denied\n``tool_call`` with the same ``call_id``.",
       "properties": {
@@ -5823,7 +7512,8 @@
             "repeating",
             "permission",
             "plan_limit",
-            "signed_out"
+            "signed_out",
+            "credits_exhausted"
           ],
           "type": "string"
         },
@@ -6897,6 +8587,101 @@
       "title": "SettingsSetReviewModelResult",
       "type": "object"
     },
+    "ShapeAdded": {
+      "properties": {
+        "tables": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/ShapeColumn"
+          },
+          "type": "array"
+        }
+      },
+      "title": "ShapeAdded",
+      "type": "object"
+    },
+    "ShapeColumn": {
+      "properties": {
+        "table": {
+          "type": "string"
+        },
+        "column": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "table",
+        "column"
+      ],
+      "title": "ShapeColumn",
+      "type": "object"
+    },
+    "ShapeConfirm": {
+      "description": "A change the person has to say yes to before it is published.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "table": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "column": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "rowsAffected": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "statement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "title": "ShapeConfirm",
+      "type": "object"
+    },
     "SkillCandidate": {
       "description": "A skill found at a source, not installed yet.",
       "properties": {
@@ -7222,12 +9007,24 @@
         },
         "text": {
           "type": "string"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
         "id",
         "kind",
-        "text"
+        "text",
+        "code"
       ],
       "title": "StatusLineItem",
       "type": "object"

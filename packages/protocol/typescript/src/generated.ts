@@ -163,6 +163,19 @@ export interface AgentsSaveResult {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "AppInfo".
+ */
+export interface AppInfo {
+  id: string;
+  name: string;
+  address: string;
+  url: string;
+  status: string;
+  kind: string;
+  badge?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ApprovalItem".
  */
 export interface ApprovalItem {
@@ -227,7 +240,7 @@ export interface ConnectionInfo {
   name: string;
   provider: string | null;
   baseUrl: string | null;
-  billing: 'subscription' | 'usage' | 'none';
+  billing: 'subscription' | 'usage' | 'credits' | 'none';
   hasKey: boolean;
   account?: ChatGPTAccountInfo | null;
 }
@@ -267,6 +280,31 @@ export interface ChatGPTSignOutResult {
   revoked: boolean;
 }
 /**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "Check".
+ */
+export interface Check {
+  id: string;
+  state: string;
+  findings?: Finding[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "Finding".
+ */
+export interface Finding {
+  check: string;
+  code: string;
+  severity: string;
+  file?: string | null;
+  line?: number | null;
+  params?: {
+    [k: string]: string;
+  };
+  fallback?: string | null;
+  fix?: string;
+}
+/**
  * Facts Alpine recorded about one check run (decisions 1 and 2).
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -295,6 +333,206 @@ export interface CloneInfo {
   received?: number | null;
   reason?: ('no_access' | 'unreachable' | 'clone_failed') | null;
   message?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudAccount".
+ */
+export interface CloudAccount {
+  id: string;
+  email?: string | null;
+  name?: string | null;
+  avatarUrl?: string | null;
+  status?: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudCancelSignInParams".
+ */
+export interface CloudCancelSignInParams {
+  attemptId: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudCancelSignInResult".
+ */
+export interface CloudCancelSignInResult {}
+/**
+ * Sign-in, plan or credits changed (after each model answer the credits come with it, at most once a second).
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudChangedParams".
+ */
+export interface CloudChangedParams {
+  status: CloudStatus;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudStatus".
+ */
+export interface CloudStatus {
+  signedIn: boolean;
+  apiUrl: string;
+  appDomain?: string | null;
+  account?: CloudAccount | null;
+  plan?: CloudPlan | null;
+  limits?: CloudLimits | null;
+  credits?: CloudCredits | null;
+  reachable?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudPlan".
+ */
+export interface CloudPlan {
+  id: string;
+  status: string;
+  trialEndsAt?: string | null;
+  trialUsed?: boolean;
+  renewsAt?: string | null;
+}
+/**
+ * The plan's limits, as ``GET /v1/me`` sends them; a limit a newer server adds is not here until the app knows.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudLimits".
+ */
+export interface CloudLimits {
+  apps: number;
+  mailsPerDay: number;
+  d1Mb: number;
+  monthlyCredits: number;
+  restoreDays: number;
+  customDomains: boolean;
+  badge: boolean;
+  webPro: boolean;
+}
+/**
+ * 1 credit is one US cent.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudCredits".
+ */
+export interface CloudCredits {
+  balance: number;
+  monthly: number;
+  refillsAt?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudCheckoutParams".
+ */
+export interface CloudCheckoutParams {
+  plan?: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudPlansParams".
+ */
+export interface CloudPlansParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudPlansResult".
+ */
+export interface CloudPlansResult {
+  plans: PlanInfo[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PlanInfo".
+ */
+export interface PlanInfo {
+  id: string;
+  limits: CloudLimits;
+  price?: {
+    [k: string]: unknown;
+  } | null;
+  trialDays?: number | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudPortalParams".
+ */
+export interface CloudPortalParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudSendCodeParams".
+ */
+export interface CloudSendCodeParams {
+  email: string;
+  locale?: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudSendCodeResult".
+ */
+export interface CloudSendCodeResult {}
+/**
+ * The end of a browser sign-in, whichever way it ended.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudSignInFinishedParams".
+ */
+export interface CloudSignInFinishedParams {
+  attemptId: string;
+  result: 'connected' | 'cancelled' | 'timed_out' | 'failed';
+  status?: CloudStatus | null;
+  message?: string | null;
+}
+/**
+ * Starts a browser sign-in. The app opens ``url`` and waits for ``cloud/signInFinished``. Starting one cancels
+ * the one still waiting.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudSignInParams".
+ */
+export interface CloudSignInParams {
+  method: 'google' | 'github';
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudSignInResult".
+ */
+export interface CloudSignInResult {
+  attemptId: string;
+  url: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudSignOutParams".
+ */
+export interface CloudSignOutParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudSignOutResult".
+ */
+export interface CloudSignOutResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudStartTrialParams".
+ */
+export interface CloudStartTrialParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudStatusParams".
+ */
+export interface CloudStatusParams {
+  refresh?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudUrlResult".
+ */
+export interface CloudUrlResult {
+  url: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudVerifyCodeParams".
+ */
+export interface CloudVerifyCodeParams {
+  email: string;
+  code: string;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -364,7 +602,7 @@ export interface ConnectionsListResult {
 export interface ProviderInfo {
   id: string;
   name: string;
-  billing: 'subscription' | 'usage' | 'none';
+  billing: 'subscription' | 'usage' | 'credits' | 'none';
   keyEnv: string;
 }
 /**
@@ -434,6 +672,140 @@ export interface ConnectionsShowModelParams {
  * via the `definition` "ConnectionsShowModelResult".
  */
 export interface ConnectionsShowModelResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataColumn".
+ */
+export interface DataColumn {
+  name: string;
+  type: string;
+  pk?: boolean;
+  nullable?: boolean;
+  references?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataDeleteParams".
+ */
+export interface DataDeleteParams {
+  cwd: string;
+  source: 'practice';
+  table: string;
+  key: {
+    [k: string]: unknown;
+  };
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataDeleteResult".
+ */
+export interface DataDeleteResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataRead".
+ */
+export interface DataRead {
+  at: string;
+  session?: string | null;
+  sql: string;
+  tables?: string[];
+  rows?: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataReadsParams".
+ */
+export interface DataReadsParams {
+  cwd: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataReadsResult".
+ */
+export interface DataReadsResult {
+  reads: DataRead[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataRowsParams".
+ */
+export interface DataRowsParams {
+  cwd: string;
+  source: 'practice' | 'live';
+  table: string;
+  limit?: number;
+  offset?: number;
+  order?: string | null;
+  dir?: ('asc' | 'desc') | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataRowsResult".
+ */
+export interface DataRowsResult {
+  columns: string[];
+  rows: unknown[][];
+  total: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataSaveParams".
+ */
+export interface DataSaveParams {
+  cwd: string;
+  source: 'practice';
+  table: string;
+  key?: {
+    [k: string]: unknown;
+  } | null;
+  cells: {
+    [k: string]: unknown;
+  };
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataSaveResult".
+ */
+export interface DataSaveResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataSource".
+ */
+export interface DataSource {
+  kind: 'practice' | 'live';
+  available: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataSourcesResult".
+ */
+export interface DataSourcesResult {
+  sources: DataSource[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataTable".
+ */
+export interface DataTable {
+  name: string;
+  rows: number;
+  columns: DataColumn[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataTablesParams".
+ */
+export interface DataTablesParams {
+  cwd: string;
+  source: 'practice' | 'live';
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DataTablesResult".
+ */
+export interface DataTablesResult {
+  tables: DataTable[];
+}
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "DeletedEvent".
@@ -544,6 +916,36 @@ export interface DevServersStopParams {
  */
 export interface DevServersStopResult {
   server: DevServerInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "Domain".
+ */
+export interface Domain {
+  id: string;
+  name: string;
+  status: string;
+  records?: DomainRecord[];
+  domainConnect?: DomainConnect | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DomainRecord".
+ */
+export interface DomainRecord {
+  type: string;
+  name: string;
+  value: string;
+  purpose: string;
+  ok?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "DomainConnect".
+ */
+export interface DomainConnect {
+  provider: string;
+  url: string;
 }
 /**
  * ``data`` of an error the app can act on, beyond its message.
@@ -2291,6 +2693,7 @@ export interface StatusLineItem {
   id: string;
   kind: 'status_line';
   text: string;
+  code: string | null;
 }
 /**
  * Something the harness noticed about the project's memory during the run, waiting on the memory page. Only the
@@ -2314,7 +2717,8 @@ export interface MemoryReviewItem {
 export interface RunStoppedItem {
   id: string;
   kind: 'run_stopped';
-  reason: 'interrupted' | 'failed' | 'limit' | 'repeating' | 'permission' | 'plan_limit' | 'signed_out';
+  reason:
+    'interrupted' | 'failed' | 'limit' | 'repeating' | 'permission' | 'plan_limit' | 'signed_out' | 'credits_exhausted';
   message: string | null;
 }
 /**
@@ -2800,6 +3204,7 @@ export interface ProjectsCreateChangedParams {
   id: string;
   step: 'folder' | 'address' | 'agent';
   project: ProjectInfo;
+  address?: string | null;
 }
 /**
  * Makes a project from a template and starts the agent on the idea.
@@ -2829,6 +3234,7 @@ export interface ProjectsCreateParams {
 export interface ProjectsCreateResult {
   project: ProjectInfo;
   sessionId: string;
+  address?: string | null;
 }
 /**
  * Forgets a project and what Alpine keeps about it. The folder and its files are never touched.
@@ -2884,6 +3290,19 @@ export interface ProjectsInstallGitToolsParams {}
  */
 export interface ProjectsInstallGitToolsResult {}
 /**
+ * Installs Alpine's own Node.js (about 50 MB from nodejs.org, checked against its published checksum). Answers at
+ * once; ``projects/nodeToolsChanged`` follows the download.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsInstallNodeToolsParams".
+ */
+export interface ProjectsInstallNodeToolsParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsInstallNodeToolsResult".
+ */
+export interface ProjectsInstallNodeToolsResult {}
+/**
  * Is what was sent on the new-session screen work on a project, or a new app? One question to the default model,
  * with no tools. The model judges; the server only checks the shape of its answer, and when the answer is unclear
  * or malformed it is ``change``, so a new project is never made by mistake.
@@ -2919,6 +3338,31 @@ export interface ProjectsListResult {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsNodeToolsChangedParams".
+ */
+export interface ProjectsNodeToolsChangedParams {
+  state: 'downloading' | 'done' | 'failed';
+  progress?: number | null;
+  message?: string | null;
+  reason?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsNodeToolsParams".
+ */
+export interface ProjectsNodeToolsParams {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsNodeToolsResult".
+ */
+export interface ProjectsNodeToolsResult {
+  ready: boolean;
+  version?: string | null;
+  required?: string;
+  alpineManaged?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ProjectsOpenParams".
  */
 export interface ProjectsOpenParams {
@@ -2930,6 +3374,207 @@ export interface ProjectsOpenParams {
  */
 export interface ProjectsOpenResult {
   project: ProjectInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishAddDomainParams".
+ */
+export interface PublishAddDomainParams {
+  cwd: string;
+  domain: string;
+  mail?: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishCancelParams".
+ */
+export interface PublishCancelParams {
+  id: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishCancelResult".
+ */
+export interface PublishCancelResult {}
+/**
+ * Where a ``publish/prepare`` or ``publish/run`` is.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishChangedParams".
+ */
+export interface PublishChangedParams {
+  id: string;
+  phase: string;
+  progress?: number;
+  checks?: Check[] | null;
+  message?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishCwdParams".
+ */
+export interface PublishCwdParams {
+  cwd: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishDomainParams".
+ */
+export interface PublishDomainParams {
+  cwd: string;
+  id: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishDomainResult".
+ */
+export interface PublishDomainResult {
+  domain: Domain;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishDomainsResult".
+ */
+export interface PublishDomainsResult {
+  domains: Domain[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishPlan".
+ */
+export interface PublishPlan {
+  deployId: string;
+  checks: Check[];
+  blocked: boolean;
+  shape: PublishShape;
+  app?: AppInfo | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishShape".
+ */
+export interface PublishShape {
+  pending?: string[];
+  added?: ShapeAdded;
+  confirms?: ShapeConfirm[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ShapeAdded".
+ */
+export interface ShapeAdded {
+  tables?: string[];
+  columns?: ShapeColumn[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ShapeColumn".
+ */
+export interface ShapeColumn {
+  table: string;
+  column: string;
+}
+/**
+ * A change the person has to say yes to before it is published.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ShapeConfirm".
+ */
+export interface ShapeConfirm {
+  id: string;
+  kind: string;
+  table?: string | null;
+  column?: string | null;
+  rowsAffected?: number | null;
+  statement?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishPrepareParams".
+ */
+export interface PublishPrepareParams {
+  id: string;
+  cwd: string;
+  locale?: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishRemoveDomainResult".
+ */
+export interface PublishRemoveDomainResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishRestoreParams".
+ */
+export interface PublishRestoreParams {
+  cwd: string;
+  point: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishRestorePointsResult".
+ */
+export interface PublishRestorePointsResult {
+  points: RestorePoint[];
+  windowDays: number;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "RestorePoint".
+ */
+export interface RestorePoint {
+  id: string;
+  at: string;
+  reason: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishRestoreResult".
+ */
+export interface PublishRestoreResult {}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishRunParams".
+ */
+export interface PublishRunParams {
+  id: string;
+  cwd: string;
+  deployId: string;
+  confirm?: string[];
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishRunResult".
+ */
+export interface PublishRunResult {
+  app: AppInfo;
+  publishedAt: string;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishSetBadgeParams".
+ */
+export interface PublishSetBadgeParams {
+  cwd: string;
+  badge: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishSetBadgeResult".
+ */
+export interface PublishSetBadgeResult {
+  app: AppInfo;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "PublishStatus".
+ */
+export interface PublishStatus {
+  publishable: boolean;
+  reason?: string | null;
+  app?: AppInfo | null;
+  lastPublishedAt?: string | null;
+  changes?: number;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -3743,6 +4388,35 @@ export interface ToolsTestResult {
 }
 
 export interface Methods {
+  'cloud/status': { params: CloudStatusParams; result: CloudStatus };
+  'cloud/signIn': { params: CloudSignInParams; result: CloudSignInResult };
+  'cloud/cancelSignIn': { params: CloudCancelSignInParams; result: CloudCancelSignInResult };
+  'cloud/sendCode': { params: CloudSendCodeParams; result: CloudSendCodeResult };
+  'cloud/verifyCode': { params: CloudVerifyCodeParams; result: CloudStatus };
+  'cloud/signOut': { params: CloudSignOutParams; result: CloudSignOutResult };
+  'cloud/plans': { params: CloudPlansParams; result: CloudPlansResult };
+  'cloud/startTrial': { params: CloudStartTrialParams; result: CloudStatus };
+  'cloud/checkout': { params: CloudCheckoutParams; result: CloudUrlResult };
+  'cloud/portal': { params: CloudPortalParams; result: CloudUrlResult };
+  'publish/status': { params: PublishCwdParams; result: PublishStatus };
+  'publish/prepare': { params: PublishPrepareParams; result: PublishPlan };
+  'publish/run': { params: PublishRunParams; result: PublishRunResult };
+  'publish/cancel': { params: PublishCancelParams; result: PublishCancelResult };
+  'publish/restorePoints': { params: PublishCwdParams; result: PublishRestorePointsResult };
+  'publish/restore': { params: PublishRestoreParams; result: PublishRestoreResult };
+  'publish/domains': { params: PublishCwdParams; result: PublishDomainsResult };
+  'publish/addDomain': { params: PublishAddDomainParams; result: PublishDomainResult };
+  'publish/checkDomain': { params: PublishDomainParams; result: PublishDomainResult };
+  'publish/removeDomain': { params: PublishDomainParams; result: PublishRemoveDomainResult };
+  'publish/setBadge': { params: PublishSetBadgeParams; result: PublishSetBadgeResult };
+  'data/sources': { params: PublishCwdParams; result: DataSourcesResult };
+  'data/tables': { params: DataTablesParams; result: DataTablesResult };
+  'data/rows': { params: DataRowsParams; result: DataRowsResult };
+  'data/save': { params: DataSaveParams; result: DataSaveResult };
+  'data/delete': { params: DataDeleteParams; result: DataDeleteResult };
+  'data/reads': { params: DataReadsParams; result: DataReadsResult };
+  'projects/nodeTools': { params: ProjectsNodeToolsParams; result: ProjectsNodeToolsResult };
+  'projects/installNodeTools': { params: ProjectsInstallNodeToolsParams; result: ProjectsInstallNodeToolsResult };
   'devServers/list': { params: DevServersListParams; result: DevServersListResult };
   'devServers/start': { params: DevServersStartParams; result: DevServersStartResult };
   'devServers/stop': { params: DevServersStopParams; result: DevServersStopResult };
@@ -3855,4 +4529,8 @@ export interface Notifications {
   'projects/cloneChanged': ProjectsCloneChangedParams;
   'projects/createChanged': ProjectsCreateChangedParams;
   'github/signInFinished': GitHubSignInFinishedParams;
+  'cloud/signInFinished': CloudSignInFinishedParams;
+  'cloud/changed': CloudChangedParams;
+  'publish/changed': PublishChangedParams;
+  'projects/nodeToolsChanged': ProjectsNodeToolsChangedParams;
 }

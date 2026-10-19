@@ -50,14 +50,14 @@ def test_schema_has_session_types_and_notifications():
 
     schema = build()
     assert {"SessionInfo", "ToolCallItem", "ItemDeltaEvent", "SessionEventParams"} <= set(schema["$defs"])
-    assert schema["x-notifications"] == {
+    assert schema["x-notifications"].items() >= {
         "session/event": "SessionEventParams",
         "chatgpt/signInFinished": "ChatGPTSignInFinishedParams",
         "memory/changed": "MemoryChangedParams",
         "projects/cloneChanged": "ProjectsCloneChangedParams",
         "github/signInFinished": "GitHubSignInFinishedParams",
         "projects/createChanged": "ProjectsCreateChangedParams",
-    }
+    }.items()
     assert (SESSION_NOT_FOUND, SESSION_RUNNING) == (-32001, -32002)
 
 
@@ -97,3 +97,35 @@ def test_agent_info_rejects_a_colour_or_look_outside_the_set():
         AgentInfo.model_validate({**base, "color": 9})
     with pytest.raises(ValidationError):
         AgentInfo.model_validate({**base, "look": "crown"})
+
+
+def test_cloud_methods_and_notifications_are_in_the_tables_and_the_schema():
+    from alpine_protocol import METHODS, NOTIFICATIONS
+    from alpine_protocol.cloud import CloudSignInFinishedParams, CloudStatus, ProjectsNodeToolsChangedParams
+
+    for name in (
+        "cloud/status", "cloud/signIn", "cloud/cancelSignIn", "cloud/sendCode", "cloud/verifyCode", "cloud/signOut",
+        "cloud/plans", "cloud/startTrial", "cloud/checkout", "cloud/portal",
+        "publish/status", "publish/prepare", "publish/run", "publish/cancel", "publish/restorePoints",
+        "publish/restore", "publish/domains", "publish/addDomain", "publish/checkDomain", "publish/removeDomain",
+        "publish/setBadge", "data/sources", "data/tables", "data/rows", "data/save", "data/delete", "data/reads",
+        "projects/nodeTools", "projects/installNodeTools",
+    ):  # fmt: skip
+        assert name in METHODS
+    assert NOTIFICATIONS["cloud/signInFinished"] is CloudSignInFinishedParams
+    assert NOTIFICATIONS["projects/nodeToolsChanged"] is ProjectsNodeToolsChangedParams
+    assert {"cloud/changed", "publish/changed"} <= set(NOTIFICATIONS)
+
+    status = CloudStatus(signed_in=True, api_url="http://x", app_domain="alpinesite.app")
+    assert status.model_dump(by_alias=True, exclude_none=True) == {
+        "signedIn": True, "apiUrl": "http://x", "appDomain": "alpinesite.app", "reachable": True,
+    }  # fmt: skip
+    defs = build()["$defs"]
+    assert {"CloudSignInFinishedParams", "PublishChangedParams", "ProjectsNodeToolsChangedParams"} <= set(defs)
+
+
+def test_project_creation_can_carry_an_address():
+    from alpine_protocol import ProjectsCreateChangedParams, ProjectsCreateResult
+
+    assert ProjectsCreateChangedParams.model_fields["address"].default is None
+    assert ProjectsCreateResult.model_fields["address"].default is None

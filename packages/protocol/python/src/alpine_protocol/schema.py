@@ -20,7 +20,11 @@ MODELS: list[type[BaseModel]] = [
 ]
 # Feature modules keep their wire contracts together. Include their endpoint models;
 # Pydantic follows references to nested result types when it builds the schema.
-MODELS = list(dict.fromkeys([*MODELS, *(model for pair in messages.METHODS.values() for model in pair)]))
+MODELS = list(
+    dict.fromkeys(
+        [*MODELS, *(model for pair in messages.METHODS.values() for model in pair), *messages.NOTIFICATIONS.values()]
+    )
+)
 
 
 def build() -> dict:

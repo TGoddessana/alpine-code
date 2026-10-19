@@ -4,8 +4,10 @@ A template is a folder in the templates folder, named by its id (``web-lite``, `
 everything in it: the code, ``AGENTS.md`` for the agent, and ``.alpine-code/cloud.toml``, which says how Alpine Cloud
 publishes it. Nothing in it depends on Alpine, so a project is an ordinary folder that runs without Alpine.
 
-The templates folder is the one setting below. It is a local folder for now; fetching the latest from the public
-``alpine-templates`` repository later only changes ``templates_dir``.
+The templates folder is the one setting below (``templates_dir``): ``$ALPINE_TEMPLATES``, else the local
+``~/Developments/alpine-templates`` while it exists, else a copy fetched from the public ``alpine-templates``
+repository into ``~/.alpine-code/templates/<commit>``. Until that repository exists (``TEMPLATES_REPO`` is ``None``)
+nothing is fetched.
 """
 
 from __future__ import annotations
@@ -15,13 +17,19 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 from collections.abc import Iterable
 from pathlib import Path
 
 from .cloning import git_tools_ready
+from .home import home_dir
 
 #: Overrides where the templates are.
 TEMPLATES_ENV = "ALPINE_TEMPLATES"
+
+#: The public repository the templates are fetched from when no local folder has them. ``None`` until the user
+#: creates it; with ``None`` nothing is fetched.
+TEMPLATES_REPO: str | None = None
 
 #: The templates the app knows, in the order it shows them. Only those in the templates folder can be made.
 KNOWN = ("blank", "web-lite", "web-pro", "mobile")
@@ -48,8 +56,60 @@ class TemplateNotFound(Exception):
 
 
 def templates_dir() -> Path:
-    """``$ALPINE_TEMPLATES``, else ``~/Developments/alpine-templates``."""
-    return Path(os.environ.get(TEMPLATES_ENV) or Path.home() / "Developments" / "alpine-templates").expanduser()
+    """``$ALPINE_TEMPLATES``, else ``~/Developments/alpine-templates`` while it exists, else the newest fetched copy
+    (``~/.alpine-code/templates/<commit>``). With none of them, the local path above: nothing is there, and
+    ``available_templates`` says so."""
+    if os.environ.get(TEMPLATES_ENV):
+        return Path(os.environ[TEMPLATES_ENV]).expanduser()
+    local = Path.home() / "Developments" / "alpine-templates"
+    if local.is_dir():
+        return local
+    return fetched_templates() or local
+
+
+def fetched_templates() -> Path | None:
+    """The newest copy ``fetch_templates`` made, or ``None``."""
+    root = home_dir() / "templates"
+    copies = [p for p in root.glob("*") if p.is_dir()] if root.is_dir() else []
+    return max(copies, key=lambda p: p.stat().st_mtime, default=None)
+
+
+def fetch_templates(repo: str | None = None) -> Path | None:
+    """Fetches the public templates repository into ``~/.alpine-code/templates/<commit>`` (the latest commit, no
+    history) and returns the folder; the copy already there when it is the latest. ``None`` while there is no
+    repository address (``TEMPLATES_REPO``) or git cannot run.
+
+    Raises:
+        OSError: git failed.
+    """
+    repo = repo or TEMPLATES_REPO
+    if repo is None or not git_tools_ready():
+        return None
+    root = home_dir() / "templates"
+    root.mkdir(parents=True, exist_ok=True)
+    scratch = Path(tempfile.mkdtemp(prefix="fetch-", dir=root))
+    try:
+        _git(scratch.parent, "clone", "-q", "--depth", "1", repo, str(scratch))
+        commit = _git(scratch, "rev-parse", "HEAD").strip()
+        shutil.rmtree(scratch / ".git", ignore_errors=True)
+        folder = root / commit
+        if folder.is_dir():
+            return folder
+        scratch.rename(folder)
+        return folder
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def _git(cwd: Path, *args: str) -> str:
+    try:
+        done = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True, timeout=_GIT_TIMEOUT)
+    except subprocess.TimeoutExpired as e:
+        raise OSError(f"git {args[0]} took too long") from e
+    if done.returncode != 0:
+        lines = (done.stderr or done.stdout).strip().splitlines()
+        raise OSError(f"git {args[0]} failed: {lines[-1] if lines else done.returncode}")
+    return done.stdout
 
 
 def available_templates(root: Path | None = None) -> list[str]:

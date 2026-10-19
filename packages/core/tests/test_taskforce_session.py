@@ -10,7 +10,7 @@ from alpineagents.testing import FakeModel, tool_call
 
 from alpine_core import Decision, Mode, Session, Settings, file_storage
 from alpine_core import session as session_module
-from alpine_core.items import ApprovalItem, NoticeItem, TaskForceItem
+from alpine_core.items import ApprovalItem, InfoChanged, NoticeItem, TaskForceItem
 from alpine_core.taskforce import available
 from alpine_core.taskforce import team as team_module
 from alpine_core.work_changes import checkpoint_changes
@@ -266,6 +266,21 @@ def test_a_tf_run_is_a_checkpoint_of_the_changes_tab(tmp_path, monkeypatch):
             "b.md"
         ]
         assert [f["path"] for f in checkpoint_changes(info.work_history, info.work_baseline)] == ["b.md"]
+
+    asyncio.run(go())
+
+
+def test_the_session_usage_is_announced_as_the_agents_use_tokens(tmp_path, monkeypatch):
+    async def go():
+        events = []
+        gate = asyncio.Event()
+        session = await start_writers(tmp_path, monkeypatch, ["a", "b"], Approver(gate=gate), events=events)
+        lead_only = session._state.usage.requests
+        announced = [e.info.usage.requests for e in events if isinstance(e, InfoChanged)]
+        assert announced[-1] == lead_only + 2  # each agent's first request, before the card is answered
+        gate.set()
+        await until(lambda: taskforce_items(session, active=False))
+        assert max(e.info.usage.requests for e in events if isinstance(e, InfoChanged)) >= lead_only + 4
 
     asyncio.run(go())
 

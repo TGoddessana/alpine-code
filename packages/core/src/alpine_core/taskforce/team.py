@@ -41,7 +41,7 @@ from ..catalog import Catalog, connection_entry, provider_entry, saved_catalog
 from ..chatgpt import is_chatgpt
 from ..config import Connection, Settings
 from ..context import limits_for
-from ..events import Event, TextDelta, ToolFinished, ToolStarted, TurnStarted
+from ..events import AssistantDone, Event, TextDelta, ToolFinished, ToolStarted, TurnStarted
 from ..items import AgentAsk, Item, ItemRecorder, TaskForceItem, TaskForceStatus, item_to_dict
 from ..loop import coding_until
 from ..models import make_model
@@ -614,6 +614,9 @@ class TaskForce:
                 event = dataclasses.replace(event, file_changes=None)
             recorder.handle(event)
             match event:
+                case AssistantDone():
+                    session._touch()  # its usage counts in the session's (TF item 10)
+                    return
                 case TurnStarted(turn):
                     member.turn, member.activity = turn, "thinking"
                 case TextDelta():

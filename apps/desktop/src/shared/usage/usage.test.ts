@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { contextPercent, runTokens } from './usage';
 
 describe('contextPercent', () => {
-  it('rounds the share of the window that is used', () => {
-    expect(contextPercent({ contextUsed: 45_000, contextWindow: 131_072 })).toBe(34);
-    expect(contextPercent({ contextUsed: 0, contextWindow: 200_000 })).toBe(0);
+  it('rounds the share of the way to the tidy point', () => {
+    expect(contextPercent({ contextUsed: 45_000, contextTidyAt: 95_000 })).toBe(47);
+    expect(contextPercent({ contextUsed: 0, contextTidyAt: 180_000 })).toBe(0);
   });
   it('is null when the window is unknown and never passes 100', () => {
-    expect(contextPercent({ contextUsed: 10, contextWindow: null })).toBeNull();
-    expect(contextPercent({ contextUsed: 10, contextWindow: 0 })).toBeNull();
-    expect(contextPercent({ contextUsed: 300, contextWindow: 200 })).toBe(100);
+    expect(contextPercent({ contextUsed: 10, contextTidyAt: null })).toBeNull();
+    expect(contextPercent({ contextUsed: 10, contextTidyAt: 0 })).toBeNull();
+    expect(contextPercent({ contextUsed: 300, contextTidyAt: 200 })).toBe(100);
   });
 });
 

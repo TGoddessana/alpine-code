@@ -6,12 +6,13 @@ import { agentMessages, agentName, Character, toolLabel } from '@/shared/compone
 import { Markdown } from '@/shared/components/markdown';
 import { skillTitle } from '@/shared/components/skills';
 import { TaskForceCard } from '@/shared/components/taskforce';
-import { useFormat, useLocale, useMessages } from '@/shared/i18n';
+import { useLocale, useMessages } from '@/shared/i18n';
 import { productMapMessage } from '@/shared/productMapMessage';
 import { openInBrowser } from '@/shared/platform';
 import { CHATGPT_USAGE_URL, useAgents, useSkills, type Item } from '@/shared/server';
 
 import { ApprovalCard } from './ApprovalCard';
+import { CompactionLine } from './CompactionLine';
 import { answers, type Answer } from './answers';
 import { toBlocks, type Block } from './blocks';
 import { MemoryCard, MemoryReviewLine } from './MemoryCard';
@@ -137,7 +138,6 @@ const ItemView = memo(function ItemView({
   active: boolean;
 } & Answer) {
   const t = useMessages(messages);
-  const format = useFormat();
   const a = useMessages(agentMessages);
   switch (item.kind) {
     case 'user_message': {
@@ -190,13 +190,7 @@ const ItemView = memo(function ItemView({
         </p>
       );
     case 'compaction':
-      return (
-        <div className="flex items-center gap-3 text-meta text-fg-muted">
-          <span className="h-px grow bg-line-subtle" />
-          {t.compaction(format.number(item.beforeTokens), format.number(item.afterTokens))}
-          <span className="h-px grow bg-line-subtle" />
-        </div>
-      );
+      return <CompactionLine item={item} />;
     case 'imported':
       return (
         <div role="note" className="flex items-center gap-3 text-meta text-fg-muted">

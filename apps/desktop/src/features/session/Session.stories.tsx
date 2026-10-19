@@ -144,7 +144,15 @@ const earlier: Item[] = [
     fileChanges: null,
   },
   { id: 'i8', kind: 'notice', text: 'AGENTS.md를 읽었어요', source: 'agents_md' },
-  { id: 'i9', kind: 'compaction', beforeTokens: 96_000, afterTokens: 12_000 },
+  {
+    id: 'i9',
+    kind: 'compaction',
+    beforeTokens: 96_000,
+    afterTokens: 12_000,
+    summary:
+      '**목표**: 로그인 테스트 고치기\n\n- `src/auth/login.ts`의 버튼 핸들러를 고쳤어요\n- 남은 일: 실패하는 테스트 하나',
+    cleared: 14,
+  },
   { id: 'i10', kind: 'agent_message', agent: null, text: '테스트가 아직 한 개 실패해요. 원인을 더 살펴볼게요.' },
   { id: 'i11', kind: 'run_stopped', reason: 'limit', message: null },
 ];
@@ -222,7 +230,7 @@ type Story = StoryObj<typeof meta>;
 /**
  * Bubbles, prose, a stretch of tool calls as one line that opens into Claude Code's layout (a read's count that
  * opens, an edit's diff, a failed command's output cut to its first lines, a denied one with what I said), a notice,
- * a compaction divider and why the run stopped.
+ * a compaction divider that opens to what was cleared and the summary, and why the run stopped.
  */
 export const Conversation: Story = {
   parameters: { server: server(earlier) },
@@ -233,6 +241,8 @@ export const Conversation: Story = {
     await waitFor(() => expect(screen.getByText(/line 24/)).toBeVisible());
     await userEvent.click(screen.getByRole('button', { name: /… 5줄 더 보기|… 5 more lines/ }));
     await waitFor(() => expect(screen.getByText(/Tests {2}1 failed/)).toBeVisible());
+    await userEvent.click(screen.getByRole('button', { name: /대화를 정리했어요|Conversation compacted/ }));
+    await waitFor(() => expect(screen.getByText(/읽기 결과 14개|14 old read results/)).toBeVisible());
   },
 };
 
@@ -257,6 +267,7 @@ export const Usage: Story = {
               },
               contextUsed: 45_000,
               contextWindow: 131_072,
+              contextTidyAt: 111_072,
             }),
             items: earlier,
           },
@@ -267,6 +278,34 @@ export const Usage: Story = {
   play: async () => {
     await userEvent.click(await screen.findByRole('button', { name: /대화 길이 \d+%|Conversation length \d+%/ }));
     await expect(await screen.findByText(/18,400 토큰|18,400 tokens/)).toBeVisible();
+  },
+};
+
+/** A model whose window nobody knows: the pie is an empty dotted circle and the length is in tokens. */
+export const UnknownWindow: Story = {
+  parameters: {
+    server: mergeScripts(
+      setUpScript(),
+      sessionScript({
+        sessions: [
+          {
+            info: sessionInfo({
+              id: ID,
+              title: '로그인 테스트 고치기',
+              model: 'local/motif-3',
+              contextUsed: 45_000,
+              contextWindow: null,
+              contextTidyAt: null,
+            }),
+            items: earlier,
+          },
+        ],
+      }),
+    ),
+  },
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /대화 길이 45,000 토큰|45,000 tokens/ }));
+    await expect(await screen.findByText(/알 수 없어요|doesn't say/)).toBeVisible();
   },
 };
 

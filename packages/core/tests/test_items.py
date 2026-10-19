@@ -163,9 +163,13 @@ def test_tool_images():
 
 def test_compaction_and_notice_events():
     rec, _ = make()
-    rec.handle(ContextCompacted(100, 20))
+    rec.handle(ContextCompacted(100, 20, "what was done", 4))
     rec.handle(Notice("fell back"))
-    assert rec.items == (Compaction("i1", 100, 20), StatusLine("i2", "fell back"))
+    assert rec.items == (Compaction("i1", 100, 20, "what was done", 4), StatusLine("i2", "fell back"))
+    # a divider saved before the summary and the count were kept reads as before
+    assert item_from_dict({"kind": "compaction", "id": "x", "before_tokens": 9, "after_tokens": 3}) == Compaction(
+        "x", 9, 3
+    )
 
 
 def test_add_notice():
@@ -331,8 +335,15 @@ def test_item_round_trip(item):
 
 
 def test_item_dict_is_snake_case():
-    data = item_to_dict(Compaction("6", 10, 2))
-    assert data == {"kind": "compaction", "id": "6", "before_tokens": 10, "after_tokens": 2}
+    data = item_to_dict(Compaction("6", 10, 2, cleared=3))
+    assert data == {
+        "kind": "compaction",
+        "id": "6",
+        "before_tokens": 10,
+        "after_tokens": 2,
+        "summary": None,
+        "cleared": 3,
+    }
     assert "preview_kind" in item_to_dict(ALL_ITEMS[4]) and "call_id" in item_to_dict(ALL_ITEMS[4])
 
 

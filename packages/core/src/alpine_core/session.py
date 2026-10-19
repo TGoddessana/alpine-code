@@ -34,6 +34,7 @@ from .bridge import EventReporter
 from .cancellation import current_cancellation, current_session, executions, track_user_tool
 from .chatgpt import PlanUsageOff, SignInNeeded, UsageLimitError
 from .config import ConfigError, Settings
+from .context import limits_of
 from .events import (
     AssistantDone,
     ContextCompacted,
@@ -686,6 +687,7 @@ class Session:
     @property
     def info(self) -> SessionInfo:
         baseline, history = self._work_changes.saved_state()
+        limits = limits_of(self._agent.model)
         return SessionInfo(
             id=self._id,
             title=self._title,
@@ -700,7 +702,8 @@ class Session:
             updated_at=self._updated,
             usage=self.usage,
             context_used=self._agent.context_tokens(self._state) if self._state is not None else 0,
-            context_window=self._context_window(),
+            context_window=limits.window,
+            context_tidy_at=limits.tidy_at,
             activity=self._activity,
             run_started_at=self._run_started_at,
             run_usage=self._run_usage(),
@@ -749,13 +752,6 @@ class Session:
             cost=u.cost,
         )
 
-    def _context_window(self) -> int | None:
-        try:
-            window = self._agent.model.context_window
-        except Exception:  # a model that cannot say
-            return None
-        return window if isinstance(window, int) and window > 0 else None
-
     def _run_usage(self) -> UsageInfo | None:
         """The usage since the run started, ``None`` when idle."""
         if self._run_started_at is None:
@@ -798,6 +794,8 @@ class Session:
 
     def _dispatch(self, event: Event) -> None:
         """A core event: the item recorder first (so ``snapshot()`` is current), then the frontend's callback."""
+        if isinstance(event, Failed | Interrupted | RunFinished):  # the session's own, never the reporter's
+            self._reporter.flush()  # a tidying the run ended on comes before how it ended
         if isinstance(event, AssistantDone):
             self._cut_off = event.cut_off
         self._recorder.handle(event)

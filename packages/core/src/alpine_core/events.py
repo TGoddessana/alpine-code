@@ -86,8 +86,14 @@ class ToolFinished:
 
 @dataclass(frozen=True)
 class ContextCompacted:
+    """The conversation was tidied: old tool results cleared, then perhaps summarized."""
+
     before_tokens: int
     after_tokens: int
+    summary: str | None = None
+    """The summary that replaced the older conversation; ``None`` when only tool results were cleared."""
+    cleared: int = 0
+    """How many old tool results were cleared."""
 
 
 @dataclass(frozen=True)

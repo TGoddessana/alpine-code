@@ -49,7 +49,6 @@ def load_catalog(*, timeout: float = 10) -> Catalog:
 
 
 def _load(timeout: float) -> Catalog:
-    global _loaded
     file = catalog_file()
     try:
         age = time.time() - file.stat().st_mtime
@@ -69,6 +68,20 @@ def _load(timeout: float) -> Catalog:
         except (OSError, urllib.error.URLError, ValueError):
             if age is None:
                 return {}
+    return _read(file)
+
+
+def saved_catalog() -> Catalog:
+    """The catalog saved on this computer as it is, never fetched: for a caller that must not wait on the network.
+    Empty when there is no copy yet. It does not wait for a fetch under way."""
+    try:
+        return _read(catalog_file())
+    except OSError:
+        return {}
+
+
+def _read(file: Path) -> Catalog:
+    global _loaded
     mtime = file.stat().st_mtime
     if _loaded is None or _loaded[0] != mtime:
         try:
@@ -90,6 +103,59 @@ def hidden_models(
         shown_by_default = _newest_of_each_family(models, entries, today or date.today())
     shown = (shown_by_default | set(connection.show)) - set(connection.hide)
     return [m for m in models if m not in shown]
+
+
+def provider_entry(provider: str, model: str, catalog: Catalog) -> Mapping[str, Any] | None:
+    """The catalog's entry of the provider's model, by provider id."""
+    listed = catalog.get(provider)
+    entries = listed.get("models") if isinstance(listed, dict) else None
+    entry = entries.get(model) if isinstance(entries, dict) else None
+    return entry if isinstance(entry, dict) else None
+
+
+def connection_entry(connection: Connection, model: str, catalog: Catalog) -> Mapping[str, Any] | None:
+    """The catalog's entry of the connection's model, found by provider id or by address."""
+    entries = _catalog_models(connection, catalog)
+    entry = entries.get(model) if entries is not None else None
+    return entry if isinstance(entry, dict) else None
+
+
+def input_limit(entry: Mapping[str, Any] | None) -> int | None:
+    """Tokens the model reads at once, as the catalog says: ``limit.input`` where given, else ``limit.context``."""
+    return _limit(entry, "input") or _limit(entry, "context")
+
+
+def price_step(entry: Mapping[str, Any] | None) -> int | None:
+    """The prompt length past which the catalog says a request costs more: the smallest ``cost.tiers`` of type
+    ``context`` that raises a price, or 200,000 for ``context_over_200k``. ``None`` when the price is flat."""
+    cost = entry.get("cost") if isinstance(entry, Mapping) else None
+    if not isinstance(cost, Mapping):
+        return None
+    steps = []
+    tiers = cost.get("tiers")
+    for tier in tiers if isinstance(tiers, list) else []:
+        about = tier.get("tier") if isinstance(tier, Mapping) else None
+        size = about.get("size") if isinstance(about, Mapping) else None
+        if isinstance(size, int) and size > 0 and about.get("type") == "context" and _dearer(tier, cost):
+            steps.append(size)
+    over = cost.get("context_over_200k")
+    if isinstance(over, Mapping) and _dearer(over, cost):
+        steps.append(200_000)
+    return min(steps, default=None)
+
+
+def _dearer(prices: Mapping[str, Any], base: Mapping[str, Any]) -> bool:
+    def price(of: Mapping[str, Any], key: str) -> float:
+        value = of.get(key)
+        return value if isinstance(value, int | float) and not isinstance(value, bool) else 0
+
+    return any(price(prices, key) > price(base, key) for key in ("input", "output", "cache_read", "cache_write"))
+
+
+def _limit(entry: Mapping[str, Any] | None, key: str) -> int | None:
+    limit = entry.get("limit") if isinstance(entry, Mapping) else None
+    value = limit.get(key) if isinstance(limit, Mapping) else None
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
 
 
 def is_local(url: str | None) -> bool:

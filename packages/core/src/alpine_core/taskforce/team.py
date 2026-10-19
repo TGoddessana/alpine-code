@@ -22,8 +22,13 @@ from typing import TYPE_CHECKING, Any, TypedDict
 from alpineagents import Agent, Message, State, StoppedByPermission, Tool, ToolError, Usage, tool
 from alpineagents.permissions import Denied, DenyPermission
 
+from .. import picker
 from ..approval import ApprovalRequest, Decision
 from ..bridge import EventReporter
+from ..catalog import Catalog, connection_entry, provider_entry, saved_catalog
+from ..chatgpt import is_chatgpt
+from ..config import Connection, Settings
+from ..context import limits_for
 from ..events import Event, TextDelta, ToolFinished, ToolStarted, TurnStarted
 from ..items import Item, ItemRecorder, TaskForceItem, TaskForceStatus, item_to_dict
 from ..loop import coding
@@ -170,6 +175,7 @@ class TaskForce:
         self._offered = offered
         self._runs: dict[str, _Run] = {}
         self._groups: dict[tuple[str, str], _Group] = {}
+        self._proposer: Tool | None = None
 
     # ------------------------------------------------------------ what the session's model gets
 
@@ -186,7 +192,23 @@ class TaskForce:
     def tools(self) -> list[Tool]:
         if not self.offered:
             return []
-        return [self._propose_tool(), self._status_tool()]
+        self._proposer = self._propose_tool()
+        self._read_model_lists()
+        return [self._proposer, self._status_tool()]
+
+    def refresh(self) -> None:
+        """Writes the tool's description again, for the model's next request: the safety setting changed, or a
+        connection's model list came in."""
+        if self._proposer is not None:
+            self._proposer.description = _describe(self._session)
+
+    def _read_model_lists(self) -> None:
+        """Reads in the background the model lists the picker has not read yet; the description follows."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        picker.fetch_missing(self._session._settings, lambda: loop.call_soon_threadsafe(self.refresh))
 
     @property
     def usage(self) -> Usage:
@@ -694,9 +716,6 @@ class TaskForce:
 
 def _describe(session: Session) -> str:
     agents = ", ".join(sorted({c.name for c in session._agents.list() if c.name})) if session._agents else ""
-    models = {session._settings.model or ""} | (
-        {c.model for c in session._agents.list() if c.model} if session._agents else set()
-    )
     return f"""Put together a TF (task force): several agents that split up work too big for one conversation, run by a
 Python script you write. Use it when doing the work alone would make you cover only part of it: drawing or re-fitting
 the product map of a large codebase, auditing whether promises hold, a first review of many patches, a refactor
@@ -711,10 +730,10 @@ Allowed imports: json, re, math, itertools, collections, functools, textwrap, st
 - await agent(prompt, agent=None, model=None, tools=None, returns=None, label=None, phase=None): runs one agent to the
   end and returns its answer; with returns (a JSON shape, e.g. {{"topics": ["..."]}}) the parsed JSON. None if it
   failed or was stopped. The prompt is all it knows: put in everything it needs. agent= picks one of the user's
-  agents by name ({agents or "only the session's agent"}); default is the session's agent. model= picks a model,
-  e.g. one of {", ".join(sorted(m for m in models if m))}. tools= narrows its tools (never widens). label= is what
-  the user sees for it (a topic, a file). phase= is the plan step it counts in (default: the latest phase()); give
-  it inside parallel() and pipeline(), where stages of different steps run at once.
+  agents by name ({agents or "only the session's agent"}); default is the session's agent. model= picks a model
+  (below). tools= narrows its tools (never widens). label= is what the user sees for it (a topic, a file). phase= is
+  the plan step it counts in (default: the latest phase()); give it inside parallel() and pipeline(), where stages of
+  different steps run at once.
 - await parallel([agent(...), ...]): runs them at the same time (at most 6 work at once); results in order.
 - await pipeline(items, stage1, stage2, ...): each item through async stages in turn, items at once.
 - phase("작성"): the step the next agents belong to; use the step titles of your plan.
@@ -723,6 +742,8 @@ Allowed imports: json, re, math, itertools, collections, functools, textwrap, st
 - result = ...: what you get back at the end.
 The script must make the same calls when it runs again (no clock, no randomness): a rerun reuses finished agents.
 More agents than the plan counts wait for the user's OK, so count honestly.
+
+{_models_facts(session)}
 
 What worked (a PostgreSQL product map: one session stopped near 17 cards; a TF of 14 agents drew 103, yet an
 audit found only 77% of its promises exact):
@@ -740,6 +761,63 @@ Args:
     minutes: Expected minutes.
     script: The script.
     resume: The id of a TF whose script failed, to run the fixed script reusing its finished agents."""
+
+
+def _models_facts(session: Session) -> str:
+    """The models the lead may give agents: the ones the user's model picker shows, per connection, with prices,
+    windows and price steps; until the connections' lists are read, the session's and the agents' models."""
+    settings = session._settings
+    catalog = saved_catalog()
+    own = [settings.model or ""] + ([c.model for c in session._agents.list() if c.model] if session._agents else [])
+    own = list(dict.fromkeys(m for m in own if m))
+    groups: list[tuple[Connection | None, list[str]]] = []
+    for connection in settings.connections.values():
+        models = picker.listed(connection)
+        if models is not None:
+            groups.append((connection, [f"{connection.name}/{m}" for m in picker.shown(connection, models, catalog)]))
+    listed = {m for _, names in groups for m in names}
+    rest = [m for m in own if m not in listed]
+    lines = []
+    if groups:
+        lines.append("Models for model= (the ones the user's model picker shows, by connection):")
+        for connection, names in groups:
+            assert connection is not None
+            lines.append(f"{connection.name}:" if names else f"{connection.name}: (none switched on)")
+            lines += [f"- {_model_line(settings, name, catalog)}" for name in names]
+        if rest:
+            lines.append("Also used by this session or the user's agents:")
+    else:
+        lines.append(
+            "Models for model= (the session's and the user's agents'; the connections' lists are not read yet):"
+        )
+    lines += [f"- {_model_line(settings, name, catalog)}" for name in rest]
+    lines.append(
+        f"The session runs on {settings.model}. Prices are USD per million tokens from the models.dev catalog: input, "
+        "output, cache read, cache write. Window: tokens the model reads at once; an agent's conversation is tidied "
+        "before its window fills, or before the price step, past which a whole request costs more. Choose models "
+        "per step and say in your proposal why, and which step most of the cost comes from."
+    )
+    return "\n".join(lines)
+
+
+def _model_line(settings: Settings, name: str, catalog: Catalog) -> str:
+    prefix, _, model = name.partition("/")
+    connection = settings.connections.get(prefix)
+    entry = connection_entry(connection, model, catalog) if connection else provider_entry(prefix, model, catalog)
+    limits = limits_for(connection, prefix, model, catalog)
+    facts = []
+    cost = entry.get("cost") if entry is not None else None
+    if connection is not None and is_chatgpt(connection):
+        facts.append("in the user's ChatGPT plan, no per-token price")
+    elif isinstance(cost, dict) and isinstance(cost.get("input"), int | float):
+        prices = [cost.get(k) for k in ("input", "output", "cache_read", "cache_write")]
+        facts.append(" / ".join(f"${p:g}" if isinstance(p, int | float) else "-" for p in prices))
+    else:
+        facts.append("no price known")
+    facts.append(f"window {limits.window:,}" if limits.window else "window unknown")
+    if limits.price_step and (not limits.window or limits.price_step < limits.window):
+        facts.append(f"costs more past {limits.price_step:,}")
+    return f"{name}: " + "; ".join(facts)
 
 
 def _plan(steps: Any) -> list[dict[str, Any]]:

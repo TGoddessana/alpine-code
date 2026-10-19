@@ -403,6 +403,7 @@ class Session:
         self._refresh_skills()
         if self._reading != self._taskforce.active:
             self._agent = self._build_agent(self._settings)
+        self._taskforce.refresh()  # the models the user switched on may have changed
         if notice is not None and self._state is not None:
             self._state.add_message(Message.notice(text))
             self._recorder.add_notice(text, notice)

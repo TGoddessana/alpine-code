@@ -31,7 +31,7 @@ from . import shell
 from .agents import AgentConfig, AgentList
 from .approval import ApprovalRequest, Approver, Decision, build_permissions
 from .bridge import EventReporter
-from .cancellation import current_cancellation, current_session, executions, track_user_tool
+from .cancellation import current_cancellation, current_notice, current_session, executions, track_user_tool
 from .chatgpt import PlanUsageOff, SignInNeeded, UsageLimitError
 from .cloud import CreditsExhausted, SignedOut
 from .config import ConfigError, Settings
@@ -177,6 +177,9 @@ class Session:
         self._agents = agents
         self._tool_sources = tools
         self._always: set[str] = set()
+        self._tool_names: frozenset[str] = frozenset()
+        """The names of the tools the agent was built with, to notice a tool that appeared since (a project's app
+        went live)."""
         self._taskforce = TaskForce(self, offered=taskforce)
         self._reading = False
         """The agent was built with reading tools only, while a TF ran."""
@@ -314,9 +317,15 @@ class Session:
         return tuple(s for s in self._skill_library.for_project(self.workspace.root) if s.name not in off)
 
     def _refresh_skills(self) -> None:
-        """Takes skills installed, removed or turned off since the last message: the prompt lists them again."""
-        if self._skill_library is not None and self._available_skills() != self._skills:
+        """Takes skills installed, removed or turned off, and tools that came or went (a project's app went live), since
+        the last message: the agent is built again."""
+        skills_changed = self._skill_library is not None and self._available_skills() != self._skills
+        if skills_changed or self._offered_names() != self._tool_names:
             self._agent = self._build_agent(self._settings)
+
+    def _offered_names(self) -> frozenset[str]:
+        applied = self._applied.tools if self._applied is not None else None
+        return frozenset(t.name for t in pick(gather(self._tool_sources(self.workspace.root)), applied))
 
     @property
     def review_model(self) -> str | None:
@@ -371,6 +380,7 @@ class Session:
         self._always = {o.tool.name for o in offered if not o.optional}
         selected = pick(offered, self._applied.tools if self._applied is not None else None)
         user = {id(o.tool) for o in offered if o.origin == "user"}
+        self._tool_names = frozenset(t.name for t in selected)
         return [track_user_tool(t) if id(t) in user else t for t in selected]
 
     # ------------------------------------------------------------ actions
@@ -431,6 +441,7 @@ class Session:
         self._cancel_event = threading.Event()
         cancellation_token = current_cancellation.set(self._cancel_event)
         token = current_session.set(self.id)
+        notice_token = current_notice.set(lambda text, code: self._dispatch(Notice(text, code)))
         try:
             answer = await self._agent.arun(self._state)
             reminded: set[str] = set()
@@ -466,6 +477,7 @@ class Session:
             raise
         finally:
             current_session.reset(token)
+            current_notice.reset(notice_token)
             current_cancellation.reset(cancellation_token)
         stopped = self._state.stopped
         if isinstance(stopped, StoppedByPermission):  # the user declined a call without saying what to do instead

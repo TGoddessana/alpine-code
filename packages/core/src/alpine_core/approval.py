@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol
 from alpineagents import State, Tool, ToolCall
 from alpineagents.permissions import Allowed, AllowPermission, DecidePermission, Denied, DenyPermission, Permission
 
+from .cloud.tools import write_title_and_preview
 from .permissions import Mode, PermissionPolicy, Remembered, Verdict
 from .tools import Workspace, preview_edit
 
@@ -359,6 +360,9 @@ def _preview(name: str, args: dict[str, Any], workspace: Workspace) -> tuple[str
             before = file.read_text(encoding="utf-8", errors="replace") if file.is_file() else ""
             verb = "Overwrite" if file.is_file() else "Create"
             return f"{verb} {path}", _diff(path, before, str(args.get("content", ""))), "diff"
+        case "app_data_write":
+            title, text = write_title_and_preview(args)
+            return title, text, "text"
         case "read" | "glob" | "grep":
             return f"{name.capitalize()} {args.get('pattern') or path or '.'}", None, "text"
     return f"Use {name}", repr(args), "text"

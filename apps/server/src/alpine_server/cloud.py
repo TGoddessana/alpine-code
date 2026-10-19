@@ -70,6 +70,7 @@ class CloudMethods:
 
     def handlers(self) -> dict[str, Callable[[Any], Awaitable[Any]]]:
         later = {name: _not_available(name) for name in CLOUD_METHODS if name.split("/")[0] in ("publish", "data")}
+        # publish/status, prepare, run, cancel, restorePoints and restore are PublishMethods's (publish.py).
         later |= {name: _not_available(name) for name in ("cloud/startTrial", "cloud/checkout", "cloud/portal")}
         return later | {
             "cloud/status": self.status,
@@ -114,7 +115,7 @@ class CloudMethods:
         try:
             await asyncio.to_thread(send_code, params.email, params.locale)
         except CloudError as e:
-            raise _method_error(e) from e
+            raise method_error(e) from e
         return CloudSendCodeResult()
 
     async def verify_code(self, params: CloudVerifyCodeParams) -> CloudStatusModel:
@@ -123,7 +124,7 @@ class CloudMethods:
             tokens = await asyncio.to_thread(verify_code, params.email, params.code)
             return wire_status(await asyncio.to_thread(complete_sign_in, tokens))
         except CloudError as e:
-            raise _method_error(e, invalid="invalid_code") from e
+            raise method_error(e, invalid="invalid_code") from e
 
     async def sign_out(self, params: CloudSignOutParams) -> CloudSignOutResult:
         self._attach()
@@ -134,7 +135,7 @@ class CloudMethods:
         try:
             body = await asyncio.to_thread(lambda: CloudClient().get("/v1/plans", auth=False))
         except CloudError as e:
-            raise _method_error(e) from e
+            raise method_error(e) from e
         return CloudPlansResult.model_validate(body)
 
     # ---- announcements
@@ -191,7 +192,8 @@ def wire_status(status: CloudStatus) -> CloudStatusModel:
     )
 
 
-def _method_error(e: CloudError | SignedOut, *, invalid: str = "invalid") -> MethodError:
+def method_error(e: CloudError | SignedOut, *, invalid: str = "invalid") -> MethodError:
+    """The error the app sees for what the API or the sign-in said: the API's code as the reason."""
     if isinstance(e, SignedOut):
         return MethodError(APP_ERROR, str(e), "signed_out")
     reason = invalid if e.code == "invalid" else e.code

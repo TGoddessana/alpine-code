@@ -34,7 +34,12 @@ from alpine_protocol import (
     Response,
     SessionEventParams,
 )
-from alpine_protocol.cloud import CloudChangedParams, CloudSignInFinishedParams, ProjectsNodeToolsChangedParams
+from alpine_protocol.cloud import (
+    CloudChangedParams,
+    CloudSignInFinishedParams,
+    ProjectsNodeToolsChangedParams,
+    PublishChangedParams,
+)
 
 from .agents import HANDLERS as AGENT_HANDLERS
 from .chatgpt import ChatGPTSignIns
@@ -51,6 +56,7 @@ from .methods import INVALID_PARAMS, MethodError
 from .new_projects import NewProjects
 from .node_tools import NodeTools
 from .process_control import HANDLERS as PROCESS_HANDLERS
+from .publish import PublishMethods
 from .sessions import SessionManager
 from .skills import HANDLERS as SKILL_HANDLERS
 from .terminals import HANDLERS as TERMINAL_HANDLERS
@@ -97,6 +103,7 @@ class Server:
         self.cloud = CloudMethods(self._send_cloud_sign_in_finished, self._send_cloud_changed)
         self.node_tools = NodeTools(self._send_node_tools_changed)
         self.dev_servers = DevelopmentServers()
+        self.publish = PublishMethods(self._send_publish_changed, self.dev_servers.manager)
         self.new_projects = NewProjects(self._send_create_changed, self.sessions)
         self._async_handlers = (
             self.sessions.handlers()
@@ -105,6 +112,7 @@ class Server:
             | self.clones.handlers()
             | self.github.handlers()
             | self.cloud.handlers()
+            | self.publish.handlers()
             | self.node_tools.handlers()
             | self.dev_servers.handlers()
             | self.new_projects.handlers()
@@ -132,6 +140,9 @@ class Server:
 
     def _send_cloud_changed(self, params: CloudChangedParams) -> None:
         self._notify("cloud/changed", params)
+
+    def _send_publish_changed(self, params: PublishChangedParams) -> None:
+        self._notify("publish/changed", params)
 
     def _send_node_tools_changed(self, params: ProjectsNodeToolsChangedParams) -> None:
         self._notify("projects/nodeToolsChanged", params)
@@ -200,6 +211,7 @@ class Server:
         await self.github.shutdown()
         await self.cloud.shutdown()
         await self.node_tools.shutdown()
+        await self.publish.shutdown()
         await self.clones.shutdown()
         await self.sessions.shutdown()
         await process_manager().shutdown()

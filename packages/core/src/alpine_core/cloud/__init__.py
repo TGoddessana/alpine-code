@@ -4,7 +4,7 @@ The API's address is one setting (``settings.api_url``). The contract with the p
 docs/alpine-cloud-api.md; this package never imports ``alpine_server`` or ``alpine_protocol``.
 """
 
-from . import build, data, links, project, publish, runtimes, tools
+from . import billing, build, data, links, pro, project, publish, runtimes, tools
 from .account import CloudStatus, complete_sign_in, credits_seen, sign_out, status, subscribe
 from .apps import App, app_name, create_app
 from .auth import AlpineTokens, BrowserSignIn, SignedOut, SignInError, Tokens, send_code, verify_code
@@ -31,6 +31,7 @@ __all__ = [
     "Unreachable",
     "api_url",
     "app_name",
+    "billing",
     "build",
     "complete_sign_in",
     "create_app",
@@ -38,6 +39,7 @@ __all__ = [
     "credits_seen",
     "is_alpine",
     "links",
+    "pro",
     "project",
     "publish",
     "read_description",

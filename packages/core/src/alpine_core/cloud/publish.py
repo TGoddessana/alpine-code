@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from . import auth, links, project
+from . import auth, links, pro, project
 from .apps import App, app_name, create_app
 from .auth import AlpineTokens, SignedOut
 from .build import BuildCancelled, BuildFailed, Built, build
@@ -162,7 +162,8 @@ def prepare(
             progress("build", 0, line[:200], None)
 
     try:
-        built = build(folder, description, on_output=output, cancel=cancel)
+        # A 실시간 웹앱 builds with its live database's address and public key (never written to a file).
+        built = build(folder, description, on_output=output, cancel=cancel, env=pro.build_env(folder, client=client))
     except BuildCancelled:
         raise Cancelled from None
     _check_cancel(cancel)
@@ -356,7 +357,17 @@ def run(
     source = prepared.source if prepared is not None else project.source(folder)
     if source is not None:
         links.record_published(folder, Published(source.commit, source.tree, at))
+    _end_dev_branch(folder, client)
     return app, at
+
+
+def _end_dev_branch(folder: Path, client: CloudClient) -> None:
+    """The AI's working database goes after a publish (section 4.11). The publish itself is done, so a failure here is
+    not one; the next session start finds the branch gone or still there and sorts it out."""
+    try:
+        pro.delete_dev_branch(folder, client=client)
+    except (CloudError, SignedOut):
+        pass
 
 
 def _watch_deploy(client: CloudClient, app_id: str, deploy_id: str, progress: Progress) -> dict[str, Any]:

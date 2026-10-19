@@ -51,6 +51,12 @@ class FakeCloud:
         self.pending_migrations: list[str] = []
         self.fail_step: str | None = None
         self.fail_restore = False
+        self.checkouts: dict[str, str] = {}  # checkout id -> the return_url it was made with
+        self.dns_ready = False  # custom domains check as active when set
+        self.domains: dict[str, dict[str, dict[str, Any]]] = {}  # app id -> domain id -> domain
+        self.branches: dict[str, dict[str, Any]] = {}  # app id -> its dev branch
+        self.deleted_branches: list[str] = []
+        self.branch_polls = 2  # a branch is "creating" for this many looks
         self.blobs: dict[str, bytes] = {}
         self.deploys: dict[str, dict[str, Any]] = {}
         self.points: dict[str, list[dict[str, Any]]] = {}
@@ -234,7 +240,7 @@ def _handler(cloud: FakeCloud) -> type[BaseHTTPRequestHandler]:
                 }
             )
             browser = target.path in ("/v1/auth/authorize", "/v1/auth/callback") or target.path.startswith(
-                "/v1/auth/local"
+                ("/v1/auth/local", "/v1/billing/fake/")
             )
             if not browser and not self.headers.get("Alpine-Client", "").startswith("alpine-code/"):
                 return self._send(*_error(426, "update_required", "Missing Alpine-Client header."))
@@ -285,6 +291,43 @@ def _handler(cloud: FakeCloud) -> type[BaseHTTPRequestHandler]:
             cloud.plan = {**cloud.plan, "id": "pro", "status": "trialing", "trial_used": True,
                           "trial_ends_at": "2026-10-27T00:00:00Z"}  # fmt: skip
             self._send(200, {"plan": cloud.plan})
+
+        def _POST_v1_billing_checkout(self, query: dict, body: Any) -> None:
+            if self._signed() is None:
+                return
+            return_url = (body or {}).get("return_url", "")
+            if (body or {}).get("plan") != "pro" or not re.fullmatch(r"http://127\.0\.0\.1:\d+/billing", return_url):
+                return self._send(
+                    *_error(400, "invalid", "plan must be pro and return_url a loopback /billing address")
+                )
+            checkout_id = cloud._next("co_")
+            cloud.checkouts[checkout_id] = return_url
+            self._send(200, {"url": f"{cloud.url}/v1/billing/fake/checkout/{checkout_id}"})
+
+        def _POST_v1_billing_portal(self, query: dict, body: Any) -> None:
+            if self._signed() is None:
+                return
+            if cloud.plan["id"] != "pro":
+                return self._send(*_error(409, "conflict", "There is no plan to manage."))
+            self._send(200, {"url": f"{cloud.url}/v1/billing/fake/portal/{cloud._next('po_')}"})
+
+        def _GET_fake_checkout(self, match: re.Match, query: dict, body: Any) -> None:
+            """The fake provider's pages. ``pay`` and ``cancel`` stand for the buttons: both send the browser back."""
+            return_url = cloud.checkouts.get(match["co"])
+            if return_url is None:
+                return self._send(*_error(404, "not_found", "No such checkout."))
+            action = match["action"]
+            if action is None:
+                return self._html("<a href=pay>Pay (test)</a> <a href=cancel>Cancel</a>")
+            if action == "pay":
+                cloud.plan = {**cloud.plan, "id": "pro", "status": "active", "renews_at": "2026-11-20T00:00:00Z"}
+            self._redirect(return_url)
+
+        def _GET_fake_portal(self, match: re.Match, query: dict, body: Any) -> None:
+            if match["action"] is None:
+                return self._html("<a href=cancel>Cancel plan</a>")
+            cloud.plan = {**cloud.plan, "id": "free", "status": "cancelled", "renews_at": None}
+            self._html("Cancelled")
 
         # ---- sign-in
 
@@ -377,6 +420,12 @@ def _handler(cloud: FakeCloud) -> type[BaseHTTPRequestHandler]:
                 "status": "empty", "database": {"kind": "d1", "size_mb": 0.2}, "published": None, "domains": [],
                 "badge": True, "restore_days": cloud.limits()["restore_days"], "created_at": "2026-10-20T01:00:00Z",
             }  # fmt: skip
+            if kind == "web-pro":
+                app["database"] = {
+                    "kind": "supabase",
+                    "url": f"https://{name}.db.test",
+                    "anon_key": f"anon-live-{name}",
+                }
             cloud.apps[app_id] = app
             return app
 
@@ -414,7 +463,12 @@ def _handler(cloud: FakeCloud) -> type[BaseHTTPRequestHandler]:
                 del cloud.apps[app["id"]]
                 return self._send(204)
             if self.command == "PATCH":
-                app["badge"] = bool((body or {}).get("badge", app["badge"]))
+                badge = bool((body or {}).get("badge", app["badge"]))
+                if not badge and not cloud.limits()["custom_domains"]:  # removing the badge is Pro
+                    return self._send(
+                        *_error(402, "payment_required", "Removing the badge needs Pro.", feature="badge")
+                    )
+                app["badge"] = badge
             self._send(200, {"app": app})
 
         # ---- deploys
@@ -653,6 +707,122 @@ def _handler(cloud: FakeCloud) -> type[BaseHTTPRequestHandler]:
 
         # ---- live data
 
+        # ---- Pro: domains, dev branch, build env
+
+        def _pro_app(self, match: re.Match, feature: str, kind: str | None = None) -> dict[str, Any] | None:
+            if self._signed() is None:
+                return None
+            app = cloud.apps.get(match["id"])
+            if app is None:
+                self._send(*_error(404, "not_found", "No such app."))
+                return None
+            if not cloud.limits()["custom_domains"]:
+                self._send(*_error(402, "payment_required", f"{feature} needs Pro.", feature=feature))
+                return None
+            if kind is not None and app["kind"] != kind:
+                self._send(*_error(409, "conflict", f"This is not a {kind} app."))
+                return None
+            return app
+
+        def _domain(self, app: dict[str, Any], name: str, mail: bool) -> dict[str, Any]:
+            ok = cloud.dns_ready
+            records = [
+                {"type": "CNAME", "name": name, "value": f"apps.{APP_DOMAIN}", "purpose": "web", "ok": ok},
+                {"type": "TXT", "name": f"_cf-custom-hostname.{name}", "value": "cf-123", "purpose": "web", "ok": ok},
+            ]
+            if mail:
+                records += [
+                    {"type": "TXT", "name": f"send.{name}", "value": "v=spf1 ~all", "purpose": "spf", "ok": ok},
+                    {"type": "TXT", "name": f"resend._domainkey.{name}", "value": "p=abc", "purpose": "dkim", "ok": ok},
+                    {
+                        "type": "TXT",
+                        "name": f"_dmarc.{name}",
+                        "value": "v=DMARC1; p=none;",
+                        "purpose": "dmarc",
+                        "ok": ok,
+                    },
+                ]
+            return {"id": cloud._next("dom_"), "name": name, "status": "pending", "records": records,
+                    "domain_connect": None, "mail": mail}  # fmt: skip
+
+        def _fresh_domain(self, domain: dict[str, Any]) -> dict[str, Any]:
+            """A look at a domain re-checks its records."""
+            if cloud.dns_ready:
+                domain["status"] = "active"
+                for record in domain["records"]:
+                    record["ok"] = True
+            return {k: v for k, v in domain.items() if k != "mail"}
+
+        def _POST_domains(self, match: re.Match, query: dict, body: Any) -> None:
+            if (app := self._pro_app(match, "domains")) is None:
+                return
+            name = (body or {}).get("domain", "")
+            if not re.fullmatch(r"([a-z0-9-]+\.)+[a-z]{2,}", name):
+                return self._send(*_error(400, "invalid", "That is not a domain name.", field="domain"))
+            existing = cloud.domains.setdefault(app["id"], {})
+            if any(d["name"] == name for d in existing.values()):
+                return self._send(*_error(409, "conflict", "That domain is already added."))
+            domain = self._domain(app, name, bool((body or {}).get("mail")))
+            existing[domain["id"]] = domain
+            app["domains"] = [d["name"] for d in existing.values()]
+            self._send(
+                201,
+                {"domain": self._fresh_domain(domain) if False else {k: v for k, v in domain.items() if k != "mail"}},
+            )
+
+        def _GET_domains(self, match: re.Match, query: dict, body: Any) -> None:
+            if (app := self._pro_app(match, "domains")) is None:
+                return
+            self._send(200, {"domains": [self._fresh_domain(d) for d in cloud.domains.get(app["id"], {}).values()]})
+
+        def _domain_by_id(self, match: re.Match, query: dict, body: Any) -> None:
+            if (app := self._pro_app(match, "domains")) is None:
+                return
+            domain = cloud.domains.get(app["id"], {}).get(match["dom"])
+            if domain is None:
+                return self._send(*_error(404, "not_found", "No such domain."))
+            if self.command == "DELETE":
+                del cloud.domains[app["id"]][match["dom"]]
+                app["domains"] = [d["name"] for d in cloud.domains[app["id"]].values()]
+                return self._send(204)
+            self._send(200, {"domain": self._fresh_domain(domain)})
+
+        def _branch_view(self, branch: dict[str, Any]) -> dict[str, Any]:
+            """A look at a branch while it is made moves it on; a branch that is not ready shows no key."""
+            if branch["status"] == "creating":
+                branch["looks"] += 1
+                if branch["looks"] >= cloud.branch_polls:
+                    branch["status"] = "ready"
+            ready = branch["status"] == "ready"
+            return {"id": branch["id"], "url": branch["url"] if ready else None,
+                    "anon_key": branch["anon_key"] if ready else None, "status": branch["status"]}  # fmt: skip
+
+        def _dev_branch(self, match: re.Match, query: dict, body: Any) -> None:
+            if (app := self._pro_app(match, "dev branch", "web-pro")) is None:
+                return
+            branch = cloud.branches.get(app["id"])
+            if self.command == "POST":
+                if branch is None:
+                    branch = cloud.branches[app["id"]] = {
+                        "id": cloud._next("br_"), "url": f"https://{app['name']}-dev.db.test",
+                        "anon_key": f"anon-dev-{app['name']}", "status": "creating", "looks": 0,
+                    }  # fmt: skip
+                return self._send(201, {"branch": self._branch_view(branch)})
+            if branch is None:
+                return self._send(*_error(404, "not_found", "There is no dev branch."))
+            if self.command == "DELETE":
+                cloud.deleted_branches.append(cloud.branches.pop(app["id"])["id"])
+                return self._send(204)
+            self._send(200, {"branch": self._branch_view(branch)})
+
+        def _GET_build_env(self, match: re.Match, query: dict, body: Any) -> None:
+            if (app := self._pro_app(match, "build env", "web-pro")) is None:
+                return
+            database = app["database"]
+            self._send(
+                200, {"env": {"VITE_SUPABASE_URL": database["url"], "VITE_SUPABASE_ANON_KEY": database["anon_key"]}}
+            )
+
         def _data_app(self, match: re.Match) -> tuple[dict[str, Any], sqlite3.Connection] | None:
             if self._signed() is None:
                 return None
@@ -758,6 +928,13 @@ def _select(db: sqlite3.Connection, sql: str, params: list[Any]) -> dict[str, An
 
 #: Routes with a path parameter: ``(pattern of "METHOD /path", handler name)``.
 _PATTERNS = [(rf"{m} /v1/apps/(?P<id>[^/]+)", "_app_by_id") for m in ("GET", "PATCH", "DELETE")] + [
+    (r"GET /v1/billing/fake/checkout/(?P<co>[^/]+)(/(?P<action>pay|cancel))?", "_GET_fake_checkout"),
+    (r"GET /v1/billing/fake/portal/(?P<po>[^/]+)(/(?P<action>cancel))?", "_GET_fake_portal"),
+    (r"POST /v1/apps/(?P<id>[^/]+)/domains", "_POST_domains"),
+    (r"GET /v1/apps/(?P<id>[^/]+)/domains", "_GET_domains"),
+    (r"(GET|DELETE) /v1/apps/(?P<id>[^/]+)/domains/(?P<dom>[^/]+)", "_domain_by_id"),
+    (r"(GET|POST|DELETE) /v1/apps/(?P<id>[^/]+)/dev-branch", "_dev_branch"),
+    (r"GET /v1/apps/(?P<id>[^/]+)/build-env", "_GET_build_env"),
     (r"POST /v1/apps/(?P<id>[^/]+)/deploys", "_POST_deploys"),
     (r"PUT /v1/apps/(?P<id>[^/]+)/deploys/(?P<dep>[^/]+)/files/(?P<hash>[0-9a-f]+)", "_PUT_file"),
     (r"POST /v1/apps/(?P<id>[^/]+)/deploys/(?P<dep>[^/]+)/check", "_POST_check"),

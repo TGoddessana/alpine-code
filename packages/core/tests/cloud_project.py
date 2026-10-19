@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 TOML = """version = 1
-kind = "web-lite"
+kind = "{kind}"
 adapter = "cloudflare-workers"
 
 [build]
@@ -38,13 +38,15 @@ def git(folder: Path, *args: str) -> None:
     subprocess.run(["git", "-C", str(folder), *args], check=True, capture_output=True)
 
 
-def make_project(tmp_path: Path, *, command: str = "echo building", name: str = "craft-booking") -> Path:
+def make_project(
+    tmp_path: Path, *, command: str = "echo building", name: str = "craft-booking", kind: str = "web-lite"
+) -> Path:
     """A project with a prebuilt output, as ``vite build`` with the Cloudflare plugin leaves it: ``.wrangler/deploy/
     config.json`` points at ``dist/<worker>/wrangler.json``, next to the Worker's ``index.js`` and its chunks, and the
     static files are in ``dist/client``."""
     folder = tmp_path / name
     (folder / ".alpine-code").mkdir(parents=True)
-    (folder / ".alpine-code" / "cloud.toml").write_text(TOML.format(command=command))
+    (folder / ".alpine-code" / "cloud.toml").write_text(TOML.format(command=command, kind=kind))
     (folder / "drizzle").mkdir()
     (folder / "drizzle" / "0000_auth.sql").write_text("CREATE TABLE user (id text primary key);\n")
     (folder / "drizzle" / "0001_notes.sql").write_text("CREATE TABLE notes (id integer primary key, body text);\n")

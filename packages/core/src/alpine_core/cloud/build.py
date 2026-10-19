@@ -121,8 +121,10 @@ def build(
     *,
     on_output: Callable[[str], None] | None = None,
     cancel: threading.Event | None = None,
+    env: dict[str, str] | None = None,
 ) -> Built:
-    """Runs the build, then reads its output.
+    """Runs the build, then reads its output. ``env`` is added to the build command's environment (and to nothing
+    else: the web-pro database values are passed this way and never written to a file).
 
     Blocking; run it on a thread. The Node that ``runtimes.use_node`` chose is already first on ``PATH``.
 
@@ -133,7 +135,7 @@ def build(
     if description.build_command:
         if _needs_install(project, description):
             _run(["npm", "install", "--no-audit", "--no-fund"], project, on_output, cancel)
-        _run(description.build_command, project, on_output, cancel, shell=True)
+        _run(description.build_command, project, on_output, cancel, shell=True, env=env)
     return read_output(project, description)
 
 
@@ -155,6 +157,7 @@ def _run(
     cancel: threading.Event | None,
     *,
     shell: bool = False,
+    env: dict[str, str] | None = None,
 ) -> None:
     tail: deque[str] = deque(maxlen=TAIL_LINES)
     try:
@@ -167,7 +170,7 @@ def _run(
             stderr=subprocess.STDOUT,
             text=True,
             errors="replace",
-            env={**os.environ, "CI": "1", "NO_COLOR": "1"},
+            env={**os.environ, "CI": "1", "NO_COLOR": "1", **(env or {})},
         )
     except OSError as e:
         raise BuildFailed(f"Could not start the build: {e}") from e

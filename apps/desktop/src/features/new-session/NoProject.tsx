@@ -9,8 +9,17 @@ import { useOpenFolder } from '@/shared/platform';
 
 import { messages } from './messages';
 
-/** A new session with no project yet: the centre lists the ways a project comes in, and the input waits below. */
-export function NoProject({ onProjectChange }: { onProjectChange?: (path: string) => void }) {
+/**
+ * A new session with no project yet: the centre lists the ways a project comes in (making one from an idea first), and
+ * the input waits below. 새로 만들기 goes to `onNewProject`.
+ */
+export function NoProject({
+  onProjectChange,
+  onNewProject,
+}: {
+  onProjectChange?: (path: string) => void;
+  onNewProject?: () => void;
+}) {
   const t = useMessages(messages);
   const openFolder = useOpenFolder(onProjectChange);
   const [cloning, setCloning] = useState(false);
@@ -25,7 +34,11 @@ export function NoProject({ onProjectChange }: { onProjectChange?: (path: string
             </h2>
             <p className="text-body text-fg-muted">{t.dropHint}</p>
           </div>
-          <ProjectChoices onGet={() => setCloning(true)} onOpen={() => void openFolder()} />
+          <ProjectChoices
+            onNew={() => onNewProject?.()}
+            onGet={() => setCloning(true)}
+            onOpen={() => void openFolder()}
+          />
         </div>
       </section>
       <div className="mx-auto w-full max-w-202 px-6 pt-3 pb-6">

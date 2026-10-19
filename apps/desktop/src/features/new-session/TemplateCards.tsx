@@ -67,8 +67,9 @@ export function useTemplates(proReady: boolean): Template[] {
 
 /**
  * The four setups side by side (decisions 5, 6 and 13 in docs/alpine-cloud.md), shown once the agent has judged that
- * what I wrote is a new app. Its pick comes chosen with a 추천 mark and its reason; I can choose another. What each
- * means is on its card, and the chosen one opens its details under the row.
+ * what I wrote is a new app. Its pick comes chosen with a 추천 mark and its reason (no line when it gave none); I can
+ * choose another. Without a `recommendation` nobody picked: no mark, no reason. What each means is on its card, and the
+ * chosen one opens its details under the row.
  */
 export function TemplateCards({
   templates,
@@ -79,7 +80,7 @@ export function TemplateCards({
   templates: Template[];
   value: TemplateId;
   onChange: (value: TemplateId) => void;
-  recommendation: Pick<JudgedNew, 'template' | 'reason'>;
+  recommendation?: Pick<JudgedNew, 'template' | 'reason'>;
 }) {
   const t = useMessages(messages);
   const chosen = templates.find((template) => template.id === value);
@@ -88,7 +89,7 @@ export function TemplateCards({
       <div role="radiogroup" aria-label={t.setups} className="grid grid-cols-4 gap-2">
         {templates.map((template, index) => {
           const selected = template.id === value;
-          const picked = recommendation.template === template.id;
+          const picked = recommendation?.template === template.id;
           const Icon = template.icon;
           return (
             <button
@@ -133,7 +134,7 @@ export function TemplateCards({
           );
         })}
       </div>
-      <p className="motion-step px-1 text-meta text-interactive">{recommendation.reason}</p>
+      {recommendation?.reason && <p className="motion-step px-1 text-meta text-interactive">{recommendation.reason}</p>}
       <Collapse open={!!chosen && chosen.points.length > 0}>
         {chosen && (
           <div className="flex flex-col gap-1.5 rounded-xl border border-line-subtle bg-canvas-raised px-4 py-3">

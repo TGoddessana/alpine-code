@@ -251,6 +251,29 @@ describe('the scripted new-project server', () => {
     expect((await judge('앱을 만들어 줘', { ...fast, templates: [] })).judgement).toEqual({ kind: 'change' });
   });
 
+  it('is always a new app when the person chose 새로 만들기 (newProject), and the rules only pick the setup', async () => {
+    const asNew = (text: string, newProject = fast) =>
+      scriptedConnection(sessionScript({ newProject })).request('projects/judge', {
+        text,
+        locale: 'ko',
+        newProject: true,
+      });
+    expect((await asNew('첫 화면 버튼을 더 크게 바꿔 줘')).judgement).toMatchObject({
+      kind: 'new',
+      template: 'web-lite',
+    });
+    expect((await asNew('안녕하세요')).judgement).toMatchObject({ kind: 'new', template: 'web-lite' });
+    expect(
+      (await asNew('동호회 채팅 앱', { ...fast, templates: ['blank', 'web-lite', 'web-pro'] })).judgement,
+    ).toMatchObject({ kind: 'new', template: 'web-pro' });
+    expect((await asNew('엑셀 정리 자동화 스크립트')).judgement).toMatchObject({ kind: 'new', template: 'blank' });
+    expect((await asNew('안녕하세요', { ...fast, templates: ['blank'] })).judgement).toMatchObject({
+      kind: 'new',
+      template: 'blank',
+    });
+    expect((await asNew('안녕하세요', { ...fast, templates: [] })).judgement).toEqual({ kind: 'change' });
+  });
+
   it('fails the way a model that cannot be reached does', async () => {
     await expect(judge('앱을 만들어 줘', { ...fast, judgeFails: true })).rejects.toMatchObject({
       data: { reason: 'model_failed' },

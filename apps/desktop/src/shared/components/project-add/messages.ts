@@ -6,6 +6,8 @@ export const messages = defineMessages({
   ko: {
     addProject: '프로젝트 추가',
     addProjectItem: '프로젝트 추가…',
+    makeNew: '새로 만들기',
+    makeNewHint: '아이디어를 적으면 구성을 골라 줘요',
     getProject: '회사·팀 프로젝트 받기',
     getProjectHint: 'GitHub, GitLab 같은 저장소 주소로',
     openProject: '내 컴퓨터의 프로젝트 열기',
@@ -72,6 +74,8 @@ export const messages = defineMessages({
   en: {
     addProject: 'Add a project',
     addProjectItem: 'Add a project…',
+    makeNew: 'Make a new project',
+    makeNewHint: 'Write your idea and get a setup picked',
     getProject: 'Get a team project',
     getProjectHint: 'From a repository address, such as GitHub or GitLab',
     openProject: 'Open a project on this computer',

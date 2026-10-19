@@ -8,6 +8,11 @@ export const messages = defineMessages({
 
     newSession: '새 세션',
     heading: '무엇을 해 볼까요?',
+    newHeading: '무엇을 만들어 볼까요?',
+    newPlaceholder: '만들고 싶은 앱을 적어 주세요',
+    projectLabel: (name: string) => `프로젝트: ${name}`,
+    newProjectChip: '새 프로젝트',
+    projectMenuTitle: '어느 프로젝트에서 할까요?',
     placeholder: '만들고 싶은 앱이나, 이 프로젝트에서 바꾸고 싶은 걸 적어 주세요',
     importFrom: (apps: string | null) => `${apps ?? '다른 앱'}에서 하던 대화`,
     importLink: (apps: string | null, count: string) => `${apps ?? '다른 앱'}에서 하던 대화 ${count}개 이어 하기`,
@@ -18,6 +23,7 @@ export const messages = defineMessages({
 
     judging: '에이전트가 판단하고 있어요',
     newAppHeading: '새 앱이네요. 이 구성으로 만들어 볼까요?',
+    pickSetupHeading: '이 구성으로 만들어 볼까요?',
     setups: '구성',
     notNew: '아니요, 이 프로젝트에서 할게요',
     create: '만들기',
@@ -72,6 +78,11 @@ export const messages = defineMessages({
 
     newSession: 'New session',
     heading: 'What shall we do?',
+    newHeading: 'What do you want to make?',
+    newPlaceholder: 'Describe the app you want to make',
+    projectLabel: (name: string) => `Project: ${name}`,
+    newProjectChip: 'New project',
+    projectMenuTitle: 'Which project should this start in?',
     placeholder: 'An app you want to make, or what to change in this project',
     importFrom: (apps: string | null) => `Conversations from ${apps ?? 'other apps'}`,
     importLink: (apps: string | null, count: string) => `Continue ${count} conversations from ${apps ?? 'other apps'}`,
@@ -82,6 +93,7 @@ export const messages = defineMessages({
 
     judging: 'The agent is looking at it',
     newAppHeading: 'A new app. Make it with this setup?',
+    pickSetupHeading: 'Make it with this setup?',
     setups: 'Setup',
     notNew: 'No, work on this project',
     create: 'Create',

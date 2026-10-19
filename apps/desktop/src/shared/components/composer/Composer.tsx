@@ -10,9 +10,10 @@ import { ModeChip, nextMode, type Mode } from './ModeChip';
 import { SlashMenu, matchSkills, slashQuery, type SlashSkill } from './SlashMenu';
 
 /**
- * The input, the same on every screen: a box of a few lines with its bar underneath: on the left the `agent` chip
- * and the permission `mode` (its own chip: safety belongs to the session, not the agent), on the right whatever `bar`
- * puts there; attaching and thinking effort join it when the core has them. Shift+Tab in the box goes to the next mode.
+ * The input, the same on every screen: a box of a few lines with its bar underneath: on the left the `project` chip
+ * (only where the project can be picked: the new-session screen), the `agent` chip and the permission `mode` (its own
+ * chip: safety belongs to the session, not the agent), on the right whatever `bar` puts there; attaching and thinking
+ * effort join it when the core has them. Shift+Tab in the box goes to the next mode.
  *
  * Enter sends: `onSend` resolves once the server took the message, and the box empties; if it rejects, the text
  * stays and a quiet line says why. While `running` the send button becomes a stop button (`onStop`) and Enter
@@ -27,6 +28,7 @@ export function Composer({
   locked = false,
   waiting,
   running = false,
+  project,
   agent,
   bar,
   onSend,
@@ -41,7 +43,9 @@ export function Composer({
   /** Typing is fine but sending waits, and this line says for what (e.g. a project still being received). */
   waiting?: string;
   running?: boolean;
-  /** The agent chip, first in the bar. */
+  /** The project chip, first in the bar. */
+  project?: ReactNode;
+  /** The agent chip, after the project chip. */
   agent?: ReactNode;
   /** The right side of the bar, before the send button. */
   bar?: ReactNode;
@@ -177,6 +181,7 @@ export function Composer({
         />
         {/* Wraps in a narrow column (the dock): the send button and its neighbours move down together, on the right. */}
         <div className="-ml-2 flex flex-wrap items-center gap-1">
+          {project}
           {agent}
           {mode && <ModeChip mode={mode.value} onChange={mode.onChange} disabled={locked} />}
           <span className="ml-auto flex items-center gap-1">

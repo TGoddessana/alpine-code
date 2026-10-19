@@ -28,7 +28,7 @@ export function NavigationController() {
   useEffect(() => {
     if (restored.current || !sessions || !projects) return;
     restored.current = true;
-    if (!start || start.search.project) return;
+    if (!start || start.search.project || start.search.new) return;
     const prefs = useNavigation.getState();
     const session = sessions.find((s) => s.id === prefs.lastSessions[prefs.lastProject ?? ''] && !s.archived);
     if (session && projects.some((p) => p.path === session.cwd && !p.archived)) {
@@ -155,15 +155,9 @@ function SearchContents({ onClose, title }: { onClose: () => void; title: string
   }, [selectedKey]);
   const choose = (entry: SearchEntry) => {
     const go = () => {
+      // A project opens its map, as on the rail.
       if (entry.session) void navigate({ to: '/session/$sessionId', params: { sessionId: entry.session.id } });
-      else {
-        const last = useNavigation.getState().lastSessions[entry.path];
-        const session =
-          sessions.find((s) => s.id === last && !s.archived) ??
-          sessions.find((s) => s.cwd === entry.path && !s.archived);
-        if (session) void navigate({ to: '/session/$sessionId', params: { sessionId: session.id } });
-        else void navigate({ to: '/', search: { project: entry.path } });
-      }
+      else void navigate({ to: '/board', search: { project: entry.path } });
       onClose();
     };
     if (byPath.get(entry.path)?.archived) restore.mutate(entry.path, { onSuccess: go });

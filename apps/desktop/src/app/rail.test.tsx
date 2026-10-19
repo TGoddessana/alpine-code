@@ -101,17 +101,50 @@ describe('independent project browsing', () => {
     expect(router.state.location.pathname).toBe('/session/cart');
   });
 
-  it('resumes the last conversation of a project instead of opening a new one', async () => {
+  it('opens the map of a project when its name is clicked, not a conversation or a new one', async () => {
     const { router } = mount('/session/readme');
-    fireEvent.click(await screen.findByRole('button', { name: 'alpine-code 이어하기' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/session/cart'));
-    fireEvent.click(screen.getByRole('button', { name: 'docs-site 이어하기' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/session/readme'));
+    fireEvent.click(await screen.findByRole('button', { name: 'alpine-code 열기' }));
+    await waitFor(() => expect(router.state.location.href).toBe('/board' + q(app)));
+    fireEvent.click(screen.getByRole('button', { name: 'docs-site 열기' }));
+    await waitFor(() => expect(router.state.location.href).toBe('/board' + q(docs)));
+  });
+
+  it('stays on the memory page when another project is picked there', async () => {
+    const { router } = mount('/memory' + q(app));
+    fireEvent.click(await screen.findByRole('button', { name: 'docs-site 열기' }));
+    await waitFor(() => expect(router.state.location.href).toBe('/memory' + q(docs)));
+  });
+
+  it('still starts a new session in a project from its + and from the top link', async () => {
+    const { router } = mount('/board' + q(app));
+    fireEvent.click(await screen.findByRole('link', { name: 'docs-site에서 새 세션' }));
+    await waitFor(() => expect(router.state.location.href).toBe('/' + q(docs)));
+    expect(
+      within(await rail())
+        .getByRole('link', { name: /새 세션\s*⌘N/ })
+        .getAttribute('href'),
+    ).toBe('/' + q(docs));
+  });
+
+  it('offers 새로 만들기 first in the project dialog, and it opens the new session in that mode', async () => {
+    const { router } = mount('/session/cart');
+    fireEvent.click(await screen.findByRole('button', { name: '프로젝트 추가' }));
+    const dialog = await screen.findByRole('dialog');
+    const rows = within(dialog).getAllByRole('button');
+    expect(rows.map((row) => row.textContent)).toEqual([
+      '새로 만들기아이디어를 적으면 구성을 골라 줘요',
+      '회사·팀 프로젝트 받기GitHub, GitLab 같은 저장소 주소로',
+      '내 컴퓨터의 프로젝트 열기이미 이 컴퓨터에 있는 폴더⌘O',
+    ]);
+    fireEvent.click(rows[0]!);
+    await waitFor(() => expect(router.state.location.href).toBe('/?new=1'));
+    expect(await screen.findByRole('heading', { name: '무엇을 만들어 볼까요?' })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('keeps project pages when changing project and starts new work in the current project', async () => {
     const { router } = mount('/board' + q(app));
-    fireEvent.click(await screen.findByRole('button', { name: 'docs-site 이어하기' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'docs-site 열기' }));
     await waitFor(() => expect(router.state.location.href).toBe('/board' + q(docs)));
     expect(
       within(await rail())

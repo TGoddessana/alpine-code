@@ -1,4 +1,4 @@
-import type { CloneInfo } from '@alpine/protocol';
+import type { CloneInfo, ProjectInfo } from '@alpine/protocol';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fireEvent, fn, screen, userEvent, waitFor } from 'storybook/test';
 
@@ -8,15 +8,33 @@ import { NewSession } from './NewSession';
 
 const started = fn();
 
-function Example({ signedIn = false, proReady = false }: { signedIn?: boolean; proReady?: boolean }) {
+function Example({
+  signedIn = false,
+  proReady = false,
+  project = PROJECTS[0]!,
+}: {
+  signedIn?: boolean;
+  proReady?: boolean;
+  /** `null`: making a new project (새로 만들기). */
+  project?: ProjectInfo | null;
+}) {
   return (
     <div className="flex h-screen">
-      <NewSession project={PROJECTS[0]!} onProjectChange={fn()} onStarted={started} cloud={{ signedIn, proReady }} />
+      <NewSession
+        project={project}
+        onProjectChange={fn()}
+        onNewProject={fn()}
+        onStarted={started}
+        cloud={{ signedIn, proReady }}
+      />
     </div>
   );
 }
 
-/** Board NewSession, without the rail (which picks the project) and the right panel. */
+/**
+ * Board NewSession, without the rail and the right panel: the heading, what the screen says meanwhile and the input in
+ * the middle of the window. The first chip in the input names the folder it starts in, the agent chip names the model.
+ */
 const meta = {
   title: 'New session/New session',
   component: Example,
@@ -27,6 +45,70 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Ready: Story = {};
+
+/** The folder chip lists the projects with the current one checked; the last row adds one. */
+export const PickingAProject: Story = {
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /^(프로젝트|Project):/ }));
+    await waitFor(() => expect(screen.getByRole('menuitemradio', { name: /docs-site/ })).toBeVisible());
+    expect(screen.getByRole('menuitemradio', { name: /alpine-code/ })).toBeChecked();
+    expect(screen.getByRole('menuitem', { name: /프로젝트 추가…|Add a project…/ })).toBeVisible();
+  },
+};
+
+/** 프로젝트 추가… opens the same dialog as the rail's +, where 새로 만들기 is the first row. */
+export const AddingAProject: Story = {
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /^(프로젝트|Project):/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /프로젝트 추가…|Add a project…/ }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^(새로 만들기|Make a new project)/ })).toBeVisible(),
+    );
+  },
+};
+
+/** 새로 만들기: no project yet. The heading asks what to make, and the folder chip says 새 프로젝트. */
+export const MakingNew: Story = { args: { project: null } };
+
+/** 새로 만들기, sent: the agent only picks a setup, shown with its pick and why, and no way back to a project. */
+export const MakingNewJudged: Story = {
+  args: { project: null, signedIn: true },
+  play: async () => {
+    await send('동네 공방 원데이 클래스를 예약받고, 자리가 차면 대기 명단에 올려 주는 페이지를 만들어 줘');
+    await waitFor(() => expect(screen.getByText(/Lite로 충분해요|well within Lite/)).toBeInTheDocument(), {
+      timeout: 5000,
+    });
+    expect(
+      screen.queryByRole('button', { name: /아니요, 이 프로젝트에서 할게요|No, work on this project/ }),
+    ).toBeNull();
+  },
+};
+
+/** 새로 만들기 when the agent could not be asked: the setups show with Lite chosen, and nobody recommends it. */
+export const MakingNewJudgingFailed: Story = {
+  args: { project: null },
+  parameters: { server: chatScript({ newProject: { judgeFails: true } }) },
+  play: async () => {
+    await send('공방 수업 예약 페이지를 만들어 줘');
+    await waitFor(() => expect(screen.getByRole('radiogroup', { name: /구성|Setup/ })).toBeInTheDocument(), {
+      timeout: 5000,
+    });
+    expect(screen.queryByText(/추천|Recommended/)).toBeNull();
+  },
+};
+
+/** 새로 만들기, 만들기: the folder, then the AI starts; the session opens from there. */
+export const MakingNewCreated: Story = {
+  args: { project: null },
+  play: async () => {
+    started.mockClear();
+    await send('공방 수업 예약 페이지를 만들어 줘');
+    await userEvent.click(await screen.findByRole('button', { name: /^(만들기|Create)$/ }, { timeout: 5000 }));
+    const open = await screen.findByRole('button', { name: /세션으로 가기|Go to the session/ }, { timeout: 8000 });
+    await userEvent.click(open);
+    expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/));
+  },
+};
 
 async function send(text: string) {
   fireEvent.input(await screen.findByLabelText(/^(메시지|Message)$/), { target: { value: text } });
@@ -145,6 +227,7 @@ export const CreatedButNotStarted: Story = {
  */
 export const PickingAnAgent: Story = {
   play: async () => {
+    expect(await screen.findByRole('button', { name: /에이전트:.*·|Agent:.*·/ })).toBeVisible();
     await userEvent.click(await screen.findByRole('button', { name: /에이전트:|Agent:/ }));
     await waitFor(() => expect(screen.getByRole('menuitemradio', { name: /꼼꼼한 검토자/ })).toBeVisible());
     expect(screen.getByRole('menuitemradio', { name: /홈페이지 담당/ })).toBeChecked();
@@ -175,7 +258,7 @@ function WhileCloning({ clone }: { clone: CloneInfo }) {
   };
   return (
     <div className="flex h-screen">
-      <NewSession project={project} clone={clone} onProjectChange={fn()} onStarted={started} />
+      <NewSession project={project} clone={clone} onProjectChange={fn()} onNewProject={fn()} onStarted={started} />
     </div>
   );
 }

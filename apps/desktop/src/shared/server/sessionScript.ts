@@ -40,7 +40,8 @@ export interface SessionScriptOptions {
 
 /**
  * The new-session screen's two questions to the server. `projects/judge` is a stand-in for the model, not product
- * code: a few rules decide work on the project or a new app, after a pause so "judging" can be seen. `projects/create`
+ * code: a few rules decide work on the project or a new app (always a new app when the person chose 새로 만들기, with
+ * `newProject`; the rules then only pick the setup), after a pause so "judging" can be seen. `projects/create`
  * announces its steps with short pauses, then starts a session on the idea like `session/new` and `session/send`.
  */
 export interface NewProjectScript {
@@ -565,12 +566,12 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         sessions.delete(sessionId);
         return {};
       },
-      'projects/judge': async ({ text, locale }) => {
+      'projects/judge': async ({ text, locale, newProject }) => {
         const script = options.newProject ?? {};
         await sleep(script.judgeMs ?? 1500);
         if (script.judgeFails)
           throw new ServerError(-32000, 'The model could not be reached', { reason: 'model_failed' });
-        return { judgement: standInJudgement(text, locale, pickable) };
+        return { judgement: standInJudgement(text, locale, pickable, newProject === true) };
       },
       'projects/create': async ({ id, idea, template, name, agent, mode }, context) => {
         const script = options.newProject ?? {};
@@ -620,20 +621,21 @@ const CHANGE = /고쳐|바꿔|수정|크게|작게|설명해|확인해|fix|chang
 const PRO = /채팅|실시간|함께|같이 편집|사진|영상|기록|로그|chat|realtime|live|photo|video|log/i;
 const BLANK = /자동화|스크립트|엑셀|크롤|파이썬|automat|script|excel|python/i;
 
-function standInJudgement(text: string, locale: string, templates: Set<TemplateId>): Judgement {
+/** With `newProject` the person chose 새로 만들기: it is always a new app and only the setup is left to pick. */
+function standInJudgement(text: string, locale: string, templates: Set<TemplateId>, newProject: boolean): Judgement {
   // When unsure, it is work on the project I am in, so a new project is never made by mistake.
-  if (CHANGE.test(text) || !NEW.test(text)) return { kind: 'change' };
+  if (!newProject && (CHANGE.test(text) || !NEW.test(text))) return { kind: 'change' };
   const ko = locale.startsWith('ko');
   const name = /공방|craft/i.test(text) ? 'craft-booking' : 'new-app';
-  if (BLANK.test(text) && templates.has('blank'))
-    return {
-      kind: 'new',
-      template: 'blank',
-      name,
-      reason: ko
-        ? '웹 화면 없이 도는 자동화라서 빈 프로젝트가 맞아요.'
-        : 'It runs without a web page, so an empty project fits.',
-    };
+  const blank: Judgement = {
+    kind: 'new',
+    template: 'blank',
+    name,
+    reason: ko
+      ? '웹 화면 없이 도는 자동화라서 빈 프로젝트가 맞아요.'
+      : 'It runs without a web page, so an empty project fits.',
+  };
+  if (BLANK.test(text) && templates.has('blank')) return blank;
   if (PRO.test(text) && templates.has('web-pro'))
     return {
       kind: 'new',
@@ -643,7 +645,7 @@ function standInJudgement(text: string, locale: string, templates: Set<TemplateI
         ? '여럿이 바로바로 주고받는 기능이 있어서 Pro를 추천해요.'
         : 'People exchange things live in this idea, so Pro fits.',
     };
-  if (!templates.has('web-lite')) return { kind: 'change' };
+  if (!templates.has('web-lite')) return newProject && templates.has('blank') ? blank : { kind: 'change' };
   return {
     kind: 'new',
     template: 'web-lite',

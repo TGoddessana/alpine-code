@@ -1,6 +1,6 @@
 import type { ProjectInfo } from '@alpine/protocol';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LocaleProvider } from '@/shared/i18n';
@@ -26,7 +26,7 @@ const other = PROJECTS[1]!;
 const IDEA = '동네 공방 원데이 클래스를 예약받는 페이지를 만들어 줘';
 const fast: NewProjectScript = { judgeMs: 0, createMs: 0 };
 
-function mount(newProject: NewProjectScript = fast, overrides: Script = {}) {
+function mount(newProject: NewProjectScript = fast, overrides: Script = {}, start: ProjectInfo | null = project) {
   const base = scriptedConnection(mergeScripts(chatScript({ newProject }), overrides));
   const requests: { method: string; params: unknown }[] = [];
   const connection: ServerConnection = {
@@ -38,21 +38,27 @@ function mount(newProject: NewProjectScript = fast, overrides: Script = {}) {
   };
   const onStarted = vi.fn();
   const onProjectChange = vi.fn();
+  const onNewProject = vi.fn();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const tree = (shown: ProjectInfo) => (
+  const tree = (shown: ProjectInfo | null) => (
     <QueryClientProvider client={client}>
       <ServerProvider connection={connection}>
         <LocaleProvider locale="ko">
-          <NewSession project={shown} onProjectChange={onProjectChange} onStarted={onStarted} />
+          <NewSession
+            project={shown}
+            onProjectChange={onProjectChange}
+            onNewProject={onNewProject}
+            onStarted={onStarted}
+          />
         </LocaleProvider>
       </ServerProvider>
     </QueryClientProvider>
   );
-  const view = render(tree(project));
+  const view = render(tree(start));
   const sent = (method: string) => requests.filter((r) => r.method === method).map((r) => r.params);
   // The rail picks another project: the same screen gets another `project`.
-  const switchTo = (next: ProjectInfo) => view.rerender(tree(next));
-  return { onStarted, onProjectChange, sent, switchTo };
+  const switchTo = (next: ProjectInfo | null) => view.rerender(tree(next));
+  return { onStarted, onProjectChange, onNewProject, sent, switchTo };
 }
 
 async function send(text: string) {
@@ -305,5 +311,203 @@ describe('NewSession', () => {
     await new Promise((resolve) => setTimeout(resolve, 120));
     expect(onStarted).not.toHaveBeenCalled();
     expect(sent('session/new')).toEqual([]);
+  });
+});
+
+describe('NewSession making a new project (새로 만들기)', () => {
+  const asNew = (newProject: NewProjectScript = fast, overrides: Script = {}) => mount(newProject, overrides, null);
+
+  it('asks what to make, and judges what was sent with newProject and no folder, showing the setups with its pick and why', async () => {
+    const { sent } = asNew();
+    expect(await screen.findByRole('heading', { name: '무엇을 만들어 볼까요?' })).toBeTruthy();
+    expect(screen.getByPlaceholderText('만들고 싶은 앱을 적어 주세요')).toBeTruthy();
+    await send(`  ${IDEA}  `);
+    expect(await screen.findByText('로그인과 예약 저장이면 Lite로 충분해요.')).toBeTruthy();
+    expect(sent('projects/judge')).toEqual([{ text: IDEA, locale: 'ko', newProject: true }]);
+    expect(screen.getByRole('radio', { name: /웹앱 Lite/ })).toHaveProperty('ariaChecked', 'true');
+    expect(screen.getByText('추천')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '이 구성으로 만들어 볼까요?' })).toBeTruthy();
+    expect(sent('session/new')).toEqual([]);
+  });
+
+  it('is a new app even when what was written sounds like work on a project', async () => {
+    const { sent } = asNew();
+    await send('첫 화면 버튼을 더 크게 바꿔 줘');
+    expect(await screen.findByRole('radiogroup', { name: '구성' })).toBeTruthy();
+    expect(sent('session/new')).toEqual([]);
+  });
+
+  it('has no way out to a project, no skills and no other apps conversations', async () => {
+    const importable = {
+      results: {
+        'session/importable': {
+          sessions: [
+            { source: 'codex', id: 'x1', title: '결제 정리', updatedAt: new Date().toISOString(), imported: null },
+          ],
+        },
+      },
+    } satisfies Script;
+    // On a project the same server shows both: the link under the heading, and the skills `/` lists.
+    mount(fast, importable);
+    expect(await screen.findByRole('button', { name: /Codex에서 하던 대화 1개 이어 하기/ })).toBeTruthy();
+    fireEvent.input(screen.getByLabelText('메시지'), { target: { value: '/' } });
+    expect(await screen.findByText('스킬 더 찾기')).toBeTruthy();
+    cleanup();
+
+    asNew(fast, importable);
+    const box = await screen.findByLabelText('메시지');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByRole('button', { name: /에서 하던 대화/ })).toBeNull();
+    fireEvent.input(box, { target: { value: '/' } });
+    expect(screen.queryByText('스킬 더 찾기')).toBeNull();
+    fireEvent.input(box, { target: { value: '' } });
+    await send(IDEA);
+    expect(await screen.findByRole('radiogroup', { name: '구성' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '아니요, 이 프로젝트에서 할게요' })).toBeNull();
+    expect(screen.getByRole('button', { name: '만들기' })).toBeTruthy();
+  });
+
+  it('shows the setups with Lite chosen, nobody recommending it and no reason, when the judging fails', async () => {
+    const { sent, onStarted } = asNew({ ...fast, judgeFails: true });
+    await send(IDEA);
+    expect(await screen.findByRole('radiogroup', { name: '구성' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /웹앱 Lite/ })).toHaveProperty('ariaChecked', 'true');
+    expect(screen.queryByText('추천')).toBeNull();
+    expect(screen.queryByText('로그인과 예약 저장이면 Lite로 충분해요.')).toBeNull();
+    expect(sent('projects/judge')).toHaveLength(1);
+    expect(sent('session/new')).toEqual([]);
+    expect(onStarted).not.toHaveBeenCalled();
+  });
+
+  it('does the same when the server answers work on a project anyway', async () => {
+    const { sent } = asNew(fast, { results: { 'projects/judge': { judgement: { kind: 'change' } } } });
+    await send(IDEA);
+    expect(await screen.findByRole('radiogroup', { name: '구성' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /웹앱 Lite/ })).toHaveProperty('ariaChecked', 'true');
+    expect(screen.queryByText('추천')).toBeNull();
+    expect(sent('session/new')).toEqual([]);
+  });
+
+  it('leaves out the reason line when the pick has none, but still marks the pick', async () => {
+    asNew(fast, {
+      results: {
+        'projects/judge': { judgement: { kind: 'new', template: 'blank', reason: '', name: 'tool' } },
+      },
+    });
+    await send(IDEA);
+    expect(await screen.findByRole('radio', { name: /빈 프로젝트/ })).toHaveProperty('ariaChecked', 'true');
+    expect(screen.getByText('추천')).toBeTruthy();
+    expect(document.querySelector('p.text-interactive')).toBeNull();
+  });
+
+  it("makes the project with the agent shown, not a project's last one, and the setup picked", async () => {
+    const { sent, onStarted } = asNew();
+    await send(IDEA);
+    await create();
+    const open = await screen.findByRole('button', { name: '세션으로 가기' });
+    expect(sent('projects/create')).toEqual([
+      { id: expect.any(String), idea: IDEA, template: 'web-lite', name: 'craft-booking', agent: 'default' },
+    ]);
+    fireEvent.click(open);
+    expect(onStarted).toHaveBeenCalledWith(expect.stringMatching(/^s-/));
+  });
+
+  it('lets the server name the folder when nobody picked a setup', async () => {
+    const { sent } = asNew({ ...fast, judgeFails: true });
+    await send(IDEA);
+    await create();
+    await screen.findByRole('button', { name: '세션으로 가기' });
+    expect(sent('projects/create')).toEqual([expect.objectContaining({ template: 'web-lite', name: '' })]);
+  });
+
+  it('drops the setups shown when I pick a project in the chip, and works on that project', async () => {
+    const { sent, switchTo } = asNew();
+    await send(IDEA);
+    expect(await screen.findByRole('radiogroup', { name: '구성' })).toBeTruthy();
+
+    switchTo(other);
+    expect(screen.queryByRole('radiogroup', { name: '구성' })).toBeNull();
+    expect(screen.getByRole('heading', { name: '무엇을 해 볼까요?' })).toBeTruthy();
+    await send('첫 화면 버튼을 더 크게 바꿔 줘');
+    await waitFor(() => expect(sent('session/new')).toEqual([expect.objectContaining({ cwd: other.path })]));
+    expect(sent('projects/judge')[1]).toEqual({
+      text: '첫 화면 버튼을 더 크게 바꿔 줘',
+      locale: 'ko',
+      cwd: other.path,
+    });
+  });
+});
+
+describe('NewSession folder chip', () => {
+  const archived: ProjectInfo = { ...PROJECTS[2]!, name: 'old-site', path: '/Users/me/old-site', archived: true };
+  const withArchived: Script = {
+    results: { 'projects/list': { projects: [...PROJECTS, archived], clones: [] } },
+  };
+
+  it('names the project the session starts in, or 새 프로젝트 when making one', async () => {
+    mount();
+    expect(await screen.findByRole('button', { name: '프로젝트: alpine-code' })).toBeTruthy();
+    cleanup();
+    mount(fast, {}, null);
+    expect(await screen.findByRole('button', { name: '프로젝트: 새 프로젝트' })).toBeTruthy();
+  });
+
+  it('lists the projects that are not archived with the current one checked, and picking one changes project', async () => {
+    const { onProjectChange } = mount(fast, withArchived);
+    fireEvent.click(await screen.findByRole('button', { name: '프로젝트: alpine-code' }));
+    const items = await screen.findAllByRole('menuitemradio');
+    expect(items.map((item) => item.textContent)).toEqual([
+      expect.stringContaining('alpine-code'),
+      expect.stringContaining('docs-site'),
+      expect.stringContaining('infra-terraform'),
+    ]);
+    expect(items[0]!.getAttribute('aria-checked')).toBe('true');
+    expect(items[1]!.getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByRole('menuitem', { name: '프로젝트 추가…' })).toBeTruthy();
+
+    fireEvent.click(items[1]!);
+    expect(onProjectChange).toHaveBeenCalledWith(other.path);
+  });
+
+  it('checks none of them while making a new project, and picking one leaves that mode', async () => {
+    const { onProjectChange } = mount(fast, {}, null);
+    fireEvent.click(await screen.findByRole('button', { name: '프로젝트: 새 프로젝트' }));
+    const items = await screen.findAllByRole('menuitemradio');
+    expect(items.every((item) => item.getAttribute('aria-checked') === 'false')).toBe(true);
+    fireEvent.click(items[0]!);
+    expect(onProjectChange).toHaveBeenCalledWith(project.path);
+  });
+
+  it('opens the project dialog from 프로젝트 추가…, where 새로 만들기 closes it and goes on to the new project', async () => {
+    const { onNewProject } = mount();
+    fireEvent.click(await screen.findByRole('button', { name: '프로젝트: alpine-code' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: '프로젝트 추가…' }));
+    const dialog = await screen.findByRole('dialog', { name: '프로젝트 추가' });
+    expect(within(dialog).getAllByRole('button').length).toBe(3);
+    fireEvent.click(within(dialog).getByRole('button', { name: /^새로 만들기/ }));
+    expect(onNewProject).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('stays shut while the project is being made', async () => {
+    mount({ judgeMs: 0, createMs: 60 });
+    await send(IDEA);
+    await create();
+    await screen.findByText('/Users/me/AlpineCode/craft-booking');
+    expect(screen.getByRole('button', { name: '프로젝트: alpine-code' })).toHaveProperty('disabled', true);
+    await screen.findByRole('button', { name: '세션으로 가기' });
+  });
+
+  it('comes first in the input bar, before the agent', async () => {
+    mount();
+    const chip = await screen.findByRole('button', { name: '프로젝트: alpine-code' });
+    const agent = await screen.findByRole('button', { name: /^에이전트:/ });
+    expect(chip.compareDocumentPosition(agent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows the model beside the agent name', async () => {
+    mount();
+    const agent = await screen.findByRole('button', { name: /^에이전트:/ });
+    expect(agent.textContent).toMatch(/· \S+/);
   });
 });

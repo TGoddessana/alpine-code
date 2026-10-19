@@ -68,6 +68,19 @@ describe('Composer', () => {
     expect(names[1]!.compareDocumentPosition(names[2]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('puts the project chip, where there is one, before the agent', () => {
+    const { getByRole } = show(
+      <Composer
+        project={<button type="button">프로젝트</button>}
+        agent={<button type="button">에이전트</button>}
+        mode={{ value: 'default', onChange: () => {} }}
+      />,
+    );
+    const names = ['프로젝트', '에이전트', /^안전/].map((name) => getByRole('button', { name }));
+    expect(names[0]!.compareDocumentPosition(names[1]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(names[1]!.compareDocumentPosition(names[2]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('goes to the next permission mode with Shift+Tab in the box, from never asking back to asking', () => {
     const onChange = vi.fn();
     const { getByRole, rerender } = show(<Composer mode={{ value: 'accept_edits', onChange }} />);

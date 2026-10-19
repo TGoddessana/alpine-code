@@ -39,9 +39,15 @@ describe('AgentChip model label', () => {
     expect(getByRole('button').textContent).toBe('기본 에이전트');
   });
 
-  it('keeps the new-conversation chip name-only', () => {
+  it('shows the model beside the agent name in a new conversation too, not only on hover', () => {
     const { getByRole } = show('new', 'openai/gpt-5');
+    const chip = getByRole('button', { name: /기본 에이전트 · gpt-5/ });
+    expect(chip.textContent).toBe('기본 에이전트· gpt-5');
+    expect(chip.hasAttribute('title')).toBe(false);
+  });
+
+  it('shows only the name in a new conversation when no model is known', () => {
+    const { getByRole } = show('new', null);
     expect(getByRole('button').textContent).toBe('기본 에이전트');
-    expect(getByRole('button')).toHaveProperty('title', 'gpt-5');
   });
 });

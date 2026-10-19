@@ -347,6 +347,7 @@ export function Rail({ open = true }: { open?: boolean }) {
           open={adding}
           onOpenChange={setAdding}
           onDone={(path) => void navigate({ to: '/', search: { project: path } })}
+          onNew={() => void navigate({ to: '/', search: { new: 1 } })}
         />
         <DeleteProjectDialog project={deleting} onClose={() => setDeleting(null)} />
         <DeleteSessionDialog session={deletingSession} onClose={() => setDeletingSession(null)} />
@@ -355,7 +356,7 @@ export function Rail({ open = true }: { open?: boolean }) {
   );
 }
 
-/** A title resumes work. The disclosure button only changes the tree. */
+/** A title opens the project's map. The disclosure button only changes the tree. */
 function ProjectGroup({
   project,
   sessions,
@@ -449,7 +450,7 @@ function ProjectGroup({
           <button
             type="button"
             onClick={project.archived ? undefined : onGo}
-            aria-label={t.resumeProject(project.name)}
+            aria-label={t.openProject(project.name)}
             aria-current={current ? 'location' : undefined}
             disabled={project.archived}
             title={project.path}
@@ -543,23 +544,11 @@ function ProjectGroup({
   );
 }
 
+/** A click on a project's name: its map, or (on the memory page) its memory. */
 function useGoToProject() {
   const navigate = useNavigate();
-  const board = useMatch({ from: '/board', shouldThrow: false });
   const memory = useMatch({ from: '/memory', shouldThrow: false });
-  const sessions = useSessions().data ?? [];
-  const last = useNavigation((s) => s.lastSessions);
-  return (path: string) => {
-    if (board) void navigate({ to: '/board', search: { project: path } });
-    else if (memory) void navigate({ to: '/memory', search: { project: path } });
-    else {
-      const session =
-        sessions.find((s) => s.id === last[path] && s.cwd === path && !s.archived) ??
-        sessions.find((s) => s.cwd === path && !s.archived);
-      if (session) void navigate({ to: '/session/$sessionId', params: { sessionId: session.id } });
-      else void navigate({ to: '/', search: { project: path } });
-    }
-  };
+  return (path: string) => void navigate({ to: memory ? '/memory' : '/board', search: { project: path } });
 }
 
 function CloneRow({ clone, current }: { clone: CloneInfo; current: boolean }) {

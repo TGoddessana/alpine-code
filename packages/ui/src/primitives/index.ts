@@ -17,5 +17,6 @@ export {
 export { Popover } from './Popover';
 export { Tabs } from './Tabs';
 
+export { AutoHeight } from './AutoHeight';
 export { Collapse } from './Collapse';
 export { SlidingPanel } from './SlidingPanel';

@@ -1,6 +1,6 @@
 import type { CloneInfo } from '@alpine/protocol';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
+import { expect, fireEvent, fn, screen, userEvent, waitFor } from 'storybook/test';
 
 import { chatScript, PROJECTS } from '@/shared/server';
 
@@ -8,10 +8,10 @@ import { NewSession } from './NewSession';
 
 const started = fn();
 
-function Example() {
+function Example({ signedIn = false, proReady = false }: { signedIn?: boolean; proReady?: boolean }) {
   return (
     <div className="flex h-screen">
-      <NewSession project={PROJECTS[0]!} onProjectChange={fn()} onStarted={started} />
+      <NewSession project={PROJECTS[0]!} onProjectChange={fn()} onStarted={started} cloud={{ signedIn, proReady }} />
     </div>
   );
 }
@@ -27,6 +27,65 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Ready: Story = {};
+
+async function send(text: string) {
+  fireEvent.input(await screen.findByLabelText(/^(메시지|Message)$/), { target: { value: text } });
+  await userEvent.click(screen.getByRole('button', { name: /^(보내기|Send)$/ }));
+}
+
+/** Sending a new app idea: the agent judges it, then the four setups come with its pick chosen and why. */
+export const NewAppJudged: Story = {
+  args: { signedIn: true },
+  play: async () => {
+    await send('동네 공방 원데이 클래스를 예약받고, 자리가 차면 대기 명단에 올려 주는 페이지를 만들어 줘');
+    await waitFor(() => expect(screen.getByText(/Lite로 충분해요|well within Lite/)).toBeInTheDocument(), {
+      timeout: 5000,
+    });
+  },
+};
+
+/** The moment in between: what I sent, and the agent judging it. */
+export const Judging: Story = {
+  args: { signedIn: true },
+  play: async () => {
+    await send('동네 공방 원데이 클래스를 예약받는 페이지를 만들어 줘');
+    await waitFor(() => expect(screen.getAllByRole('status').length).toBeGreaterThan(0));
+  },
+};
+
+/** With paid plans open, an idea with chat gets Pro chosen, with its trial. */
+export const ProRecommended: Story = {
+  args: { signedIn: true, proReady: true },
+  play: async () => {
+    await send('동호회 사람들이 실시간 채팅으로 모임 장소를 정하고 사진을 올리는 앱을 만들고 싶어');
+    await waitFor(() => expect(screen.getByText(/주고받는 기능이 있어서|exchange things live/)).toBeInTheDocument(), {
+      timeout: 5000,
+    });
+  },
+};
+
+/** Work on this project: after the judging it starts a session, as before. */
+export const ChangeJudged: Story = {
+  play: async () => {
+    await send('첫 화면 버튼을 더 크게 바꿔 줘');
+    await waitFor(() => expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/)), { timeout: 5000 });
+  },
+};
+
+/** 만들기: the folder, the web address, then the AI starts. */
+export const CreatingFromJudgement: Story = {
+  args: { signedIn: true },
+  play: async () => {
+    await send('공방 수업 예약 페이지를 만들어 줘');
+    await userEvent.click(await screen.findByRole('button', { name: /^(만들기|Create)$/ }, { timeout: 5000 }));
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: /세션으로 가기|Go to the session/ })).toBeInTheDocument(),
+      {
+        timeout: 6000,
+      },
+    );
+  },
+};
 
 /**
  * Board 새 세션 (에이전트 고르기): the chip in the input bar shows the agent the project used last; it opens the
@@ -80,18 +139,18 @@ export const NotReceived: Story = {
   ),
 };
 
-/** Sending makes the session and the message, then hands over the new session's id. */
+/** Sending something that is not a new app: after the judging, the session and the message, then its id. */
 export const Sent: Story = {
   play: async () => {
     await userEvent.type(await screen.findByLabelText(/^(메시지|Message)$/), '안녕하세요{Enter}');
-    await waitFor(() => expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/)));
+    await waitFor(() => expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/)), { timeout: 5000 });
   },
 };
 
 const ago = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
 
 /**
- * Conversations other apps had in the project: one line under the suggestions naming the apps, opening the list.
+ * Conversations other apps had in the project: one line under the cards naming the apps, opening the list.
  * Picking one brings it over and hands over the new session's id.
  */
 export const FromOtherApps: Story = {

@@ -306,3 +306,41 @@
 .motion-dialog[data-ending-style] {
   pointer-events: none;
 }
+
+@utility motion-auto-height {
+  overflow: clip;
+  /* Clipping would cut the focus ring (2px + 2px offset) of whatever sits at the edge, so the clip box reaches 6px
+     past the content on every side and the content is padded back by the same amount. */
+  margin: -6px;
+  transition: height var(--motion-panel) var(--motion-ease);
+  & > * {
+    padding: 6px;
+  }
+}
+
+/* A step that replaces another in the same sheet: it settles in from slightly below. */
+@utility motion-step {
+  animation: motion-enter var(--motion-normal) var(--motion-ease) both;
+}
+
+/* Something that just arrived (a new row, a new item): it opens into place and keeps a soft highlight for a moment. */
+@utility motion-arrive {
+  animation:
+    motion-arrive-open var(--motion-panel) var(--motion-ease) both,
+    motion-arrive-glow 2.4s var(--motion-ease) both;
+}
+@keyframes motion-arrive-open {
+  from {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+}
+@keyframes motion-arrive-glow {
+  from,
+  40% {
+    background-color: var(--color-selected);
+  }
+  to {
+    background-color: transparent;
+  }
+}

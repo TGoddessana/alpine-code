@@ -16,7 +16,8 @@ function Popup({ side = 'bottom', align = 'start', className, children }: PopupP
       <BasePopover.Positioner side={side} align={align} sideOffset={8} className="z-50 outline-none">
         <BasePopover.Popup
           className={clsx(
-            'motion-popup flex flex-col gap-3 rounded-xl border border-line bg-canvas-raised p-4 text-fg shadow-overlay outline-none',
+            // Never taller than the room left on its side; a long sheet scrolls inside.
+            'motion-popup flex max-h-(--available-height) flex-col gap-3 overflow-y-auto rounded-xl border border-line bg-canvas-raised p-4 text-fg shadow-overlay outline-none',
             className,
           )}
         >

@@ -1,23 +1,35 @@
 import type { CloneInfo, ProjectInfo } from '@alpine/protocol';
+import { AutoHeight, Button, LinkButton } from '@alpine/ui/primitives';
 import { useRef, useState } from 'react';
 
 import { BrandMark } from '@/shared/components/brand';
 
 import { AgentChip, Composer, useSlashSkills, type Mode } from '@/shared/components/composer';
 import { CloneDialog, projectAddMessages } from '@/shared/components/project-add';
-import { useMessages } from '@/shared/i18n';
+import { useLocale, useMessages } from '@/shared/i18n';
 import { useAgents, useCancelClone, useConnections, useNewSession, useSendMessage, useSettings } from '@/shared/server';
 
 import { ImportLink } from './ImportLink';
+import { Creating } from './Creating';
 import { messages } from './messages';
+import {
+  previewNewProject,
+  type CreateStep,
+  type NewProjectApi,
+  type Recommendation,
+  type TemplateId,
+} from './preview';
 import { Receiving } from './Receiving';
-import { Suggestions } from './Suggestions';
+import { TemplateCards, useTemplates } from './TemplateCards';
 
 const DEFAULT_AGENT = 'default';
 
 /**
- * Board NewSession: type, pick one of three suggestions, or go on with a conversation another app (Claude Code, Codex,
- * …) had in the project. The project is the one the rail shows; it is picked there, not here. No header and no work
+ * Board NewSession: write and send, and the agent judges what it is (decision 13 in docs/alpine-cloud.md). Work on
+ * this project starts a session as before. A new app shows the four setups with the agent's pick chosen and why; 만들기
+ * makes the project (its web address too when signed in to Alpine) and starts the AI on the idea. When unsure, it is
+ * work on this project, so a new project is never made by mistake. Or go on with a conversation another app (Claude
+ * Code, Codex, …) had in the project. The project is the one the rail shows; it is picked there, not here. No header and no work
  * result panel yet: they belong to a session and appear with the first message, while the input stays where it is
  * (as wide as in the session).
  *
@@ -35,8 +47,14 @@ export function NewSession({
   clone,
   onProjectChange,
   onStarted,
+  cloud = { signedIn: false },
+  api = previewNewProject,
 }: {
   project: ProjectInfo;
+  /** Alpine sign-in and whether 웹앱 Pro is open yet (decision 6 and 8). */
+  cloud?: { signedIn: boolean; proReady?: boolean };
+  /** Until the agent and Alpine Cloud answer, the recommendation and creation are stand-ins. */
+  api?: NewProjectApi;
   /** The project's clone, while it is on its way or after it failed. */
   clone?: CloneInfo;
   /** The agent to start with, unless one is picked here for this project. */
@@ -58,10 +76,46 @@ export function NewSession({
   // An agent picked in the chip, for this project only.
   const [picked, setPicked] = useState<{ path: string; id: string } | null>(null);
   const agents = useAgents().data?.agents;
-  const [prefill, setPrefill] = useState({ text: '', key: 0 });
   const defaultMode = useSettings().data?.mode;
   const [mode, setMode] = useState<Mode | null>(null);
   const shownMode = mode ?? defaultMode;
+  const { locale } = useLocale();
+  const templates = useTemplates(cloud.proReady ?? false);
+  // After sending: the agent judging it, then (for a new app) its pick of a setup, then the project being made.
+  const [stage, setStage] = useState<
+    | { name: 'judging'; text: string }
+    | { name: 'choosing'; text: string; recommendation: Recommendation; template: TemplateId }
+    | { name: 'creating'; text: string; steps: CreateStep[]; project: string | null }
+    | null
+  >(null);
+
+  // Sending hands the text over at once (the input empties) and the agent judges it; sending again while it judges
+  // or while the setups are shown starts over with the new text.
+  const judging = useRef(0);
+  const send = (text: string) => {
+    const turn = ++judging.current;
+    setStage({ name: 'judging', text });
+    void api.judge(text, locale, cloud.proReady ?? false).then((judgement) => {
+      if (turn !== judging.current) return;
+      if (judgement.kind === 'change') {
+        setStage(null);
+        void start(text);
+        return;
+      }
+      setStage({ name: 'choosing', text, recommendation: judgement, template: judgement.template });
+    });
+    return Promise.resolve();
+  };
+
+  const create = (text: string, template: TemplateId) => {
+    setStage({ name: 'creating', text, steps: [], project: null });
+    void api
+      .create({ idea: text.trim(), template, online: cloud.signedIn }, (step) =>
+        setStage((last) => (last?.name === 'creating' ? { ...last, steps: [...last.steps, step] } : last)),
+      )
+      .then((name) => setStage((last) => (last?.name === 'creating' ? { ...last, project: name } : last)));
+  };
+
   const wanted = (picked?.path === project.path ? picked.id : null) ?? agent ?? project.lastAgent ?? DEFAULT_AGENT;
   // Until the agents are read (or when they cannot be), no agent is sent, so the server applies its own choice
   // (the project's last agent, then the default) rather than the app forcing the default one.
@@ -89,7 +143,7 @@ export function NewSession({
   return (
     <main aria-label={t.newSession} className="flex min-w-120 grow flex-col bg-canvas">
       <div className="min-h-0 grow" />
-      <div className="mx-auto flex w-full max-w-175 flex-col items-center gap-6 px-6">
+      <div className="mx-auto flex w-full max-w-175 flex-col items-center gap-6 px-6 pb-4">
         {clone ? (
           <Receiving
             clone={clone}
@@ -98,27 +152,71 @@ export function NewSession({
             onRetry={() => setRetrying(clone.address)}
           />
         ) : (
-          <>
-            <div className="flex flex-col items-center gap-3 text-center">
-              <BrandMark size={56} />
-              <h1 className="text-display font-semibold">{t.heading}</h1>
-            </div>
-            <div className="flex w-full flex-col gap-2">
-              <Suggestions onPick={(text) => setPrefill((last) => ({ text, key: last.key + 1 }))} />
-              <ImportLink cwd={project.path} onOpen={onStarted} />
-            </div>
-          </>
+          <AutoHeight className="w-full">
+            {stage?.name === 'judging' ? (
+              <div key="judging" className="motion-step flex flex-col items-center gap-4 text-center">
+                <Asked text={stage.text} />
+                <p role="status" className="inline-flex items-center gap-2 text-body text-fg-muted">
+                  <Dots />
+                  {t.judging}
+                </p>
+              </div>
+            ) : stage?.name === 'choosing' ? (
+              <div key="choosing" className="motion-step flex flex-col gap-4">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <Asked text={stage.text} />
+                  <h1 className="text-title font-semibold">{t.newAppHeading}</h1>
+                </div>
+                <TemplateCards
+                  templates={templates}
+                  value={stage.template}
+                  onChange={(template) => setStage({ ...stage, template })}
+                  recommendation={stage.recommendation}
+                />
+                <div className="flex items-center justify-between gap-3">
+                  <LinkButton
+                    onClick={() => {
+                      setStage(null);
+                      void start(stage.text);
+                    }}
+                  >
+                    {t.notNew}
+                  </LinkButton>
+                  <div className="flex items-center gap-3">
+                    <span className="text-meta text-fg-muted">{cloud.signedIn ? t.liveNote : t.localNote}</span>
+                    <Button variant="primary" autoFocus onClick={() => create(stage.text, stage.template)}>
+                      {t.create}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : stage?.name === 'creating' ? (
+              <Creating
+                key="creating"
+                online={cloud.signedIn}
+                steps={stage.steps}
+                name={stage.project}
+                onOpen={() => stage.project && onStarted(stage.project)}
+              />
+            ) : (
+              <div key="start" className="motion-step flex flex-col items-center gap-6">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <BrandMark size={56} />
+                  <h1 className="text-display font-semibold">{t.heading}</h1>
+                </div>
+                <ImportLink cwd={project.path} onOpen={onStarted} />
+              </div>
+            )}
+          </AutoHeight>
         )}
       </div>
-      <div className="min-h-0 grow" />
-      <div className="mx-auto w-full max-w-175 px-6 pt-3 pb-6">
+      <div className="mx-auto flex w-full max-w-175 flex-col gap-2 px-6 pt-3 pb-6">
         <Composer
           placeholder={t.placeholder}
-          locked={clone?.state === 'failed'}
+          locked={clone?.state === 'failed' || stage?.name === 'creating'}
           waiting={clone?.state === 'receiving' ? added.waitToSend : undefined}
-          onSend={start}
+          onSend={send}
           slash={slash}
-          prefill={prefill}
           mode={shownMode ? { value: shownMode, onChange: setMode } : undefined}
           agent={
             <AgentChip
@@ -142,5 +240,29 @@ export function NewSession({
         }}
       />
     </main>
+  );
+}
+
+/** What I sent, quoted back while the agent works on it. */
+function Asked({ text }: { text: string }) {
+  return (
+    <p className="max-w-full self-center rounded-2xl bg-hover px-4 py-2.5 text-left text-reading break-words text-fg">
+      {text}
+    </p>
+  );
+}
+
+/** Three dots taking turns, for "the agent is thinking". Still under reduced motion. */
+function Dots() {
+  return (
+    <span aria-hidden="true" className="inline-flex items-center gap-1">
+      {[0, 160, 320].map((delay) => (
+        <span
+          key={delay}
+          className="size-1.5 animate-pulse rounded-full bg-interactive motion-reduce:animate-none"
+          style={{ animationDelay: `${delay}ms` }}
+        />
+      ))}
+    </span>
   );
 }

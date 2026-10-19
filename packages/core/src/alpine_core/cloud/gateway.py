@@ -22,6 +22,7 @@ from alpineagents.models.base import OnEvent, OnText
 from alpineagents.models.openai_compatible import OpenAICompatible
 from alpineagents.types import Reply, Request
 
+from ..cancellation import current_session
 from ..config import ConfigError, Connection, Settings, remove_connection, save_connection, set_default_model
 from ..context import save_reported
 from ..providers import Auth
@@ -110,7 +111,8 @@ class AlpineModel(OpenAICompatible):
         super().__init__(name, base_url=base_url or settings.gateway_url(), api_key=None, **kwargs)
         self._tokens = tokens
         self._on_credits = on_credits
-        #: One id per model object, that is per conversation: the gateway keeps it with each usage entry.
+        #: The id sent when no session is running (a model object is made per run, so inside a session the session's
+        #: own id is sent instead: the gateway keeps it with each usage entry for per-session totals).
         self.session_id = session_id or uuid.uuid4().hex
         self._current = ""
 
@@ -133,11 +135,16 @@ class AlpineModel(OpenAICompatible):
             async def seen(response: Any) -> None:
                 self._seen(response)
 
+            async def named(request: Any) -> None:
+                self._name(request)
+
             kwargs["api_key"] = token
-            kwargs["http_client"] = openai.DefaultAsyncHttpxClient(event_hooks={"response": [seen]})
+            kwargs["http_client"] = openai.DefaultAsyncHttpxClient(event_hooks={"request": [named], "response": [seen]})
         else:
             kwargs["api_key"] = lambda: self._current
-            kwargs["http_client"] = openai.DefaultHttpxClient(event_hooks={"response": [self._seen]})
+            kwargs["http_client"] = openai.DefaultHttpxClient(
+                event_hooks={"request": [self._name], "response": [self._seen]}
+            )
         return kwargs
 
     def _async_client(self) -> Any:
@@ -150,6 +157,9 @@ class AlpineModel(OpenAICompatible):
                 client = openai.AsyncOpenAI(**self._client_kwargs(is_async=True))
                 self._async_clients[loop] = client
             return client
+
+    def _name(self, request: Any) -> None:
+        request.headers[SESSION_HEADER] = current_session.get() or self.session_id
 
     def _seen(self, response: Any) -> None:
         value = response.headers.get(CREDITS_HEADER)

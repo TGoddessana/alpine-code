@@ -50,6 +50,14 @@ def test_every_request_of_one_conversation_carries_the_same_session_header(signe
     assert make_model(Settings.load()).session_id != model.session_id
 
 
+def test_a_session_sends_its_own_id_so_its_runs_add_up(signed_in, tmp_path):
+    events = []
+    session = Session(Settings.load(), on_event=events.append, approver=Approver(), cwd=tmp_path)
+    session.send("one")
+    session.send("two")
+    assert [r["headers"]["Alpine-Session"] for r in signed_in.gateway_requests] == [session.id, session.id]
+
+
 def test_the_credits_left_come_with_each_answer(signed_in, tmp_path):
     account.status(refresh=True)
     heard = []

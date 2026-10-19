@@ -50,6 +50,7 @@ const approval: ApprovalItem = {
   feedback: null,
   review: null,
   reviewError: null,
+  askedBy: [],
   tool: 'edit',
   args: { path: 'src/Cart.tsx' },
 };

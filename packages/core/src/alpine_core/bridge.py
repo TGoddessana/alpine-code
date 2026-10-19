@@ -25,8 +25,6 @@ from .work_changes import WorkChanges
 
 T = TypeVar("T")
 _READ_ONLY = {"read", "glob", "grep", "skill", "propose_memory"}
-#: Stop reasons of a reply cut off at the output limit: Anthropic's, and OpenAI-compatible servers'.
-_CUT_OFF = {"max_tokens", "length"}
 
 
 class EventReporter(Reporter):
@@ -34,6 +32,8 @@ class EventReporter(Reporter):
         self._emit = emit
         self._changes = changes
         self._lock = threading.Lock()
+        self._cleared: ContextCompacted | None = None
+        """Tool results cleared and not told yet: a summary that follows is the same tidying, told as one."""
 
     def _collect(self, action: Callable[[], T]) -> T | None:
         try:
@@ -44,7 +44,18 @@ class EventReporter(Reporter):
 
     def _send(self, event: Event) -> None:
         with self._lock:
+            self._flush()
             self._emit(event)
+
+    def flush(self) -> None:
+        """Tells a clearing of tool results that is still held. The session calls it when a run ends."""
+        with self._lock:
+            self._flush()
+
+    def _flush(self) -> None:
+        if self._cleared is not None:
+            held, self._cleared = self._cleared, None
+            self._emit(held)
 
     def on_think_start(self, state: State) -> None:
         self._send(TurnStarted(state.turn))
@@ -53,7 +64,7 @@ class EventReporter(Reporter):
         self._send(TextDelta(chunk))
 
     def on_think_end(self, state: State, reply: Reply) -> None:
-        self._send(AssistantDone(reply.text, reply.stop_reason in _CUT_OFF))
+        self._send(AssistantDone(reply.text, reply.cut_off))
 
     def on_tool_start(self, state: State, call: ToolCall) -> None:
         if self._changes is not None and call.name not in _READ_ONLY:
@@ -87,8 +98,17 @@ class EventReporter(Reporter):
         self._send(ToolFinished(call.id, call.name, dict(call.args), text, outcome.kind, images, command, changes))
 
     def on_context_change(self, state: State, change: ContextChange) -> None:
-        if change.kind == "compact":
-            self._send(ContextCompacted(change.before_tokens, change.after_tokens))
+        with self._lock:
+            held = self._cleared
+            if change.kind == "clear_tool_results":
+                before = held.before_tokens if held else change.before_tokens
+                cleared = (held.cleared if held else 0) + len(change.cleared)
+                self._cleared = ContextCompacted(before, change.after_tokens, cleared=cleared)
+            elif change.kind == "compact":
+                self._cleared = None
+                before = held.before_tokens if held else change.before_tokens
+                cleared = held.cleared if held else 0
+                self._emit(ContextCompacted(before, change.after_tokens, change.summary, cleared))
 
     def on_model_event(self, state: State, event: ModelEvent) -> None:
         self._send(Notice(event.message))

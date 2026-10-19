@@ -63,6 +63,10 @@ def _locked(method: F) -> F:
 
 
 class WorkChanges:
+    """The session's file changes: a baseline per changed file, and a checkpoint per run (``begin`` / ``end``). A TF
+    run has a checkpoint of its own (``begin_beside`` / ``end_beside``), open beside the turns of the session's model
+    while its agents work between them."""
+
     def __init__(
         self, workspace: Workspace, baseline: dict[str, FileState] | None = None, history: dict[str, Any] | None = None
     ) -> None:
@@ -74,8 +78,13 @@ class WorkChanges:
         self._explicit: set[str] = set(self.baseline)
         self._cache: dict[str, tuple[tuple[int, ...], FileState]] = {}
         self.history = copy.deepcopy(history or {"requests": [], "blobs": {}})
+        for request in self.history["requests"]:
+            if request.get("status") == "running":
+                request["status"] = "interrupted"  # saved while it ran: the app was closed
         self._request: dict[str, Any] | None = None
         self._request_before: dict[str, FileState] = {}
+        self._beside: dict[str, tuple[dict[str, Any], dict[str, FileState]]] = {}
+        """Open checkpoints beside the runs (a TF's), by id: each with the files as they were when it began."""
 
     @_locked
     def saved_state(self) -> tuple[dict[str, FileState], dict[str, Any]]:
@@ -85,6 +94,7 @@ class WorkChanges:
     def clear(self) -> None:
         self.history = {"requests": [], "blobs": {}}
         self._request = None
+        self._beside.clear()
         self.baseline.clear()
         self._explicit.clear()
         self.begin()
@@ -92,27 +102,66 @@ class WorkChanges:
     @_locked
     def begin(self, label: str | None = None) -> None:
         self._request = None
-        self._previous = None
-        self._cache.clear()
+        if not self._beside:  # else a TF's agents may be between the look before a call and the one after
+            self._previous = None
+            self._cache.clear()
         if label is not None:
-            before = self._scan()
-            self._previous = before
+            before = self._look()
             self._request_before = dict(before)
-            self._request = {
-                "id": uuid.uuid4().hex,
-                "label": label[:160],
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "status": "running",
-                "before": {key: self._remember(state) for key, state in sorted(before.items())},
-                "after": {key: self._remember(state) for key, state in sorted(before.items())},
-            }
-            self.history["requests"].append(self._request)
+            self._request = self._new_request(label, before)
+
+    @_locked
+    def begin_beside(self, label: str) -> str:
+        """Opens a checkpoint that lasts until ``end_beside``, whatever runs begin and end meanwhile; its id."""
+        if not self._open():  # as ``begin``: what changed while nothing ran is nobody's
+            self._previous = None
+            self._cache.clear()
+        before = self._look()
+        request = self._new_request(label, before)
+        self._beside[request["id"]] = (request, dict(before))
+        return request["id"]
+
+    @_locked
+    def end_beside(self, request_id: str, status: str) -> None:
+        """Ends a checkpoint ``begin_beside`` opened, with what the files are now."""
+        if request_id not in self._beside:
+            return
+        try:
+            self._look()
+        finally:
+            request, _ = self._beside.pop(request_id)
+            request["status"] = status
+            self._trim()
+
+    def _new_request(self, label: str, before: dict[str, FileState]) -> dict[str, Any]:
+        request = {
+            "id": uuid.uuid4().hex,
+            "label": label[:160],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "status": "running",
+            "before": {key: self._remember(state) for key, state in sorted(before.items())},
+            "after": {key: self._remember(state) for key, state in sorted(before.items())},
+        }
+        self.history["requests"].append(request)
+        return request
+
+    def _look(self) -> dict[str, FileState]:
+        """The files now; what changed since the last look goes into the baseline and the open checkpoints."""
+        current = self._scan()
+        if self._previous is None:
+            self._previous = current
+            return current
+        self._observe(current)
+        return current
 
     @_locked
     def end(self, status: str) -> None:
         if self._request is not None:
             self._request["status"] = status
             self._request = None
+        self._trim()
+
+    def _trim(self) -> None:
         # Retain the latest 100 requests and blobs still used by them. The session baseline
         # stays separately available for a cumulative comparison after old requests expire.
         self.history["requests"] = self.history["requests"][-100:]
@@ -132,13 +181,16 @@ class WorkChanges:
         self.history["blobs"].setdefault(state["digest"], dict(state))
         return state["digest"]
 
+    def _open(self) -> list[tuple[dict[str, Any], dict[str, FileState]]]:
+        """The open checkpoints, each with the files as they were when it began."""
+        lead = [(self._request, self._request_before)] if self._request is not None else []
+        return [*lead, *self._beside.values()]
+
     def _checkpoint(self, current: dict[str, FileState]) -> None:
-        if self._request is None:
-            return
-        before = self._request_before
-        keys = before.keys() | current.keys()
-        self._request["before"] = {key: self._remember(before.get(key)) for key in sorted(keys)}
-        self._request["after"] = {key: self._remember(current.get(key)) for key in sorted(keys)}
+        for request, before in self._open():
+            keys = before.keys() | current.keys()
+            request["before"] = {key: self._remember(before.get(key)) for key in sorted(keys)}
+            request["after"] = {key: self._remember(current.get(key)) for key in sorted(keys)}
 
     @_locked
     def start(self, name: str, args: dict[str, Any]) -> None:
@@ -150,17 +202,22 @@ class WorkChanges:
             if self._safe(key) and key not in self._explicit:
                 self._explicit.add(key)
                 self._previous.setdefault(key, _state(path))
-                if self._request is not None:
-                    self._request_before.setdefault(key, self._previous[key])
-                    digest = self._remember(self._request_before[key])
-                    self._request["before"].setdefault(key, digest)
-                    self._request["after"].setdefault(key, digest)
+                for request, before in self._open():
+                    before.setdefault(key, self._previous[key])
+                    digest = self._remember(before[key])
+                    request["before"].setdefault(key, digest)
+                    request["after"].setdefault(key, digest)
 
     @_locked
     def finish(self) -> list[dict[str, Any]] | None:
         if self._previous is None:
             return None  # denied without running
         current = self._scan()
+        self._observe(current)
+        return compare_states(self.baseline, current)
+
+    def _observe(self, current: dict[str, FileState]) -> None:
+        assert self._previous is not None
         for key in self._previous.keys() | current.keys():
             before, after = self._previous.get(key), current.get(key)
             if before != after and key not in self.baseline:
@@ -168,9 +225,8 @@ class WorkChanges:
                 self._explicit.add(key)
         self._previous = current
         self._checkpoint(current)
-        if self._request is not None:
+        if self._open():
             self.history["latest"] = {key: self._remember(current.get(key)) for key in self.baseline}
-        return compare_states(self.baseline, current)
 
     def _safe(self, key: str) -> bool:
         if self.workspace.resolve(key).resolve().is_relative_to(self._home):

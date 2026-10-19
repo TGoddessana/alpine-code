@@ -26,8 +26,8 @@ def test_items_and_events_round_trip_by_kind_and_type():
             "inputTokens": 1, "outputTokens": 2, "cacheReadTokens": 0, "cacheWriteTokens": 0,
             "requests": 1, "cost": None,
         },
-        "contextUsed": 3, "contextWindow": None, "activity": None, "runStartedAt": None, "runUsage": None,
-        "agent": None,
+        "contextUsed": 3, "contextWindow": None, "contextTidyAt": None, "activity": None, "runStartedAt": None,
+        "runUsage": None, "agent": None,
     }  # fmt: skip
     call = {"id": "c1", "kind": "tool_call", "name": "bash", "args": {"command": "ls"}, "status": "running"}
     snap = SessionOpenResult.model_validate(

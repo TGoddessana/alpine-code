@@ -2,9 +2,11 @@ import { createFileRoute } from '@tanstack/react-router';
 
 import { WorkspaceDock } from '@/app/WorkspaceDock';
 import { showDockTab } from '@/features/dock/state';
+import { RecordItems } from '@/features/session/RecordItems';
 import { Session } from '@/features/session/Session';
+import { TASKFORCE_TAB, useTaskForceTab } from '@/features/taskforce/useTaskForceTab';
 import { useWorkResultTab } from '@/features/work-result/useWorkResultTab';
-import { useSession } from '@/shared/server';
+import { useSession, type Item } from '@/shared/server';
 
 /**
  * A session exists: the chat with the input at the bottom, and the right dock beside it. The dock is closed until I
@@ -14,15 +16,30 @@ export const Route = createFileRoute('/session/$sessionId')({
   component: SessionRoute,
 });
 
+function renderRecord(items: Item[]) {
+  return <RecordItems items={items} />;
+}
+
 function SessionRoute() {
   const { sessionId } = Route.useParams();
   const resultTab = useWorkResultTab(sessionId);
+  const taskForceTab = useTaskForceTab(sessionId, renderRecord);
   const session = useSession(sessionId);
   const cwd = session.data?.info.cwd;
   if (!cwd) return <Session key={sessionId} sessionId={sessionId} />;
   return (
-    <WorkspaceDock cwd={cwd} sessionId={sessionId} scope={`session:${sessionId}`} tabs={[resultTab]}>
-      <Session key={sessionId} sessionId={sessionId} onInspectProcesses={() => showDockTab('processes')} />
+    <WorkspaceDock
+      cwd={cwd}
+      sessionId={sessionId}
+      scope={`session:${sessionId}`}
+      tabs={taskForceTab ? [resultTab, taskForceTab] : [resultTab]}
+    >
+      <Session
+        key={sessionId}
+        sessionId={sessionId}
+        onInspectProcesses={() => showDockTab('processes')}
+        onShowTaskForce={() => showDockTab(TASKFORCE_TAB)}
+      />
     </WorkspaceDock>
   );
 }

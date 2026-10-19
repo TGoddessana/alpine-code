@@ -5,12 +5,14 @@ import { memo, useMemo } from 'react';
 import { agentMessages, agentName, Character, toolLabel } from '@/shared/components/agent';
 import { Markdown } from '@/shared/components/markdown';
 import { skillTitle } from '@/shared/components/skills';
-import { useFormat, useLocale, useMessages } from '@/shared/i18n';
+import { TaskForceCard } from '@/shared/components/taskforce';
+import { useLocale, useMessages } from '@/shared/i18n';
 import { productMapMessage } from '@/shared/productMapMessage';
 import { openInBrowser } from '@/shared/platform';
 import { CHATGPT_USAGE_URL, useAgents, useSkills, type Item } from '@/shared/server';
 
 import { ApprovalCard } from './ApprovalCard';
+import { CompactionLine } from './CompactionLine';
 import { answers, type Answer } from './answers';
 import { toBlocks, type Block } from './blocks';
 import { MemoryCard, MemoryReviewLine } from './MemoryCard';
@@ -31,12 +33,15 @@ export function Chat({
   cwd,
   items,
   activeIds,
+  onShowTaskForce,
 }: {
   sessionId: string;
   /** The project the session works in, whose memory the suggestions go to. */
   cwd: string;
   items: Item[];
   activeIds: readonly string[];
+  /** Opens the dock on the TF's agents (its 에이전트 보기). */
+  onShowTaskForce?: () => void;
 }) {
   const answered = useMemo(() => answers(items), [items]);
   return (
@@ -52,6 +57,8 @@ export function Chat({
           <MemoryCard key={`memory-${block.call.id}`} sessionId={sessionId} cwd={cwd} call={block.call} />
         ) : block.item.kind === 'memory_review' ? (
           <MemoryReviewLine key={block.item.id} cwd={cwd} item={block.item} />
+        ) : block.item.kind === 'taskforce' ? (
+          <TaskForceCard key={block.item.id} sessionId={sessionId} item={block.item} onShowAgents={onShowTaskForce} />
         ) : (
           <ItemView
             key={block.item.id}
@@ -131,7 +138,6 @@ const ItemView = memo(function ItemView({
   active: boolean;
 } & Answer) {
   const t = useMessages(messages);
-  const format = useFormat();
   const a = useMessages(agentMessages);
   switch (item.kind) {
     case 'user_message': {
@@ -160,6 +166,9 @@ const ItemView = memo(function ItemView({
         return <p className={quiet}>{t[`notice_${item.source}`]}</p>;
       if (item.source === 'memory_check')
         return <p className={quiet}>{t.notice_memory_check(item.text.slice(item.text.indexOf(': ') + 2))}</p>;
+      if (item.source === 'taskforce_retry') return <p className={quiet}>{t.notice_taskforce_retry(item.text)}</p>;
+      // A TF's end notice is for the model (the result as JSON, in English); the TF card above says how it ended.
+      if (item.source === 'taskforce') return null;
       return <p className={quiet}>{item.text}</p>;
     case 'status_line':
       return <p className={quiet}>{item.text}</p>;
@@ -184,13 +193,7 @@ const ItemView = memo(function ItemView({
         </p>
       );
     case 'compaction':
-      return (
-        <div className="flex items-center gap-3 text-meta text-fg-muted">
-          <span className="h-px grow bg-line-subtle" />
-          {t.compaction(format.number(item.beforeTokens), format.number(item.afterTokens))}
-          <span className="h-px grow bg-line-subtle" />
-        </div>
-      );
+      return <CompactionLine item={item} />;
     case 'imported':
       return (
         <div role="note" className="flex items-center gap-3 text-meta text-fg-muted">

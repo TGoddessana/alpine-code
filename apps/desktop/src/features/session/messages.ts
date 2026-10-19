@@ -53,11 +53,15 @@ export const messages = defineMessages({
 
     // Approval
     approvalLabel: '승인 요청',
+    askedByAgents: (count: number) => `에이전트 ${count}명이 묻고 있어요`,
     approvalWaiting: '내 차례',
     allow: '허용',
+    allowAll: '모두 허용',
     allowAlways: '항상 허용',
     allowAlwaysFor: (what: string) => `항상 허용: ${what}`,
     skip: '건너뛰기',
+    skipAll: '모두 건너뛰기',
+    skipOne: (task: string) => `${task}만 건너뛰기`,
     answerHint: '다르게 하려면 아래 입력창에 적어 주세요',
     answerPlaceholder: '어떻게 다르게 할지 적어 주세요',
     answerFailed: '답을 보내지 못했어요. 다시 눌러 주세요',
@@ -66,6 +70,7 @@ export const messages = defineMessages({
     notice_memory_added: '새 기억을 이 대화에도 알렸어요',
     notice_memory_removed: '지운 기억을 이 대화에도 알렸어요',
     notice_memory_check: (say: string) => `기억에 적힌 확인에 걸렸어요 · ${say}`,
+    notice_taskforce_retry: (error: string) => `오류가 나서 처음부터 한 번 다시 했어요 · ${error}`,
     review_missing_paths: (n: string) =>
       n === '1' ? '기억 하나가 가리키는 파일이 없어졌어요' : `기억 ${n}개가 가리키는 파일이 없어졌어요`,
     review_other: (n: string) => `기억에 대해 확인할 게 ${n}개 있어요`,
@@ -81,6 +86,8 @@ export const messages = defineMessages({
     stopped_signed_out: 'ChatGPT 로그인이 끝나서 멈췄어요 · 설정 › 모델 연결에서 다시 로그인해 주세요',
     manageUsage: '사용량 관리 ↗',
     compaction: (before: string, after: string) => `대화를 정리했어요 · ${before} → ${after} 토큰`,
+    compactionCleared: (n: string) => `오래된 읽기 결과 ${n}개를 비웠어요. 필요하면 다시 읽어요.`,
+    compactionSummary: '앞부분 요약',
     agentSwitched: (name: string) => `${josa(name, '으로/로')} 바꿨어요 · 프로젝트, 대화, 안전 설정은 그대로예요`,
     imported: (app: string) => `여기까지 ${app}에서 하던 대화예요 · 이어서 말하면 계속해요`,
     agentChanged: (name: string, changes: string) => `${name} 설정이 바뀌었어요 · ${changes} · 이 메시지부터 적용돼요`,
@@ -108,11 +115,16 @@ export const messages = defineMessages({
     // Context meter and the usage it opens
     usage: '사용량 보기',
     lengthAria: (percent: string) => `대화 길이 ${percent}%, 사용량 보기`,
+    lengthAriaTokens: (tokens: string) => `대화 길이 ${tokens} 토큰, 사용량 보기`,
     lengthHint: (percent: string) =>
       `모델이 한 번에 읽을 수 있는 대화 중 ${percent}%를 쓰고 있어요. 가득 차면 앞부분을 요약해 공간을 만들어요.`,
+    lengthHintUnknown:
+      '이 모델이 한 번에 얼마나 읽을 수 있는지 알 수 없어요. 너무 길어지면 그때 앞부분을 요약해 공간을 만들어요.',
     lengthTitle: '대화 길이',
     lengthExplain:
       '지금 대화가 모델이 한 번에 읽을 수 있는 양을 얼마나 채웠는지예요. 가득 차면 앞부분을 짧게 줄여서 이어 가요.',
+    lengthExplainUnknown:
+      '이 모델이 한 번에 얼마나 읽을 수 있는지 알 수 없어요. 너무 길어지면 그때 앞부분을 짧게 줄여서 이어 가요.',
     usedTitle: '이 대화에서 쓴 양',
     wholeSession: '이 대화 전체',
     thisRun: '이번 작업',
@@ -173,11 +185,15 @@ export const messages = defineMessages({
     changed: (added: string, removed: string) => `${added} added · ${removed} removed`,
 
     approvalLabel: 'Approval request',
+    askedByAgents: (count: number) => (count === 1 ? 'An agent is asking' : `${count} agents are asking`),
     approvalWaiting: 'Your turn',
     allow: 'Allow',
+    allowAll: 'Allow all',
     allowAlways: 'Always allow',
     allowAlwaysFor: (what: string) => `Always allow: ${what}`,
     skip: 'Skip',
+    skipAll: 'Skip all',
+    skipOne: (task: string) => `Skip only ${task}`,
     answerHint: 'To have it do something else, write it in the input below',
     answerPlaceholder: 'Say what to do instead',
     answerFailed: "Couldn't send your answer. Please try again",
@@ -186,6 +202,7 @@ export const messages = defineMessages({
     notice_memory_added: 'Told this chat about the new memory',
     notice_memory_removed: 'Told this chat the memory was removed',
     notice_memory_check: (say: string) => `A memory check failed · ${say}`,
+    notice_taskforce_retry: (error: string) => `Started over once after an error · ${error}`,
     review_missing_paths: (n: string) =>
       n === '1' ? 'A memory names a file that is gone' : `${n} memories name files that are gone`,
     review_other: (n: string) => `${n} things to check in memory`,
@@ -200,6 +217,8 @@ export const messages = defineMessages({
     stopped_signed_out: 'Stopped: the ChatGPT sign-in ended · sign in again in Settings › Model connection',
     manageUsage: 'Manage usage ↗',
     compaction: (before: string, after: string) => `Conversation compacted · ${before} → ${after} tokens`,
+    compactionCleared: (n: string) => `Cleared ${n} old read results. They are read again when needed.`,
+    compactionSummary: 'Summary of the earlier part',
     agentSwitched: (name: string) => `Switched to ${name} · project, conversation and safety stay the same`,
     imported: (app: string) => `Up to here, this conversation was in ${app} · say something to go on`,
     agentChanged: (name: string, changes: string) => `${name} was changed · ${changes} · applies from this message`,
@@ -225,11 +244,16 @@ export const messages = defineMessages({
 
     usage: 'Show usage',
     lengthAria: (percent: string) => `Conversation length ${percent}%, show usage`,
+    lengthAriaTokens: (tokens: string) => `Conversation length ${tokens} tokens, show usage`,
     lengthHint: (percent: string) =>
       `Using ${percent}% of what the model can read at once. When it fills up, the earlier part is summarised to make room.`,
+    lengthHintUnknown:
+      "This model doesn't say how much it can read at once. If the chat gets too long, the earlier part is summarised then to make room.",
     lengthTitle: 'Conversation length',
     lengthExplain:
       'How much of what the model can read at once this conversation fills. When it fills up, the start is shortened so the chat can go on.',
+    lengthExplainUnknown:
+      "This model doesn't say how much it can read at once. If the chat gets too long, the start is shortened then so it can go on.",
     usedTitle: 'Used in this chat',
     wholeSession: 'Whole chat',
     thisRun: 'This run',

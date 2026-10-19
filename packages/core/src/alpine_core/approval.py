@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 #: Most diff lines put in a preview.
 MAX_PREVIEW_LINES = 200
 
-#: The ``state.root.extra_data`` key holding the conversation's "don't ask again" answers (``Remembered.to_data``).
+#: The conversation State's ``extra_data`` key holding its "don't ask again" answers (``Remembered.to_data``).
 REMEMBERED = "alpine_code.approvals"
 
 DECLINED = "The user declined this tool call."
@@ -38,7 +38,7 @@ SKIPPED = (
     " or find out another way."
 )
 
-#: The ``state.root.extra_data`` key holding auto mode's count of reviewer blocks in a row.
+#: The conversation State's ``extra_data`` key holding auto mode's count of reviewer blocks in a row.
 AUTO_REVIEW = "alpine_code.auto_review"
 
 #: Blocks in a row after which the user is asked instead of the reviewer.
@@ -115,6 +115,9 @@ class AsyncApprover(Protocol):
 #: Implemented by a frontend: ``approve`` or ``aapprove``. With both, ``aapprove`` is used.
 Approver = BlockingApprover | AsyncApprover
 
+#: The State that keeps a conversation's answers, or ``None`` before it has one.
+Conversation = Callable[[], State | None]
+
 
 def build_permissions(
     policy: PermissionPolicy,
@@ -122,12 +125,18 @@ def build_permissions(
     refusal: Callable[[ToolCall], str | None] | None = None,
     reviewer: Callable[[], Reviewer | None] | None = None,
     trusted: Sequence[TrustedSource] = (),
+    conversation: Conversation | None = None,
 ) -> list[Permission]:
     """The permissions for ``Agent(permissions=...)``, in the order alpineagents asks them. With ``refusal``, a call
     it gives a reason for is refused first (memory checks). ``reviewer`` gives the reviewer auto mode asks (read on
-    every call, so it can change with the session's model), with what the user said in ``trusted``."""
+    every call, so it can change with the session's model), with what the user said in ``trusted``.
+    ``conversation`` gives the State that keeps the answers, so runs other than the conversation's own share them."""
     first: list[Permission] = [RefuseByChecks(refusal)] if refusal is not None else []
-    return [*first, AllowByPolicy(policy), DecideByApprover(policy, approver, reviewer, trusted)]
+    return [
+        *first,
+        AllowByPolicy(policy, conversation),
+        DecideByApprover(policy, approver, reviewer, trusted, conversation),
+    ]
 
 
 class RefuseByChecks(DenyPermission):
@@ -150,11 +159,13 @@ class AllowByPolicy(AllowPermission):
     """Allows what the mode and the conversation's "don't ask again" answers allow. Passes on everything else,
     including files outside the working directory and secret files unless an answer covers them."""
 
-    def __init__(self, policy: PermissionPolicy) -> None:
+    def __init__(self, policy: PermissionPolicy, conversation: Conversation | None = None) -> None:
         self.policy = policy
+        self.conversation = conversation
 
     def check(self, state: State, call: ToolCall, tool: Tool) -> Allowed | None:
-        allowed = self.policy.evaluate(call.name, dict(call.args), tool, remembered(state)).allowed
+        home = _home(self.conversation, state)
+        allowed = self.policy.evaluate(call.name, dict(call.args), tool, remembered(home)).allowed
         return Allowed() if allowed else None
 
     async def acheck(self, state: State, call: ToolCall, tool: Tool) -> Allowed | None:
@@ -163,12 +174,14 @@ class AllowByPolicy(AllowPermission):
 
 class DecideByApprover(DecidePermission):
     """Asks the approver about a call, saying why it needs approval and what "don't ask again" would allow; an
-    ``allow_always`` answer is added to ``state.root.extra_data[REMEMBERED]``, so it is saved with the State. A call
-    the policy allows (``AllowByPolicy`` usually let it through already) runs without asking.
+    ``allow_always`` answer is added to the conversation State's ``extra_data[REMEMBERED]``, so it is saved with it.
+    A call the policy allows (``AllowByPolicy`` usually let it through already) runs without asking.
 
     In ``auto`` mode the reviewer answers first, except for memory guards. A block is told to the model and the run
     goes on. After ``BLOCKS_BEFORE_ASKING`` blocks in a row, or when the reviewer fails, the approver is asked
-    instead; any answer from the user starts the count again. The count is kept in ``state.root.extra_data``."""
+    instead; any answer from the user starts the count again. The count is kept in the conversation State too.
+
+    The conversation State is what ``conversation`` returns, else the State of the run being checked."""
 
     def __init__(
         self,
@@ -176,6 +189,7 @@ class DecideByApprover(DecidePermission):
         approver: Approver,
         reviewer: Callable[[], Reviewer | None] | None = None,
         trusted: Sequence[TrustedSource] = (),
+        conversation: Conversation | None = None,
     ) -> None:
         if not callable(getattr(approver, "aapprove", None)) and not callable(getattr(approver, "approve", None)):
             raise TypeError(f"approver {approver!r} has neither approve nor aapprove")
@@ -183,38 +197,41 @@ class DecideByApprover(DecidePermission):
         self.approver = approver
         self.reviewer = reviewer
         self.trusted = tuple(trusted)
+        self.conversation = conversation
 
     def check(self, state: State, call: ToolCall, tool: Tool) -> Allowed | Denied:
-        verdict, request = self._ask(state, call, tool)
+        home = _home(self.conversation, state)
+        verdict, request = self._ask(home, call, tool)
         if request is None:
             return Allowed()
         reviewer = self._reviewer(verdict)
         if reviewer is not None:
-            request, review = self._before_review(state, request)
+            request, review = self._before_review(home, request)
             if review:
                 outcome = asyncio.run(self._review(reviewer, state, request))
-                done, request = self._after_review(state, request, outcome)
+                done, request = self._after_review(home, request, outcome)
                 if done is not None:
                     return done
         decision = self.approver.approve(request)  # type: ignore[union-attr]
-        return self._answered(state, verdict, decision, reviewer is not None)
+        return self._answered(home, verdict, decision, reviewer is not None)
 
     async def acheck(self, state: State, call: ToolCall, tool: Tool) -> Allowed | Denied:
         aapprove = getattr(self.approver, "aapprove", None)
         if not callable(aapprove):
             return await super().acheck(state, call, tool)  # check on a worker thread
-        verdict, request = self._ask(state, call, tool)
+        home = _home(self.conversation, state)
+        verdict, request = self._ask(home, call, tool)
         if request is None:
             return Allowed()
         reviewer = self._reviewer(verdict)
         if reviewer is not None:
-            request, review = self._before_review(state, request)
+            request, review = self._before_review(home, request)
             if review:
                 outcome = await self._review(reviewer, state, request)
-                done, request = self._after_review(state, request, outcome)
+                done, request = self._after_review(home, request, outcome)
                 if done is not None:
                     return done
-        return self._answered(state, verdict, await aapprove(request), reviewer is not None)
+        return self._answered(home, verdict, await aapprove(request), reviewer is not None)
 
     def _ask(self, state: State, call: ToolCall, tool: Tool) -> tuple[Verdict, ApprovalRequest | None]:
         """The policy's verdict, and what to ask the user (``None`` when the call may run without asking)."""
@@ -272,7 +289,7 @@ class DecideByApprover(DecidePermission):
 
     def _decide(self, state: State, verdict: Verdict, decision: Decision) -> Allowed | Denied:
         if decision.kind == "allow_always" and verdict.grant is not None:
-            with state.root.edit_extra_data() as data:
+            with state.edit_extra_data() as data:
                 grants = Remembered.from_data(data.get(REMEMBERED))
                 grants.add(verdict.grant)
                 data[REMEMBERED] = grants.to_data()
@@ -286,15 +303,15 @@ class DecideByApprover(DecidePermission):
 
 
 def blocks_in_a_row(state: State) -> int:
-    """How many calls auto mode's reviewer blocked in a row in ``state``'s conversation."""
-    data = state.root.extra_data.get(AUTO_REVIEW) or {}
+    """How many calls auto mode's reviewer blocked in a row in the conversation ``state``."""
+    data = state.extra_data.get(AUTO_REVIEW) or {}
     return int(data.get("blocks_in_a_row", 0))
 
 
 def _set_blocks(state: State, count: int) -> None:
     if blocks_in_a_row(state) == count:
         return
-    with state.root.edit_extra_data() as data:
+    with state.edit_extra_data() as data:
         data[AUTO_REVIEW] = {"blocks_in_a_row": count}
 
 
@@ -307,9 +324,15 @@ def _failure(error: Exception) -> str:
     return text if len(text) <= 200 else text[:199] + "…"
 
 
+def _home(conversation: Conversation | None, state: State) -> State:
+    """The State keeping the answers: the conversation's when it has one, else the run's own."""
+    home = conversation() if conversation is not None else None
+    return state if home is None else home
+
+
 def remembered(state: State) -> Remembered:
-    """What the user allowed with "don't ask again" in ``state``'s conversation."""
-    return Remembered.from_data(state.root.extra_data.get(REMEMBERED))
+    """What the user allowed with "don't ask again" in the conversation ``state``."""
+    return Remembered.from_data(state.extra_data.get(REMEMBERED))
 
 
 def describe(

@@ -1,4 +1,5 @@
 """Development servers share managed terminal processes and outlive frontend navigation."""
+
 from __future__ import annotations
 
 import asyncio
@@ -16,8 +17,9 @@ from .processes import process_manager
 
 async def _command(*args: str) -> str:
     try:
-        child = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE,
-                                                     stderr=asyncio.subprocess.DEVNULL)
+        child = await asyncio.create_subprocess_exec(
+            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL
+        )
         stdout, _ = await asyncio.wait_for(child.communicate(), 3)
         return stdout.decode(errors="replace").strip()
     except OSError:
@@ -30,6 +32,7 @@ async def _command(*args: str) -> str:
 
 async def listener(port: int) -> dict[str, Any] | None:
     """Probe loopback first. Unknown ownership remains a conflict, never permission to kill/reuse."""
+
     def connected() -> bool:
         for host in ("127.0.0.1", "::1"):
             try:
@@ -106,9 +109,16 @@ class DevelopmentServer:
                 status = "stopped" if state.get("cancelled") or state.get("exit_code") in (0, None) else "failed"
             elif state.get("status") == "stopping":
                 status = "stopping"
-        return {"id": self.id, "cwd": self.cwd, "command": self.command, "port": self.port,
-                "url": f"http://localhost:{self.port}" if status == "running" else None,
-                "process_id": self.process_id, "external": self.external, "status": status}
+        return {
+            "id": self.id,
+            "cwd": self.cwd,
+            "command": self.command,
+            "port": self.port,
+            "url": f"http://localhost:{self.port}" if status == "running" else None,
+            "process_id": self.process_id,
+            "external": self.external,
+            "status": status,
+        }
 
 
 class DevelopmentServerManager:
@@ -116,8 +126,9 @@ class DevelopmentServerManager:
         self.servers: dict[str, DevelopmentServer] = {}
         self._lock = asyncio.Lock()
 
-    async def start(self, cwd: str, command: str, port: int, *, session_id: str | None = None,
-                    reuse: bool = False) -> dict[str, Any]:
+    async def start(
+        self, cwd: str, command: str, port: int, *, session_id: str | None = None, reuse: bool = False
+    ) -> dict[str, Any]:
         project = Path(cwd).expanduser().resolve(strict=True)
         if not project.is_dir() or not command.strip():
             raise ValueError("Choose a project folder and a server command")
@@ -134,14 +145,23 @@ class DevelopmentServerManager:
                 conflict["can_reuse"] = conflict["cwd"] is not None and Path(conflict["cwd"]).resolve() == project
                 if not reuse or not conflict["can_reuse"]:
                     return {"conflict": conflict}
-                server = DevelopmentServer(uuid.uuid4().hex, str(project), command, port,
-                                           external=True, external_pid=conflict["pid"])
+                server = DevelopmentServer(
+                    uuid.uuid4().hex, str(project), command, port, external=True, external_pid=conflict["pid"]
+                )
             else:
                 # PORT is supplied for servers that support it; explicit CLI flags still take precedence.
-                process = await process_manager().start(f"PORT={port} {command}", project,
-                                                        session_id=session_id, title=f"Dev server :{port}")
-                server = DevelopmentServer(uuid.uuid4().hex, str(project), command, port,
-                                           process_id=process.id, session_id=session_id, requested_port=port)
+                process = await process_manager().start(
+                    f"PORT={port} {command}", project, session_id=session_id, title=f"Dev server :{port}"
+                )
+                server = DevelopmentServer(
+                    uuid.uuid4().hex,
+                    str(project),
+                    command,
+                    port,
+                    process_id=process.id,
+                    session_id=session_id,
+                    requested_port=port,
+                )
             self.servers[server.id] = server
             return {"server": await server.snapshot()}
 
@@ -155,8 +175,14 @@ class DevelopmentServerManager:
             for port in _loopback_ports(process):
                 owner = await listener(port)
                 if owner and _owned_by(owner, state["pid"]):
-                    server = DevelopmentServer(uuid.uuid4().hex, project, state["command"], port,
-                                               process_id=process.id, session_id=state["session_id"])
+                    server = DevelopmentServer(
+                        uuid.uuid4().hex,
+                        project,
+                        state["command"],
+                        port,
+                        process_id=process.id,
+                        session_id=state["session_id"],
+                    )
                     self.servers[server.id] = server
                     registered.add(process.id)
                     break

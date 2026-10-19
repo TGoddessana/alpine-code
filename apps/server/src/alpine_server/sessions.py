@@ -36,6 +36,7 @@ from alpine_core import (
     import_session,
     list_sessions,
 )
+from alpine_core.taskforce.team import TaskForce
 from alpine_core.work_changes import checkpoint_changes
 from alpine_protocol import (
     SESSION_NOT_FOUND,
@@ -75,13 +76,19 @@ from alpine_protocol import (
     SessionSetModelResult,
     SessionSetModeParams,
     SessionSetModeResult,
+    TaskForceAgentParams,
+    TaskForceParams,
+    TaskForceRecordResult,
+    TaskForceResult,
+    TaskForceResumeParams,
+    TaskForceStopAgentResult,
     ToolsListParams,
     ToolsListResult,
 )
 
 from . import map_state
 from .agents import agents
-from .methods import APP_ERROR, MethodError
+from .methods import APP_ERROR, INVALID_PARAMS, MethodError
 from .skills import skills
 from .tools import list_tools, toolbox
 from .wire import to_event_params, to_info, to_item
@@ -167,6 +174,14 @@ class SessionManager:
             "session/delete": self.delete,
             "session/importable": self.importable,
             "session/import": self.import_,
+            "taskforce/start": self.taskforce_start,
+            "taskforce/decline": self.taskforce_decline,
+            "taskforce/stop": self.taskforce_stop,
+            "taskforce/allowMore": self.taskforce_allow_more,
+            "taskforce/resume": self.taskforce_resume,
+            "taskforce/takeResults": self.taskforce_take_results,
+            "taskforce/stopAgent": self.taskforce_stop_agent,
+            "taskforce/record": self.taskforce_record,
             "tools/list": self.list_tools,
         }
 
@@ -176,8 +191,10 @@ class SessionManager:
         return [Builtins(Workspace(project)), self.memories.of(project), toolbox()]
 
     async def shutdown(self) -> None:
-        """Stops every running session, so each is saved ending in ``run_stopped: interrupted``."""
+        """Stops every running session, so each is saved ending in ``run_stopped: interrupted``, and every TF, so
+        it can be continued."""
         await asyncio.gather(*(self._stop(live) for live in list(self._live.values())))
+        await asyncio.gather(*(live.session.aclose() for live in list(self._live.values())))
 
     # ------------------------------------------------------------ methods
 
@@ -209,10 +226,11 @@ class SessionManager:
                 model=params.model,
                 memories=self.memories,
                 skills=skills(),
+                taskforce=True,
             )
         except ConfigError as e:
             raise MethodError(APP_ERROR, str(e), "invalid_config") from e
-        self._live[session.id] = _Live(session, approver)
+        self._live[session.id] = self._keep(session, approver)
         # The constructor announces nothing, so this is what tells the windows the session exists.
         self._on_item_event(session.id, session.seq, InfoChanged(session.info))
         return SessionNewResult(info=to_info(session.info))
@@ -273,6 +291,10 @@ class SessionManager:
 
     async def answer(self, params: SessionAnswerParams) -> SessionAnswerResult:
         live = self._get(params.session_id)
+        if params.agent is not None:
+            if params.decision != "deny":
+                raise MethodError(INVALID_PARAMS, "Only a decline can answer one agent's call")
+            return SessionAnswerResult(accepted=live.session.taskforce.decline_one(params.request_id, params.agent))
         decision = Decision(params.decision, params.feedback)
         return SessionAnswerResult(accepted=live.approver.answer(params.request_id, decision))
 
@@ -351,6 +373,7 @@ class SessionManager:
     async def delete(self, params: SessionDeleteParams) -> SessionDeleteResult:
         live = self._get(params.session_id)
         await self._stop(live)
+        await live.session.aclose()
         live.session.delete()
         self._live.pop(params.session_id, None)
         return SessionDeleteResult()
@@ -394,6 +417,55 @@ class SessionManager:
         session = self._get(info.id).session
         self._on_item_event(session.id, session.seq, InfoChanged(session.info))
         return SessionImportResult(info=to_info(session.info))
+
+    # ------------------------------------------------------------ TF
+
+    async def taskforce_start(self, params: TaskForceParams) -> TaskForceResult:
+        return self._taskforce(params, lambda tf: tf.start(params.run_id))
+
+    async def taskforce_decline(self, params: TaskForceParams) -> TaskForceResult:
+        return self._taskforce(params, lambda tf: tf.decline(params.run_id))
+
+    async def taskforce_stop(self, params: TaskForceParams) -> TaskForceResult:
+        return self._taskforce(params, lambda tf: tf.stop(params.run_id))
+
+    async def taskforce_allow_more(self, params: TaskForceParams) -> TaskForceResult:
+        return self._taskforce(params, lambda tf: tf.allow_more(params.run_id))
+
+    async def taskforce_resume(self, params: TaskForceResumeParams) -> TaskForceResult:
+        return self._taskforce(params, lambda tf: tf.resume(params.run_id, fresh=params.fresh))
+
+    async def taskforce_take_results(self, params: TaskForceParams) -> TaskForceResult:
+        return self._taskforce(params, lambda tf: tf.take_results(params.run_id))
+
+    async def taskforce_stop_agent(self, params: TaskForceAgentParams) -> TaskForceStopAgentResult:
+        stopped = False
+
+        def stop(tf: TaskForce) -> None:
+            nonlocal stopped
+            stopped = tf.stop_member(params.run_id, params.member_id)
+
+        self._taskforce(params, stop)
+        return TaskForceStopAgentResult(stopped=stopped)
+
+    async def taskforce_record(self, params: TaskForceAgentParams) -> TaskForceRecordResult:
+        items: list[Any] = []
+
+        def read(tf: TaskForce) -> None:
+            items.extend(tf.record(params.run_id, params.member_id))
+
+        self._taskforce(params, read)
+        return TaskForceRecordResult(items=[to_item(item) for item in items])
+
+    def _taskforce(self, params: TaskForceParams, action: Callable[[TaskForce], None]) -> TaskForceResult:
+        tf = self._get(params.session_id).session.taskforce
+        try:
+            action(tf)
+        except LookupError as e:
+            raise MethodError(APP_ERROR, str(e), "taskforce_not_found") from e
+        except ValueError as e:
+            raise MethodError(APP_ERROR, str(e), "taskforce_state") from e
+        return TaskForceResult()
 
     # ------------------------------------------------------------ internals
 
@@ -449,17 +521,39 @@ class SessionManager:
                 tools=self.tool_sources,
                 memories=self.memories,
                 skills=skills(),
+                taskforce=True,
             )
         except LookupError as e:
             raise MethodError(SESSION_NOT_FOUND, f"No such session: {session_id}") from e
         except (ConfigError, ValueError) as e:
             raise MethodError(APP_ERROR, f"Cannot open session {session_id}: {e}", "invalid_config") from e
-        live = self._live[session_id] = _Live(session, approver)
+        live = self._live[session_id] = self._keep(session, approver)
         return live
 
-    async def _run(self, live: _Live, text: str) -> None:
+    def _keep(self, session: Session, approver: _Approver) -> _Live:
+        """A live session; a turn it asks for itself (a TF's result) runs as its task, after the one running."""
+        live = _Live(session, approver)
+
+        def turn(notice: str) -> None:
+            before = live.task
+            live.task = asyncio.create_task(self._notice_turn(live, notice, before))
+
+        session.on_turn = turn
+        return live
+
+    async def _notice_turn(self, live: _Live, notice: str, before: asyncio.Task[None] | None) -> None:
         try:
-            await live.session.asend(text)
+            if before is not None and not before.done():
+                await asyncio.wait({before})
+        except asyncio.CancelledError:
+            if before is not None:
+                before.cancel()
+            raise
+        await self._run(live, notice, notice="taskforce")
+
+    async def _run(self, live: _Live, text: str, *, notice: str | None = None) -> None:
+        try:
+            await live.session.asend(text, notice=notice)
         except asyncio.CancelledError:
             pass  # the session closed its items and saved itself; the task simply ends
         except Exception:

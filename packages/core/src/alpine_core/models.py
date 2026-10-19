@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import json
+import urllib.error
+import urllib.request
 from enum import StrEnum
 from typing import Any
 
 import anthropic
 import openai
 from alpineagents import Anthropic, Model, OpenAICompatible
+from alpineagents.models.anthropic import DEFAULT_MAX_TOKENS as ANTHROPIC_DEFAULT_MAX_TOKENS
 
-from .catalog import output_limit, saved_catalog
+from .catalog import is_local, saved_catalog
 from .chatgpt import ChatGPTError, ChatGPTModel, ChatGPTTokens, PlanUsageOff, SignInNeeded, fetch_models, is_chatgpt
 from .config import ConfigError, Connection, Settings
+from .context import ContextLimits, limits_for, remember, save_reported
 from .providers import Api
 
 _HOW_TO_SET = (
@@ -25,48 +30,64 @@ _HOW_TO_SET = (
     "or pass --model."
 )
 
-#: Most tokens one reply of a Claude model may write, unless the model allows fewer. The adapter's own default
-#: (8192) runs out when a reply thinks and then writes several files at once, as a product map's cards do; the
-#: adapter streams, so a larger limit does not run into request timeouts.
-ANTHROPIC_OUTPUT_LIMIT = 64000
-
 
 def make_model(settings: Settings) -> Model | str:
-    """A Model object, or a ``provider/model`` string for alpineagents to resolve."""
+    """A Model object, or a ``provider/model`` string for alpineagents to resolve. The window it was given and its
+    tidy point are kept for ``context.limits_of``."""
     name = settings.model
     if not name:
         raise ConfigError("No model is set.\n" + _HOW_TO_SET)
-    window = {"context_window": settings.context_window} if settings.context_window else {}
     if settings.base_url:
-        return OpenAICompatible(
-            name, base_url=settings.base_url, api_key=settings.api_key, max_tokens=settings.output_limit, **window
+        limits = ContextLimits(settings.context_window, reply=settings.output_limit)
+        adapter = OpenAICompatible(
+            name,
+            base_url=settings.base_url,
+            api_key=settings.api_key,
+            max_tokens=settings.output_limit,
+            **_window(limits),
         )
+        return remember(adapter, limits)
+    catalog = saved_catalog()
     prefix, _, model = name.partition("/")
     connection = settings.connections.get(prefix)
     if connection is not None:
         if not model:
             raise ConfigError(f"No model after the connection name: write {prefix}/<model>")
         if is_chatgpt(connection):
-            return ChatGPTModel(model, chatgpt_tokens(settings, connection), context_window=settings.context_window)
+            written = connection.models.get(model)
+            window = written.context_window if written else None
+            return ChatGPTModel(model, chatgpt_tokens(settings, connection), context_window=window)
         key = settings.api_key_for(connection)
         if connection.api is Api.ANTHROPIC:
-            limit = _anthropic_output_limit(settings, model)
-            return Anthropic(model, api_key=key, base_url=connection.url, max_tokens=limit, **window)
-        return OpenAICompatible(model, base_url=connection.url, api_key=key, max_tokens=settings.output_limit, **window)
+            limits = limits_for(connection, prefix, model, catalog, reply=_anthropic_reply(settings))
+            adapter = Anthropic(
+                model, api_key=key, base_url=connection.url, max_tokens=settings.output_limit, **_window(limits)
+            )
+            return remember(adapter, limits)
+        limits = limits_for(connection, prefix, model, catalog, reply=settings.output_limit)
+        adapter = OpenAICompatible(
+            model, base_url=connection.url, api_key=key, max_tokens=settings.output_limit, **_window(limits)
+        )
+        return remember(adapter, limits)
     if prefix == "anthropic" and model:
-        return Anthropic(model, max_tokens=_anthropic_output_limit(settings, model), **window)
+        limits = limits_for(None, prefix, model, catalog, reply=_anthropic_reply(settings))
+        return remember(Anthropic(model, max_tokens=settings.output_limit, **_window(limits)), limits)
     if prefix == "openai" and model:
-        return OpenAICompatible(model, max_tokens=settings.output_limit, **window)
+        limits = limits_for(None, prefix, model, catalog, reply=settings.output_limit)
+        return remember(OpenAICompatible(model, max_tokens=settings.output_limit, **_window(limits)), limits)
     return name
 
 
-def _anthropic_output_limit(settings: Settings, model: str) -> int:
-    """``output_limit`` when set, else ``ANTHROPIC_OUTPUT_LIMIT``, or less for a model the saved catalog knows to
-    allow less (an older Claude rejects a larger ``max_tokens``)."""
-    if settings.output_limit:
-        return settings.output_limit
-    allowed = output_limit("anthropic", model, saved_catalog())
-    return min(allowed, ANTHROPIC_OUTPUT_LIMIT) if allowed else ANTHROPIC_OUTPUT_LIMIT
+def _window(limits: ContextLimits) -> dict[str, int]:
+    """The adapter's ``context_window=``; an unknown window leaves the adapter's own guess, which the loop does not
+    tidy by (``context.limits_of`` says unknown)."""
+    return {"context_window": limits.window} if limits.window else {}
+
+
+def _anthropic_reply(settings: Settings) -> int:
+    """The reply room the window keeps free: ``output_limit`` when set, else what alpineagents sends (64000, or the
+    model's own lower limit, which only makes the reserve a little larger than needed)."""
+    return settings.output_limit or ANTHROPIC_DEFAULT_MAX_TOKENS
 
 
 def chatgpt_tokens(settings: Settings, connection: Connection) -> ChatGPTTokens:
@@ -112,11 +133,79 @@ def _can_run_an_agent(info: dict[str, Any]) -> bool:
     return not isinstance(category, str) or category.upper() == "LLM"
 
 
+def _reported_window(info: dict[str, Any]) -> int | None:
+    """The window a server put in a model's entry of its list: OpenRouter's ``context_length``, vLLM's
+    ``max_model_len``, LM Studio's ``max_context_length`` or the loaded instance's ``context_length``."""
+    loaded = info.get("loaded_instances")
+    for instance in loaded if isinstance(loaded, list) else []:
+        config = instance.get("config") if isinstance(instance, dict) else None
+        if isinstance(config, dict) and _tokens(config.get("context_length")):
+            return _tokens(config["context_length"])
+    for key in ("loaded_context_length", "context_length", "max_model_len", "max_context_length", "context_window"):
+        if _tokens(info.get(key)):
+            return _tokens(info[key])
+    top = info.get("top_provider")
+    return _tokens(top.get("context_length")) if isinstance(top, dict) else None
+
+
+def _tokens(value: Any) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
+
+def _local_windows(url: str, models: list[str], timeout: float) -> dict[str, int | None]:
+    """Windows a server on this computer tells on its own API, not on ``/v1/models``: LM Studio's ``/api/v1/models``
+    (``/api/v0/models`` before 0.4), then Ollama's ``/api/show`` per model (``num_ctx`` when the model sets it,
+    else ``<arch>.context_length``). A server that answers neither gets nothing."""
+    root = url.rstrip("/").removesuffix("/v1")
+    for path in ("/api/v1/models", "/api/v0/models"):
+        listed = _get_json(root + path, None, timeout)
+        entries = listed.get("models", listed.get("data")) if isinstance(listed, dict) else None
+        if isinstance(entries, list):
+            found = {
+                str(e.get("id") or e.get("key")): _reported_window(e)
+                for e in entries
+                if isinstance(e, dict) and (e.get("id") or e.get("key"))
+            }
+            return {m: found.get(m) for m in models}
+    windows: dict[str, int | None] = {}
+    for model in models:
+        shown = _get_json(root + "/api/show", {"model": model}, timeout)
+        if not isinstance(shown, dict):
+            break  # not Ollama, or it is gone
+        windows[model] = _ollama_window(shown)
+    return windows
+
+
+def _ollama_window(shown: dict[str, Any]) -> int | None:
+    parameters = shown.get("parameters")
+    for line in parameters.splitlines() if isinstance(parameters, str) else []:
+        name, _, value = line.strip().partition(" ")
+        if name == "num_ctx" and value.strip().isdigit():
+            return _tokens(int(value.strip()))
+    info = shown.get("model_info")
+    if isinstance(info, dict):
+        return next((_tokens(v) for k, v in info.items() if k.endswith(".context_length") and _tokens(v)), None)
+    return None
+
+
+def _get_json(url: str, body: dict[str, Any] | None, timeout: float) -> Any:
+    """The JSON answer of a GET (or, with ``body``, a POST), or ``None`` when there is none."""
+    data = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read())
+    except (OSError, urllib.error.URLError, ValueError):
+        return None
+
+
 def list_models(
     connection: Connection, api_key: str | None, *, tokens: ChatGPTTokens | None = None, timeout: float = 15
 ) -> list[str]:
     """The model ids the connection offers, which also checks its key. A ChatGPT connection needs ``tokens``
     instead of ``api_key``, and lists its models in OpenAI's order.
+
+    The windows the server reports for its models are kept for ``make_model`` (``context.save_reported``).
 
     Raises:
         ModelListError: The list could not be read.
@@ -132,12 +221,7 @@ def list_models(
         except ChatGPTError as e:
             raise ModelListError(kind.OTHER, str(e)) from e
     try:
-        if connection.api is Api.ANTHROPIC:
-            client = anthropic.Anthropic(api_key=api_key, base_url=connection.url, timeout=timeout, max_retries=0)
-            return [m.id for m in client.models.list(limit=1000)]
-        # Local servers need no key, but the SDK refuses to start without one.
-        client = openai.OpenAI(api_key=api_key or "not-needed", base_url=connection.url, timeout=timeout, max_retries=0)
-        return sorted(m.id for m in client.models.list() if _can_run_an_agent(m.model_extra or {}))
+        windows = _list(connection, api_key, timeout)
     except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as e:
         raise ModelListError(kind.AUTH, str(e)) from e
     except (openai.AuthenticationError, openai.PermissionDeniedError) as e:
@@ -148,3 +232,18 @@ def list_models(
         raise ModelListError(kind.UNSUPPORTED, str(e)) from e
     except (anthropic.AnthropicError, openai.OpenAIError) as e:
         raise ModelListError(kind.OTHER, str(e)) from e
+    if connection.url and is_local(connection.url) and not any(windows.values()):
+        windows.update(_local_windows(connection.url, list(windows), min(timeout, 3)))
+    save_reported(connection.name, windows)
+    return list(windows)
+
+
+def _list(connection: Connection, api_key: str | None, timeout: float) -> dict[str, int | None]:
+    """The models by id, in the order shown, with the window the server reported for each."""
+    if connection.api is Api.ANTHROPIC:
+        client = anthropic.Anthropic(api_key=api_key, base_url=connection.url, timeout=timeout, max_retries=0)
+        return {m.id: _tokens(m.max_input_tokens) for m in client.models.list(limit=1000)}
+    # Local servers need no key, but the SDK refuses to start without one.
+    client = openai.OpenAI(api_key=api_key or "not-needed", base_url=connection.url, timeout=timeout, max_retries=0)
+    listed = [(m.id, m.model_extra or {}) for m in client.models.list()]
+    return {name: _reported_window(extra) for name, extra in sorted(listed) if _can_run_an_agent(extra)}

@@ -103,6 +103,8 @@ class ErrorData(Message):
         "not_owned",
         "invalid",
         "import_failed",
+        "taskforce_not_found",
+        "taskforce_state",
     ]
     """Skills: ``unknown_source`` (not a link, path or ``owner/repo``), ``offline`` (the source cannot be reached),
     ``too_big``, ``bad_archive`` (a damaged or unsafe archive), ``no_skills`` (nothing there, or not the one named),
@@ -123,7 +125,8 @@ no agent has the id. ``model_failed``: the model call behind a draft failed.
 over is gone. ``import_failed``: that conversation could not be read or has nothing to carry over.
 ``memory_full``: the scope filled up since the suggestion was made; the message says how full. ``map_read_only``:
 the product map was written by a newer Alpine, so this one does not write it. ``reason_required``: 안 고침 needs a
-one-line reason. ``replay_changed``: the re-run command changed after the user saw it."""
+one-line reason. ``replay_changed``: the re-run command changed after the user saw it. ``taskforce_not_found``: the
+session has no such TF. ``taskforce_state``: the TF is not in a state for that action (started twice, say)."""
 
 
 # Model connections: where models come from. Keys are write-only; the app never reads one back.
@@ -947,6 +950,10 @@ class SessionInfo(Message):
     """Tokens the conversation takes of the model's context window."""
     context_window: int | None
     """The model's context window in tokens; ``None`` if unknown."""
+    context_tidy_at: int | None
+    """The length in tokens past which the conversation is tidied (near the window's end, or before a price step);
+    the context pie is full there. ``None`` when the window is unknown: the conversation grows until the provider
+    refuses it."""
     activity: Activity | None
     """What the session is doing; ``None`` when idle."""
     run_started_at: datetime | None
@@ -1027,6 +1034,22 @@ class ToolCallItem(ItemModel):
     """Cumulative actual session changes. None in old records or when collection was unavailable."""
 
 
+class AgentAsk(ItemModel):
+    """One TF agent's call on an approval card: a card groups the agents that ask the same question, and shows each
+    one's call under its task."""
+
+    agent: str
+    """The agent's id in its TF; ``session/answer`` names it to decline only this call."""
+    task: str
+    """What the agent does, in the TF script's words."""
+    call_id: str
+    title: str
+    preview: str | None = None
+    preview_kind: Literal["command", "diff", "text"] | None = None
+    tool: str = ""
+    args: dict[str, Any] = Field(default_factory=dict)
+
+
 class ApprovalItem(ItemModel):
     id: str
     """The ``requestId`` of ``session/answer``."""
@@ -1049,6 +1072,9 @@ class ApprovalItem(ItemModel):
     """In auto mode, why the user is asked instead of the reviewer: it blocked 3 calls in a row, or it failed."""
     review_error: str | None = None
     """What went wrong when ``review`` is ``failed``, in the error's own words."""
+    asked_by: list[AgentAsk] = Field(default_factory=list)
+    """The TF agents waiting for this answer, each with its own call: several when they asked the same thing (the
+    same "don't ask again" rule). Empty when the session's own model asks."""
 
 
 class ReviewBlockedItem(ItemModel):
@@ -1093,10 +1119,16 @@ class MemoryReviewItem(ItemModel):
 
 
 class CompactionItem(ItemModel):
+    """The conversation was tidied: old tool results cleared, then, if that was not enough, summarized."""
+
     id: str
     kind: Literal["compaction"] = "compaction"
     before_tokens: int
     after_tokens: int
+    summary: str | None = None
+    """What the model keeps of the older conversation; ``None`` when it was not summarized."""
+    cleared: int = 0
+    """How many old tool results were cleared."""
 
 
 class RunStoppedItem(ItemModel):
@@ -1151,6 +1183,71 @@ class ImportedItem(ItemModel):
     source: ImportSource
 
 
+TaskForceStatus = Literal[
+    "proposed", "declined", "running", "over", "stopping", "done", "stopped", "failed", "interrupted"
+]
+"""``proposed``: waits for 시작 or 혼자 하기. ``over``: the script wants more agents than the plan (``needed``).
+``stopping``: no new agents, working ones finish their reply. ``interrupted``: the app closed mid-run; it can continue
+(``taskforce/resume``) or hand over what finished (``taskforce/takeResults``)."""
+
+
+class TaskForceStep(Message):
+    """One step of the plan the card shows."""
+
+    title: str
+    count: int
+    model: str
+
+
+class TaskForceMember(Message):
+    """One agent of a TF, as the room and the agent list draw it."""
+
+    id: str
+    step: str
+    """The step it belongs to (a ``TaskForceStep.title`` when the script follows its plan)."""
+    task: str
+    """What it does, in the script's words (a topic, a file)."""
+    agent: str
+    """The name of the user's agent it works as; empty for the default agent never renamed."""
+    look: AgentLook
+    color: int
+    model: str
+    state: Literal["queued", "working", "asking", "done", "failed", "stopped"]
+    activity: Literal["thinking", "writing", "read", "search", "edit", "run", "tool"] | None = None
+    turn: int = 0
+    source: str | None = None
+    """The member whose answer it got: it walks over to hand it."""
+    cached: bool = False
+    """Answered from an earlier run of the script."""
+    error: str | None = None
+    """Why a ``failed`` member did not finish, as the error said it (a provider error, an answer that was not the
+    JSON asked for)."""
+    retried: str | None = None
+    """The first error, when the agent was started over from its prompt after a provider error (once)."""
+
+
+class TaskForceItem(ItemModel):
+    """A TF: the session's model proposed it, then the user starts it and its agents work. Sent again with the same
+    id (``item_started``) as it changes; completed when it is over."""
+
+    id: str
+    kind: Literal["taskforce"] = "taskforce"
+    title: str
+    steps: list[TaskForceStep]
+    minutes: int
+    status: TaskForceStatus
+    members: list[TaskForceMember] = Field(default_factory=list)
+    step: str = ""
+    """The step the script is in."""
+    log: str | None = None
+    """The script's latest line for the user."""
+    needed: int | None = None
+    """While ``over``: how many agents the script wants in all."""
+    error: str | None = None
+    started_at: datetime | None = None
+    """When the user pressed 시작 (or 이어 하기); ``None`` before."""
+
+
 Item = Annotated[
     UserMessageItem
     | AgentMessageItem
@@ -1164,9 +1261,45 @@ Item = Annotated[
     | RunStoppedItem
     | AgentSwitchedItem
     | AgentChangedItem
-    | ImportedItem,
+    | ImportedItem
+    | TaskForceItem,
     Field(discriminator="kind"),
 ]
+
+
+class TaskForceParams(Message):
+    """Names a TF of a session. ``taskforce/start`` (시작), ``taskforce/decline`` (혼자 하기), ``taskforce/stop``
+    (멈추기, 여기까지 결과 받기), ``taskforce/allowMore`` (more agents than planned) and ``taskforce/takeResults``
+    (after the app closed mid-run) take only this. A TF not in a state for the action fails with
+    ``taskforce_state``; an unknown one with ``taskforce_not_found``."""
+
+    session_id: str
+    run_id: str
+
+
+class TaskForceResult(Message):
+    pass
+
+
+class TaskForceResumeParams(TaskForceParams):
+    """이어 하기 after the app closed mid-run."""
+
+    fresh: bool = False
+    """Start over instead of reusing the agents that finished."""
+
+
+class TaskForceAgentParams(TaskForceParams):
+    member_id: str
+
+
+class TaskForceStopAgentResult(Message):
+    stopped: bool
+    """``False`` if the agent had already ended."""
+
+
+class TaskForceRecordResult(Message):
+    items: list[Item]
+    """What the agent did, drawn like a session's items. Read-only."""
 
 
 class SessionNewParams(Message):
@@ -1229,6 +1362,9 @@ class SessionAnswerParams(Message):
     decision: Literal["allow", "allow_always", "deny"]
     feedback: str | None = None
     """With ``deny``: tells the model what to do instead; without it a denial stops the turn."""
+    agent: str | None = None
+    """With ``deny`` on a card TF agents ask: declines only this agent's call (an ``AgentAsk.agent``); the agent goes
+    on without it and the card stays for the others."""
 
 
 class SessionAnswerResult(Message):
@@ -2210,6 +2346,14 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "session/delete": (SessionDeleteParams, SessionDeleteResult),
     "session/importable": (SessionImportableParams, SessionImportableResult),
     "session/import": (SessionImportParams, SessionImportResult),
+    "taskforce/start": (TaskForceParams, TaskForceResult),
+    "taskforce/decline": (TaskForceParams, TaskForceResult),
+    "taskforce/stop": (TaskForceParams, TaskForceResult),
+    "taskforce/allowMore": (TaskForceParams, TaskForceResult),
+    "taskforce/resume": (TaskForceResumeParams, TaskForceResult),
+    "taskforce/takeResults": (TaskForceParams, TaskForceResult),
+    "taskforce/stopAgent": (TaskForceAgentParams, TaskForceStopAgentResult),
+    "taskforce/record": (TaskForceAgentParams, TaskForceRecordResult),
 }
 
 #: Every notification the server sends: name -> params.

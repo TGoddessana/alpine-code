@@ -31,6 +31,7 @@ const approval = (id: string, callId: string, over: Partial<ApprovalItem> = {}):
   feedback: null,
   review: null,
   reviewError: null,
+  askedBy: [],
   tool: 'bash',
   args: {},
   ...over,

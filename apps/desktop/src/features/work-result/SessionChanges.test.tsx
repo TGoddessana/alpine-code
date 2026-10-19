@@ -3,7 +3,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, expect, it } from 'vitest';
 
 import { LocaleProvider } from '@/shared/i18n';
-import { scriptedConnection, ServerProvider, sessionInfo, type Script } from '@/shared/server';
+import { taskForceAt } from '@/shared/components/taskforce/fixtures';
+import { scriptedConnection, ServerProvider, sessionInfo, type Script, type ScriptContext } from '@/shared/server';
 
 import { SessionChanges } from './SessionChanges';
 
@@ -82,4 +83,41 @@ it('lets the user retry a checkpoint read failure', async () => {
   await screen.findByRole('alert');
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   expect(await screen.findByText('No checkpoints have been saved yet.')).toBeTruthy();
+});
+it("reads the changes again as a TF's agents work between the session's turns", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  clients.push(client);
+  let reads = 0;
+  let context: ScriptContext | null = null;
+  render(
+    <QueryClientProvider client={client}>
+      <ServerProvider
+        connection={scriptedConnection({
+          results: {
+            'session/open': {
+              info: sessionInfo({ id: 'work', cwd: '/project' }),
+              seq: 0,
+              items: [],
+              active: [taskForceAt(3)],
+            },
+            'session/changes': (_, scripted) => {
+              reads += 1;
+              context = scripted;
+              return { available: false, checkpoints: [], files: [] };
+            },
+          },
+        })}
+      >
+        <LocaleProvider locale="en">
+          <SessionChanges sessionId="work" result={{ files: [], commands: [] }} />
+        </LocaleProvider>
+      </ServerProvider>
+    </QueryClientProvider>,
+  );
+  await waitFor(() => expect(reads).toBe(1));
+  context!.emit({
+    method: 'session/event',
+    params: { sessionId: 'work', seq: 1, event: { type: 'item_started', item: taskForceAt(10) } },
+  });
+  await waitFor(() => expect(reads).toBe(2));
 });

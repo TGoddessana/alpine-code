@@ -1,4 +1,4 @@
-import type { SessionEventParams, ToolCallItem } from '@alpine/protocol';
+import type { AgentAsk, SessionEventParams, ToolCallItem } from '@alpine/protocol';
 import { describe, expect, it } from 'vitest';
 
 import { sessionInfo } from './sessionScript';
@@ -115,6 +115,7 @@ describe('applyEvent', () => {
       feedback: null,
       review: null,
       reviewError: null,
+      askedBy: [] as AgentAsk[],
       tool: 'bash',
       args: {},
     } as const;

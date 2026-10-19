@@ -6,8 +6,7 @@ Config file: ``~/.alpine-code/config.toml`` (see ``home_dir``)::
     # mode = "default"                             # default | accept_edits | auto | yolo
     # review_model = "openrouter/qwen3"           # auto mode's reviewer; unset: the session's model
     # clone_folder = "~/Developments"              # where the app puts repositories; unset: ~/AlpineCode
-    # context_window = 128000
-    # output_limit = 64000                         # most tokens one reply may write; unset: models.py picks
+    # output_limit = 64000                         # most tokens one reply may write; unset: alpineagents picks
 
     [connections.anthropic]
     provider = "anthropic"                         # a provider from providers.py
@@ -17,11 +16,16 @@ Config file: ``~/.alpine-code/config.toml`` (see ``home_dir``)::
     # show = ["qwen3"]                             # models the picker shows or hides besides its defaults
     # hide = ["qwen3-4b"]                          # (catalog.py)
 
+    # [connections.local.models."qwen3"]          # one model's settings
+    # context_window = 131072                      # tokens it reads at once; unset: what the server or the
+    #                                              # models.dev catalog says (context.py)
+
 Keys are not in this file: a connection's key comes from its provider's environment variable
 (``ANTHROPIC_API_KEY``...) or from ``auth.json`` (``secrets.py``).
 
 Environment: ``ALPINE_MODEL`` overrides ``default_model``. ``ALPINE_BASE_URL``, ``ALPINE_API_KEY`` and
-``ALPINE_CONTEXT_WINDOW`` point at a one-off OpenAI-compatible server that is not a connection (scripts, benchmarks).
+``ALPINE_CONTEXT_WINDOW`` point at a one-off OpenAI-compatible server that is not a connection (scripts, benchmarks);
+the window is that server's model's.
 ``ALPINE_OUTPUT_LIMIT`` overrides ``output_limit``.
 """
 
@@ -60,8 +64,12 @@ _FILE_KEYS = {
     "mode": "mode",
     "review_model": "review_model",
     "clone_folder": "clone_folder",
-    "context_window": "context_window",
     "output_limit": "output_limit",
+}
+
+#: Keys of config.toml that are gone -> how to say the same now.
+_MOVED_KEYS = {
+    "context_window": 'context_window is set per model now: [connections.<name>.models."<model>"] context_window = ...',
 }
 
 _CONNECTION_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
@@ -88,6 +96,14 @@ def config_file() -> Path:
 
 
 @dataclass(frozen=True)
+class ModelSettings:
+    """What the user wrote for one of a connection's models."""
+
+    context_window: int | None = None
+    """Tokens the model reads at once; ``None``: the server or the catalog says (``context.py``)."""
+
+
+@dataclass(frozen=True)
 class Connection:
     """A place models come from: a provider, or the address of an OpenAI-compatible server."""
 
@@ -99,6 +115,8 @@ class Connection:
     """Models the picker shows although they are not shown by default (``catalog.py``)."""
     hide: tuple[str, ...] = ()
     """Models the picker leaves out although they are shown by default."""
+    models: Mapping[str, ModelSettings] = field(default_factory=dict)
+    """Settings of single models, by model id: ``[connections.<name>.models."<model>"]``."""
 
     @property
     def url(self) -> str | None:
@@ -122,6 +140,7 @@ class Settings:
     api_key: str | None = None
     """The key for ``base_url``."""
     context_window: int | None = None
+    """The window of ``base_url``'s model (``ALPINE_CONTEXT_WINDOW``); a connection's models set theirs per model."""
     output_limit: int | None = None
     """Most tokens one reply may write; ``None``: ``make_model`` picks for the model."""
     mode: Mode = Mode.DEFAULT
@@ -182,6 +201,8 @@ def save_connection(
         table["show"] = show
     if hide:
         table["hide"] = hide
+    if "models" in old:
+        table["models"] = old["models"]
     connection = _connection(name, table, config_file())
     connections[name] = table
     _save(doc)
@@ -277,6 +298,9 @@ def _read(file: Path) -> dict[str, Any]:
 def _from_file(file: Path) -> dict[str, Any]:
     """The settings config.toml sets, by ``Settings`` field name."""
     data = _read(file)
+    moved = [hint for key, hint in _MOVED_KEYS.items() if key in data]
+    if moved:
+        raise ConfigError(f"{file}: " + "; ".join(moved))
     unknown = sorted(set(data) - set(_FILE_KEYS) - {"connections"})
     if unknown:
         raise ConfigError(f"Unknown settings in {file}: {', '.join(unknown)}")
@@ -309,7 +333,7 @@ def _connections(tables: Any, file: Path) -> dict[str, Connection]:
 
 def _connection(name: str, table: Mapping[str, Any], file: Path) -> Connection:
     where = f"[connections.{name}] in {file}"
-    unknown = sorted(set(table) - {"provider", "base_url", "show", "hide"})
+    unknown = sorted(set(table) - {"provider", "base_url", "show", "hide", "models"})
     if unknown:
         raise ConfigError(f"Unknown settings in {where}: {', '.join(unknown)}")
     provider_id, base_url = table.get("provider"), table.get("base_url")
@@ -324,7 +348,25 @@ def _connection(name: str, table: Mapping[str, Any], file: Path) -> Connection:
     for key, models in lists.items():
         if not isinstance(models, list) or not all(isinstance(m, str) for m in models):
             raise ConfigError(f"{key} in {where} must be a list of model names")
-    return Connection(name, provider, base_url, tuple(lists["show"]), tuple(lists["hide"]))
+    models = _model_settings(table.get("models", {}), where)
+    return Connection(name, provider, base_url, tuple(lists["show"]), tuple(lists["hide"]), models)
+
+
+def _model_settings(tables: Any, where: str) -> dict[str, ModelSettings]:
+    if not isinstance(tables, Mapping):
+        raise ConfigError(f'models in {where} must be tables: [connections.<name>.models."<model>"]')
+    models = {}
+    for model, table in tables.items():
+        if not isinstance(table, Mapping):
+            raise ConfigError(f'models.{model} in {where} must be a table: [connections.<name>.models."{model}"]')
+        unknown = sorted(set(table) - {"context_window"})
+        if unknown:
+            raise ConfigError(f"Unknown settings for model {model!r} in {where}: {', '.join(unknown)}")
+        window = table.get("context_window")
+        if window is not None and (isinstance(window, bool) or not isinstance(window, int) or window <= 0):
+            raise ConfigError(f"context_window of model {model!r} in {where} must be a positive integer")
+        models[model] = ModelSettings(context_window=window)
+    return models
 
 
 def _edit() -> tomlkit.TOMLDocument:

@@ -22,9 +22,9 @@ from alpine_core import (
     chatgpt_tokens,
     current_branch,
     git_status,
-    hidden_models,
     list_models,
     load_catalog,
+    picker,
     pull_request,
     remove_connection,
     save_connection,
@@ -130,8 +130,11 @@ def connection_models(params: ConnectionsModelsParams) -> ConnectionsModelsResul
         models = list_models(connection, key, tokens=tokens)
     except ModelListError as e:
         raise MethodError(APP_ERROR, str(e), e.kind.value) from e
-    saved = params.connection is not None and not is_chatgpt(connection)  # ChatGPT lists a handful, all shown
-    hidden = hidden_models(connection, models, load_catalog()) if saved else []
+    if params.connection is None:
+        return ConnectionsModelsResult(models=models, hidden=[])
+    picker.keep(connection, models)  # the TF tool's description lists the same models
+    shown = set(picker.shown(connection, models, load_catalog()))
+    hidden = [m for m in models if m not in shown]
     return ConnectionsModelsResult(models=models, hidden=hidden)
 
 

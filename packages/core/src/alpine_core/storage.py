@@ -5,6 +5,7 @@ A session is saved in two parts under one id (the alpineagents State id):
 - model memory: an alpineagents ``Store``, exactly as alpineagents writes it (``<home>/states/<id>/``)
 - screen record: a ``SessionLog``, the session's info and its finished items in ``seq`` order
   (``<home>/sessions/<id>/``)
+- TF runs, when kept: ``RunStore`` (``<home>/taskforce/<id>/``)
 
 The two live in sibling folders because alpineagents' ``FileStore`` creates ``<root>/<id>/`` by renaming a staging
 folder into place and refuses an id that already exists, so both cannot own one folder. Frontends only call
@@ -28,6 +29,7 @@ from alpineagents import FileStore, Store
 
 from .events import UsageInfo
 from .home import home_dir
+from .taskforce.store import RunStore
 
 __all__ = [
     "Activity",
@@ -87,6 +89,8 @@ class SessionInfo:
     """Tokens of context in use, as of the last request."""
     context_window: int | None = None
     """The model's context window in tokens, or ``None`` if unknown."""
+    context_tidy_at: int | None = None
+    """The length past which the conversation is tidied (``context.py``); ``None`` when the window is unknown."""
     activity: Activity | None = None
     """What the session is doing, ``None`` when idle. Live only: it is not restored from the log."""
     run_started_at: str | None = None
@@ -133,6 +137,7 @@ class SessionInfo:
             "usage": _usage_to_dict(self.usage),
             "context_used": self.context_used,
             "context_window": self.context_window,
+            "context_tidy_at": self.context_tidy_at,
             "activity": None
             if self.activity is None
             else {"kind": self.activity.kind, "tool_name": self.activity.tool_name, "since": self.activity.since},
@@ -166,6 +171,7 @@ class SessionInfo:
             usage=_usage_from_dict(data.get("usage") or {}),
             context_used=data.get("context_used", 0),
             context_window=data.get("context_window"),
+            context_tidy_at=data.get("context_tidy_at"),
             activity=None
             if activity is None
             else Activity(activity["kind"], activity.get("tool_name"), activity.get("since", "")),
@@ -483,6 +489,8 @@ class Storage:
     """The screen record: info and finished items."""
     states: Store
     """Model memory: alpineagents' Store, keyed by the same session id."""
+    runs: RunStore | None = None
+    """The session's TF runs (``<home>/taskforce/<id>/``), so a run can be continued; ``None`` keeps none."""
 
 
 def file_storage(home: Path | None = None) -> Storage:
@@ -492,4 +500,6 @@ def file_storage(home: Path | None = None) -> Storage:
         home: The home folder; defaults to ``home_dir()`` (``$ALPINE_CODE_HOME``, or ``~/.alpine-code``).
     """
     root = home if home is not None else home_dir()
-    return Storage(log=FileSessionLog(root / "sessions"), states=FileStore(root / "states"))
+    return Storage(
+        log=FileSessionLog(root / "sessions"), states=FileStore(root / "states"), runs=RunStore(root / "taskforce")
+    )

@@ -73,6 +73,7 @@ export function sessionInfo(overrides: Partial<SessionInfo> = {}): SessionInfo {
     usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, requests: 0, cost: 0 },
     contextUsed: 0,
     contextWindow: 200_000,
+    contextTidyAt: 180_000,
     activity: null,
     runStartedAt: null,
     runUsage: null,
@@ -311,6 +312,7 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         feedback: null,
         review: null,
         reviewError: null,
+        askedBy: [],
         tool: pending.name,
         args: pending.args,
       };

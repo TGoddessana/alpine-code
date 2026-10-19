@@ -23,6 +23,7 @@ from .cloning import (
 from .config import (
     ConfigError,
     Connection,
+    ModelSettings,
     Settings,
     config_file,
     remove_connection,
@@ -54,6 +55,7 @@ from .git import status as git_status
 from .home import home_dir
 from .imports import SOURCE_NAMES, ExternalSession, ImportSource, find_external_sessions, import_session
 from .items import (
+    AgentAsk,
     AgentChanged,
     AgentMessage,
     AgentSwitched,
@@ -174,6 +176,7 @@ __all__ = [
     "templates_dir",
     "config_file",
     "Connection",
+    "ModelSettings",
     "remove_connection",
     "save_connection",
     "set_clone_folder",
@@ -267,6 +270,7 @@ __all__ = [
     "AgentMessage",
     "AgentSwitched",
     "AgentChanged",
+    "AgentAsk",
     "ApprovalItem",
     "ReviewBlocked",
     "Compaction",

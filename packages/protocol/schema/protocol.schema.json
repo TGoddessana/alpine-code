@@ -382,6 +382,38 @@
     "session/import": {
       "params": "SessionImportParams",
       "result": "SessionImportResult"
+    },
+    "taskforce/start": {
+      "params": "TaskForceParams",
+      "result": "TaskForceResult"
+    },
+    "taskforce/decline": {
+      "params": "TaskForceParams",
+      "result": "TaskForceResult"
+    },
+    "taskforce/stop": {
+      "params": "TaskForceParams",
+      "result": "TaskForceResult"
+    },
+    "taskforce/allowMore": {
+      "params": "TaskForceParams",
+      "result": "TaskForceResult"
+    },
+    "taskforce/resume": {
+      "params": "TaskForceResumeParams",
+      "result": "TaskForceResult"
+    },
+    "taskforce/takeResults": {
+      "params": "TaskForceParams",
+      "result": "TaskForceResult"
+    },
+    "taskforce/stopAgent": {
+      "params": "TaskForceAgentParams",
+      "result": "TaskForceStopAgentResult"
+    },
+    "taskforce/record": {
+      "params": "TaskForceAgentParams",
+      "result": "TaskForceRecordResult"
     }
   },
   "x-notifications": {
@@ -427,6 +459,70 @@
         "since"
       ],
       "title": "Activity",
+      "type": "object"
+    },
+    "AgentAsk": {
+      "description": "One TF agent's call on an approval card: a card groups the agents that ask the same question, and shows each\none's call under its task.",
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "callId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "preview": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "previewKind": {
+          "anyOf": [
+            {
+              "enum": [
+                "command",
+                "diff",
+                "text"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tool": {
+          "default": "",
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": true,
+          "type": "object"
+        }
+      },
+      "required": [
+        "agent",
+        "task",
+        "callId",
+        "title",
+        "preview",
+        "previewKind",
+        "tool",
+        "args"
+      ],
+      "title": "AgentAsk",
       "type": "object"
     },
     "AgentChangedItem": {
@@ -848,6 +944,12 @@
             }
           ],
           "default": null
+        },
+        "askedBy": {
+          "items": {
+            "$ref": "#/$defs/AgentAsk"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -864,7 +966,8 @@
         "tool",
         "args",
         "review",
-        "reviewError"
+        "reviewError",
+        "askedBy"
       ],
       "title": "ApprovalItem",
       "type": "object"
@@ -1186,6 +1289,7 @@
       "type": "object"
     },
     "CompactionItem": {
+      "description": "The conversation was tidied: old tool results cleared, then, if that was not enough, summarized.",
       "properties": {
         "id": {
           "type": "string"
@@ -1200,13 +1304,30 @@
         },
         "afterTokens": {
           "type": "integer"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cleared": {
+          "default": 0,
+          "type": "integer"
         }
       },
       "required": [
         "id",
         "kind",
         "beforeTokens",
-        "afterTokens"
+        "afterTokens",
+        "summary",
+        "cleared"
       ],
       "title": "CompactionItem",
       "type": "object"
@@ -1885,7 +2006,9 @@
             "bad_name",
             "not_owned",
             "invalid",
-            "import_failed"
+            "import_failed",
+            "taskforce_not_found",
+            "taskforce_state"
           ],
           "type": "string"
         }
@@ -3618,6 +3741,7 @@
               "review_blocked": "#/$defs/ReviewBlockedItem",
               "run_stopped": "#/$defs/RunStoppedItem",
               "status_line": "#/$defs/StatusLineItem",
+              "taskforce": "#/$defs/TaskForceItem",
               "tool_call": "#/$defs/ToolCallItem",
               "user_message": "#/$defs/UserMessageItem"
             },
@@ -3662,6 +3786,9 @@
             },
             {
               "$ref": "#/$defs/ImportedItem"
+            },
+            {
+              "$ref": "#/$defs/TaskForceItem"
             }
           ]
         }
@@ -3737,6 +3864,7 @@
               "review_blocked": "#/$defs/ReviewBlockedItem",
               "run_stopped": "#/$defs/RunStoppedItem",
               "status_line": "#/$defs/StatusLineItem",
+              "taskforce": "#/$defs/TaskForceItem",
               "tool_call": "#/$defs/ToolCallItem",
               "user_message": "#/$defs/UserMessageItem"
             },
@@ -3781,6 +3909,9 @@
             },
             {
               "$ref": "#/$defs/ImportedItem"
+            },
+            {
+              "$ref": "#/$defs/TaskForceItem"
             }
           ]
         }
@@ -5755,6 +5886,17 @@
             }
           ],
           "default": null
+        },
+        "agent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -6066,6 +6208,16 @@
             }
           ]
         },
+        "contextTidyAt": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "activity": {
           "anyOf": [
             {
@@ -6120,6 +6272,7 @@
         "usage",
         "contextUsed",
         "contextWindow",
+        "contextTidyAt",
         "activity",
         "runStartedAt",
         "runUsage",
@@ -6247,6 +6400,7 @@
                 "review_blocked": "#/$defs/ReviewBlockedItem",
                 "run_stopped": "#/$defs/RunStoppedItem",
                 "status_line": "#/$defs/StatusLineItem",
+                "taskforce": "#/$defs/TaskForceItem",
                 "tool_call": "#/$defs/ToolCallItem",
                 "user_message": "#/$defs/UserMessageItem"
               },
@@ -6291,6 +6445,9 @@
               },
               {
                 "$ref": "#/$defs/ImportedItem"
+              },
+              {
+                "$ref": "#/$defs/TaskForceItem"
               }
             ]
           },
@@ -6311,6 +6468,7 @@
                 "review_blocked": "#/$defs/ReviewBlockedItem",
                 "run_stopped": "#/$defs/RunStoppedItem",
                 "status_line": "#/$defs/StatusLineItem",
+                "taskforce": "#/$defs/TaskForceItem",
                 "tool_call": "#/$defs/ToolCallItem",
                 "user_message": "#/$defs/UserMessageItem"
               },
@@ -6355,6 +6513,9 @@
               },
               {
                 "$ref": "#/$defs/ImportedItem"
+              },
+              {
+                "$ref": "#/$defs/TaskForceItem"
               }
             ]
           },
@@ -7065,6 +7226,413 @@
         "text"
       ],
       "title": "StatusLineItem",
+      "type": "object"
+    },
+    "TaskForceAgentParams": {
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "memberId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "runId",
+        "memberId"
+      ],
+      "title": "TaskForceAgentParams",
+      "type": "object"
+    },
+    "TaskForceItem": {
+      "description": "A TF: the session's model proposed it, then the user starts it and its agents work. Sent again with the same\nid (``item_started``) as it changes; completed when it is over.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "taskforce",
+          "default": "taskforce",
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/TaskForceStep"
+          },
+          "type": "array"
+        },
+        "minutes": {
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "proposed",
+            "declined",
+            "running",
+            "over",
+            "stopping",
+            "done",
+            "stopped",
+            "failed",
+            "interrupted"
+          ],
+          "type": "string"
+        },
+        "members": {
+          "items": {
+            "$ref": "#/$defs/TaskForceMember"
+          },
+          "type": "array"
+        },
+        "step": {
+          "default": "",
+          "type": "string"
+        },
+        "log": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "needed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "startedAt": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "steps",
+        "minutes",
+        "status",
+        "members",
+        "step",
+        "log",
+        "needed",
+        "error",
+        "startedAt"
+      ],
+      "title": "TaskForceItem",
+      "type": "object"
+    },
+    "TaskForceMember": {
+      "description": "One agent of a TF, as the room and the agent list draw it.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "step": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "agent": {
+          "type": "string"
+        },
+        "look": {
+          "enum": [
+            "antenna",
+            "hardhat",
+            "glasses",
+            "beret",
+            "headphones",
+            "cap",
+            "chef",
+            "sprout",
+            "ribbon",
+            "beanie",
+            "bowtie",
+            "grad"
+          ],
+          "type": "string"
+        },
+        "color": {
+          "type": "integer"
+        },
+        "model": {
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "queued",
+            "working",
+            "asking",
+            "done",
+            "failed",
+            "stopped"
+          ],
+          "type": "string"
+        },
+        "activity": {
+          "anyOf": [
+            {
+              "enum": [
+                "thinking",
+                "writing",
+                "read",
+                "search",
+                "edit",
+                "run",
+                "tool"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "turn": {
+          "default": 0,
+          "type": "integer"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cached": {
+          "default": false,
+          "type": "boolean"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "retried": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "step",
+        "task",
+        "agent",
+        "look",
+        "color",
+        "model",
+        "state"
+      ],
+      "title": "TaskForceMember",
+      "type": "object"
+    },
+    "TaskForceParams": {
+      "description": "Names a TF of a session. ``taskforce/start`` (시작), ``taskforce/decline`` (혼자 하기), ``taskforce/stop``\n(멈추기, 여기까지 결과 받기), ``taskforce/allowMore`` (more agents than planned) and ``taskforce/takeResults``\n(after the app closed mid-run) take only this. A TF not in a state for the action fails with\n``taskforce_state``; an unknown one with ``taskforce_not_found``.",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "runId"
+      ],
+      "title": "TaskForceParams",
+      "type": "object"
+    },
+    "TaskForceRecordResult": {
+      "properties": {
+        "items": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "agent_changed": "#/$defs/AgentChangedItem",
+                "agent_message": "#/$defs/AgentMessageItem",
+                "agent_switched": "#/$defs/AgentSwitchedItem",
+                "approval": "#/$defs/ApprovalItem",
+                "compaction": "#/$defs/CompactionItem",
+                "imported": "#/$defs/ImportedItem",
+                "memory_review": "#/$defs/MemoryReviewItem",
+                "notice": "#/$defs/NoticeItem",
+                "review_blocked": "#/$defs/ReviewBlockedItem",
+                "run_stopped": "#/$defs/RunStoppedItem",
+                "status_line": "#/$defs/StatusLineItem",
+                "taskforce": "#/$defs/TaskForceItem",
+                "tool_call": "#/$defs/ToolCallItem",
+                "user_message": "#/$defs/UserMessageItem"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/UserMessageItem"
+              },
+              {
+                "$ref": "#/$defs/AgentMessageItem"
+              },
+              {
+                "$ref": "#/$defs/ToolCallItem"
+              },
+              {
+                "$ref": "#/$defs/ApprovalItem"
+              },
+              {
+                "$ref": "#/$defs/ReviewBlockedItem"
+              },
+              {
+                "$ref": "#/$defs/NoticeItem"
+              },
+              {
+                "$ref": "#/$defs/StatusLineItem"
+              },
+              {
+                "$ref": "#/$defs/MemoryReviewItem"
+              },
+              {
+                "$ref": "#/$defs/CompactionItem"
+              },
+              {
+                "$ref": "#/$defs/RunStoppedItem"
+              },
+              {
+                "$ref": "#/$defs/AgentSwitchedItem"
+              },
+              {
+                "$ref": "#/$defs/AgentChangedItem"
+              },
+              {
+                "$ref": "#/$defs/ImportedItem"
+              },
+              {
+                "$ref": "#/$defs/TaskForceItem"
+              }
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "TaskForceRecordResult",
+      "type": "object"
+    },
+    "TaskForceResult": {
+      "properties": {},
+      "title": "TaskForceResult",
+      "type": "object"
+    },
+    "TaskForceResumeParams": {
+      "description": "이어 하기 after the app closed mid-run.",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "fresh": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sessionId",
+        "runId"
+      ],
+      "title": "TaskForceResumeParams",
+      "type": "object"
+    },
+    "TaskForceStep": {
+      "description": "One step of the plan the card shows.",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "model": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "count",
+        "model"
+      ],
+      "title": "TaskForceStep",
+      "type": "object"
+    },
+    "TaskForceStopAgentResult": {
+      "properties": {
+        "stopped": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "stopped"
+      ],
+      "title": "TaskForceStopAgentResult",
       "type": "object"
     },
     "TerminalProcess": {

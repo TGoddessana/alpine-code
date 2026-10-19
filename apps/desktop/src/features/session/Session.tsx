@@ -40,10 +40,13 @@ export function Session({
   sessionId,
   compact = false,
   onInspectProcesses,
+  onShowTaskForce,
 }: {
   sessionId: string;
   compact?: boolean;
   onInspectProcesses?: () => void;
+  /** Opens the dock on the session's TF. */
+  onShowTaskForce?: () => void;
 }) {
   const t = useMessages(messages);
   const session = useSession(sessionId);
@@ -122,7 +125,13 @@ export function Session({
           ref={content}
           className={clsx('mx-auto flex w-full max-w-175 flex-col gap-4 py-6', compact ? 'px-4' : 'px-6')}
         >
-          <Chat sessionId={sessionId} cwd={info.cwd} items={state.items} activeIds={state.activeIds} />
+          <Chat
+            sessionId={sessionId}
+            cwd={info.cwd}
+            items={state.items}
+            activeIds={state.activeIds}
+            onShowTaskForce={onShowTaskForce}
+          />
           {running && <ProgressLine info={info} />}
         </div>
       </div>

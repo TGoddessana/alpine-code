@@ -19,7 +19,18 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, TypedDict
 
-from alpineagents import Agent, Message, State, StoppedByPermission, Tool, ToolError, Usage, tool
+from alpineagents import (
+    Agent,
+    AuthError,
+    Message,
+    ProviderError,
+    State,
+    StoppedByPermission,
+    Tool,
+    ToolError,
+    Usage,
+    tool,
+)
 from alpineagents.permissions import Denied, DenyPermission
 
 from .. import picker
@@ -53,6 +64,9 @@ NEVER = frozenset({"propose_memory", "task_force", "task_force_status"})
 
 #: Statuses of a TF that is still going.
 LIVE: frozenset[TaskForceStatus] = frozenset({"running", "over", "stopping"})
+
+#: How many more times an agent whose answer is not the JSON asked for is asked for only that JSON (TF item 5).
+JSON_RETRIES = 3
 
 #: Most characters of agents' answers the session's model gets back at the end.
 RESULT_LIMIT = 40_000
@@ -309,6 +323,7 @@ class TaskForce:
             for member in members:
                 doing = f", {member['activity']}" if member.get("activity") else ""
                 doing += f" ({member['error']})" if member.get("error") else ""
+                doing += f", started over after {member['retried']}" if member.get("retried") else ""
                 lines.append(f"  - {member['id']} [{member['step']}] {member['task']}: {member['state']}{doing}")
             out.append("\n".join(lines))
         return "\n\n".join(out)
@@ -555,20 +570,50 @@ class TaskForce:
                 "\n\nWhen you are done, your final answer must be only a JSON value of this shape, nothing else:\n"
                 + json.dumps(request.returns, ensure_ascii=False)
             )
-        state = State(messages=[Message.user(prompt)])
-        run.states[member.id] = state
         token = current_member.set((run, member))
         try:
-            answer = await agent.arun(state)
+            return await self._work(run, member, agent, prompt, recorder)
         finally:
             current_member.reset(token)
+            state = run.states.pop(member.id, None)
+            if state is not None:
+                run.usage = run.usage + state.usage
+
+    async def _work(self, run: _Run, member: Member, agent: Agent, prompt: str, recorder: ItemRecorder) -> Any:
+        """Runs the member's agent to its answer (TF item 5): after a provider error it starts over once from its
+        prompt; an answer that is not the JSON asked for is asked again, in the same conversation, for only that."""
+        request = member.request
+        state = run.states[member.id] = State(messages=[Message.user(prompt)])
+        try:
+            answer = await agent.arun(state)
+        except ProviderError as e:
+            if isinstance(e, AuthError) or member.stop_asked:
+                raise
+            member.retried = f"{type(e).__name__}: {e}"
+            recorder.add_notice(member.retried, "taskforce_retry")
+            self._changed(run)
             run.usage = run.usage + state.usage
-            del run.states[member.id]
-        if member.stop_asked or isinstance(state.stopped, StoppedByPermission):
-            return None
-        if request.returns is None:
-            return answer if isinstance(answer, str) else state.answer
-        return _json(answer if isinstance(answer, str) else str(state.answer or ""))
+            state = run.states[member.id] = State(messages=[Message.user(prompt)])
+            answer = await agent.arun(state)
+        for attempt in range(JSON_RETRIES + 1):
+            if member.stop_asked or isinstance(state.stopped, StoppedByPermission):
+                return None
+            text = answer if isinstance(answer, str) else state.answer
+            if request.returns is None:
+                return text
+            try:
+                return _json(str(text or ""))
+            except ValueError:
+                if attempt == JSON_RETRIES:
+                    raise
+            state.add_message(
+                Message.user(
+                    "That answer was not only a JSON value of the shape asked for. Answer again with only a JSON "
+                    "value of this shape, nothing else:\n" + json.dumps(request.returns, ensure_ascii=False)
+                )
+            )
+            answer = await agent.arun(state)
+        return None
 
     def _config(self, name: str | None) -> AgentConfig | None:
         """The agent a member works as: the session's own, or one of the user's by name (or id)."""
@@ -662,6 +707,7 @@ class TaskForce:
             "source": member.source,
             "cached": member.cached,
             "error": member.error,
+            "retried": member.retried,
         }
 
     def _item(self, run: _Run) -> TaskForceItem:
@@ -733,7 +779,9 @@ class TaskForce:
         if run.output is not None:
             self._save(run)
         failed = [
-            f"{m['id']} {m['task']}: {m['state']}" + (f" ({m['error']})" if m.get("error") else "")
+            f"{m['id']} {m['task']}: {m['state']}"
+            + (f" ({m['error']})" if m.get("error") else "")
+            + (f", started over after {m['retried']}" if m.get("retried") else "")
             for m in members
             if m["state"] in ("failed", "stopped")
         ]

@@ -166,6 +166,7 @@ const ItemView = memo(function ItemView({
         return <p className={quiet}>{t[`notice_${item.source}`]}</p>;
       if (item.source === 'memory_check')
         return <p className={quiet}>{t.notice_memory_check(item.text.slice(item.text.indexOf(': ') + 2))}</p>;
+      if (item.source === 'taskforce_retry') return <p className={quiet}>{t.notice_taskforce_retry(item.text)}</p>;
       return <p className={quiet}>{item.text}</p>;
     case 'status_line':
       return <p className={quiet}>{item.text}</p>;

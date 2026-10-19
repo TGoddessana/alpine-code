@@ -65,6 +65,8 @@ class Member:
     """Answered from an earlier run of the script."""
     answer: Any = None
     error: str | None = None
+    retried: str | None = None
+    """The first error, when the agent was started over after it (TF item 5)."""
     stop_asked: bool = False
 
 

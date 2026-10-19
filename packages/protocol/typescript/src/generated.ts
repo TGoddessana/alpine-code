@@ -2362,6 +2362,7 @@ export interface TaskForceMember {
   source?: string | null;
   cached?: boolean;
   error?: string | null;
+  retried?: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema

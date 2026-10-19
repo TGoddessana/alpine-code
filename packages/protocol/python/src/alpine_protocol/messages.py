@@ -1206,6 +1206,8 @@ class TaskForceMember(Message):
     error: str | None = None
     """Why a ``failed`` member did not finish, as the error said it (a provider error, an answer that was not the
     JSON asked for)."""
+    retried: str | None = None
+    """The first error, when the agent was started over from its prompt after a provider error (once)."""
 
 
 class TaskForceItem(ItemModel):

@@ -308,3 +308,96 @@ def test_a_long_result_is_cut_but_kept_and_can_be_read_on(tmp_path, monkeypatch)
     session_id, run_id = asyncio.run(go())
     again = Session.resume(storage, session_id, Settings(model="fake"), approver=Approver(), taskforce=True)
     assert again.taskforce.status_text(run_id, 50000).endswith('끝"')  # the record keeps the whole result
+
+
+ONE = [{"title": "작성", "count": 1, "model": "fake"}]
+
+
+def run_one(tmp_path, monkeypatch, script, members):
+    """Runs a one-agent TF to its end: the finished card and what the lead heard."""
+
+    async def go():
+        heard = []
+        lead = [
+            propose(script=script, steps=ONE),
+            "제안했어요",
+            lambda request: heard.append(request.messages[-1].text) or "끝",
+        ]
+        session = make(tmp_path, monkeypatch, lead, members=members)
+        await session.asend("해 줘")
+        [card] = taskforce_items(session)
+        session.taskforce.start(card.id)
+        await until(lambda: taskforce_items(session, active=False))
+        await until(lambda: not session._turns)
+        [done] = taskforce_items(session, active=False)
+        return session, done, heard[0]
+
+    return asyncio.run(go())
+
+
+def test_an_answer_not_in_the_json_shape_is_asked_again_in_the_same_conversation(tmp_path, monkeypatch):
+    asked = []
+
+    def members(settings):
+        def again(request):
+            asked.append([m.text for m in request.messages])
+            return '{"topics": ["저장소"]}'
+
+        return FakeModel(["주제는 저장소예요.", again])
+
+    script = 'phase("작성")\nresult = await agent("topics?", returns={"topics": ["..."]})\n'
+    session, done, heard = run_one(tmp_path, monkeypatch, script, members)
+    assert done.members[0]["state"] == "done"
+    assert '"저장소"' in heard
+    [conversation] = asked
+    assert conversation[1] == "주제는 저장소예요." and "only a JSON value" in conversation[2]  # the work stays
+
+
+def test_an_agent_that_never_answers_in_json_fails_after_a_few_asks(tmp_path, monkeypatch):
+    calls = []
+
+    def members(settings):
+        return FakeModel([lambda request: calls.append(1) or "아니요"] * (team_module.JSON_RETRIES + 1))
+
+    script = 'phase("작성")\nresult = await agent("topics?", returns={"topics": ["..."]})\n'
+    session, done, heard = run_one(tmp_path, monkeypatch, script, members)
+    assert len(calls) == team_module.JSON_RETRIES + 1
+    assert done.members[0]["state"] == "failed" and "not the JSON" in done.members[0]["error"]
+
+
+def test_a_provider_error_starts_the_same_agent_over_once(tmp_path, monkeypatch):
+    from alpineagents import ProviderError
+
+    prompts = []
+
+    def members(settings):
+        def overloaded(request):
+            raise ProviderError("overloaded_error")
+
+        def answer(request):
+            prompts.append([m.text for m in request.messages])
+            return "다 썼어요"
+
+        return FakeModel([overloaded, answer])
+
+    session, done, heard = run_one(tmp_path, monkeypatch, 'phase("작성")\nresult = await agent("write")\n', members)
+    [member] = done.members  # the same agent: the card's count does not grow
+    assert member["state"] == "done" and "overloaded_error" in member["retried"]
+    assert prompts == [["write"]]  # started over from its prompt
+    record = session.taskforce.record(done.id, member["id"])
+    assert any(getattr(i, "source", None) == "taskforce_retry" and "overloaded_error" in i.text for i in record)
+
+
+def test_a_second_provider_error_fails_the_agent(tmp_path, monkeypatch):
+    from alpineagents import ProviderError
+
+    def members(settings):
+        def overloaded(request):
+            raise ProviderError("overloaded_error")
+
+        return FakeModel([overloaded, overloaded])
+
+    session, done, heard = run_one(tmp_path, monkeypatch, 'phase("작성")\nresult = await agent("write")\n', members)
+    [member] = done.members
+    assert member["state"] == "failed" and member["retried"] and "overloaded_error" in member["error"]
+    assert "started over after" in heard

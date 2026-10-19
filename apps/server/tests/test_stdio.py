@@ -36,6 +36,7 @@ def test_every_protocol_method_has_a_handler():
     from alpine_server.dev_servers import DevelopmentServers
     from alpine_server.github import GitHubSignIns
     from alpine_server.memory import MemoryMethods
+    from alpine_server.new_projects import NewProjects
     from alpine_server.process_control import HANDLERS as PROCESS_HANDLERS
     from alpine_server.sessions import SessionManager
     from alpine_server.stdio import HANDLERS
@@ -49,6 +50,7 @@ def test_every_protocol_method_has_a_handler():
         | Clones(lambda params: None).handlers()
         | GitHubSignIns(lambda params: None).handlers()
         | DevelopmentServers().handlers()
+        | NewProjects(lambda params: None, sessions).handlers()
         | TERMINAL_HANDLERS
         | PROCESS_HANDLERS
     )

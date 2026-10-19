@@ -2335,6 +2335,27 @@ export interface ItemStartedEvent {
     | ImportedItem;
 }
 /**
+ * Work on the project the screen is on: the app starts a session there, as before.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "JudgedChange".
+ */
+export interface JudgedChange {
+  kind: 'change';
+}
+/**
+ * A new app, with the template that fits it.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "JudgedNew".
+ */
+export interface JudgedNew {
+  kind: 'new';
+  template: 'blank' | 'web-lite' | 'web-pro' | 'mobile';
+  reason: string;
+  name: string;
+}
+/**
  * ``.alpine-code/map/map.json``, written by the agent.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -2675,6 +2696,46 @@ export interface ProjectsCloneResult {
   clone?: CloneInfo | null;
 }
 /**
+ * A step of ``projects/create`` finished.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsCreateChangedParams".
+ */
+export interface ProjectsCreateChangedParams {
+  id: string;
+  step: 'folder' | 'agent';
+  project: ProjectInfo;
+}
+/**
+ * Makes a project from a template and starts the agent on the idea.
+ *
+ * The template is copied into ``<clone folder>/<name>`` (``<name>-2``, ``<name>-3``... when taken, as for clones),
+ * the folder becomes a git repository with the template as its first commit, and joins the projects. Then a session
+ * starts there and gets ``idea`` as its first message. Each step is announced through ``projects/createChanged``
+ * as it finishes; the request answers after the last one. Fails with ``not_found`` when the server has no such
+ * template, ``invalid_config`` when config.toml cannot be read. When the session cannot start, the project stays
+ * made and on the rail, and the error is the session's.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsCreateParams".
+ */
+export interface ProjectsCreateParams {
+  id: string;
+  idea: string;
+  template: 'blank' | 'web-lite' | 'web-pro' | 'mobile';
+  name: string;
+  agent?: string | null;
+  mode?: ('default' | 'accept_edits' | 'auto' | 'yolo') | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsCreateResult".
+ */
+export interface ProjectsCreateResult {
+  project: ProjectInfo;
+  sessionId: string;
+}
+/**
  * Forgets a project and what Alpine keeps about it. The folder and its files are never touched.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -2727,6 +2788,26 @@ export interface ProjectsInstallGitToolsParams {}
  * via the `definition` "ProjectsInstallGitToolsResult".
  */
 export interface ProjectsInstallGitToolsResult {}
+/**
+ * Is what was sent on the new-session screen work on a project, or a new app? One question to the default model,
+ * with no tools. The model judges; the server only checks the shape of its answer, and when the answer is unclear
+ * or malformed it is ``change``, so a new project is never made by mistake.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsJudgeParams".
+ */
+export interface ProjectsJudgeParams {
+  text: string;
+  locale: string;
+  cwd?: string | null;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "ProjectsJudgeResult".
+ */
+export interface ProjectsJudgeResult {
+  judgement: JudgedChange | JudgedNew;
+}
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "ProjectsListParams".
@@ -3552,6 +3633,8 @@ export interface Methods {
   'projects/gitTools': { params: ProjectsGitToolsParams; result: ProjectsGitToolsResult };
   'projects/installGitTools': { params: ProjectsInstallGitToolsParams; result: ProjectsInstallGitToolsResult };
   'projects/git': { params: ProjectsGitParams; result: ProjectsGitResult };
+  'projects/judge': { params: ProjectsJudgeParams; result: ProjectsJudgeResult };
+  'projects/create': { params: ProjectsCreateParams; result: ProjectsCreateResult };
   'tools/list': { params: ToolsListParams; result: ToolsListResult };
   'tools/source': { params: ToolsSourceParams; result: ToolsSourceResult };
   'tools/check': { params: ToolsCheckParams; result: ToolsCheckResult };
@@ -3596,5 +3679,6 @@ export interface Notifications {
   'chatgpt/signInFinished': ChatGPTSignInFinishedParams;
   'memory/changed': MemoryChangedParams;
   'projects/cloneChanged': ProjectsCloneChangedParams;
+  'projects/createChanged': ProjectsCreateChangedParams;
   'github/signInFinished': GitHubSignInFinishedParams;
 }

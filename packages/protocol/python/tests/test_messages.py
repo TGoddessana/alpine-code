@@ -56,6 +56,7 @@ def test_schema_has_session_types_and_notifications():
         "memory/changed": "MemoryChangedParams",
         "projects/cloneChanged": "ProjectsCloneChangedParams",
         "github/signInFinished": "GitHubSignInFinishedParams",
+        "projects/createChanged": "ProjectsCreateChangedParams",
     }
     assert (SESSION_NOT_FOUND, SESSION_RUNNING) == (-32001, -32002)
 

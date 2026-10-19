@@ -227,6 +227,14 @@
       "params": "ProjectsGitParams",
       "result": "ProjectsGitResult"
     },
+    "projects/judge": {
+      "params": "ProjectsJudgeParams",
+      "result": "ProjectsJudgeResult"
+    },
+    "projects/create": {
+      "params": "ProjectsCreateParams",
+      "result": "ProjectsCreateResult"
+    },
     "tools/list": {
       "params": "ToolsListParams",
       "result": "ToolsListResult"
@@ -381,6 +389,7 @@
     "chatgpt/signInFinished": "ChatGPTSignInFinishedParams",
     "memory/changed": "MemoryChangedParams",
     "projects/cloneChanged": "ProjectsCloneChangedParams",
+    "projects/createChanged": "ProjectsCreateChangedParams",
     "github/signInFinished": "GitHubSignInFinishedParams"
   },
   "$defs": {
@@ -3782,6 +3791,54 @@
       "title": "ItemStartedEvent",
       "type": "object"
     },
+    "JudgedChange": {
+      "description": "Work on the project the screen is on: the app starts a session there, as before.",
+      "properties": {
+        "kind": {
+          "const": "change",
+          "default": "change",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "JudgedChange",
+      "type": "object"
+    },
+    "JudgedNew": {
+      "description": "A new app, with the template that fits it.",
+      "properties": {
+        "kind": {
+          "const": "new",
+          "default": "new",
+          "type": "string"
+        },
+        "template": {
+          "enum": [
+            "blank",
+            "web-lite",
+            "web-pro",
+            "mobile"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "template",
+        "reason",
+        "name"
+      ],
+      "title": "JudgedNew",
+      "type": "object"
+    },
     "MapCoverage": {
       "description": "Changes the map does not cover (decision 3).",
       "properties": {
@@ -4955,6 +5012,107 @@
       "title": "ProjectsCloneResult",
       "type": "object"
     },
+    "ProjectsCreateChangedParams": {
+      "description": "A step of ``projects/create`` finished.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "step": {
+          "enum": [
+            "folder",
+            "agent"
+          ],
+          "type": "string"
+        },
+        "project": {
+          "$ref": "#/$defs/ProjectInfo"
+        }
+      },
+      "required": [
+        "id",
+        "step",
+        "project"
+      ],
+      "title": "ProjectsCreateChangedParams",
+      "type": "object"
+    },
+    "ProjectsCreateParams": {
+      "description": "Makes a project from a template and starts the agent on the idea.\n\nThe template is copied into ``<clone folder>/<name>`` (``<name>-2``, ``<name>-3``... when taken, as for clones),\nthe folder becomes a git repository with the template as its first commit, and joins the projects. Then a session\nstarts there and gets ``idea`` as its first message. Each step is announced through ``projects/createChanged``\nas it finishes; the request answers after the last one. Fails with ``not_found`` when the server has no such\ntemplate, ``invalid_config`` when config.toml cannot be read. When the session cannot start, the project stays\nmade and on the rail, and the error is the session's.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "idea": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "template": {
+          "enum": [
+            "blank",
+            "web-lite",
+            "web-pro",
+            "mobile"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "agent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "default",
+                "accept_edits",
+                "auto",
+                "yolo"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "idea",
+        "template",
+        "name"
+      ],
+      "title": "ProjectsCreateParams",
+      "type": "object"
+    },
+    "ProjectsCreateResult": {
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/ProjectInfo"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "project",
+        "sessionId"
+      ],
+      "title": "ProjectsCreateResult",
+      "type": "object"
+    },
     "ProjectsDeleteParams": {
       "description": "Forgets a project and what Alpine keeps about it. The folder and its files are never touched.",
       "properties": {
@@ -5034,6 +5192,61 @@
     "ProjectsInstallGitToolsResult": {
       "properties": {},
       "title": "ProjectsInstallGitToolsResult",
+      "type": "object"
+    },
+    "ProjectsJudgeParams": {
+      "description": "Is what was sent on the new-session screen work on a project, or a new app? One question to the default model,\nwith no tools. The model judges; the server only checks the shape of its answer, and when the answer is unclear\nor malformed it is ``change``, so a new project is never made by mistake.",
+      "properties": {
+        "text": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "cwd": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "text",
+        "locale"
+      ],
+      "title": "ProjectsJudgeParams",
+      "type": "object"
+    },
+    "ProjectsJudgeResult": {
+      "properties": {
+        "judgement": {
+          "discriminator": {
+            "mapping": {
+              "change": "#/$defs/JudgedChange",
+              "new": "#/$defs/JudgedNew"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/JudgedChange"
+            },
+            {
+              "$ref": "#/$defs/JudgedNew"
+            }
+          ]
+        }
+      },
+      "required": [
+        "judgement"
+      ],
+      "title": "ProjectsJudgeResult",
       "type": "object"
     },
     "ProjectsListParams": {

@@ -2038,6 +2038,94 @@ class FlowPrepareResult(Message):
     node_id: str | None = None
 
 
+# New projects from the new-session screen (decision 13 in docs/alpine-cloud.md): the agent judges what was sent,
+# and 만들기 makes a project from a stack template and starts the agent on the idea.
+
+TemplateId = Literal["blank", "web-lite", "web-pro", "mobile"]
+"""The stack templates the app shows. Only the ones the server has are offered to the model and can be made."""
+
+
+class ProjectsJudgeParams(Message):
+    """Is what was sent on the new-session screen work on a project, or a new app? One question to the default model,
+    with no tools. The model judges; the server only checks the shape of its answer, and when the answer is unclear
+    or malformed it is ``change``, so a new project is never made by mistake."""
+
+    text: str = Field(min_length=1)
+    locale: str
+    """The app's language, such as ``ko`` or ``en-US``: ``reason`` is written in it."""
+    cwd: str | None = None
+    """The project the screen is on, so the model knows what "this project" is; ``None`` when there is none."""
+
+
+class JudgedChange(Message):
+    """Work on the project the screen is on: the app starts a session there, as before."""
+
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+
+    kind: Literal["change"] = "change"
+
+
+class JudgedNew(Message):
+    """A new app, with the template that fits it."""
+
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+
+    kind: Literal["new"] = "new"
+    template: TemplateId
+    """One the server has (``projects/create`` can make it)."""
+    reason: str
+    """One sentence in the user's language: why this template fits the idea."""
+    name: str
+    """A folder name for the project: lowercase letters, digits and ``-``, as the model suggested it or made safe."""
+
+
+class ProjectsJudgeResult(Message):
+    judgement: Annotated[JudgedChange | JudgedNew, Field(discriminator="kind")]
+
+
+class ProjectsCreateParams(Message):
+    """Makes a project from a template and starts the agent on the idea.
+
+    The template is copied into ``<clone folder>/<name>`` (``<name>-2``, ``<name>-3``... when taken, as for clones),
+    the folder becomes a git repository with the template as its first commit, and joins the projects. Then a session
+    starts there and gets ``idea`` as its first message. Each step is announced through ``projects/createChanged``
+    as it finishes; the request answers after the last one. Fails with ``not_found`` when the server has no such
+    template, ``invalid_config`` when config.toml cannot be read. When the session cannot start, the project stays
+    made and on the rail, and the error is the session's.
+    """
+
+    id: str
+    """Chosen by the app; the progress notifications carry it."""
+    idea: str = Field(min_length=1)
+    template: TemplateId
+    name: str
+    """From ``JudgedNew.name``; made safe again here."""
+    agent: str | None = None
+    """As in ``session/new``."""
+    mode: Mode | None = None
+    """As in ``session/new``."""
+
+
+class ProjectsCreateResult(Message):
+    project: ProjectInfo
+    session_id: str
+    """The session working on the idea."""
+
+
+CreateStep = Literal["folder", "agent"]
+"""``folder``: the template is in its folder, committed, and on the rail. ``agent``: the session started and has the
+idea. (A web address step comes with Alpine sign-in, decision 23.)"""
+
+
+class ProjectsCreateChangedParams(Message):
+    """A step of ``projects/create`` finished."""
+
+    id: str
+    step: CreateStep
+    project: ProjectInfo
+    """The project being made, so the app can show its folder."""
+
+
 #: Every method an app can call: name -> (params, result).
 METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     **DEV_SERVER_METHODS,
@@ -2082,6 +2170,8 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "projects/gitTools": (ProjectsGitToolsParams, ProjectsGitToolsResult),
     "projects/installGitTools": (ProjectsInstallGitToolsParams, ProjectsInstallGitToolsResult),
     "projects/git": (ProjectsGitParams, ProjectsGitResult),
+    "projects/judge": (ProjectsJudgeParams, ProjectsJudgeResult),
+    "projects/create": (ProjectsCreateParams, ProjectsCreateResult),
     "tools/list": (ToolsListParams, ToolsListResult),
     "tools/source": (ToolsSourceParams, ToolsSourceResult),
     "tools/check": (ToolsCheckParams, ToolsCheckResult),
@@ -2127,5 +2217,6 @@ NOTIFICATIONS: dict[str, type[Message]] = {
     "chatgpt/signInFinished": ChatGPTSignInFinishedParams,
     "memory/changed": MemoryChangedParams,
     "projects/cloneChanged": ProjectsCloneChangedParams,
+    "projects/createChanged": ProjectsCreateChangedParams,
     "github/signInFinished": GitHubSignInFinishedParams,
 }

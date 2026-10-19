@@ -28,6 +28,7 @@ from alpine_protocol import (
     GitHubSignInFinishedParams,
     MemoryChangedParams,
     ProjectsCloneChangedParams,
+    ProjectsCreateChangedParams,
     Request,
     Response,
     SessionEventParams,
@@ -40,9 +41,11 @@ from .dev_servers import DevelopmentServers
 from .files import FILE_HANDLERS
 from .flow import HANDLERS as FLOW_HANDLERS
 from .github import GitHubSignIns
+from .judge import HANDLERS as JUDGE_HANDLERS
 from .memory import MemoryMethods
 from .methods import HANDLERS as METHOD_HANDLERS
 from .methods import INVALID_PARAMS, MethodError
+from .new_projects import NewProjects
 from .process_control import HANDLERS as PROCESS_HANDLERS
 from .sessions import SessionManager
 from .skills import HANDLERS as SKILL_HANDLERS
@@ -57,7 +60,15 @@ INTERNAL_ERROR = -32603
 Write = Callable[[str], None]
 
 
-HANDLERS = {**METHOD_HANDLERS, **TOOL_HANDLERS, **AGENT_HANDLERS, **SKILL_HANDLERS, **FLOW_HANDLERS, **FILE_HANDLERS}
+HANDLERS = {
+    **METHOD_HANDLERS,
+    **TOOL_HANDLERS,
+    **AGENT_HANDLERS,
+    **SKILL_HANDLERS,
+    **FLOW_HANDLERS,
+    **FILE_HANDLERS,
+    **JUDGE_HANDLERS,
+}
 
 
 class _Failure(Exception):
@@ -80,6 +91,7 @@ class Server:
         self.clones = Clones(self._send_clone_changed)
         self.github = GitHubSignIns(self._send_github_sign_in_finished)
         self.dev_servers = DevelopmentServers()
+        self.new_projects = NewProjects(self._send_create_changed, self.sessions)
         self._async_handlers = (
             self.sessions.handlers()
             | self.sign_ins.handlers()
@@ -87,6 +99,7 @@ class Server:
             | self.clones.handlers()
             | self.github.handlers()
             | self.dev_servers.handlers()
+            | self.new_projects.handlers()
             | TERMINAL_HANDLERS
             | PROCESS_HANDLERS
         )
@@ -105,6 +118,9 @@ class Server:
 
     def _send_clone_changed(self, params: ProjectsCloneChangedParams) -> None:
         self._notify("projects/cloneChanged", params)
+
+    def _send_create_changed(self, params: ProjectsCreateChangedParams) -> None:
+        self._notify("projects/createChanged", params)
 
     def _notify(self, method: str, params: Any) -> None:
         message = {"jsonrpc": "2.0", "method": method, "params": params.model_dump(by_alias=True, mode="json")}

@@ -844,8 +844,17 @@ def _handler(cloud: FakeCloud) -> type[BaseHTTPRequestHandler]:
             for (name,) in db.execute("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"):
                 if _hidden(name):
                     continue
+                keys = {  # as the API does: a foreign key is {table, column}
+                    k[3]: {"table": k[2], "column": k[4]} for k in db.execute(f'PRAGMA foreign_key_list("{name}")')
+                }
                 columns = [
-                    {"name": c[1], "type": c[2], "pk": bool(c[5]), "nullable": not (c[3] or c[5]), "references": None}
+                    {
+                        "name": c[1],
+                        "type": c[2],
+                        "pk": bool(c[5]),
+                        "nullable": not (c[3] or c[5]),
+                        "references": keys.get(c[1]),
+                    }
                     for c in db.execute(f'PRAGMA table_info("{name}")')
                 ]
                 rows = db.execute(f'SELECT count(*) FROM "{name}"').fetchone()[0]

@@ -194,6 +194,18 @@ def test_live_tables_rows_and_masking_through_the_api(cloud, live, folder):
     assert e.value.code == "not_found"
 
 
+def test_live_foreign_keys_come_as_table_dot_column(cloud, signed_in, folder):
+    app = create_app(CloudClient(AlpineTokens()), "craft-booking", "web-lite")
+    cloud.make_live(
+        app.id,
+        "CREATE TABLE a (id integer PRIMARY KEY);"
+        "CREATE TABLE b (id integer PRIMARY KEY, a_id integer REFERENCES a(id));",
+    )
+    links.link(folder, app.id)
+    [b] = [t for t in data.tables(folder, "live") if t.name == "b"]
+    assert {c["name"]: c["references"] for c in b.columns} == {"id": None, "a_id": "a.id"}
+
+
 def test_live_is_not_available_before_the_app_is_live(cloud, signed_in, folder):
     app = create_app(CloudClient(AlpineTokens()), "craft-booking", "web-lite")
     with pytest.raises(DataError) as e:

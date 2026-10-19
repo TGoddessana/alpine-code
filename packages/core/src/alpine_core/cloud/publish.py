@@ -299,7 +299,7 @@ def _manifest(
         "assets": [
             {"path": a.path, "hash": a.hash, "size": a.size, "content_type": a.content_type} for a in built.assets
         ],
-        "migrations": [{"name": m.name, "hash": m.hash} for m in built.migrations],
+        "migrations": [{"name": m.name, "hash": m.hash, "size": m.size} for m in built.migrations],
         "client": {"checks": {c["id"]: c["state"] for c in local if c["state"] != "skipped"}},
     }
     if source is not None:

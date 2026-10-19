@@ -105,6 +105,17 @@ def test_the_vite_output_is_read_through_the_deploy_pointer(tmp_path):
     assert all(len(a.hash) == 64 for a in built.assets) and built.assets[2].size == 31
 
 
+def test_a_realtime_web_app_is_static_files_without_a_worker(tmp_path):
+    folder = make_project(tmp_path, kind="web-pro")
+    generated = folder / "dist" / "my_app" / "wrangler.json"
+    config = json.loads(generated.read_text())
+    config.pop("main")
+    generated.write_text(json.dumps(config))
+    built = cloud_build.read_output(folder, project.read_description(folder))
+    assert built.main == "" and built.modules == []
+    assert [a.path for a in built.assets][-1] == "/index.html"
+
+
 def test_a_pointer_that_leaves_the_project_is_refused(tmp_path):
     folder = make_project(tmp_path)
     (folder / ".wrangler" / "deploy" / "config.json").write_text(json.dumps({"configPath": "../../../outside.json"}))
@@ -170,6 +181,7 @@ def test_prepare_builds_checks_uploads_and_makes_the_app(cloud, signed_in, tmp_p
     assert manifest["worker"]["compatibility_flags"] == ["nodejs_compat"]
     assert [a["path"] for a in manifest["assets"]][-1] == "/index.html"
     assert [m["name"] for m in manifest["migrations"]] == ["0000_auth.sql", "0001_notes.sql"]
+    assert all(m["size"] > 0 for m in manifest["migrations"])  # the API checks each upload against the declared size
     assert manifest["client"]["checks"] == {"secret": "ok"}
     assert (
         manifest["source"]["commit"]

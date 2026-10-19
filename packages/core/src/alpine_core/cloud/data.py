@@ -119,7 +119,9 @@ def tables(folder: Path, source: Source, client: CloudClient | None = None) -> l
     if source == "live":
         api, app_id = _live(folder, client)
         body = api.get(f"/v1/apps/{app_id}/data/tables")
-        return [Table(t["name"], t.get("rows", 0), t.get("columns", [])) for t in body["tables"]]
+        return [
+            Table(t["name"], t.get("rows", 0), [_live_column(c) for c in t.get("columns", [])]) for t in body["tables"]
+        ]
     with _practice(folder) as db:
         found = []
         for (name,) in db.execute("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"):
@@ -282,6 +284,14 @@ def _own_tables(file: Path) -> int:
             return sum(1 for (name,) in db.execute(_SYSTEM_QUERY) if not is_hidden(name))
     except sqlite3.Error:
         return 0
+
+
+def _live_column(column: dict[str, Any]) -> dict[str, Any]:
+    """The API names a foreign key ``{table, column}``; the tab and protocol take ``table.column``."""
+    ref = column.get("references")
+    if isinstance(ref, dict):
+        ref = f"{ref['table']}.{ref['column']}" if ref.get("column") else ref["table"]
+    return {**column, "references": ref}
 
 
 def _columns(db: sqlite3.Connection, table: str) -> list[dict[str, Any]]:

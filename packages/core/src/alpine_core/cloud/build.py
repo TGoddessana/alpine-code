@@ -84,6 +84,7 @@ class Migration:
     name: str
     file: Path
     hash: str
+    size: int
 
 
 @dataclass(frozen=True)
@@ -221,10 +222,14 @@ def read_output(project: Path, description: CloudDescription) -> Built:
     config = _json(generated)
     folder = generated.parent
     main = config.get("main")
-    if not isinstance(main, str) or not (folder / main).is_file():
-        raise BuildFailed("The build did not make a Worker script (no main in the generated wrangler.json).")
-    main_file = _inside(project, folder / main)
-    modules = _modules(main_file.parent, main_file)
+    static_only = description.kind == "web-pro"  # a realtime web app is static files; the server adds its own Worker
+    if static_only and main is None:
+        main_name, modules = "", []
+    else:
+        if not isinstance(main, str) or not (folder / main).is_file():
+            raise BuildFailed("The build did not make a Worker script (no main in the generated wrangler.json).")
+        main_file = _inside(project, folder / main)
+        main_name, modules = main_file.relative_to(main_file.parent).as_posix(), _modules(main_file.parent, main_file)
     assets_dir = None
     assets_config = config.get("assets")
     if isinstance(assets_config, dict) and isinstance(assets_config.get("directory"), str):
@@ -233,7 +238,7 @@ def read_output(project: Path, description: CloudDescription) -> Built:
             raise BuildFailed("The build did not make the folder of static files it names.")
     flags = config.get("compatibility_flags")
     return Built(
-        main=main_file.relative_to(main_file.parent).as_posix(),
+        main=main_name,
         compatibility_date=config.get("compatibility_date")
         if isinstance(config.get("compatibility_date"), str)
         else None,
@@ -339,7 +344,7 @@ def _migrations(project: Path, description: CloudDescription) -> list[Migration]
     folder = _inside(project, project / description.migrations)
     if not folder.is_dir():
         return []
-    return [Migration(path.name, path, _digest(path)[0]) for path in sorted(folder.glob("*.sql")) if path.is_file()]
+    return [Migration(path.name, path, *_digest(path)) for path in sorted(folder.glob("*.sql")) if path.is_file()]
 
 
 def _expects(config: dict[str, Any]) -> dict[str, list[str]]:

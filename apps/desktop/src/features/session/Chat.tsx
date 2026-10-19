@@ -167,6 +167,8 @@ const ItemView = memo(function ItemView({
       if (item.source === 'memory_check')
         return <p className={quiet}>{t.notice_memory_check(item.text.slice(item.text.indexOf(': ') + 2))}</p>;
       if (item.source === 'taskforce_retry') return <p className={quiet}>{t.notice_taskforce_retry(item.text)}</p>;
+      // A TF's end notice is for the model (the result as JSON, in English); the TF card above says how it ended.
+      if (item.source === 'taskforce') return null;
       return <p className={quiet}>{item.text}</p>;
     case 'status_line':
       return <p className={quiet}>{item.text}</p>;

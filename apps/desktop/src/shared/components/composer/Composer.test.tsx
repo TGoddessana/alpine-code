@@ -68,6 +68,13 @@ describe('Composer', () => {
     expect(names[1]!.compareDocumentPosition(names[2]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('is taller as the face of a screen, and the same box everywhere else', () => {
+    const { getByLabelText, rerender } = show(<Composer />);
+    expect(getByLabelText('메시지')).toHaveProperty('rows', 2);
+    rerender(<Composer large />);
+    expect(getByLabelText('메시지')).toHaveProperty('rows', 4);
+  });
+
   it('puts the project chip, where there is one, before the agent', () => {
     const { getByRole } = show(
       <Composer

@@ -83,6 +83,14 @@ afterEach(() => {
 });
 
 describe('NewSession', () => {
+  it('starts with the question over a tall input in the middle of a snow scene, and no mascot', () => {
+    mount();
+    expect(screen.getByRole('heading', { name: '무엇을 해 볼까요?' })).toBeTruthy();
+    expect(screen.getByLabelText('메시지')).toHaveProperty('rows', 4);
+    expect(document.querySelector('img[src="/brand/hare.png"]')).toBeNull();
+    expect(document.querySelectorAll('main canvas')).toHaveLength(2);
+  });
+
   it('asks the server to judge what was sent, with the language and the project, and shows its pick and why', async () => {
     const { sent } = mount();
     await send(`  ${IDEA}  `);

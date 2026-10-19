@@ -1,11 +1,11 @@
 import type { CloneInfo, JudgedNew, ProjectInfo } from '@alpine/protocol';
 import { AutoHeight, Button, LinkButton } from '@alpine/ui/primitives';
+import clsx from 'clsx';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-
-import { BrandMark } from '@/shared/components/brand';
 
 import { AgentChip, Composer, useSlashSkills, type Mode } from '@/shared/components/composer';
 import { CloneDialog, projectAddMessages } from '@/shared/components/project-add';
+import { Snowscape } from '@/shared/components/snowscape';
 import { useLocale, useMessages } from '@/shared/i18n';
 import {
   ServerError,
@@ -251,97 +251,103 @@ export function NewSession({
 
   const locked = clone?.state === 'failed' || stage?.name === 'creating';
   return (
-    <main aria-label={t.newSession} className="flex min-h-0 min-w-120 grow flex-col overflow-y-auto bg-canvas">
-      <div className="min-h-0 grow" />
-      <div className="mx-auto flex w-full max-w-175 shrink-0 flex-col gap-6 px-6 py-6">
-        {clone ? (
-          <div className="flex justify-center">
-            <Receiving
-              clone={clone}
-              onCancel={() => cancelClone.mutate(clone.id, { onSuccess: () => onProjectChange(null) })}
-              onDismiss={() => cancelClone.mutate(clone.id, { onSuccess: () => onProjectChange(null) })}
-              onRetry={() => setRetrying(clone.address)}
-            />
-          </div>
-        ) : (
-          <AutoHeight className="w-full">
-            {stage?.name === 'judging' ? (
-              <div key="judging" className="motion-step flex flex-col items-center gap-4 text-center">
-                <Asked text={stage.text} />
-                <p role="status" className="inline-flex items-center gap-2 text-body text-fg-muted">
-                  <Dots />
-                  {t.judging}
-                </p>
-              </div>
-            ) : stage?.name === 'choosing' ? (
-              <div key="choosing" className="motion-step flex flex-col gap-4">
-                <div className="flex flex-col items-center gap-3 text-center">
-                  <Asked text={stage.text} />
-                  <h1 className="text-title font-semibold">{project ? t.newAppHeading : t.pickSetupHeading}</h1>
-                </div>
-                <TemplateCards
-                  templates={templates}
-                  value={stage.template}
-                  onChange={(template) => setStage({ ...stage, template })}
-                  recommendation={stage.judged ?? undefined}
+    <main aria-label={t.newSession} className="relative flex min-h-0 min-w-120 grow flex-col overflow-hidden bg-canvas">
+      {/* The snow scene is the face of the start screen; while something is being worked on it steps back. */}
+      <Snowscape className={clsx('transition-opacity duration-500', (clone || stage) && 'opacity-20')} />
+      <div className="relative flex min-h-0 grow flex-col overflow-y-auto">
+        {/* What is said above the input sits on top of it, so the input itself is the middle of the screen. */}
+        <div className="flex grow basis-0 flex-col justify-end">
+          <div className="mx-auto flex w-full max-w-175 shrink-0 flex-col gap-6 px-6 pt-6 pb-6">
+            {clone ? (
+              <div className="flex justify-center">
+                <Receiving
+                  clone={clone}
+                  onCancel={() => cancelClone.mutate(clone.id, { onSuccess: () => onProjectChange(null) })}
+                  onDismiss={() => cancelClone.mutate(clone.id, { onSuccess: () => onProjectChange(null) })}
+                  onRetry={() => setRetrying(clone.address)}
                 />
-                <div className="flex items-center justify-between gap-3">
-                  {project && <LinkButton onClick={() => work(stage.text, project)}>{t.notNew}</LinkButton>}
-                  <div className="ml-auto flex items-center gap-3">
-                    <span className="text-meta text-fg-muted">{cloud.signedIn ? t.liveNote : t.localNote}</span>
-                    <Button variant="primary" autoFocus onClick={() => create(stage)}>
-                      {t.create}
-                    </Button>
-                  </div>
-                </div>
               </div>
-            ) : stage?.name === 'creating' ? (
-              <CreatingFrom
-                key="creating"
-                stage={stage}
-                online={cloud.signedIn}
-                onOpen={(sessionId) => onStarted(sessionId)}
-                onBack={back}
-              />
             ) : (
-              <div key="start" className="motion-step flex flex-col items-center gap-6">
-                <div className="flex flex-col items-center gap-3 text-center">
-                  <BrandMark size={56} />
-                  <h1 className="text-display font-semibold">{project ? t.heading : t.newHeading}</h1>
-                </div>
-                {startFailed && (
-                  <p role="alert" className="text-body text-danger">
-                    {t.startFailed}
-                  </p>
+              <AutoHeight className="w-full">
+                {stage?.name === 'judging' ? (
+                  <div key="judging" className="motion-step flex flex-col items-center gap-4 text-center">
+                    <Asked text={stage.text} />
+                    <p role="status" className="inline-flex items-center gap-2 text-body text-fg-muted">
+                      <Dots />
+                      {t.judging}
+                    </p>
+                  </div>
+                ) : stage?.name === 'choosing' ? (
+                  <div key="choosing" className="motion-step flex flex-col gap-4">
+                    <div className="flex flex-col items-center gap-3 text-center">
+                      <Asked text={stage.text} />
+                      <h1 className="text-title font-semibold">{project ? t.newAppHeading : t.pickSetupHeading}</h1>
+                    </div>
+                    <TemplateCards
+                      templates={templates}
+                      value={stage.template}
+                      onChange={(template) => setStage({ ...stage, template })}
+                      recommendation={stage.judged ?? undefined}
+                    />
+                    <div className="flex items-center justify-between gap-3">
+                      {project && <LinkButton onClick={() => work(stage.text, project)}>{t.notNew}</LinkButton>}
+                      <div className="ml-auto flex items-center gap-3">
+                        <span className="text-meta text-fg-muted">{cloud.signedIn ? t.liveNote : t.localNote}</span>
+                        <Button variant="primary" autoFocus onClick={() => create(stage)}>
+                          {t.create}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : stage?.name === 'creating' ? (
+                  <CreatingFrom
+                    key="creating"
+                    stage={stage}
+                    online={cloud.signedIn}
+                    onOpen={(sessionId) => onStarted(sessionId)}
+                    onBack={back}
+                  />
+                ) : (
+                  <div key="start" className="motion-step flex flex-col items-center gap-6">
+                    <h1 className="text-center text-display font-semibold">{project ? t.heading : t.newHeading}</h1>
+                    {startFailed && (
+                      <p role="alert" className="text-body text-danger">
+                        {t.startFailed}
+                      </p>
+                    )}
+                    {project && <ImportLink cwd={project.path} onOpen={onStarted} />}
+                  </div>
                 )}
-                {project && <ImportLink cwd={project.path} onOpen={onStarted} />}
-              </div>
+              </AutoHeight>
             )}
-          </AutoHeight>
-        )}
-        <Composer
-          placeholder={project ? t.placeholder : t.newPlaceholder}
-          locked={locked}
-          waiting={clone?.state === 'receiving' ? added.waitToSend : undefined}
-          onSend={send}
-          prefill={prefill}
-          slash={project ? slash : undefined}
-          mode={shownMode ? { value: shownMode, onChange: setMode } : undefined}
-          project={
-            <ProjectChip project={project} disabled={locked} onChange={onProjectChange} onNewProject={onNewProject} />
-          }
-          agent={
-            <AgentChip
-              context="new"
-              agentId={shown}
-              model={shownAgent?.model ?? defaultModel ?? null}
-              lastUsed={project?.lastAgent}
-              onChange={(id) => setPicked({ path: where, id })}
-            />
-          }
-        />
+          </div>
+        </div>
+        <div className="mx-auto w-full max-w-205 shrink-0 px-6">
+          <Composer
+            large
+            placeholder={project ? t.placeholder : t.newPlaceholder}
+            locked={locked}
+            waiting={clone?.state === 'receiving' ? added.waitToSend : undefined}
+            onSend={send}
+            prefill={prefill}
+            slash={project ? slash : undefined}
+            mode={shownMode ? { value: shownMode, onChange: setMode } : undefined}
+            project={
+              <ProjectChip project={project} disabled={locked} onChange={onProjectChange} onNewProject={onNewProject} />
+            }
+            agent={
+              <AgentChip
+                context="new"
+                agentId={shown}
+                model={shownAgent?.model ?? defaultModel ?? null}
+                lastUsed={project?.lastAgent}
+                onChange={(id) => setPicked({ path: where, id })}
+              />
+            }
+          />
+        </div>
+        <div className="grow basis-0" />
       </div>
-      <div className="min-h-0 grow" />
       <CloneDialog
         open={retrying !== null}
         address={retrying ?? undefined}

@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { ArrowUp, Square } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
@@ -22,12 +23,14 @@ import { SlashMenu, matchSkills, slashQuery, type SlashSkill } from './SlashMenu
  * open (Esc closes that first). `prefill` puts text in the box and focuses it (not sent) each time its `key` changes. With no model connected, sending asks to connect one instead.
  *
  * With `slash`, typing `/` at the start lists the skills: ↑↓ move, Enter or Tab picks (the message then starts with
- * `/<name> `, which sends the skill along), Esc closes the list.
+ * `/<name> `, which sends the skill along), Esc closes the list. `large` is the input as the face of a screen (the
+ * new-session screen): taller, with more room round the text, and lifted off the page with a shadow.
  */
 export function Composer({
   locked = false,
   waiting,
   running = false,
+  large = false,
   project,
   agent,
   bar,
@@ -43,6 +46,8 @@ export function Composer({
   /** Typing is fine but sending waits, and this line says for what (e.g. a project still being received). */
   waiting?: string;
   running?: boolean;
+  /** The input as the centre of the screen: taller and lifted. */
+  large?: boolean;
   /** The project chip, first in the bar. */
   project?: ReactNode;
   /** The agent chip, after the project chip. */
@@ -134,14 +139,19 @@ export function Composer({
       {menuOpen && slash && (
         <SlashMenu skills={matches} active={Math.min(active, matches.length - 1)} onPick={pick} onFind={slash.onFind} />
       )}
-      <div className="flex flex-col gap-1 rounded-2xl border border-line bg-canvas-raised pt-3 pr-3 pb-2 pl-4">
+      <div
+        className={clsx(
+          'flex flex-col gap-1 rounded-2xl border border-line bg-canvas-raised',
+          large ? 'pt-5 pr-4 pb-3 pl-6 shadow-overlay' : 'pt-3 pr-3 pb-2 pl-4',
+        )}
+      >
         <label htmlFor="composer" className="sr-only">
           {t.message}
         </label>
         <textarea
           id="composer"
           ref={input}
-          rows={2}
+          rows={large ? 4 : 2}
           disabled={locked}
           value={text}
           placeholder={answer?.placeholder ?? placeholder ?? t.placeholder}
@@ -177,7 +187,10 @@ export function Composer({
               mode.onChange(nextMode(mode.value));
             }
           }}
-          className="max-h-60 min-h-11 w-full resize-none bg-transparent text-reading text-fg outline-none placeholder:text-fg-muted disabled:text-fg-muted"
+          className={clsx(
+            'max-h-60 w-full resize-none bg-transparent text-reading text-fg outline-none placeholder:text-fg-muted disabled:text-fg-muted',
+            large ? 'min-h-24' : 'min-h-11',
+          )}
         />
         {/* Wraps in a narrow column (the dock): the send button and its neighbours move down together, on the right. */}
         <div className="-ml-2 flex flex-wrap items-center gap-1">

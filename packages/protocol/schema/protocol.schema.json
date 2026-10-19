@@ -1177,6 +1177,7 @@
       "type": "object"
     },
     "CompactionItem": {
+      "description": "The conversation was tidied: old tool results cleared, then, if that was not enough, summarized.",
       "properties": {
         "id": {
           "type": "string"
@@ -1191,13 +1192,30 @@
         },
         "afterTokens": {
           "type": "integer"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cleared": {
+          "default": 0,
+          "type": "integer"
         }
       },
       "required": [
         "id",
         "kind",
         "beforeTokens",
-        "afterTokens"
+        "afterTokens",
+        "summary",
+        "cleared"
       ],
       "title": "CompactionItem",
       "type": "object"
@@ -5852,6 +5870,16 @@
             }
           ]
         },
+        "contextTidyAt": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "activity": {
           "anyOf": [
             {
@@ -5906,6 +5934,7 @@
         "usage",
         "contextUsed",
         "contextWindow",
+        "contextTidyAt",
         "activity",
         "runStartedAt",
         "runUsage",

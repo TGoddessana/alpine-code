@@ -289,6 +289,8 @@ export interface CommandResult {
   message?: string | null;
 }
 /**
+ * The conversation was tidied: old tool results cleared, then, if that was not enough, summarized.
+ *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "CompactionItem".
  */
@@ -297,6 +299,8 @@ export interface CompactionItem {
   kind: 'compaction';
   beforeTokens: number;
   afterTokens: number;
+  summary: string | null;
+  cleared: number;
 }
 /**
  * Saves a connection, replacing the one for the same provider or address, and its key.
@@ -2136,6 +2140,7 @@ export interface SessionInfo {
   usage: Usage;
   contextUsed: number;
   contextWindow: number | null;
+  contextTidyAt: number | null;
   activity: Activity | null;
   runStartedAt: string | null;
   runUsage: Usage | null;

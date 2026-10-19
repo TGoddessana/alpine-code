@@ -81,6 +81,8 @@ export const messages = defineMessages({
     stopped_signed_out: 'ChatGPT 로그인이 끝나서 멈췄어요 · 설정 › 모델 연결에서 다시 로그인해 주세요',
     manageUsage: '사용량 관리 ↗',
     compaction: (before: string, after: string) => `대화를 정리했어요 · ${before} → ${after} 토큰`,
+    compactionCleared: (n: string) => `오래된 읽기 결과 ${n}개를 비웠어요. 필요하면 다시 읽어요.`,
+    compactionSummary: '앞부분 요약',
     agentSwitched: (name: string) => `${josa(name, '으로/로')} 바꿨어요 · 프로젝트, 대화, 안전 설정은 그대로예요`,
     imported: (app: string) => `여기까지 ${app}에서 하던 대화예요 · 이어서 말하면 계속해요`,
     agentChanged: (name: string, changes: string) => `${name} 설정이 바뀌었어요 · ${changes} · 이 메시지부터 적용돼요`,
@@ -108,11 +110,16 @@ export const messages = defineMessages({
     // Context meter and the usage it opens
     usage: '사용량 보기',
     lengthAria: (percent: string) => `대화 길이 ${percent}%, 사용량 보기`,
+    lengthAriaTokens: (tokens: string) => `대화 길이 ${tokens} 토큰, 사용량 보기`,
     lengthHint: (percent: string) =>
       `모델이 한 번에 읽을 수 있는 대화 중 ${percent}%를 쓰고 있어요. 가득 차면 앞부분을 요약해 공간을 만들어요.`,
+    lengthHintUnknown:
+      '이 모델이 한 번에 얼마나 읽을 수 있는지 알 수 없어요. 너무 길어지면 그때 앞부분을 요약해 공간을 만들어요.',
     lengthTitle: '대화 길이',
     lengthExplain:
       '지금 대화가 모델이 한 번에 읽을 수 있는 양을 얼마나 채웠는지예요. 가득 차면 앞부분을 짧게 줄여서 이어 가요.',
+    lengthExplainUnknown:
+      '이 모델이 한 번에 얼마나 읽을 수 있는지 알 수 없어요. 너무 길어지면 그때 앞부분을 짧게 줄여서 이어 가요.',
     usedTitle: '이 대화에서 쓴 양',
     wholeSession: '이 대화 전체',
     thisRun: '이번 작업',
@@ -200,6 +207,8 @@ export const messages = defineMessages({
     stopped_signed_out: 'Stopped: the ChatGPT sign-in ended · sign in again in Settings › Model connection',
     manageUsage: 'Manage usage ↗',
     compaction: (before: string, after: string) => `Conversation compacted · ${before} → ${after} tokens`,
+    compactionCleared: (n: string) => `Cleared ${n} old read results. They are read again when needed.`,
+    compactionSummary: 'Summary of the earlier part',
     agentSwitched: (name: string) => `Switched to ${name} · project, conversation and safety stay the same`,
     imported: (app: string) => `Up to here, this conversation was in ${app} · say something to go on`,
     agentChanged: (name: string, changes: string) => `${name} was changed · ${changes} · applies from this message`,
@@ -225,11 +234,16 @@ export const messages = defineMessages({
 
     usage: 'Show usage',
     lengthAria: (percent: string) => `Conversation length ${percent}%, show usage`,
+    lengthAriaTokens: (tokens: string) => `Conversation length ${tokens} tokens, show usage`,
     lengthHint: (percent: string) =>
       `Using ${percent}% of what the model can read at once. When it fills up, the earlier part is summarised to make room.`,
+    lengthHintUnknown:
+      "This model doesn't say how much it can read at once. If the chat gets too long, the earlier part is summarised then to make room.",
     lengthTitle: 'Conversation length',
     lengthExplain:
       'How much of what the model can read at once this conversation fills. When it fills up, the start is shortened so the chat can go on.',
+    lengthExplainUnknown:
+      "This model doesn't say how much it can read at once. If the chat gets too long, the start is shortened then so it can go on.",
     usedTitle: 'Used in this chat',
     wholeSession: 'Whole chat',
     thisRun: 'This run',

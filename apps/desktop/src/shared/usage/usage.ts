@@ -1,12 +1,15 @@
 import type { SessionInfo, Usage } from '@alpine/protocol';
 
-/** From this share of the context window on, the meter asks for attention: the model will soon summarise the start. */
+/** From this share of the tidy point on, the meter asks for attention: the conversation will soon be tidied. */
 export const CONTEXT_WARN_PERCENT = 80;
 
-/** How much of the model's memory the conversation uses, in whole percent (0 to 100); `null` when the window is unknown. */
-export function contextPercent(info: Pick<SessionInfo, 'contextUsed' | 'contextWindow'>): number | null {
-  if (!info.contextWindow || info.contextWindow <= 0) return null;
-  return Math.min(100, Math.max(0, Math.round((info.contextUsed / info.contextWindow) * 100)));
+/**
+ * How far the conversation is toward the point where it is tidied (near the end of what the model reads at once, or
+ * before a longer prompt costs more), in whole percent (0 to 100); `null` when the model's window is unknown.
+ */
+export function contextPercent(info: Pick<SessionInfo, 'contextUsed' | 'contextTidyAt'>): number | null {
+  if (!info.contextTidyAt || info.contextTidyAt <= 0) return null;
+  return Math.min(100, Math.max(0, Math.round((info.contextUsed / info.contextTidyAt) * 100)));
 }
 
 /**

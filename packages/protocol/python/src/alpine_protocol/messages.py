@@ -947,6 +947,10 @@ class SessionInfo(Message):
     """Tokens the conversation takes of the model's context window."""
     context_window: int | None
     """The model's context window in tokens; ``None`` if unknown."""
+    context_tidy_at: int | None
+    """The length in tokens past which the conversation is tidied (near the window's end, or before a price step);
+    the context pie is full there. ``None`` when the window is unknown: the conversation grows until the provider
+    refuses it."""
     activity: Activity | None
     """What the session is doing; ``None`` when idle."""
     run_started_at: datetime | None
@@ -1093,10 +1097,16 @@ class MemoryReviewItem(ItemModel):
 
 
 class CompactionItem(ItemModel):
+    """The conversation was tidied: old tool results cleared, then, if that was not enough, summarized."""
+
     id: str
     kind: Literal["compaction"] = "compaction"
     before_tokens: int
     after_tokens: int
+    summary: str | None = None
+    """What the model keeps of the older conversation; ``None`` when it was not summarized."""
+    cleared: int = 0
+    """How many old tool results were cleared."""
 
 
 class RunStoppedItem(ItemModel):

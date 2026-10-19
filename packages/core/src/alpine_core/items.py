@@ -142,9 +142,15 @@ class MemoryReview:
 
 @dataclass(frozen=True)
 class Compaction:
+    """The conversation was tidied. One divider for both steps: old tool results cleared, then perhaps summarized."""
+
     id: str
     before_tokens: int
     after_tokens: int
+    summary: str | None = None
+    """What the model keeps of the older conversation; ``None`` when it was not summarized."""
+    cleared: int = 0
+    """How many old tool results were cleared (the model reads them again when it needs them)."""
     kind: ClassVar[str] = "compaction"
 
 
@@ -575,8 +581,8 @@ class ItemRecorder:
                 self._start(ToolCallItem(id, name, dict(args)))
             case ToolFinished():
                 self._on_tool_finished(event)
-            case ContextCompacted(before, after):
-                self._born_finished(Compaction(self._new_id(), before, after))
+            case ContextCompacted(before, after, summary, cleared):
+                self._born_finished(Compaction(self._new_id(), before, after, summary, cleared))
             case Notice(text):
                 self._born_finished(StatusLine(self._new_id(), text))
             case RunFinished(stopped_by):

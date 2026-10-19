@@ -295,7 +295,7 @@ def test_activity_follows_a_run_with_a_tool_call_and_an_approval(tmp_path, monke
     ]
     info = session.info
     assert info.status == "idle" and info.activity is None and info.run_started_at is None and info.run_usage is None
-    assert info.context_window == 200_000
+    assert info.context_window == 200_000 and info.context_tidy_at == 180_000
     # every activity change carries a start time, and a run has one start time
     infos = [e.info for _, _, e in log if isinstance(e, InfoChanged)]
     running = [i for i in infos if i.activity is not None]

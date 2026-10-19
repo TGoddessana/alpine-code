@@ -87,6 +87,8 @@ class SessionInfo:
     """Tokens of context in use, as of the last request."""
     context_window: int | None = None
     """The model's context window in tokens, or ``None`` if unknown."""
+    context_tidy_at: int | None = None
+    """The length past which the conversation is tidied (``context.py``); ``None`` when the window is unknown."""
     activity: Activity | None = None
     """What the session is doing, ``None`` when idle. Live only: it is not restored from the log."""
     run_started_at: str | None = None
@@ -133,6 +135,7 @@ class SessionInfo:
             "usage": _usage_to_dict(self.usage),
             "context_used": self.context_used,
             "context_window": self.context_window,
+            "context_tidy_at": self.context_tidy_at,
             "activity": None
             if self.activity is None
             else {"kind": self.activity.kind, "tool_name": self.activity.tool_name, "since": self.activity.since},
@@ -166,6 +169,7 @@ class SessionInfo:
             usage=_usage_from_dict(data.get("usage") or {}),
             context_used=data.get("context_used", 0),
             context_window=data.get("context_window"),
+            context_tidy_at=data.get("context_tidy_at"),
             activity=None
             if activity is None
             else Activity(activity["kind"], activity.get("tool_name"), activity.get("since", "")),

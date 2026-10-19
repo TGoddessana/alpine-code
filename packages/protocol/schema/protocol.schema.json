@@ -5346,6 +5346,10 @@
             }
           ],
           "default": null
+        },
+        "newProject": {
+          "default": false,
+          "type": "boolean"
         }
       },
       "required": [

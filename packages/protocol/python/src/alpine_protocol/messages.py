@@ -2191,6 +2191,10 @@ class ProjectsJudgeParams(Message):
     """The app's language, such as ``ko`` or ``en-US``: ``reason`` is written in it."""
     cwd: str | None = None
     """The project the screen is on, so the model knows what "this project" is; ``None`` when there is none."""
+    new_project: bool = False
+    """The person chose 새로 만들기, so it is a new project: the model only picks the template, and the answer is
+    always ``new`` (``web-lite``, else the first template the server has, with no reason, when the model's answer
+    cannot be used)."""
 
 
 class JudgedChange(Message):

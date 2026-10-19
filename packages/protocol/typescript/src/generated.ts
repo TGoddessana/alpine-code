@@ -2895,6 +2895,7 @@ export interface ProjectsJudgeParams {
   text: string;
   locale: string;
   cwd?: string | null;
+  newProject?: boolean;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema

@@ -23,6 +23,7 @@ from .cloning import (
 from .config import (
     ConfigError,
     Connection,
+    ModelSettings,
     Settings,
     config_file,
     remove_connection,
@@ -162,6 +163,7 @@ __all__ = [
     "import_session",
     "config_file",
     "Connection",
+    "ModelSettings",
     "remove_connection",
     "save_connection",
     "set_clone_folder",

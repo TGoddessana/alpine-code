@@ -1,3 +1,16 @@
+export {
+  appAddress,
+  cloudKey,
+  useAlpineSignIn,
+  useCloudSignOut,
+  useCloudStatus,
+  useInstallNodeTools,
+  useNodeTools,
+  useSendCode,
+  useVerifyCode,
+  type AlpineSignInState,
+  type NodeInstallState,
+} from './cloud';
 export { CHATGPT_USAGE_URL, useChatGPTSignIn, useChatGPTSignOut, type SignInState } from './chatgpt';
 export { ServerError, type Notification, type ServerConnection } from './connection';
 export { ServerProvider, useServer } from './context';
@@ -89,6 +102,7 @@ export {
   statefulScript,
   withRouterScript,
 } from './fixtures';
+export { cloudScript, type CloudScriptOptions } from './cloudScript';
 export { SKILLS, skillsScript, type SkillsScriptOptions } from './skillsScript';
 export { MEMORY, MEMORY_REMOVAL, MEMORY_SUGGESTION, memoryScript } from './memoryScript';
 export { mergeScripts, scriptedConnection, type Script, type ScriptContext } from './scripted';

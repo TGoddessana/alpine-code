@@ -34,8 +34,8 @@ export function useJudgeNewProject() {
 }
 
 export interface CreateProjectInput extends Omit<ProjectsCreateParams, 'id'> {
-  /** Called as each step finishes, with the project being made. */
-  onStep?: (step: CreateStep, project: ProjectInfo) => void;
+  /** Called as each step finishes, with the project being made; `address` comes with the `address` step. */
+  onStep?: (step: CreateStep, project: ProjectInfo, address: string | null) => void;
 }
 
 /**
@@ -54,7 +54,7 @@ export function useCreateProject() {
       const stop = server.subscribe((notification) => {
         if (notification.method !== 'projects/createChanged') return;
         const changed = notification.params as ProjectsCreateChangedParams;
-        if (changed.id === id) onStep?.(changed.step, changed.project);
+        if (changed.id === id) onStep?.(changed.step, changed.project, changed.address ?? null);
       });
       try {
         return await server.request('projects/create', { ...params, id });

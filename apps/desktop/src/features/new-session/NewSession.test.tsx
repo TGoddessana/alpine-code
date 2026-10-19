@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LocaleProvider } from '@/shared/i18n';
 import {
   chatScript,
+  cloudScript,
   mergeScripts,
   PROJECTS,
   scriptedConnection,
@@ -94,9 +95,9 @@ describe('NewSession', () => {
   it('asks the server to judge what was sent, with the language and the project, and shows its pick and why', async () => {
     const { sent } = mount();
     await send(`  ${IDEA}  `);
-    expect(await screen.findByText('로그인과 예약 저장이면 Lite로 충분해요.')).toBeTruthy();
+    expect(await screen.findByText('로그인과 예약 저장이면 웹앱으로 충분해요.')).toBeTruthy();
     expect(sent('projects/judge')).toEqual([{ text: IDEA, locale: 'ko', cwd: project.path }]);
-    expect(screen.getByRole('radio', { name: /웹앱 Lite/ })).toHaveProperty('ariaChecked', 'true');
+    expect(screen.getByRole('radio', { name: /^웹앱/ })).toHaveProperty('ariaChecked', 'true');
     expect(sent('session/new')).toEqual([]);
   });
 
@@ -177,11 +178,11 @@ describe('NewSession', () => {
       judgement: {
         kind: 'new',
         template: 'web-lite',
-        reason: '로그인과 예약 저장이면 Lite로 충분해요.',
+        reason: '로그인과 예약 저장이면 웹앱으로 충분해요.',
         name: 'craft-booking',
       },
     });
-    expect(await screen.findByText('로그인과 예약 저장이면 Lite로 충분해요.')).toBeTruthy();
+    expect(await screen.findByText('로그인과 예약 저장이면 웹앱으로 충분해요.')).toBeTruthy();
     answers[0]!({ judgement: { kind: 'change' } });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(onStarted).not.toHaveBeenCalled();
@@ -202,7 +203,7 @@ describe('NewSession', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '돌아가기' }));
     expect(await screen.findByRole('radiogroup', { name: '구성' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /웹앱 Lite/ })).toHaveProperty('ariaChecked', 'true');
+    expect(screen.getByRole('radio', { name: /^웹앱/ })).toHaveProperty('ariaChecked', 'true');
     expect(sent('projects/create')).toHaveLength(1);
   });
 
@@ -330,9 +331,9 @@ describe('NewSession making a new project (새로 만들기)', () => {
     expect(await screen.findByRole('heading', { name: '무엇을 만들어 볼까요?' })).toBeTruthy();
     expect(screen.getByPlaceholderText('만들고 싶은 앱을 적어 주세요')).toBeTruthy();
     await send(`  ${IDEA}  `);
-    expect(await screen.findByText('로그인과 예약 저장이면 Lite로 충분해요.')).toBeTruthy();
+    expect(await screen.findByText('로그인과 예약 저장이면 웹앱으로 충분해요.')).toBeTruthy();
     expect(sent('projects/judge')).toEqual([{ text: IDEA, locale: 'ko', newProject: true }]);
-    expect(screen.getByRole('radio', { name: /웹앱 Lite/ })).toHaveProperty('ariaChecked', 'true');
+    expect(screen.getByRole('radio', { name: /^웹앱/ })).toHaveProperty('ariaChecked', 'true');
     expect(screen.getByText('추천')).toBeTruthy();
     expect(screen.getByRole('heading', { name: '이 구성으로 만들어 볼까요?' })).toBeTruthy();
     expect(sent('session/new')).toEqual([]);
@@ -375,13 +376,13 @@ describe('NewSession making a new project (새로 만들기)', () => {
     expect(screen.getByRole('button', { name: '만들기' })).toBeTruthy();
   });
 
-  it('shows the setups with Lite chosen, nobody recommending it and no reason, when the judging fails', async () => {
+  it('shows the setups with the web app chosen, nobody recommending it and no reason, when the judging fails', async () => {
     const { sent, onStarted } = asNew({ ...fast, judgeFails: true });
     await send(IDEA);
     expect(await screen.findByRole('radiogroup', { name: '구성' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /웹앱 Lite/ })).toHaveProperty('ariaChecked', 'true');
+    expect(screen.getByRole('radio', { name: /^웹앱/ })).toHaveProperty('ariaChecked', 'true');
     expect(screen.queryByText('추천')).toBeNull();
-    expect(screen.queryByText('로그인과 예약 저장이면 Lite로 충분해요.')).toBeNull();
+    expect(screen.queryByText('로그인과 예약 저장이면 웹앱으로 충분해요.')).toBeNull();
     expect(sent('projects/judge')).toHaveLength(1);
     expect(sent('session/new')).toEqual([]);
     expect(onStarted).not.toHaveBeenCalled();
@@ -391,7 +392,7 @@ describe('NewSession making a new project (새로 만들기)', () => {
     const { sent } = asNew(fast, { results: { 'projects/judge': { judgement: { kind: 'change' } } } });
     await send(IDEA);
     expect(await screen.findByRole('radiogroup', { name: '구성' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /웹앱 Lite/ })).toHaveProperty('ariaChecked', 'true');
+    expect(screen.getByRole('radio', { name: /^웹앱/ })).toHaveProperty('ariaChecked', 'true');
     expect(screen.queryByText('추천')).toBeNull();
     expect(sent('session/new')).toEqual([]);
   });
@@ -517,5 +518,88 @@ describe('NewSession folder chip', () => {
     mount();
     const agent = await screen.findByRole('button', { name: /^에이전트:/ });
     expect(agent.textContent).toMatch(/· \S+/);
+  });
+
+  describe('with Alpine Cloud', () => {
+    const CHAT = '동호회 사람들이 실시간 채팅으로 모임 장소를 정하는 앱을 만들고 싶어';
+    const withPro: NewProjectScript = { ...fast, templates: ['blank', 'web-lite', 'web-pro'], address: true };
+
+    it('makes a web app with its web address when signed in to Alpine, and shows the address the server made', async () => {
+      const { sent } = mount(withPro, cloudScript({ signedIn: true, codeMs: 0 }));
+      await send(IDEA);
+      await create();
+      expect(await screen.findByText('craft-booking.alpinesite.app')).toBeTruthy();
+      await screen.findByRole('button', { name: '세션으로 가기' });
+      expect(screen.getByText('인터넷 주소 만들기')).toBeTruthy();
+      expect(sent('projects/create')).toHaveLength(1);
+    });
+
+    it('leaves no empty address tick behind when the server skipped the step', async () => {
+      mount({ ...fast }, cloudScript({ signedIn: true }));
+      await send(IDEA);
+      await create();
+      await screen.findByRole('button', { name: '세션으로 가기' });
+      expect(screen.queryByText('인터넷 주소 만들기')).toBeNull();
+    });
+
+    it('asks a signed-out person to sign in before a realtime web app is made, then goes on by itself', async () => {
+      vi.spyOn(window, 'open').mockImplementation(() => null);
+      const { sent } = mount(withPro, cloudScript({ signInMs: 0 }));
+      await send(CHAT);
+      expect(await screen.findByRole('radio', { name: /^실시간 웹앱/ })).toHaveProperty('ariaChecked', 'true');
+      await create();
+      expect(await screen.findByText('실시간 웹앱을 쓰려면 Alpine 계정이 필요해요 (무료)')).toBeTruthy();
+      expect(sent('projects/create')).toEqual([]);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Google로 계속하기' }));
+      await screen.findByRole('button', { name: '세션으로 가기' });
+      expect(window.open).toHaveBeenCalledWith(expect.stringContaining('provider=google'), '_blank', 'noopener');
+      expect(sent('projects/create')).toEqual([expect.objectContaining({ template: 'web-pro' })]);
+    });
+
+    it('does not make a realtime web app when the sheet is closed with 뒤로', async () => {
+      const { sent } = mount(withPro, cloudScript());
+      await send(CHAT);
+      await create();
+      fireEvent.click(await screen.findByRole('button', { name: '‹ 뒤로' }));
+      await waitFor(() => expect(screen.queryByText('실시간 웹앱을 쓰려면 Alpine 계정이 필요해요 (무료)')).toBeNull());
+      expect(screen.getByRole('button', { name: '만들기' })).toBeTruthy();
+      expect(sent('projects/create')).toEqual([]);
+    });
+
+    it("offers Alpine's own Node.js before a web app is made on a Mac without one, and makes it when it is in", async () => {
+      const { sent } = mount(fast, cloudScript({ node: 'missing', installMs: 25 }));
+      await send(IDEA);
+      await create();
+      expect(await screen.findByText('웹앱을 만들려면 Node.js가 필요해요')).toBeTruthy();
+      expect(screen.getByText('설치할까요? (약 50MB)')).toBeTruthy();
+      expect(sent('projects/create')).toEqual([]);
+
+      fireEvent.click(screen.getByRole('button', { name: '설치하고 이어가기' }));
+      await screen.findByRole('button', { name: '세션으로 가기' });
+      expect(sent('projects/installNodeTools')).toHaveLength(1);
+      expect(sent('projects/create')).toHaveLength(1);
+    });
+
+    it('makes nothing when Node.js is put off, and says when the install fails', async () => {
+      const failing = mount(fast, cloudScript({ node: 'missing', installMs: 25, installFails: true }));
+      await send(IDEA);
+      await create();
+      fireEvent.click(await screen.findByRole('button', { name: '설치하고 이어가기' }));
+      expect((await screen.findByRole('alert')).textContent).toContain('설치하지 못했어요');
+      fireEvent.click(screen.getByRole('button', { name: '나중에' }));
+      await waitFor(() => expect(screen.queryByText('웹앱을 만들려면 Node.js가 필요해요')).toBeNull());
+      expect(failing.sent('projects/create')).toEqual([]);
+      expect(screen.getByRole('button', { name: '만들기' })).toBeTruthy();
+    });
+
+    it('does not ask for Node.js for an empty project', async () => {
+      const { sent } = mount(fast, cloudScript({ node: 'missing' }));
+      await send(IDEA);
+      fireEvent.click(await screen.findByRole('radio', { name: /빈 프로젝트/ }));
+      await create();
+      await screen.findByRole('button', { name: '세션으로 가기' });
+      expect(sent('projects/installNodeTools')).toEqual([]);
+    });
   });
 });

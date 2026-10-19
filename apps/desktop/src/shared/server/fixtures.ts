@@ -7,6 +7,7 @@ import type {
   SettingsGetResult,
 } from '@alpine/protocol';
 
+import { cloudScript, type CloudScriptOptions } from './cloudScript';
 import { ServerError } from './connection';
 import { memoryScript } from './memoryScript';
 import { mergeScripts, type Script } from './scripted';
@@ -396,13 +397,14 @@ const GITHUB_REPOS = [
 }));
 
 /** A first run: nothing connected, no projects. */
-export const firstRunScript = (chatgpt: ScriptState['chatgpt'] = 'connected') =>
-  statefulScript({ connections: NOTHING_CONNECTED, projects: [], chatgpt });
+export const firstRunScript = (chatgpt: ScriptState['chatgpt'] = 'connected', cloud: CloudScriptOptions = {}) =>
+  mergeScripts(statefulScript({ connections: NOTHING_CONNECTED, projects: [], chatgpt }), cloudScript(cloud));
 
 /** Everything set up: three connections and three projects. */
 export const setUpScript = (agents: AgentStore = agentStore()) =>
   mergeScripts(
     statefulScript({ connections: CONNECTED, projects: PROJECTS, agents }),
+    cloudScript(),
     toolsScript(agents),
     memoryScript(),
     skillsScript(),

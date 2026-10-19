@@ -3,10 +3,9 @@ import { Button } from '@alpine/ui/primitives';
 import clsx from 'clsx';
 import { Check } from 'lucide-react';
 
-import { appAddress } from '@/shared/components/cloud';
 import { useMessages } from '@/shared/i18n';
 import { tildePath, useHomeDir } from '@/shared/platform';
-import type { CreateStep } from '@/shared/server';
+import type { CreateStep, TemplateId } from '@/shared/server';
 
 import { messages } from './messages';
 
@@ -29,17 +28,23 @@ export interface CreateFailure {
  */
 export function Creating({
   online,
+  template,
   steps,
   project,
+  address,
   done: finished,
   failure,
   onOpen,
   onBack,
 }: {
+  /** Signed in to Alpine: a web template gets its web address as the second step. */
   online: boolean;
+  template: TemplateId;
   steps: CreateStep[];
   /** The project being made, once the folder step has announced it. */
   project: ProjectInfo | null;
+  /** The web address the server made, with the `address` step; `null` when it made none. */
+  address: string | null;
   /** The request ended well: every step is done and the session can be opened. */
   done: boolean;
   failure: CreateFailure | null;
@@ -49,10 +54,13 @@ export function Creating({
 }) {
   const t = useMessages(messages);
   const home = useHomeDir();
-  const shown = ORDER.filter((step) => online || step !== 'address');
+  // The address row is promised only while it can still come: a blank project has none, and a step the server
+  // skipped (the app could not be made, a realtime web app on Free) leaves no empty tick behind.
+  const addressed = online && (template === 'web-lite' || template === 'web-pro') && (address !== null || !finished);
+  const shown = ORDER.filter((step) => addressed || step !== 'address');
   const labels: Record<CreateStep, string> = { folder: t.stepFolder, address: t.stepAddress, agent: t.stepAgent };
   const details: Partial<Record<CreateStep, string>> = project
-    ? { folder: tildePath(project.path, home), address: appAddress(project.name) }
+    ? { folder: tildePath(project.path, home), ...(address ? { address } : {}) }
     : {};
   const reached = (step: CreateStep) => finished || steps.includes(step);
   const body =

@@ -3,9 +3,10 @@ import clsx from 'clsx';
 import { Check as CheckIcon } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 
-import { AlpineSignIn, appAddress, QrCode } from '@/shared/components/cloud';
+import { AlpineSignIn, QrCode } from '@/shared/components/cloud';
 import { useFormat, useMessages } from '@/shared/i18n';
 import { openInBrowser } from '@/shared/platform';
+import { appAddress, useCloudStatus } from '@/shared/server';
 
 import { messages } from './messages';
 import { runChecks, runPublish, type Check, type CheckState, type PublishStep, type Scenario } from './preview';
@@ -41,6 +42,7 @@ export function PublishPanel({
   onPublished?: () => void;
 }) {
   const t = useMessages(messages);
+  const address = appAddress(project.name, useCloudStatus().data?.appDomain);
   const [phase, setPhase] = useState<Phase>(signedIn ? 'checks' : 'sign-in');
   const [checks, setChecks] = useState<Check[]>([]);
   const [dropOk, setDropOk] = useState(false);
@@ -75,7 +77,7 @@ export function PublishPanel({
     case 'checks':
       body = (
         <>
-          <Header project={project} />
+          <Header project={project} address={address} />
           <Section title={t.aiChecked}>
             <Row
               state="ok"
@@ -125,10 +127,10 @@ export function PublishPanel({
       );
       break;
     case 'publishing':
-      body = <Publishing step={step.step} progress={step.progress} address={appAddress(project.name)} />;
+      body = <Publishing step={step.step} progress={step.progress} address={address} />;
       break;
     case 'done':
-      body = <Published address={appAddress(project.name)} />;
+      body = <Published address={address} />;
       break;
   }
 
@@ -141,7 +143,7 @@ export function PublishPanel({
   );
 }
 
-function Header({ project }: { project: PublishProject }) {
+function Header({ project, address }: { project: PublishProject; address: string }) {
   const t = useMessages(messages);
   const format = useFormat();
   return (
@@ -151,7 +153,7 @@ function Header({ project }: { project: PublishProject }) {
         <span className="text-meta text-fg-muted">{t.changes(project.changes)}</span>
       </div>
       <p className="flex items-baseline justify-between gap-3">
-        <span className="truncate font-mono text-meta text-fg">{appAddress(project.name)}</span>
+        <span className="truncate font-mono text-meta text-fg">{address}</span>
         <span className="shrink-0 text-meta text-fg-muted">
           {project.lastPublished ? t.lastPublished(format.since(project.lastPublished)) : t.firstTime}
         </span>

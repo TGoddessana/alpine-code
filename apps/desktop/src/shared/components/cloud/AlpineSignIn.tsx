@@ -1,18 +1,21 @@
 import { AutoHeight, Button, Input, LinkButton } from '@alpine/ui/primitives';
 import { ChevronRight } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
-import { useFormat, useMessages } from '@/shared/i18n';
+import { useFormat, useLocale, useMessages } from '@/shared/i18n';
+import { openInBrowser } from '@/shared/platform';
+import { ServerError, useAlpineSignIn, useCloudStatus, useSendCode, useVerifyCode } from '@/shared/server';
 
 import { messages } from './messages';
-import { previewSignIn, type AlpineAccount, type AlpineSignInApi, type SignInMethod } from './preview';
+
+type Method = 'google' | 'github';
 
 type Step =
   | { name: 'choose' }
-  | { name: 'waiting'; method: Exclude<SignInMethod, 'email'> }
+  | { name: 'waiting'; method: Method }
   | { name: 'email' }
   | { name: 'code'; email: string }
-  | { name: 'welcome'; account: AlpineAccount };
+  | { name: 'welcome' };
 
 export interface AlpineSignInProps {
   /** Why the sign-in is asked for now, when something asked for it (publishing, Pro). Replaces the usual lead. */
@@ -20,82 +23,120 @@ export interface AlpineSignInProps {
   /** Shows the free credits once, after the first sign-in. Publishing goes straight on instead. */
   welcome?: boolean;
   onBack?: () => void;
-  onDone: (account: AlpineAccount) => void;
-  api?: AlpineSignInApi;
+  /** Signed in: the server has the account, the plan and the credits (`useCloudStatus`). */
+  onDone: () => void;
 }
 
 /**
- * Decision 3 and 23: the one Alpine account, by Google, GitHub or a code sent by email. The first run shows it as the
- * top row of the AI list; publishing and Pro show it with the reason they need it. Each step settles in place and the
- * sheet follows its height.
+ * Decision 3 and 23: the one Alpine account, by Google, GitHub or a code sent by email, on the server's
+ * `cloud/signIn` and `cloud/sendCode`. The first run shows it as the top row of the AI list; publishing and Pro show it
+ * with the reason they need it. Each step settles in place and the sheet follows its height.
  */
-export function AlpineSignIn({ reason, welcome = false, onBack, onDone, api = previewSignIn }: AlpineSignInProps) {
+export function AlpineSignIn({ reason, welcome = false, onBack, onDone }: AlpineSignInProps) {
   const t = useMessages(messages);
   const [step, setStep] = useState<Step>({ name: 'choose' });
-  const finish = (account: AlpineAccount) => (welcome ? setStep({ name: 'welcome', account }) : onDone(account));
+  const signIn = useAlpineSignIn();
+  const connected = step.name === 'waiting' && signIn.state.status === 'connected';
+  const finish = () => (welcome ? setStep({ name: 'welcome' }) : onDone());
 
-  const viaBrowser = (method: Exclude<SignInMethod, 'email'>) => {
+  useEffect(() => {
+    // The browser came back signed in. With a welcome it is shown from the state below; without, publishing goes on.
+    if (connected && !welcome) onDone();
+  }, [connected, welcome, onDone]);
+
+  const viaBrowser = (method: Method) => {
     setStep({ name: 'waiting', method });
-    void api.browser(method).then(finish);
+    void signIn.start(method).then((url) => {
+      if (url) void openInBrowser(url);
+    });
+  };
+  const leaveBrowser = () => {
+    signIn.cancel();
+    setStep({ name: 'choose' });
   };
 
   let body: ReactNode;
-  switch (step.name) {
-    case 'choose':
-      body = (
-        <>
-          <Heading title={t.signInTitle} lead={reason ?? t.signInLead} />
-          <div className="flex flex-col gap-2">
-            <Way label={t.google} onClick={() => viaBrowser('google')} />
-            <Way label={t.github} onClick={() => viaBrowser('github')} />
-            <Way label={t.email} onClick={() => setStep({ name: 'email' })} />
-          </div>
-          {onBack && (
-            <div>
-              <LinkButton onClick={onBack}>{t.back}</LinkButton>
+  if (connected && welcome) body = <Welcome onStart={onDone} />;
+  else
+    switch (step.name) {
+      case 'choose':
+        body = (
+          <>
+            <Heading title={t.signInTitle} lead={reason ?? t.signInLead} />
+            <div className="flex flex-col gap-2">
+              <Way label={t.google} onClick={() => viaBrowser('google')} />
+              <Way label={t.github} onClick={() => viaBrowser('github')} />
+              <Way label={t.email} onClick={() => setStep({ name: 'email' })} />
             </div>
-          )}
-        </>
-      );
-      break;
-    case 'waiting':
-      body = (
-        <>
-          <Heading title={t.waitingTitle} lead={t.waitingLead} />
-          <p role="status" className="inline-flex items-center gap-2 text-meta text-fg-muted">
-            <span aria-hidden="true" className="size-1.5 animate-pulse rounded-full bg-interactive" />
-            {step.method === 'google' ? t.google : t.github}
-          </p>
-          <div className="flex items-center justify-between">
-            <LinkButton onClick={() => setStep({ name: 'choose' })}>{t.back}</LinkButton>
-            <LinkButton onClick={() => viaBrowser(step.method)}>{t.openAgain}</LinkButton>
-          </div>
-        </>
-      );
-      break;
-    case 'email':
-      body = (
-        <EmailStep
-          api={api}
-          onBack={() => setStep({ name: 'choose' })}
-          onSent={(email) => setStep({ name: 'code', email })}
-        />
-      );
-      break;
-    case 'code':
-      body = <CodeStep api={api} email={step.email} onBack={() => setStep({ name: 'email' })} onDone={finish} />;
-      break;
-    case 'welcome':
-      body = <Welcome account={step.account} onStart={() => onDone(step.account)} />;
-      break;
-  }
+            {onBack && (
+              <div>
+                <LinkButton onClick={onBack}>{t.back}</LinkButton>
+              </div>
+            )}
+          </>
+        );
+        break;
+      case 'waiting': {
+        const { state } = signIn;
+        const stopped = state.status === 'timed_out' || state.status === 'failed';
+        body = (
+          <>
+            <Heading title={t.waitingTitle} lead={t.waitingLead} />
+            {stopped ? (
+              <p role="alert" className="text-meta text-danger">
+                {state.status === 'timed_out' ? t.timedOut : t.signInFailed(state.message ?? '')}
+              </p>
+            ) : (
+              <p role="status" className="inline-flex items-center gap-2 text-meta text-fg-muted">
+                <span aria-hidden="true" className="size-1.5 animate-pulse rounded-full bg-interactive" />
+                {step.method === 'google' ? t.google : t.github}
+              </p>
+            )}
+            <div className="flex items-center justify-between">
+              <LinkButton onClick={leaveBrowser}>{t.back}</LinkButton>
+              {stopped ? (
+                <LinkButton onClick={() => viaBrowser(step.method)}>{t.tryAgain}</LinkButton>
+              ) : (
+                state.status === 'waiting' && <NoBrowser url={state.url} />
+              )}
+            </div>
+          </>
+        );
+        break;
+      }
+      case 'email':
+        body = (
+          <EmailStep onBack={() => setStep({ name: 'choose' })} onSent={(email) => setStep({ name: 'code', email })} />
+        );
+        break;
+      case 'code':
+        body = <CodeStep email={step.email} onBack={() => setStep({ name: 'email' })} onDone={finish} />;
+        break;
+      case 'welcome':
+        body = <Welcome onStart={onDone} />;
+        break;
+    }
 
   return (
     <AutoHeight>
-      <div key={step.name} className="motion-step flex flex-col gap-4">
+      <div key={connected ? 'welcome' : step.name} className="motion-step flex flex-col gap-4">
         {body}
       </div>
     </AutoHeight>
+  );
+}
+
+/** Where the sign-in page is, for when the browser did not open by itself. */
+function NoBrowser({ url }: { url: string }) {
+  const t = useMessages(messages);
+  const [copied, setCopied] = useState(false);
+  return (
+    <span className="flex items-center gap-3">
+      <LinkButton onClick={() => void openInBrowser(url)}>{t.openAgain}</LinkButton>
+      <LinkButton onClick={() => void navigator.clipboard.writeText(url).then(() => setCopied(true))}>
+        {copied ? t.copied : t.copyAddress}
+      </LinkButton>
+    </span>
   );
 }
 
@@ -121,29 +162,19 @@ function Way({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-function EmailStep({
-  api,
-  onBack,
-  onSent,
-}: {
-  api: AlpineSignInApi;
-  onBack: () => void;
-  onSent: (email: string) => void;
-}) {
+function EmailStep({ onBack, onSent }: { onBack: () => void; onSent: (email: string) => void }) {
   const t = useMessages(messages);
+  const { locale } = useLocale();
+  const send = useSendCode();
   const [email, setEmail] = useState('');
-  const [sending, setSending] = useState(false);
   const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const send = () => {
-    setSending(true);
-    void api.sendCode(email).then(() => onSent(email));
-  };
+  const submit = () => send.mutate({ email, locale }, { onSuccess: () => onSent(email) });
   return (
     <form
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
-        if (valid && !sending) send();
+        if (valid && !send.isPending) submit();
       }}
     >
       <Heading title={t.email} lead={t.signInLead} />
@@ -158,9 +189,14 @@ function EmailStep({
           onChange={(event) => setEmail(event.target.value)}
         />
       </label>
+      {send.error && (
+        <p role="alert" className="motion-step text-meta text-danger">
+          {t.sendFailed(send.error.message)}
+        </p>
+      )}
       <div className="flex items-center justify-between">
         <LinkButton onClick={onBack}>{t.back}</LinkButton>
-        <Button type="submit" variant="primary" disabled={!valid || sending}>
+        <Button type="submit" variant="primary" disabled={!valid || send.isPending}>
           {t.sendCode}
         </Button>
       </div>
@@ -168,28 +204,18 @@ function EmailStep({
   );
 }
 
-function CodeStep({
-  api,
-  email,
-  onBack,
-  onDone,
-}: {
-  api: AlpineSignInApi;
-  email: string;
-  onBack: () => void;
-  onDone: (account: AlpineAccount) => void;
-}) {
+function CodeStep({ email, onBack, onDone }: { email: string; onBack: () => void; onDone: () => void }) {
   const t = useMessages(messages);
+  const { locale } = useLocale();
+  const verify = useVerifyCode();
+  const resend = useSendCode();
   const [code, setCode] = useState('');
-  const [wrong, setWrong] = useState(false);
+  const wrong = verify.error instanceof ServerError && verify.error.data?.reason === 'invalid_code';
   const change = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 6);
     setCode(digits);
-    setWrong(false);
-    if (digits.length === 6)
-      api.verify(email, digits).then(onDone, () => {
-        setWrong(true);
-      });
+    verify.reset();
+    if (digits.length === 6) verify.mutate({ email, code: digits }, { onSuccess: onDone });
   };
   return (
     <>
@@ -201,33 +227,40 @@ function CodeStep({
           inputMode="numeric"
           autoComplete="one-time-code"
           aria-invalid={wrong}
+          disabled={verify.isPending}
           value={code}
           onChange={(event) => change(event.target.value)}
           className="min-h-11 text-center font-mono text-title"
           style={{ letterSpacing: '0.5em' }}
         />
       </label>
-      {wrong && (
+      {verify.error && (
         <p role="alert" className="motion-step text-meta text-danger">
-          {t.wrongCode}
+          {wrong ? t.wrongCode : t.verifyFailed(verify.error.message)}
         </p>
       )}
       <div className="flex items-center justify-between">
         <LinkButton onClick={onBack}>{t.back}</LinkButton>
-        <LinkButton onClick={() => void api.sendCode(email)}>{t.resend}</LinkButton>
+        <LinkButton onClick={() => resend.mutate({ email, locale })}>
+          {resend.isSuccess ? t.sentAgain : t.resend}
+        </LinkButton>
       </div>
     </>
   );
 }
 
-function Welcome({ account, onStart }: { account: AlpineAccount; onStart: () => void }) {
+function Welcome({ onStart }: { onStart: () => void }) {
   const t = useMessages(messages);
   const format = useFormat();
+  const status = useCloudStatus().data;
+  const name = status?.account?.name ?? status?.account?.email ?? null;
   return (
     <>
       <div className="flex flex-col gap-1">
-        <h2 className="text-title">{t.welcomeTitle(account.name)}</h2>
-        <p className="text-body text-fg">{t.welcomeCredits(format.number(account.credits))}</p>
+        <h2 className="text-title">{name ? t.welcomeTitle(name) : t.welcomeTitleAnon}</h2>
+        {status?.credits && (
+          <p className="text-body text-fg">{t.welcomeCredits(format.number(status.credits.balance))}</p>
+        )}
         <p className="text-body text-fg-muted">{t.welcomeLead}</p>
       </div>
       <div className="flex justify-end">

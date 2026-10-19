@@ -61,7 +61,7 @@ describe('useJudgeNewProject', () => {
     const judgement = {
       kind: 'new',
       template: 'web-lite',
-      reason: '로그인과 예약 저장이면 Lite로 충분해요.',
+      reason: '로그인과 예약 저장이면 웹앱으로 충분해요.',
       name: 'craft-booking',
     };
     const { connection, requests } = harness({ 'projects/judge': () => ({ judgement }) });
@@ -224,7 +224,7 @@ describe('the scripted new-project server', () => {
     expect((await judge(text)).judgement).toEqual({
       kind: 'new',
       template: 'web-lite',
-      reason: '로그인과 예약 저장이면 Lite로 충분해요.',
+      reason: '로그인과 예약 저장이면 웹앱으로 충분해요.',
       name: 'craft-booking',
     });
     expect((await judge(text, fast, 'en')).judgement).toMatchObject({ kind: 'new', template: 'web-lite' });

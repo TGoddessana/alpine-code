@@ -2,6 +2,8 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState, type ReactNode } from 'react';
 import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 
+import { cloudScript } from '@/shared/server';
+
 import { PublishButton } from './PublishButton';
 import { PublishOffer } from './PublishOffer';
 import type { Scenario } from './preview';
@@ -44,7 +46,7 @@ const meta = {
   title: 'Alpine Cloud/Publish',
   component: Example,
   args: { scenario: 'clean' },
-  parameters: { layout: 'fullscreen' },
+  parameters: { layout: 'fullscreen', server: cloudScript({ signedIn: true }) },
 } satisfies Meta<typeof Example>;
 
 export default meta;
@@ -73,7 +75,16 @@ export const SecretKeyBlocks: Story = { args: { scenario: 'secret' } };
 export const ColumnRemoved: Story = { args: { scenario: 'drop' } };
 
 /** Own AI only, never signed in: the account is asked for with its reason, then the checks run (decision 23). */
-export const SignedOut: Story = { args: { signedIn: false } };
+export const SignedOut: Story = {
+  args: { signedIn: false },
+  parameters: { server: cloudScript({ signInMs: 800 }) },
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /Google로 계속하기|Continue with Google/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /^올리기$|^Publish$/ })).toBeVisible(), {
+      timeout: 5000,
+    });
+  },
+};
 
 function Conversation() {
   const [answered, setAnswered] = useState<'publish' | 'later' | null>(null);

@@ -21,7 +21,7 @@ export interface Template {
   soon?: boolean;
 }
 
-export function useTemplates(proReady: boolean): Template[] {
+export function useTemplates(): Template[] {
   const t = useMessages(messages);
   return [
     {
@@ -49,8 +49,7 @@ export function useTemplates(proReady: boolean): Template[] {
       short: t.proShort,
       points: [t.proPoint1, t.proPoint2, t.proPoint3, t.proPoint4, t.proPoint5],
       stack: 'React · Supabase',
-      badge: proReady ? t.proBadge : undefined,
-      soon: !proReady,
+      badge: t.proBadge,
     },
     {
       id: 'mobile',

@@ -6,10 +6,10 @@ import { agentMessages, agentName, Character, toolLabel } from '@/shared/compone
 import { Markdown } from '@/shared/components/markdown';
 import { skillTitle } from '@/shared/components/skills';
 import { TaskForceCard } from '@/shared/components/taskforce';
-import { useLocale, useMessages } from '@/shared/i18n';
+import { useFormat, useLocale, useMessages } from '@/shared/i18n';
 import { productMapMessage } from '@/shared/productMapMessage';
 import { openInBrowser } from '@/shared/platform';
-import { CHATGPT_USAGE_URL, useAgents, useSkills, type Item } from '@/shared/server';
+import { CHATGPT_USAGE_URL, useAgents, useCloudStatus, useSkills, type Item } from '@/shared/server';
 
 import { ApprovalCard } from './ApprovalCard';
 import { CompactionLine } from './CompactionLine';
@@ -186,6 +186,7 @@ const ItemView = memo(function ItemView({
           </p>
         );
       if (item.reason === 'signed_out') return <p className={quiet}>{t.stopped_signed_out}</p>;
+      if (item.reason === 'credits_exhausted') return <CreditsStopped />;
       return (
         <p className={quiet}>
           {t[`stopped_${item.reason}`]}
@@ -235,3 +236,11 @@ const ItemView = memo(function ItemView({
     }
   }
 });
+
+/** Alpine's credits ran out mid-run. The core's message is English; the refill date is the account's own. */
+function CreditsStopped() {
+  const t = useMessages(messages);
+  const format = useFormat();
+  const refills = useCloudStatus().data?.credits?.refillsAt;
+  return <p className={quiet}>{t.stopped_credits_exhausted(refills ? format.date(new Date(refills)) : null)}</p>;
+}

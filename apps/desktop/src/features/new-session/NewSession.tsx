@@ -1,8 +1,9 @@
 import type { CloneInfo, JudgedNew, ProjectInfo } from '@alpine/protocol';
-import { AutoHeight, Button, LinkButton } from '@alpine/ui/primitives';
+import { AutoHeight, Button, Dialog, LinkButton } from '@alpine/ui/primitives';
 import clsx from 'clsx';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
+import { AlpineSignIn, NodeInstall } from '@/shared/components/cloud';
 import { AgentChip, Composer, useSlashSkills, type Mode } from '@/shared/components/composer';
 import { CloneDialog, projectAddMessages } from '@/shared/components/project-add';
 import { Snowscape } from '@/shared/components/snowscape';
@@ -11,10 +12,12 @@ import {
   ServerError,
   useAgents,
   useCancelClone,
+  useCloudStatus,
   useConnections,
   useCreateProject,
   useJudgeNewProject,
   useNewSession,
+  useNodeTools,
   useSendMessage,
   useSettings,
   type CreateStep,
@@ -44,6 +47,9 @@ type Stage =
 /** The setup chosen when the agent gave no pick. */
 const FALLBACK_TEMPLATE: TemplateId = 'web-lite';
 
+/** What stands between 만들기 and making the project: the Alpine account (a realtime web app), or Node.js (any web app). */
+type Gate = { kind: 'sign-in' | 'node'; chosen: Extract<Stage, { name: 'choosing' }> };
+
 interface CreatingStage {
   name: 'creating';
   text: string;
@@ -52,6 +58,8 @@ interface CreatingStage {
   /** The steps the server has announced, and the project they are about. */
   steps: CreateStep[];
   project: ProjectInfo | null;
+  /** The web address the server made, once it says so. */
+  address: string | null;
   outcome: { status: 'working' } | { status: 'done'; sessionId: string } | { status: 'failed'; error: unknown };
 }
 
@@ -94,12 +102,9 @@ export function NewSession({
   onProjectChange,
   onNewProject,
   onStarted,
-  cloud = { signedIn: false },
 }: {
   /** Where the session starts; `null`: making a new project. */
   project: ProjectInfo | null;
-  /** Alpine sign-in and whether 웹앱 Pro is open yet (decision 6 and 8). */
-  cloud?: { signedIn: boolean; proReady?: boolean };
   /** The project's clone, while it is on its way or after it failed. */
   clone?: CloneInfo;
   /** The agent to start with, unless one is picked here for this project. */
@@ -131,7 +136,10 @@ export function NewSession({
   const { locale } = useLocale();
   const judge = useJudgeNewProject();
   const createProject = useCreateProject();
-  const templates = useTemplates(cloud.proReady ?? false);
+  const templates = useTemplates();
+  const signedIn = useCloudStatus().data?.signedIn ?? false;
+  const node = useNodeTools();
+  const [gate, setGate] = useState<Gate | null>(null);
   const [stage, setStage] = useState<Stage | null>(null);
   // Putting a message back in the input: after a session that would not start, or on the project that was made.
   const [prefill, setPrefill] = useState<{ text: string; key: number } | undefined>();
@@ -219,7 +227,7 @@ export function NewSession({
     const mine = ++turn.current;
     const update = (change: (creating: CreatingStage) => CreatingStage) =>
       setStage((last) => (mine === turn.current && last?.name === 'creating' ? change(last) : last));
-    setStage({ ...chosen, name: 'creating', steps: [], project: null, outcome: { status: 'working' } });
+    setStage({ ...chosen, name: 'creating', steps: [], project: null, address: null, outcome: { status: 'working' } });
     createProject
       .mutateAsync({
         idea: chosen.text.trim(),
@@ -228,16 +236,36 @@ export function NewSession({
         name: chosen.judged?.name ?? '',
         ...(sent ? { agent: sent } : {}),
         ...(mode ? { mode } : {}),
-        onStep: (step, made) =>
-          update((creating) => ({ ...creating, steps: [...creating.steps, step], project: made })),
+        onStep: (step, made, address) =>
+          update((creating) => ({
+            ...creating,
+            steps: [...creating.steps, step],
+            project: made,
+            address: address ?? creating.address,
+          })),
       })
       .then(
-        ({ project: made, sessionId }) => {
+        ({ project: made, sessionId, address }) => {
           setMode(null);
-          update((creating) => ({ ...creating, project: made, outcome: { status: 'done', sessionId } }));
+          update((creating) => ({
+            ...creating,
+            project: made,
+            address: address ?? creating.address,
+            outcome: { status: 'done', sessionId },
+          }));
         },
         (error: unknown) => update((creating) => ({ ...creating, outcome: { status: 'failed', error } })),
       );
+  };
+
+  // 만들기: first what the setup needs. A realtime web app needs the Alpine account (decision 23), a web app needs
+  // Node.js (6.3); each is asked for in a sheet, and 만들기 goes on by itself when it is there.
+  const requestCreate = (chosen: Extract<Stage, { name: 'choosing' }>, skip?: Gate['kind']) => {
+    const web = chosen.template === 'web-lite' || chosen.template === 'web-pro';
+    if (chosen.template === 'web-pro' && !signedIn && skip !== 'sign-in') return setGate({ kind: 'sign-in', chosen });
+    if (web && node.data?.ready === false && skip !== 'node') return setGate({ kind: 'node', chosen });
+    setGate(null);
+    create(chosen);
   };
 
   // After a failure: back to the setups, or (the project exists, only the AI did not start) on to that project with
@@ -292,8 +320,8 @@ export function NewSession({
                     <div className="flex items-center justify-between gap-3">
                       {project && <LinkButton onClick={() => work(stage.text, project)}>{t.notNew}</LinkButton>}
                       <div className="ml-auto flex items-center gap-3">
-                        <span className="text-meta text-fg-muted">{cloud.signedIn ? t.liveNote : t.localNote}</span>
-                        <Button variant="primary" autoFocus onClick={() => create(stage)}>
+                        <span className="text-meta text-fg-muted">{signedIn ? t.liveNote : t.localNote}</span>
+                        <Button variant="primary" autoFocus onClick={() => requestCreate(stage)}>
                           {t.create}
                         </Button>
                       </div>
@@ -303,7 +331,7 @@ export function NewSession({
                   <CreatingFrom
                     key="creating"
                     stage={stage}
-                    online={cloud.signedIn}
+                    online={signedIn}
                     onOpen={(sessionId) => onStarted(sessionId)}
                     onBack={back}
                   />
@@ -348,6 +376,22 @@ export function NewSession({
         </div>
         <div className="grow basis-0" />
       </div>
+      <Dialog.Root open={gate?.kind === 'sign-in'} onOpenChange={(open) => !open && setGate(null)}>
+        <Dialog.Popup>
+          {gate?.kind === 'sign-in' && (
+            <AlpineSignIn
+              reason={t.proSignInReason}
+              onBack={() => setGate(null)}
+              onDone={() => requestCreate(gate.chosen, 'sign-in')}
+            />
+          )}
+        </Dialog.Popup>
+      </Dialog.Root>
+      <NodeInstall
+        open={gate?.kind === 'node'}
+        onReady={() => gate && requestCreate(gate.chosen, 'node')}
+        onClose={() => setGate(null)}
+      />
       <CloneDialog
         open={retrying !== null}
         address={retrying ?? undefined}
@@ -379,8 +423,10 @@ function CreatingFrom({
   return (
     <Creating
       online={online}
+      template={stage.template}
       steps={stage.steps}
       project={stage.project}
+      address={stage.address}
       done={outcome.status === 'done'}
       failure={failure}
       onOpen={() => outcome.status === 'done' && onOpen(outcome.sessionId)}

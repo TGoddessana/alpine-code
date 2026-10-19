@@ -12,6 +12,7 @@ import {
   useSettings,
 } from '@/shared/server';
 
+import { AlpineAccount } from './AlpineAccount';
 import { ConnectionTab } from './Connection';
 import { messages } from './messages';
 
@@ -146,6 +147,7 @@ function General({ onReviewModel }: { onReviewModel: () => void }) {
           </dd>
         </>
       )}
+      <AlpineAccount />
       <dt className="text-fg-muted">{t.server}</dt>
       <dd>
         {server.data

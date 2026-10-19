@@ -53,7 +53,7 @@ export interface NewProjectScript {
   createMs?: number;
   /** Judging fails (the model cannot be reached). */
   judgeFails?: boolean;
-  /** Creating announces the web address too, as a server does when signed in to Alpine. */
+  /** Creating announces the web address too (`<folder>.alpinesite.app`), as a server does when signed in to Alpine. */
   address?: boolean;
   /** Creating fails: `folder` before the project exists, `session` after it, when the session cannot start. */
   createFails?: 'folder' | 'session';
@@ -601,7 +601,10 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         if (script.address) {
           await pause();
           await pause();
-          context.emit({ method: 'projects/createChanged', params: { id, step: 'address', project } });
+          context.emit({
+            method: 'projects/createChanged',
+            params: { id, step: 'address', project, address: `${folder}.alpinesite.app` },
+          });
         }
         await pause();
         if (script.createFails === 'session')
@@ -609,7 +612,7 @@ export function sessionScript(options: SessionScriptOptions = {}): Script {
         const info = startSession(context, { cwd: project.path, agent, mode });
         sendMessage(context, info.id, idea);
         context.emit({ method: 'projects/createChanged', params: { id, step: 'agent', project } });
-        return { project, sessionId: info.id };
+        return { project, sessionId: info.id, address: script.address ? `${folder}.alpinesite.app` : null };
       },
     },
   };
@@ -642,15 +645,15 @@ function standInJudgement(text: string, locale: string, templates: Set<TemplateI
       template: 'web-pro',
       name,
       reason: ko
-        ? '여럿이 바로바로 주고받는 기능이 있어서 Pro를 추천해요.'
-        : 'People exchange things live in this idea, so Pro fits.',
+        ? '여럿이 바로바로 주고받는 기능이 있어서 실시간 웹앱을 추천해요.'
+        : 'People exchange things live in this idea, so a realtime web app fits.',
     };
   if (!templates.has('web-lite')) return newProject && templates.has('blank') ? blank : { kind: 'change' };
   return {
     kind: 'new',
     template: 'web-lite',
     name,
-    reason: ko ? '로그인과 예약 저장이면 Lite로 충분해요.' : 'Sign-in and saved bookings are well within Lite.',
+    reason: ko ? '로그인과 예약 저장이면 웹앱으로 충분해요.' : 'Sign-in and saved bookings are well within a web app.',
   };
 }
 

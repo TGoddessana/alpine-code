@@ -15,7 +15,9 @@ export function connectionLabel(connection: ConnectionInfo, providers: ProviderI
     const address = (connection.baseUrl ?? '').replace(/^https?:\/\//, '').replace(/\/v1\/?$/, '');
     return isLocal(connection.baseUrl) ? t.localConnection(address) : t.compatibleConnection(address);
   }
-  return provider.billing === 'subscription' ? provider.name : t.apiKeyConnection(provider.name);
+  return provider.billing === 'subscription' || provider.billing === 'credits'
+    ? provider.name
+    : t.apiKeyConnection(provider.name);
 }
 
 /** This computer or the local network: a server the user runs, not a hosted service. */

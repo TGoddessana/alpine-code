@@ -84,6 +84,10 @@ export const messages = defineMessages({
     stopped_permission: '허용되지 않아서 멈췄어요',
     stopped_plan_limit: 'ChatGPT 사용량 한도에 닿아 멈췄어요',
     stopped_signed_out: 'ChatGPT 로그인이 끝나서 멈췄어요 · 설정 › 모델 연결에서 다시 로그인해 주세요',
+    stopped_credits_exhausted: (refill: string | null) =>
+      refill
+        ? `Alpine 크레딧을 다 써서 멈췄어요 · ${refill}에 다시 채워져요. 지금 쓰려면 설정 › 모델 연결에서 다른 모델을 연결해 주세요`
+        : 'Alpine 크레딧을 다 써서 멈췄어요 · 지금 쓰려면 설정 › 모델 연결에서 다른 모델을 연결해 주세요',
     manageUsage: '사용량 관리 ↗',
     compaction: (before: string, after: string) => `대화를 정리했어요 · ${before} → ${after} 토큰`,
     compactionCleared: (n: string) => `오래된 읽기 결과 ${n}개를 비웠어요. 필요하면 다시 읽어요.`,
@@ -215,6 +219,10 @@ export const messages = defineMessages({
     stopped_permission: 'Stopped because it was not allowed',
     stopped_plan_limit: 'Stopped: the ChatGPT usage limit was reached',
     stopped_signed_out: 'Stopped: the ChatGPT sign-in ended · sign in again in Settings › Model connection',
+    stopped_credits_exhausted: (refill: string | null) =>
+      refill
+        ? `Stopped: Alpine credits ran out · they fill up again on ${refill}. To go on now, connect another model in Settings › Model connection`
+        : 'Stopped: Alpine credits ran out · to go on now, connect another model in Settings › Model connection',
     manageUsage: 'Manage usage ↗',
     compaction: (before: string, after: string) => `Conversation compacted · ${before} → ${after} tokens`,
     compactionCleared: (n: string) => `Cleared ${n} old read results. They are read again when needed.`,

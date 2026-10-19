@@ -1,6 +1,16 @@
 import type { ConnectionInfo, ConnectionsListResult } from '@alpine/protocol';
 import { Button, Dialog, Menu, NativeSelect } from '@alpine/ui/primitives';
-import { ArrowUpRight, ChevronRight, Ellipsis, Info, KeyRound, MessagesSquare, Plus, Server } from 'lucide-react';
+import {
+  ArrowUpRight,
+  ChevronRight,
+  Ellipsis,
+  Info,
+  KeyRound,
+  MessagesSquare,
+  Plus,
+  Server,
+  Snowflake,
+} from 'lucide-react';
 import { useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import {
@@ -10,11 +20,14 @@ import {
   connectMessages,
   LocalServerForm,
 } from '@/shared/components/connect';
+import { AlpineSignIn } from '@/shared/components/cloud';
 import { openInBrowser } from '@/shared/platform';
 import { useMessages } from '@/shared/i18n';
 import {
   CHATGPT_USAGE_URL,
   useChatGPTSignOut,
+  useCloudSignOut,
+  useCloudStatus,
   useConnections,
   useModelsOf,
   useRemoveConnection,
@@ -32,6 +45,7 @@ type Sheet =
   | { kind: 'api-key'; provider?: string }
   | { kind: 'local'; address?: string }
   | { kind: 'chatgpt'; connection?: string; consent?: boolean }
+  | { kind: 'alpine' }
   | null;
 
 const fieldRow = 'grid items-center gap-3 py-5 sm:grid-cols-2 sm:gap-6 not-first:border-t not-first:border-line-subtle';
@@ -56,6 +70,7 @@ export function ConnectionTab() {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [removing, setRemoving] = useState<ConnectionInfo | null>(null);
   const [choosing, setChoosing] = useState<ConnectionInfo | null>(null);
+  const alpine = useCloudStatus().data;
   const data = connections.data;
   if (!data) return null;
 
@@ -89,8 +104,11 @@ export function ConnectionTab() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="text-body font-semibold wrap-anywhere">{name}</h3>
-                    {connection.account?.email && (
-                      <p className="text-meta text-fg-muted wrap-anywhere">{connection.account.email}</p>
+                    {(connection.account?.email ??
+                      (connection.provider === 'alpine' ? alpine?.account?.email : null)) && (
+                      <p className="text-meta text-fg-muted wrap-anywhere">
+                        {connection.account?.email ?? alpine?.account?.email}
+                      </p>
                     )}
                     <Status connection={connection} data={data} />
                   </div>
@@ -100,6 +118,11 @@ export function ConnectionTab() {
                         connection={connection}
                         onSignIn={(consent) => setSheet({ kind: 'chatgpt', connection: connection.name, consent })}
                       />
+                    ) : connection.provider === 'alpine' ? (
+                      <>
+                        <Button onClick={() => setChoosing(connection)}>{t.chooseModels}</Button>
+                        <AlpineActions label={t.connectionActions(name)} />
+                      </>
                     ) : (
                       <>
                         <Button onClick={() => setChoosing(connection)}>{t.chooseModels}</Button>
@@ -167,6 +190,14 @@ export function ConnectionTab() {
                 <Dialog.Description>{t.addConnectionLead}</Dialog.Description>
               </div>
               <div className="flex flex-col gap-3">
+                {!alpine?.signedIn && (
+                  <AddMethod
+                    icon={<Snowflake size={18} />}
+                    label={t.alpineStart}
+                    note={t.alpineStartNote}
+                    onClick={() => setSheet({ kind: 'alpine' })}
+                  />
+                )}
                 <AddMethod
                   icon={<MessagesSquare size={18} />}
                   label={c.chatgpt}
@@ -211,6 +242,9 @@ export function ConnectionTab() {
               onApiKey={() => setSheet({ kind: 'api-key' })}
               onDone={() => setSheet(null)}
             />
+          )}
+          {sheet?.kind === 'alpine' && (
+            <AlpineSignIn onBack={() => setSheet({ kind: 'add' })} onDone={() => setSheet(null)} />
           )}
           {sheet?.kind === 'local' && (
             <LocalServerForm
@@ -343,6 +377,12 @@ function Status({ connection, data }: { connection: ConnectionInfo; data: Connec
     return <span className={signedIn ? 'text-meta text-fg-muted' : 'text-meta text-danger'}>{text}</span>;
   }
   const provider = data.providers.find((p) => p.id === connection.provider);
+  if (provider?.id === 'alpine')
+    return (
+      <span className={connection.hasKey ? 'text-meta text-fg-muted' : 'text-meta text-danger'}>
+        {connection.hasKey ? c.alpineCredits : c.alpineSignedOut}
+      </span>
+    );
   if (provider && !connection.hasKey) return <span className="text-meta text-danger">{c.noKey(provider.keyEnv)}</span>;
   if (!provider)
     return (
@@ -425,6 +465,19 @@ function ModelSelect({
         </optgroup>
       ))}
     </NativeSelect>
+  );
+}
+
+/** The Alpine connection's one action: signing out of the account that pays for it. */
+function AlpineActions({ label }: { label: string }) {
+  const c = useMessages(connectMessages);
+  const signOut = useCloudSignOut();
+  return (
+    <ActionsMenu label={label}>
+      <Menu.Item disabled={signOut.isPending} onClick={() => signOut.mutate()}>
+        {c.signOut}
+      </Menu.Item>
+    </ActionsMenu>
   );
 }
 

@@ -8,6 +8,7 @@ import { Dock } from '@/features/dock/Dock';
 import { showDockTab } from '@/features/dock/state';
 import { PublishButton } from '@/features/publish/PublishButton';
 import { PublishOffer } from '@/features/publish/PublishOffer';
+import { cloudScript } from '@/shared/server';
 
 const PROJECT = { name: 'craft-booking', changes: 3, lastPublished: new Date(Date.now() - 7_200_000) };
 
@@ -72,7 +73,7 @@ function Workspace() {
 const meta = {
   title: 'Alpine Cloud/Workspace',
   component: Workspace,
-  parameters: { layout: 'fullscreen' },
+  parameters: { layout: 'fullscreen', server: cloudScript({ signedIn: true }) },
 } satisfies Meta<typeof Workspace>;
 
 export default meta;

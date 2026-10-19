@@ -34,9 +34,12 @@ export function useFormat() {
   return useMemo(() => {
     const time = new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' });
     const number = new Intl.NumberFormat(locale);
+    const date = new Intl.DateTimeFormat(locale, { month: 'long', day: 'numeric' });
     const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style: 'short' });
     return {
-      time: (date: Date) => time.format(date),
+      time: (value: Date) => time.format(value),
+      /** A day without the year: '10월 1일', 'October 1'. */
+      date: (value: Date) => date.format(value),
       /** How long ago, in the largest unit that fits: '지금', '2시간 전', '어제', '지난주'. */
       since: (date: Date, now = new Date()) => {
         const minutes = Math.round((date.getTime() - now.getTime()) / 60_000);

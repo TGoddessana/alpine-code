@@ -2,31 +2,32 @@ import type { CloneInfo, ProjectInfo } from '@alpine/protocol';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fireEvent, fn, screen, userEvent, waitFor } from 'storybook/test';
 
-import { chatScript, PROJECTS } from '@/shared/server';
+import {
+  chatScript,
+  cloudScript,
+  mergeScripts,
+  PROJECTS,
+  type CloudScriptOptions,
+  type SessionScriptOptions,
+} from '@/shared/server';
 
 import { NewSession } from './NewSession';
 
 const started = fn();
 
+/** The scripted server with an Alpine account (or not) behind it: the screen reads the sign-in from `cloud/status`. */
+const server = (options: SessionScriptOptions = {}, cloud: CloudScriptOptions = { signedIn: true }) =>
+  mergeScripts(chatScript(options), cloudScript(cloud));
+
 function Example({
-  signedIn = false,
-  proReady = false,
   project = PROJECTS[0]!,
 }: {
-  signedIn?: boolean;
-  proReady?: boolean;
   /** `null`: making a new project (새로 만들기). */
   project?: ProjectInfo | null;
 }) {
   return (
     <div className="flex h-screen">
-      <NewSession
-        project={project}
-        onProjectChange={fn()}
-        onNewProject={fn()}
-        onStarted={started}
-        cloud={{ signedIn, proReady }}
-      />
+      <NewSession project={project} onProjectChange={fn()} onNewProject={fn()} onStarted={started} />
     </div>
   );
 }
@@ -72,10 +73,11 @@ export const MakingNew: Story = { args: { project: null } };
 
 /** 새로 만들기, sent: the agent only picks a setup, shown with its pick and why, and no way back to a project. */
 export const MakingNewJudged: Story = {
-  args: { project: null, signedIn: true },
+  args: { project: null },
+  parameters: { server: server() },
   play: async () => {
     await send('동네 공방 원데이 클래스를 예약받고, 자리가 차면 대기 명단에 올려 주는 페이지를 만들어 줘');
-    await waitFor(() => expect(screen.getByText(/Lite로 충분해요|well within Lite/)).toBeInTheDocument(), {
+    await waitFor(() => expect(screen.getByText(/웹앱으로 충분해요|well within a web app/)).toBeInTheDocument(), {
       timeout: 5000,
     });
     expect(
@@ -84,7 +86,7 @@ export const MakingNewJudged: Story = {
   },
 };
 
-/** 새로 만들기 when the agent could not be asked: the setups show with Lite chosen, and nobody recommends it. */
+/** 새로 만들기 when the agent could not be asked: the setups show with the web app chosen, and nobody recommends it. */
 export const MakingNewJudgingFailed: Story = {
   args: { project: null },
   parameters: { server: chatScript({ newProject: { judgeFails: true } }) },
@@ -117,10 +119,10 @@ async function send(text: string) {
 
 /** Sending a new app idea: the agent judges it, then the four setups come with its pick chosen and why. */
 export const NewAppJudged: Story = {
-  args: { signedIn: true },
+  parameters: { server: server() },
   play: async () => {
     await send('동네 공방 원데이 클래스를 예약받고, 자리가 차면 대기 명단에 올려 주는 페이지를 만들어 줘');
-    await waitFor(() => expect(screen.getByText(/Lite로 충분해요|well within Lite/)).toBeInTheDocument(), {
+    await waitFor(() => expect(screen.getByText(/웹앱으로 충분해요|well within a web app/)).toBeInTheDocument(), {
       timeout: 5000,
     });
   },
@@ -128,17 +130,16 @@ export const NewAppJudged: Story = {
 
 /** The moment in between: what I sent, and the agent judging it. */
 export const Judging: Story = {
-  args: { signedIn: true },
+  parameters: { server: server() },
   play: async () => {
     await send('동네 공방 원데이 클래스를 예약받는 페이지를 만들어 줘');
     await waitFor(() => expect(screen.getAllByRole('status').length).toBeGreaterThan(0));
   },
 };
 
-/** With paid plans open, an idea with chat gets Pro chosen, with its trial. */
+/** An idea with chat gets the realtime web app chosen, with its trial. */
 export const ProRecommended: Story = {
-  args: { signedIn: true, proReady: true },
-  parameters: { server: chatScript({ newProject: { templates: ['blank', 'web-lite', 'web-pro'] } }) },
+  parameters: { server: server({ newProject: { templates: ['blank', 'web-lite', 'web-pro'] } }) },
   play: async () => {
     await send('동호회 사람들이 실시간 채팅으로 모임 장소를 정하고 사진을 올리는 앱을 만들고 싶어');
     await waitFor(() => expect(screen.getByText(/주고받는 기능이 있어서|exchange things live/)).toBeInTheDocument(), {
@@ -158,8 +159,7 @@ export const ChangeJudged: Story = {
 
 /** 만들기: the folder, the web address, then the AI starts. */
 export const CreatingFromJudgement: Story = {
-  args: { signedIn: true },
-  parameters: { server: chatScript({ newProject: { address: true } }) },
+  parameters: { server: server({ newProject: { address: true } }) },
   play: async () => {
     started.mockClear();
     await send('공방 수업 예약 페이지를 만들어 줘');
@@ -168,6 +168,37 @@ export const CreatingFromJudgement: Story = {
     const open = await screen.findByRole('button', { name: /세션으로 가기|Go to the session/ }, { timeout: 8000 });
     await userEvent.click(open);
     expect(started).toHaveBeenCalledWith(expect.stringMatching(/^s-/));
+  },
+};
+
+/**
+ * Decision 23: a realtime web app needs the Alpine account. Signed out, 만들기 opens the sign-in sheet with the
+ * reason; the browser sign-in comes back and the project is made without another click.
+ */
+export const RealtimeNeedsSignIn: Story = {
+  parameters: {
+    server: server({ newProject: { templates: ['blank', 'web-lite', 'web-pro'], address: true } }, { signInMs: 600 }),
+  },
+  play: async () => {
+    started.mockClear();
+    await send('동호회 사람들이 실시간 채팅으로 모임 장소를 정하는 앱을 만들고 싶어');
+    await userEvent.click(await screen.findByRole('button', { name: /^(만들기|Create)$/ }, { timeout: 5000 }));
+    await userEvent.click(await screen.findByRole('button', { name: /Google로 계속하기|Continue with Google/ }));
+    await waitFor(() => expect(screen.getByText(/alpinesite\.app/)).toBeInTheDocument(), { timeout: 8000 });
+  },
+};
+
+/** 만들기 with a web app on a Mac that has no Node.js: Alpine offers its own copy first, with the download's progress. */
+export const NodeMissing: Story = {
+  parameters: {
+    server: server({ newProject: { address: true } }, { signedIn: true, node: 'missing', installMs: 1500 }),
+  },
+  play: async () => {
+    await send('공방 수업 예약 페이지를 만들어 줘');
+    await userEvent.click(await screen.findByRole('button', { name: /^(만들기|Create)$/ }, { timeout: 5000 }));
+    await userEvent.click(await screen.findByRole('button', { name: /설치하고 이어가기|Install and continue/ }));
+    await waitFor(() => expect(screen.getByRole('progressbar')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/AlpineCode\/craft-booking/)).toBeInTheDocument(), { timeout: 10000 });
   },
 };
 

@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 
 import { useFormat, useMessages } from '@/shared/i18n';
-import { useRestore, useRestorePoints } from '@/shared/server';
+import { useCloudPlans, useCloudStatus, useRestore, useRestorePoints } from '@/shared/server';
 
 import { messages } from './messages';
 
@@ -12,11 +12,26 @@ import { messages } from './messages';
  * Going back to an earlier point (decision 15). Data and code go back together, so the schema always fits the code; the
  * state you leave is kept as a point first, which the lead says in plain words before anything is pressed.
  */
-export function Restore({ cwd, onBack, onClose }: { cwd: string; onBack: () => void; onClose: () => void }) {
+export function Restore({
+  cwd,
+  onBack,
+  onClose,
+  onUpgrade,
+}: {
+  cwd: string;
+  onBack: () => void;
+  onClose: () => void;
+  /** Pro reaches further back; the sheet shows the plans. */
+  onUpgrade: () => void;
+}) {
   const t = useMessages(messages);
   const format = useFormat();
   const points = useRestorePoints(cwd);
   const restore = useRestore(cwd);
+  const cloud = useCloudStatus().data;
+  const plans = useCloudPlans().data?.plans;
+  // Free goes back less far than Pro; say so where the window is shown (decision 15).
+  const proDays = plans?.find((plan) => plan.id === 'pro')?.limits.restoreDays;
   const [chosen, setChosen] = useState<string | null>(null);
   const when = (at: string) => {
     const date = new Date(at);
@@ -78,7 +93,14 @@ export function Restore({ cwd, onBack, onClose }: { cwd: string; onBack: () => v
           })}
         </ul>
       )}
-      {points.data && <p className="text-meta text-fg-muted">{t.restoreWindow(points.data.windowDays)}</p>}
+      {points.data && (
+        <p className="flex items-baseline justify-between gap-3 text-meta text-fg-muted">
+          {t.restoreWindow(points.data.windowDays)}
+          {cloud?.plan?.id === 'free' && proDays != null && proDays > points.data.windowDays && (
+            <LinkButton onClick={onUpgrade}>{t.restoreUpgrade(proDays)}</LinkButton>
+          )}
+        </p>
+      )}
       {restore.isError && (
         <p role="alert" className="text-meta text-danger">
           {t.restoreFailed}

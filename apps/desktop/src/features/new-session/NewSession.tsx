@@ -1,9 +1,10 @@
-import type { CloneInfo, JudgedNew, ProjectInfo } from '@alpine/protocol';
+import type { CloneInfo, CloudStatus, JudgedNew, ProjectInfo } from '@alpine/protocol';
 import { AutoHeight, Button, Dialog, LinkButton } from '@alpine/ui/primitives';
+import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-import { AlpineSignIn, NodeInstall } from '@/shared/components/cloud';
+import { AlpineSignIn, NodeInstall, UpgradeSheet } from '@/shared/components/cloud';
 import { AgentChip, Composer, useSlashSkills, type Mode } from '@/shared/components/composer';
 import { CloneDialog, projectAddMessages } from '@/shared/components/project-add';
 import { Snowscape } from '@/shared/components/snowscape';
@@ -12,6 +13,7 @@ import {
   ServerError,
   useAgents,
   useCancelClone,
+  cloudKey,
   useCloudStatus,
   useConnections,
   useCreateProject,
@@ -47,8 +49,8 @@ type Stage =
 /** The setup chosen when the agent gave no pick. */
 const FALLBACK_TEMPLATE: TemplateId = 'web-lite';
 
-/** What stands between 만들기 and making the project: the Alpine account (a realtime web app), or Node.js (any web app). */
-type Gate = { kind: 'sign-in' | 'node'; chosen: Extract<Stage, { name: 'choosing' }> };
+/** What stands between 만들기 and making the project: the Alpine account and Pro (a realtime web app), or Node.js (any web app). */
+type Gate = { kind: 'sign-in' | 'upgrade' | 'node'; chosen: Extract<Stage, { name: 'choosing' }> };
 
 interface CreatingStage {
   name: 'creating';
@@ -138,6 +140,7 @@ export function NewSession({
   const createProject = useCreateProject();
   const templates = useTemplates();
   const signedIn = useCloudStatus().data?.signedIn ?? false;
+  const queryClient = useQueryClient();
   const node = useNodeTools();
   const [gate, setGate] = useState<Gate | null>(null);
   const [stage, setStage] = useState<Stage | null>(null);
@@ -262,7 +265,12 @@ export function NewSession({
   // Node.js (6.3); each is asked for in a sheet, and 만들기 goes on by itself when it is there.
   const requestCreate = (chosen: Extract<Stage, { name: 'choosing' }>, skip?: Gate['kind']) => {
     const web = chosen.template === 'web-lite' || chosen.template === 'web-pro';
-    if (chosen.template === 'web-pro' && !signedIn && skip !== 'sign-in') return setGate({ kind: 'sign-in', chosen });
+    // What is true now, not at the last render: this runs right after signing in or starting the trial.
+    const now = queryClient.getQueryData<CloudStatus>(cloudKey);
+    if (chosen.template === 'web-pro' && !now?.signedIn && skip !== 'sign-in')
+      return setGate({ kind: 'sign-in', chosen });
+    if (chosen.template === 'web-pro' && now?.limits && !now.limits.webPro && skip !== 'upgrade')
+      return setGate({ kind: 'upgrade', chosen });
     if (web && node.data?.ready === false && skip !== 'node') return setGate({ kind: 'node', chosen });
     setGate(null);
     create(chosen);
@@ -383,6 +391,17 @@ export function NewSession({
               reason={t.proSignInReason}
               onBack={() => setGate(null)}
               onDone={() => requestCreate(gate.chosen, 'sign-in')}
+            />
+          )}
+        </Dialog.Popup>
+      </Dialog.Root>
+      <Dialog.Root open={gate?.kind === 'upgrade'} onOpenChange={(open) => !open && setGate(null)}>
+        <Dialog.Popup>
+          {gate?.kind === 'upgrade' && (
+            <UpgradeSheet
+              reason={t.proUpgradeReason}
+              onBack={() => setGate(null)}
+              onDone={() => requestCreate(gate.chosen, 'upgrade')}
             />
           )}
         </Dialog.Popup>

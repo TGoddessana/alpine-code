@@ -56,6 +56,63 @@ export function useRestore(cwd: string) {
   });
 }
 
+const domainsKey = (cwd: string) => ['publish', 'domains', cwd] as const;
+
+/**
+ * The custom domains of the project's app (`publish/domains`). While one is waiting for the person's DNS it is asked
+ * again every 10 seconds, so it turns active by itself once the records are in.
+ */
+export function useDomains(cwd: string, enabled = true) {
+  const server = useServer();
+  return useQuery({
+    queryKey: domainsKey(cwd),
+    queryFn: () => server.request('publish/domains', { cwd }),
+    enabled,
+    retry: false,
+    refetchInterval: (query) =>
+      query.state.data?.domains.some((domain) => domain.status === 'pending') ? 10_000 : false,
+  });
+}
+
+/** Adds a domain (and, with `mail`, the records for sending mail from it); the list is read again. */
+export function useAddDomain(cwd: string) {
+  const server = useServer();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (params: { domain: string; mail: boolean }) => server.request('publish/addDomain', { cwd, ...params }),
+    onSuccess: () => client.invalidateQueries({ queryKey: domainsKey(cwd) }),
+  });
+}
+
+/** Asks the API to look at the DNS records of a domain now. */
+export function useCheckDomain(cwd: string) {
+  const server = useServer();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => server.request('publish/checkDomain', { cwd, id }),
+    onSuccess: () => client.invalidateQueries({ queryKey: domainsKey(cwd) }),
+  });
+}
+
+export function useRemoveDomain(cwd: string) {
+  const server = useServer();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => server.request('publish/removeDomain', { cwd, id }),
+    onSuccess: () => client.invalidateQueries({ queryKey: domainsKey(cwd) }),
+  });
+}
+
+/** Shows or hides the Alpine badge on the app (Pro only; the API answers `payment_required` on Free). */
+export function useSetBadge(cwd: string) {
+  const server = useServer();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (badge: boolean) => server.request('publish/setBadge', { cwd, badge }),
+    onSuccess: () => client.invalidateQueries({ queryKey: publishStatusKey(cwd) }),
+  });
+}
+
 /** Why a prepare or a run stopped. `reason` is the server's (`build_failed`, `signed_out`, `blocked`, ...). */
 export interface PublishFailure {
   reason: ErrorData['reason'] | null;

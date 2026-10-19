@@ -1,11 +1,12 @@
 import type { CloudStatus } from '@alpine/protocol';
 
 import { ServerError } from './connection';
+import { billingResults, type BillingScriptOptions } from './billingScript';
 import { dataResults, type DataScriptOptions } from './dataScript';
 import { publishResults, type PublishScriptOptions } from './publishScript';
 import type { Script } from './scripted';
 
-export interface CloudScriptOptions extends PublishScriptOptions, DataScriptOptions {
+export interface CloudScriptOptions extends PublishScriptOptions, DataScriptOptions, BillingScriptOptions {
   /** Starts signed in. Signing in and out changes it, and announces `cloud/changed`. */
   signedIn?: boolean;
   /** The plan the account is on; `trial` is Pro on its free week. */
@@ -26,6 +27,8 @@ export interface CloudScriptOptions extends PublishScriptOptions, DataScriptOpti
   /** The Node.js download fails. */
   installFails?: boolean;
 }
+
+const PRO_LIMITS = { monthlyCredits: 2000, restoreDays: 30, customDomains: true, badge: false, webPro: true };
 
 const FREE_LIMITS = {
   apps: 3,
@@ -57,6 +60,7 @@ export function cloudScript(options: CloudScriptOptions = {}): Script {
   let plan: 'free' | 'trial' | 'pro' = options.plan ?? 'free';
   let trialUsed = plan !== 'free';
   let node = options.node ?? 'ready';
+  let badge = true;
   const balance = options.balance ?? 300;
   const attempts = new Map<string, ReturnType<typeof setTimeout>>();
   let counter = 0;
@@ -76,7 +80,7 @@ export function cloudScript(options: CloudScriptOptions = {}): Script {
           trialUsed,
         }
       : null,
-    limits: signedIn ? { ...FREE_LIMITS, ...(plan === 'free' ? {} : { webPro: true, customDomains: true }) } : null,
+    limits: signedIn ? { ...FREE_LIMITS, ...(plan === 'free' ? {} : PRO_LIMITS) } : null,
     credits: signedIn ? { balance, monthly: 300, refillsAt: refillDate() } : null,
     reachable: !options.unreachable,
   });
@@ -84,7 +88,26 @@ export function cloudScript(options: CloudScriptOptions = {}): Script {
   return {
     results: {
       ...dataResults(options),
-      ...publishResults(options, { signedIn: () => signedIn, nodeReady: () => node === 'ready' }),
+      ...billingResults(options, {
+        pro: () => plan !== 'free',
+        paid: (context) => {
+          plan = 'pro';
+          trialUsed = true;
+          context.emit({ method: 'cloud/changed', params: { status: status() } });
+        },
+        badge: {
+          get: () => badge,
+          set: (shown) => {
+            badge = shown;
+          },
+        },
+      }),
+      ...publishResults(options, {
+        signedIn: () => signedIn,
+        nodeReady: () => node === 'ready',
+        badge: () => badge,
+        restoreDays: () => (plan === 'free' ? FREE_LIMITS.restoreDays : PRO_LIMITS.restoreDays),
+      }),
       'cloud/status': () => status(),
       'cloud/signIn': ({ method }, context) => {
         const attemptId = `attempt-${++counter}`;
@@ -139,7 +162,7 @@ export function cloudScript(options: CloudScriptOptions = {}): Script {
           { id: 'free', limits: FREE_LIMITS, price: null, trialDays: null },
           {
             id: 'pro',
-            limits: { ...FREE_LIMITS, monthlyCredits: 2000, customDomains: true, badge: false, webPro: true },
+            limits: { ...FREE_LIMITS, ...PRO_LIMITS },
             price: null,
             trialDays: 7,
           },
@@ -151,7 +174,6 @@ export function cloudScript(options: CloudScriptOptions = {}): Script {
         context.emit({ method: 'cloud/changed', params: { status: status() } });
         return status();
       },
-      'cloud/checkout': () => ({ url: 'http://127.0.0.1:8787/v1/billing/fake/checkout' }),
       'cloud/portal': () => ({ url: 'http://127.0.0.1:8787/v1/billing/fake/portal' }),
       'projects/nodeTools': () =>
         node === 'ready'

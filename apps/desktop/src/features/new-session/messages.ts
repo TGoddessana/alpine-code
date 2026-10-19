@@ -71,6 +71,7 @@ export const messages = defineMessages({
     openProject: '프로젝트 열기',
     startFailed: '세션을 시작하지 못했어요. 다시 보내 주세요.',
     proSignInReason: '실시간 웹앱을 쓰려면 Alpine 계정이 필요해요 (무료)',
+    proUpgradeReason: '실시간 웹앱은 Pro에서 만들 수 있어요. 웹앱은 지금처럼 무료로 만들 수 있어요.',
   },
   en: {
     start: 'Get started',
@@ -142,5 +143,6 @@ export const messages = defineMessages({
     openProject: 'Open the project',
     startFailed: "Couldn't start the session. Please send it again.",
     proSignInReason: 'A realtime web app needs an Alpine account (free)',
+    proUpgradeReason: 'Realtime web apps are part of Pro. A web app is still free to make.',
   },
 });

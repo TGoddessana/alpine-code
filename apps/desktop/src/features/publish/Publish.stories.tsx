@@ -139,6 +139,45 @@ export const Restore: Story = {
   },
 };
 
+const openDomains = async () => {
+  await userEvent.click(
+    await screen.findByRole('button', { name: /^도메인·배지$|^Domains and badge$/ }, { timeout: 8000 }),
+  );
+};
+
+/** Free: the domain is Pro's, the badge stays on, and the way to Pro is one click away. */
+export const DomainFree: Story = {
+  play: openDomains,
+};
+
+/** Pro, a domain on its way: the records with what each is for, and the AI's help (the registrar has no one-click). */
+export const DomainWaiting: Story = {
+  parameters: { server: publishServer({ plan: 'pro', domain: 'pending' }) },
+  play: openDomains,
+};
+
+/** The registrar supports Domain Connect: one button instead of records to copy. */
+export const DomainConnect: Story = {
+  parameters: { server: publishServer({ plan: 'pro', domain: 'pending', domainConnect: true }) },
+  play: openDomains,
+};
+
+/** The records are in: the domain is connected, and the badge can be turned off. */
+export const DomainConnected: Story = {
+  parameters: { server: publishServer({ plan: 'pro', domain: 'active' }) },
+  play: async () => {
+    await openDomains();
+    await userEvent.click(await screen.findByRole('checkbox', { name: /Alpine 배지|Alpine badge/ }));
+  },
+};
+
+/** A restore list on the free plan says how far Pro goes back. */
+export const RestoreFreeWindow: Story = {
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /^되돌리기$|^Restore$/ }, { timeout: 8000 }));
+  },
+};
+
 function Conversation() {
   const [answered, setAnswered] = useState<'publish' | 'later' | null>(null);
   return (

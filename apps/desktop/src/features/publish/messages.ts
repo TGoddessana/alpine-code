@@ -61,6 +61,20 @@ const KO_FAILURE: Record<string, string> = {
   not_found: '이 프로젝트에 연결된 앱을 찾지 못했어요.',
 };
 
+const KO_PURPOSE: Record<string, string> = {
+  web: '사람들이 이 주소로 앱을 열 수 있게 해요',
+  spf: '내 도메인으로 보낸 메일이 스팸으로 가지 않게 해요 (SPF)',
+  dkim: '메일이 정말 이 앱에서 왔다는 서명이에요 (DKIM)',
+  dmarc: '가짜 메일을 걸러내는 규칙이에요 (DMARC)',
+};
+
+const EN_PURPOSE: Record<string, string> = {
+  web: 'Lets people open the app at this address',
+  spf: 'Keeps mail from your domain out of spam (SPF)',
+  dkim: 'A signature that the mail really came from this app (DKIM)',
+  dmarc: 'A rule that filters out fake mail (DMARC)',
+};
+
 const KO_REASON: Record<string, string> = {
   publish: '올린 때',
   data_write: 'AI가 데이터를 바꾸기 전',
@@ -221,6 +235,50 @@ export const messages = defineMessages({
     close: '닫기',
     reason: (key: string) => (Object.hasOwn(KO_REASON, key) ? KO_REASON[key]! : ''),
     reasonOther: '되돌리기 지점',
+    domainsLink: '도메인·배지',
+    domainsTitle: '내 도메인과 배지',
+    domainsBack: '돌아가기',
+    domainsSection: '내 도메인',
+    domainsLead: '가지고 있는 도메인을 앱 주소로 쓸 수 있어요. 도메인을 파는 곳에서 아래 값을 넣어야 해요.',
+    domainsProOnly: '내 도메인은 Pro에서 쓸 수 있어요.',
+    seePro: 'Pro 알아보기',
+    domainsNeedApp: '먼저 앱을 한 번 올려야 도메인을 이을 수 있어요.',
+    domainInput: '도메인',
+    domainPlaceholder: 'booking.example.com',
+    domainMail: '이 도메인으로 메일도 보내기 (가입 확인 메일 같은 것)',
+    domainAdd: '추가',
+    domainInvalid: '도메인 주소가 올바르지 않아요. booking.example.com처럼 써 주세요.',
+    domainTaken: '이미 쓰고 있는 도메인이에요.',
+    domainFailed: '도메인을 추가하지 못했어요. 잠시 뒤에 다시 해 보세요.',
+    domainNone: '아직 이은 도메인이 없어요.',
+    domainStatus: (status: string) =>
+      status === 'active'
+        ? '연결됐어요'
+        : status === 'pending'
+          ? '확인 중이에요'
+          : status === 'failed'
+            ? '연결하지 못했어요'
+            : status,
+    domainRecordsLead:
+      '도메인을 사 둔 곳의 DNS 설정에 아래 줄을 그대로 넣어 주세요. 반영되는 데 몇 분에서 몇 시간 걸려요.',
+    recordPurpose: (key: string) => (Object.hasOwn(KO_PURPOSE, key) ? KO_PURPOSE[key]! : '연결에 필요한 값이에요'),
+    recordCopy: '값 복사',
+    domainConnect: (provider: string) => `${provider}에서 한 번에 연결`,
+    domainAskAi: 'AI에게 연결 도와 달라고 하기',
+    domainAskMessage: (domain: string, lines: string) =>
+      `내 도메인 ${domain}을 이 앱에 연결하고 싶어요. 도메인을 사 둔 곳의 DNS 설정에 아래 값을 넣는 방법을 단계별로 알려 주세요.\n\n${lines}`,
+    domainCheck: '지금 확인하기',
+    domainChecking: '확인하는 중',
+    domainStillWaiting: '아직 반영되지 않았어요. 조금 있다가 다시 확인해 주세요.',
+    domainRemove: '연결 끊기',
+    domainRemoveAsk: '이 도메인을 끊을까요? 앱은 원래 주소로 계속 열려요.',
+    domainRemoveYes: '끊기',
+    domainRemoveNo: '그대로 두기',
+    badgeSection: 'Alpine 배지',
+    badgeLabel: '앱 화면 구석에 Alpine 배지 보이기',
+    badgeFree: '무료 플랜에서는 배지가 항상 보여요. Pro에서 끌 수 있어요.',
+    badgeFailed: '배지를 바꾸지 못했어요. 잠시 뒤에 다시 해 보세요.',
+    restoreUpgrade: (days: number) => `Pro에서는 최근 ${days}일까지 되돌릴 수 있어요`,
     offer: '다 만들었어요. 직접 써 보고 확인한 것을 모아 뒀어요.',
     offerAsk: '인터넷에 올릴까요?',
     offerEvidence: (count: number) => `근거 ${count}개 보기`,
@@ -318,6 +376,50 @@ export const messages = defineMessages({
     close: 'Close',
     reason: (key: string) => (Object.hasOwn(EN_REASON, key) ? EN_REASON[key]! : ''),
     reasonOther: 'Restore point',
+    domainsLink: 'Domains and badge',
+    domainsTitle: 'Your domain and the badge',
+    domainsBack: 'Back',
+    domainsSection: 'Your domain',
+    domainsLead: 'Use a domain you own as the app address. You add the values below where you bought the domain.',
+    domainsProOnly: 'Your own domain is part of Pro.',
+    seePro: 'See Pro',
+    domainsNeedApp: 'Publish the app once before connecting a domain.',
+    domainInput: 'Domain',
+    domainPlaceholder: 'booking.example.com',
+    domainMail: 'Send mail from this domain too (like sign-up confirmations)',
+    domainAdd: 'Add',
+    domainInvalid: 'That is not a valid domain. Write it like booking.example.com.',
+    domainTaken: 'This domain is already in use.',
+    domainFailed: "Couldn't add the domain. Try again in a moment.",
+    domainNone: 'No domain connected yet.',
+    domainStatus: (status: string) =>
+      status === 'active'
+        ? 'Connected'
+        : status === 'pending'
+          ? 'Checking'
+          : status === 'failed'
+            ? "Couldn't connect"
+            : status,
+    domainRecordsLead:
+      'Add these lines to the DNS settings where you bought the domain, exactly as they are. It takes a few minutes to a few hours to take effect.',
+    recordPurpose: (key: string) => (Object.hasOwn(EN_PURPOSE, key) ? EN_PURPOSE[key]! : 'Needed to connect it'),
+    recordCopy: 'Copy value',
+    domainConnect: (provider: string) => `Connect in one click with ${provider}`,
+    domainAskAi: 'Ask the AI to help me connect it',
+    domainAskMessage: (domain: string, lines: string) =>
+      `I want to connect my domain ${domain} to this app. Tell me step by step how to add these values in the DNS settings where I bought the domain.\n\n${lines}`,
+    domainCheck: 'Check now',
+    domainChecking: 'Checking',
+    domainStillWaiting: 'Not in effect yet. Check again in a little while.',
+    domainRemove: 'Disconnect',
+    domainRemoveAsk: 'Disconnect this domain? The app keeps opening at its original address.',
+    domainRemoveYes: 'Disconnect',
+    domainRemoveNo: 'Keep it',
+    badgeSection: 'Alpine badge',
+    badgeLabel: 'Show the Alpine badge in the corner of the app',
+    badgeFree: 'On the free plan the badge is always shown. Pro can turn it off.',
+    badgeFailed: "Couldn't change the badge. Try again in a moment.",
+    restoreUpgrade: (days: number) => `Pro goes back up to ${days} days`,
     offer: 'It is done. I tried it out and gathered what I checked.',
     offerAsk: 'Put it on the internet?',
     offerEvidence: (count: number) => `See ${count} pieces of evidence`,

@@ -107,8 +107,13 @@ export {
   publishStatusKey,
   usePublish,
   usePublishStatus,
+  useAddDomain,
+  useCheckDomain,
+  useDomains,
+  useRemoveDomain,
   useRestore,
   useRestorePoints,
+  useSetBadge,
   type PublishFailure,
   type PublishFlow,
   type PublishState,
@@ -123,6 +128,7 @@ export {
   type DataSourceKind,
   type RowRequest,
 } from './data';
+export { useCheckout, useCloudPlans, usePortal, useStartTrial } from './billing';
 export { cloudScript, type CloudScriptOptions } from './cloudScript';
 export type { DataScriptOptions } from './dataScript';
 export { publishServer } from './publishServer';

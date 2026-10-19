@@ -1,9 +1,10 @@
 import { Button, Dialog, LinkButton } from '@alpine/ui/primitives';
 import { useState } from 'react';
 
-import { AlpineSignIn } from '@/shared/components/cloud';
+import { AlpineSignIn, UpgradeSheet } from '@/shared/components/cloud';
 import { useFormat, useMessages } from '@/shared/i18n';
-import { useCloudSignOut, useCloudStatus } from '@/shared/server';
+import { openInBrowser } from '@/shared/platform';
+import { useCloudSignOut, useCloudStatus, usePortal } from '@/shared/server';
 
 import { messages } from './messages';
 
@@ -16,7 +17,8 @@ export function AlpineAccount() {
   const format = useFormat();
   const status = useCloudStatus().data;
   const signOut = useCloudSignOut();
-  const [sheet, setSheet] = useState<'sign-in' | 'sign-out' | null>(null);
+  const portal = usePortal();
+  const [sheet, setSheet] = useState<'sign-in' | 'sign-out' | 'upgrade' | null>(null);
   if (!status) return null;
 
   const { account, plan, credits } = status;
@@ -37,7 +39,26 @@ export function AlpineAccount() {
               {account.name ? `${account.name} · ${account.email}` : account.email}
               <LinkButton onClick={() => setSheet('sign-out')}>{t.alpineSignOut}</LinkButton>
             </span>
-            <span className="text-meta text-fg-muted">{planName}</span>
+            <span className="flex items-center gap-2 text-meta text-fg-muted">
+              {planName}
+              {plan?.id === 'pro' && plan.status === 'active' ? (
+                <LinkButton
+                  disabled={portal.isPending}
+                  onClick={() => portal.mutate(undefined, { onSuccess: ({ url }) => void openInBrowser(url) })}
+                >
+                  {t.planManage}
+                </LinkButton>
+              ) : (
+                <LinkButton onClick={() => setSheet('upgrade')}>
+                  {plan?.status === 'trialing' ? t.planSubscribe : t.planUpgrade}
+                </LinkButton>
+              )}
+            </span>
+            {portal.isError && (
+              <span role="alert" className="text-meta text-danger">
+                {t.portalFailed}
+              </span>
+            )}
             {credits && (
               <span className="text-meta text-fg-muted">
                 {t.credits(format.number(credits.balance))}
@@ -60,6 +81,11 @@ export function AlpineAccount() {
       <Dialog.Root open={sheet === 'sign-in'} onOpenChange={(open) => !open && setSheet(null)}>
         <Dialog.Popup>
           <AlpineSignIn onBack={() => setSheet(null)} onDone={() => setSheet(null)} />
+        </Dialog.Popup>
+      </Dialog.Root>
+      <Dialog.Root open={sheet === 'upgrade'} onOpenChange={(open) => !open && setSheet(null)}>
+        <Dialog.Popup>
+          <UpgradeSheet onBack={() => setSheet(null)} onDone={() => setSheet(null)} />
         </Dialog.Popup>
       </Dialog.Root>
       <Dialog.Root open={sheet === 'sign-out'} onOpenChange={(open) => !open && setSheet(null)}>

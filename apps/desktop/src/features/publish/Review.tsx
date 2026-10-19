@@ -53,6 +53,7 @@ export function Review({
   onEvidence,
   onPublish,
   onRestore,
+  onDomains,
 }: {
   project: string;
   plan: PublishPlan;
@@ -63,6 +64,7 @@ export function Review({
   onEvidence?: () => void;
   onPublish: (confirm: string[]) => void;
   onRestore: () => void;
+  onDomains: () => void;
 }) {
   const t = useMessages(messages);
   const format = useFormat();
@@ -142,7 +144,14 @@ export function Review({
         <p className="pl-7 text-meta text-fg-muted">{t.restoreFirst}</p>
       </Section>
       <div className="flex items-center justify-between gap-3 pt-1">
-        {app ? <LinkButton onClick={onRestore}>{t.restorePoints}</LinkButton> : <span />}
+        {app ? (
+          <span className="flex items-center gap-3">
+            <LinkButton onClick={onRestore}>{t.restorePoints}</LinkButton>
+            <LinkButton onClick={onDomains}>{t.domainsLink}</LinkButton>
+          </span>
+        ) : (
+          <span />
+        )}
         <div className="flex items-center gap-3">
           {!plan.blocked && left > 0 && <span className="text-meta text-fg-muted">{t.confirmsLeft(left)}</span>}
           {plan.blocked ? (

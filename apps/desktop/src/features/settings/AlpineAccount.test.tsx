@@ -48,6 +48,24 @@ describe('AlpineAccount', () => {
     expect(await screen.findByText(/^Pro 플랜 체험 중 · .+까지$/)).toBeTruthy();
   });
 
+  it('offers Pro on the free plan, in a sheet, and starts the free week from there', async () => {
+    mount({ signedIn: true });
+    fireEvent.click(await screen.findByRole('button', { name: 'Pro 알아보기' }));
+    fireEvent.click(await screen.findByRole('button', { name: '7일 무료로 써 보기' }));
+    expect(await screen.findByText(/^Pro 플랜 체험 중 · .+까지$/)).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText('Pro로 더 쓰기')).toBeNull());
+    expect(screen.getByRole('button', { name: '구독하기' })).toBeTruthy();
+  });
+
+  it('opens the subscription page for a paying account', async () => {
+    vi.spyOn(window, 'open').mockImplementation(() => null);
+    mount({ signedIn: true, plan: 'pro' });
+    fireEvent.click(await screen.findByRole('button', { name: '구독 관리' }));
+    await waitFor(() =>
+      expect(window.open).toHaveBeenCalledWith(expect.stringContaining('/billing/fake/portal'), '_blank', 'noopener'),
+    );
+  });
+
   it('says the numbers are the last known ones when Alpine does not answer', async () => {
     mount({ signedIn: true, unreachable: true });
     expect((await screen.findByRole('status')).textContent).toContain('마지막으로 본 내용이에요');

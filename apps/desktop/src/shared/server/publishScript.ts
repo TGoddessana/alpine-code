@@ -37,11 +37,15 @@ export interface PublishScriptOptions {
 interface Env {
   signedIn: () => boolean;
   nodeReady: () => boolean;
+  /** Whether the app shows the Alpine badge now. */
+  badge: () => boolean;
+  /** How many days back the plan lets a person go. */
+  restoreDays: () => number;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const APP: AppInfo = {
+export const APP: AppInfo = {
   id: 'app_1',
   name: 'craft-booking',
   address: 'craft-booking.alpinesite.app',
@@ -178,7 +182,7 @@ export function publishResults(options: PublishScriptOptions, env: Env): NonNull
     'publish/status': () => ({
       publishable: !options.publishReason && env.signedIn() && env.nodeReady(),
       reason: options.publishReason ?? (!env.signedIn() ? 'signed_out' : !env.nodeReady() ? 'no_node' : null),
-      app: lastPublishedAt ? APP : null,
+      app: lastPublishedAt ? { ...APP, badge: env.badge() } : null,
       lastPublishedAt,
       changes,
     }),
@@ -233,7 +237,7 @@ export function publishResults(options: PublishScriptOptions, env: Env): NonNull
       }
       changes = 0;
       lastPublishedAt = new Date().toISOString();
-      return { app: APP, publishedAt: lastPublishedAt };
+      return { app: { ...APP, badge: env.badge() }, publishedAt: lastPublishedAt };
     },
     'publish/cancel': ({ id }) => {
       cancelled.add(id);
@@ -245,7 +249,7 @@ export function publishResults(options: PublishScriptOptions, env: Env): NonNull
         { id: 'rp_8', at: new Date(Date.now() - 26 * 3_600_000).toISOString(), reason: 'data_write' },
         { id: 'rp_7', at: new Date(Date.now() - 3 * 86_400_000).toISOString(), reason: 'publish' },
       ],
-      windowDays: 7,
+      windowDays: env.restoreDays(),
     }),
     'publish/restore': async () => {
       await sleep(ms);

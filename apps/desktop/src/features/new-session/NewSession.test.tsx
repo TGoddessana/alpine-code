@@ -552,8 +552,32 @@ describe('NewSession folder chip', () => {
       expect(sent('projects/create')).toEqual([]);
 
       fireEvent.click(screen.getByRole('button', { name: 'Google로 계속하기' }));
+      // A new account is on the free plan, so Pro is the next thing asked for.
+      fireEvent.click(await screen.findByRole('button', { name: '7일 무료로 써 보기' }));
       await screen.findByRole('button', { name: '세션으로 가기' });
       expect(window.open).toHaveBeenCalledWith(expect.stringContaining('provider=google'), '_blank', 'noopener');
+      expect(sent('projects/create')).toEqual([expect.objectContaining({ template: 'web-pro' })]);
+    });
+
+    it('offers Pro before a realtime web app on the free plan, and makes it when the free week has started', async () => {
+      const { sent } = mount(withPro, cloudScript({ signedIn: true }));
+      await send(CHAT);
+      await create();
+      expect(await screen.findByText(/^실시간 웹앱은 Pro에서 만들 수 있어요/)).toBeTruthy();
+      expect(sent('projects/create')).toEqual([]);
+
+      fireEvent.click(screen.getByRole('button', { name: '7일 무료로 써 보기' }));
+      await screen.findByRole('button', { name: '세션으로 가기' });
+      expect(sent('cloud/startTrial')).toHaveLength(1);
+      expect(sent('projects/create')).toEqual([expect.objectContaining({ template: 'web-pro' })]);
+    });
+
+    it('goes straight on for a realtime web app when the account is on Pro', async () => {
+      const { sent } = mount(withPro, cloudScript({ signedIn: true, plan: 'pro' }));
+      await send(CHAT);
+      await create();
+      await screen.findByRole('button', { name: '세션으로 가기' });
+      expect(sent('cloud/startTrial')).toEqual([]);
       expect(sent('projects/create')).toEqual([expect.objectContaining({ template: 'web-pro' })]);
     });
 

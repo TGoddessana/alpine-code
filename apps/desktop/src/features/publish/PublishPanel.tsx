@@ -2,7 +2,7 @@ import type { PublishStatus } from '@alpine/protocol';
 import { AutoHeight, Button, LinkButton } from '@alpine/ui/primitives';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
-import { AlpineSignIn, NodeInstall, QrCode } from '@/shared/components/cloud';
+import { AlpineSignIn, NodeInstall, QrCode, UpgradeSheet } from '@/shared/components/cloud';
 import { useLocale, useMessages } from '@/shared/i18n';
 import { openInBrowser } from '@/shared/platform';
 import {
@@ -15,6 +15,7 @@ import {
   type PublishState,
 } from '@/shared/server';
 
+import { Domains } from './Domains';
 import { evidenceOf, sortChecks } from './findings';
 import { messages } from './messages';
 import { ProgressLine, Row, rowState } from './parts';
@@ -47,15 +48,43 @@ export interface PublishPanelProps {
 export function PublishPanel(props: PublishPanelProps) {
   const t = useMessages(messages);
   const { status } = props;
-  const [view, setView] = useState<'publish' | 'restore'>('publish');
+  const [view, setView] = useState<'publish' | 'restore' | 'domains' | 'upgrade'>('publish');
   let body: ReactNode = null;
   if (status) {
     if (status.reason === 'signed_out') body = <AlpineSignIn reason={t.signInReason} onDone={props.onStatusChange} />;
     else if (status.reason === 'no_node') body = <NeedNode onReady={props.onStatusChange} />;
     else if (!status.publishable) body = <p className="text-body text-fg-muted">{t.cannot}</p>;
     else if (view === 'restore')
-      body = <Restore cwd={props.cwd} onBack={() => setView('publish')} onClose={props.onClose} />;
-    else body = <Publisher {...props} status={status} onRestore={() => setView('restore')} />;
+      body = (
+        <Restore
+          cwd={props.cwd}
+          onBack={() => setView('publish')}
+          onClose={props.onClose}
+          onUpgrade={() => setView('upgrade')}
+        />
+      );
+    else if (view === 'domains')
+      body = (
+        <Domains
+          cwd={props.cwd}
+          app={status.app}
+          sessionId={props.sessionId}
+          onBack={() => setView('publish')}
+          onUpgrade={() => setView('upgrade')}
+          onClose={props.onClose}
+        />
+      );
+    else if (view === 'upgrade')
+      body = <UpgradeSheet onBack={() => setView('publish')} onDone={() => setView('publish')} />;
+    else
+      body = (
+        <Publisher
+          {...props}
+          status={status}
+          onRestore={() => setView('restore')}
+          onDomains={() => setView('domains')}
+        />
+      );
   }
   return (
     <AutoHeight className="w-103">
@@ -102,7 +131,8 @@ function Publisher({
   onClose,
   onStatusChange,
   onRestore,
-}: PublishPanelProps & { status: PublishStatus; onRestore: () => void }) {
+  onDomains,
+}: PublishPanelProps & { status: PublishStatus; onRestore: () => void; onDomains: () => void }) {
   const { locale } = useLocale();
   const cloud = useCloudStatus().data;
   const map = useProductMap(cwd);
@@ -149,12 +179,13 @@ function Publisher({
           onEvidence={onEvidence}
           onPublish={flow.run}
           onRestore={onRestore}
+          onDomains={onDomains}
         />
       );
     case 'running':
       return <Publishing state={state} address={address} />;
     case 'done':
-      return <Published state={state} onRestore={onRestore} />;
+      return <Published state={state} onRestore={onRestore} onDomains={onDomains} />;
     case 'failed':
       return (
         <Failed
@@ -236,7 +267,15 @@ function Publishing({ state, address }: { state: Extract<PublishState, { status:
   );
 }
 
-function Published({ state, onRestore }: { state: Extract<PublishState, { status: 'done' }>; onRestore: () => void }) {
+function Published({
+  state,
+  onRestore,
+  onDomains,
+}: {
+  state: Extract<PublishState, { status: 'done' }>;
+  onRestore: () => void;
+  onDomains: () => void;
+}) {
   const t = useMessages(messages);
   const [copied, setCopied] = useState(false);
   const { app } = state;
@@ -270,10 +309,11 @@ function Published({ state, onRestore }: { state: Extract<PublishState, { status
           </div>
         </div>
       </div>
-      <div>
+      <div className="flex items-center gap-3">
         <LinkButton className="-ml-1" onClick={onRestore}>
           {t.restorePoints}
         </LinkButton>
+        <LinkButton onClick={onDomains}>{t.domainsLink}</LinkButton>
       </div>
     </>
   );

@@ -50,14 +50,17 @@ def test_schema_has_session_types_and_notifications():
 
     schema = build()
     assert {"SessionInfo", "ToolCallItem", "ItemDeltaEvent", "SessionEventParams"} <= set(schema["$defs"])
-    assert schema["x-notifications"].items() >= {
-        "session/event": "SessionEventParams",
-        "chatgpt/signInFinished": "ChatGPTSignInFinishedParams",
-        "memory/changed": "MemoryChangedParams",
-        "projects/cloneChanged": "ProjectsCloneChangedParams",
-        "github/signInFinished": "GitHubSignInFinishedParams",
-        "projects/createChanged": "ProjectsCreateChangedParams",
-    }.items()
+    assert (
+        schema["x-notifications"].items()
+        >= {
+            "session/event": "SessionEventParams",
+            "chatgpt/signInFinished": "ChatGPTSignInFinishedParams",
+            "memory/changed": "MemoryChangedParams",
+            "projects/cloneChanged": "ProjectsCloneChangedParams",
+            "github/signInFinished": "GitHubSignInFinishedParams",
+            "projects/createChanged": "ProjectsCreateChangedParams",
+        }.items()
+    )
     assert (SESSION_NOT_FOUND, SESSION_RUNNING) == (-32001, -32002)
 
 

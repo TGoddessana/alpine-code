@@ -3,12 +3,7 @@
   "cases": [
     {
       "name": "stripe live",
-      "parts": [
-        "const k = '",
-        "sk_live_",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6",
-        "';"
-      ],
+      "parts": ["const k = '", "sk_live_", "aB3dE5fG7hJ9kL1mN2pQ4rS6", "';"],
       "hits": [
         {
           "code": "secret.stripe_live",
@@ -18,10 +13,7 @@
     },
     {
       "name": "stripe restricted",
-      "parts": [
-        "rk_live_",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6"
-      ],
+      "parts": ["rk_live_", "aB3dE5fG7hJ9kL1mN2pQ4rS6"],
       "hits": [
         {
           "code": "secret.stripe_live",
@@ -31,28 +23,17 @@
     },
     {
       "name": "stripe live too short",
-      "parts": [
-        "sk_live_",
-        "abc123"
-      ],
+      "parts": ["sk_live_", "abc123"],
       "hits": []
     },
     {
       "name": "sk_live in a longer word",
-      "parts": [
-        "task_live_",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6"
-      ],
+      "parts": ["task_live_", "aB3dE5fG7hJ9kL1mN2pQ4rS6"],
       "hits": []
     },
     {
       "name": "openai project key",
-      "parts": [
-        "x=\"",
-        "sk-proj-",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xYaB3dE5fG7h",
-        "\""
-      ],
+      "parts": ["x=\"", "sk-proj-", "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xYaB3dE5fG7h", "\""],
       "hits": [
         {
           "code": "secret.openai",
@@ -62,10 +43,7 @@
     },
     {
       "name": "openai plain key",
-      "parts": [
-        "sk-",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xYaB3dE5fG7h"
-      ],
+      "parts": ["sk-", "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xYaB3dE5fG7h"],
       "hits": [
         {
           "code": "secret.openai",
@@ -75,33 +53,22 @@
     },
     {
       "name": "sk- alone",
-      "parts": [
-        "const prefix = 'sk-';"
-      ],
+      "parts": ["const prefix = 'sk-';"],
       "hits": []
     },
     {
       "name": "sk- with a short tail",
-      "parts": [
-        "sk-",
-        "abc123"
-      ],
+      "parts": ["sk-", "abc123"],
       "hits": []
     },
     {
       "name": "sk- in a word",
-      "parts": [
-        "task-",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xYaB3dE5fG7h"
-      ],
+      "parts": ["task-", "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xYaB3dE5fG7h"],
       "hits": []
     },
     {
       "name": "anthropic",
-      "parts": [
-        "sk-ant-",
-        "api03-aB3dE5fG7hJ9kL1mN2pQ"
-      ],
+      "parts": ["sk-ant-", "api03-aB3dE5fG7hJ9kL1mN2pQ"],
       "hits": [
         {
           "code": "secret.anthropic",
@@ -111,10 +78,7 @@
     },
     {
       "name": "anthropic is not openai",
-      "parts": [
-        "sk-ant-",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xYaB3dE5fG7hJ9kL1m"
-      ],
+      "parts": ["sk-ant-", "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xYaB3dE5fG7hJ9kL1m"],
       "hits": [
         {
           "code": "secret.anthropic",
@@ -124,13 +88,7 @@
     },
     {
       "name": "aws key with its secret",
-      "parts": [
-        "AKIA",
-        "IOSFODNN7EXAMPLE",
-        "\", secret: \"",
-        "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-        "\""
-      ],
+      "parts": ["AKIA", "IOSFODNN7EXAMPLE", "\", secret: \"", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "\""],
       "hits": [
         {
           "code": "secret.aws",
@@ -140,27 +98,17 @@
     },
     {
       "name": "aws key id alone",
-      "parts": [
-        "AKIA",
-        "IOSFODNN7EXAMPLE"
-      ],
+      "parts": ["AKIA", "IOSFODNN7EXAMPLE"],
       "hits": []
     },
     {
       "name": "aws secret alone",
-      "parts": [
-        "aws_secret = '",
-        "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-        "'"
-      ],
+      "parts": ["aws_secret = '", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "'"],
       "hits": []
     },
     {
       "name": "private key rsa",
-      "parts": [
-        "-----BEGIN ",
-        "RSA PRIVATE KEY-----\nMIIE"
-      ],
+      "parts": ["-----BEGIN ", "RSA PRIVATE KEY-----\nMIIE"],
       "hits": [
         {
           "code": "secret.private_key",
@@ -170,10 +118,7 @@
     },
     {
       "name": "private key plain",
-      "parts": [
-        "-----BEGIN ",
-        "PRIVATE KEY-----"
-      ],
+      "parts": ["-----BEGIN ", "PRIVATE KEY-----"],
       "hits": [
         {
           "code": "secret.private_key",
@@ -183,10 +128,7 @@
     },
     {
       "name": "private key ec",
-      "parts": [
-        "-----BEGIN ",
-        "EC PRIVATE KEY-----"
-      ],
+      "parts": ["-----BEGIN ", "EC PRIVATE KEY-----"],
       "hits": [
         {
           "code": "secret.private_key",
@@ -196,18 +138,12 @@
     },
     {
       "name": "public key is fine",
-      "parts": [
-        "-----BEGIN ",
-        "PUBLIC KEY-----"
-      ],
+      "parts": ["-----BEGIN ", "PUBLIC KEY-----"],
       "hits": []
     },
     {
       "name": "github token",
-      "parts": [
-        "ghp_",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xY"
-      ],
+      "parts": ["ghp_", "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xY"],
       "hits": [
         {
           "code": "secret.github",
@@ -217,10 +153,7 @@
     },
     {
       "name": "github fine-grained",
-      "parts": [
-        "github_pat_",
-        "11AB3dE5fG7hJ9kL1mN2pQ4_rS6tU8vW0xY"
-      ],
+      "parts": ["github_pat_", "11AB3dE5fG7hJ9kL1mN2pQ4_rS6tU8vW0xY"],
       "hits": [
         {
           "code": "secret.github",
@@ -230,10 +163,7 @@
     },
     {
       "name": "github too short",
-      "parts": [
-        "ghp_",
-        "abc123"
-      ],
+      "parts": ["ghp_", "abc123"],
       "hits": []
     },
     {
@@ -263,18 +193,12 @@
     },
     {
       "name": "jwt of another kind",
-      "parts": [
-        "eyJ",
-        "hbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2ln"
-      ],
+      "parts": ["eyJ", "hbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2ln"],
       "hits": []
     },
     {
       "name": "resend",
-      "parts": [
-        "re_",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6"
-      ],
+      "parts": ["re_", "aB3dE5fG7hJ9kL1mN2pQ4rS6"],
       "hits": [
         {
           "code": "secret.resend",
@@ -284,26 +208,17 @@
     },
     {
       "name": "re_ in a word",
-      "parts": [
-        "pre_",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6"
-      ],
+      "parts": ["pre_", "aB3dE5fG7hJ9kL1mN2pQ4rS6"],
       "hits": []
     },
     {
       "name": "re_ short",
-      "parts": [
-        "re_",
-        "abc"
-      ],
+      "parts": ["re_", "abc"],
       "hits": []
     },
     {
       "name": "alpine app token",
-      "parts": [
-        "alp_app_",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xYaB3dE5fG7hJ9"
-      ],
+      "parts": ["alp_app_", "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xYaB3dE5fG7hJ9"],
       "hits": [
         {
           "code": "secret.alpine_app",
@@ -313,18 +228,12 @@
     },
     {
       "name": "alpine app short",
-      "parts": [
-        "alp_app_",
-        "abc"
-      ],
+      "parts": ["alp_app_", "abc"],
       "hits": []
     },
     {
       "name": "google api key",
-      "parts": [
-        "AIza",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xY_-d"
-      ],
+      "parts": ["AIza", "aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xY_-d"],
       "hits": [
         {
           "code": "secret.google_api",
@@ -334,18 +243,12 @@
     },
     {
       "name": "google api short",
-      "parts": [
-        "AIza",
-        "abc"
-      ],
+      "parts": ["AIza", "abc"],
       "hits": []
     },
     {
       "name": "stripe test",
-      "parts": [
-        "sk_test_",
-        "aB3dE5fG7hJ9kL1m"
-      ],
+      "parts": ["sk_test_", "aB3dE5fG7hJ9kL1m"],
       "hits": [
         {
           "code": "secret.stripe_test",
@@ -355,22 +258,12 @@
     },
     {
       "name": "sk_test_ alone",
-      "parts": [
-        "const p = 'sk_test_';"
-      ],
+      "parts": ["const p = 'sk_test_';"],
       "hits": []
     },
     {
       "name": "two secrets on two lines",
-      "parts": [
-        "a = '",
-        "sk_live_",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6",
-        "'\nb = '",
-        "re_",
-        "aB3dE5fG7hJ9kL1mN2pQ4rS6",
-        "'"
-      ],
+      "parts": ["a = '", "sk_live_", "aB3dE5fG7hJ9kL1mN2pQ4rS6", "'\nb = '", "re_", "aB3dE5fG7hJ9kL1mN2pQ4rS6", "'"],
       "hits": [
         {
           "code": "secret.stripe_live",
@@ -384,9 +277,7 @@
     },
     {
       "name": "nothing",
-      "parts": [
-        "export const x = 1; // the key is read from env"
-      ],
+      "parts": ["export const x = 1; // the key is read from env"],
       "hits": []
     }
   ]

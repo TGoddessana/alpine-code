@@ -1,8 +1,9 @@
-import { Link, useMatch, useRouter } from '@tanstack/react-router';
+import { Link, useMatch, useNavigate, useRouter } from '@tanstack/react-router';
 import { ArrowLeft, ArrowRight, GitBranch, PanelLeft } from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import { DockToggle } from '@/features/dock/Dock';
+import { PublishButton } from '@/features/publish/PublishButton';
 import { useCurrentProject } from '@/features/rail/currentProject';
 import { useWorkResult } from '@/features/work-result/useWorkResult';
 import { StatusWord } from '@/shared/components/status';
@@ -86,6 +87,7 @@ function SessionPart({ sessionId }: { sessionId: string }) {
   const info = session.data && !session.data.deleted ? session.data.info : undefined;
   const git = useProjectGit(info?.cwd ?? '');
   const result = useWorkResult(sessionId);
+  const navigate = useNavigate();
   const project = info && (projects.data?.projects.find((p) => p.path === info.cwd)?.name ?? info.cwd.split('/').pop());
   const branch = info && git.data?.git ? (git.data.git.branch ?? t.noBranch) : null;
 
@@ -116,6 +118,16 @@ function SessionPart({ sessionId }: { sessionId: string }) {
         >
           {t.productMap}
         </Link>
+      )}
+      {info && project && (
+        <div className="mr-2 shrink-0">
+          <PublishButton
+            cwd={info.cwd}
+            name={project}
+            sessionId={sessionId}
+            onEvidence={() => void navigate({ to: '/board', search: { project: info.cwd, session: sessionId } })}
+          />
+        </div>
       )}
       <DockToggle files={result?.files.length} />
     </>

@@ -1,14 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState, type ReactNode } from 'react';
-import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
+import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
 
-import { cloudScript } from '@/shared/server';
+import { publishServer } from '@/shared/server';
 
 import { PublishButton } from './PublishButton';
 import { PublishOffer } from './PublishOffer';
-import type { Scenario } from './preview';
-
-const PROJECT = { name: 'craft-booking', changes: 3, lastPublished: new Date(Date.now() - 2 * 60 * 60 * 1000) };
 
 /** The window's top bar with the project on the left, as the app shows it, and the page under it. */
 function TopBar({ children }: { children: ReactNode }) {
@@ -25,32 +22,25 @@ function TopBar({ children }: { children: ReactNode }) {
   );
 }
 
-function Example({
-  scenario,
-  signedIn = true,
-  open = true,
-}: {
-  scenario: Scenario;
-  signedIn?: boolean;
-  open?: boolean;
-}) {
+function Example({ open = true }: { open?: boolean }) {
   return (
     <TopBar>
-      <PublishButton project={PROJECT} scenario={scenario} signedIn={signedIn} defaultOpen={open} onFix={fn()} />
+      <PublishButton cwd="/project" name="craft-booking" sessionId="session-1" defaultOpen={open} onEvidence={fn()} />
     </TopBar>
   );
 }
 
-/** docs/alpine-cloud.md decisions 14, 15, 17 and 23. Checks and publishing run on stand-ins until Alpine Cloud exists. */
+/** The sheet is the real one, on `publish/*` of the scripted server (docs/alpine-cloud-api.md 6.2). */
 const meta = {
   title: 'Alpine Cloud/Publish',
   component: Example,
-  args: { scenario: 'clean' },
-  parameters: { layout: 'fullscreen', server: cloudScript({ signedIn: true }) },
+  parameters: { layout: 'fullscreen', server: publishServer() },
 } satisfies Meta<typeof Example>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+const publishButton = () => screen.findByRole('button', { name: /^올리기$|^Publish$/ }, { timeout: 8000 });
 
 /** The top bar's button with a dot: there are changes not online yet. */
 export const Button: Story = { args: { open: false } };
@@ -58,31 +48,94 @@ export const Button: Story = { args: { open: false } };
 /** Every check settles fine; 올리기 runs, then the address and its QR code. */
 export const CleanToPublished: Story = {
   play: async () => {
-    const publish = await screen.findByRole('button', { name: /^올리기$|^Publish$/ });
-    await waitFor(() => expect(publish).toBeEnabled(), { timeout: 5000 });
+    const publish = await publishButton();
+    await waitFor(() => expect(publish).toBeEnabled(), { timeout: 8000 });
     await userEvent.click(publish);
-    await waitFor(() => expect(screen.getByRole('img', { name: /QR/ })).toBeVisible(), { timeout: 6000 });
+    await waitFor(() => expect(screen.getByRole('img', { name: /QR/ })).toBeVisible(), { timeout: 8000 });
   },
 };
 
 /** One finding to look at, in plain words, with the AI to fix it. Publishing is still allowed (decision 17). */
-export const Finding: Story = { args: { scenario: 'warning' } };
+export const Finding: Story = {
+  parameters: { server: publishServer({ publish: 'warning' }) },
+  play: async () => {
+    await screen.findByText(/로그인하지 않아도 데이터를 보여줘요|not signed in/, undefined, { timeout: 8000 });
+  },
+};
 
-/** A secret key in the page code: the one thing that blocks. */
-export const SecretKeyBlocks: Story = { args: { scenario: 'secret' } };
+/** A finding the app has no sentence for shows the server's own sentence. */
+export const UnknownFinding: Story = {
+  parameters: { server: publishServer({ publish: 'advisor' }) },
+};
 
-/** A column goes away: asked separately before 올리기 opens (decision 15). */
-export const ColumnRemoved: Story = { args: { scenario: 'drop' } };
+/** A secret key in the page code: the one thing that blocks. The button asks the AI to fix it. */
+export const SecretKeyBlocks: Story = {
+  parameters: { server: publishServer({ publish: 'blocked' }) },
+  play: async () => {
+    await screen.findByRole('button', { name: /AI에게 고쳐 달라고 하기|Ask the AI to fix it/ }, { timeout: 8000 });
+  },
+};
 
-/** Own AI only, never signed in: the account is asked for with its reason, then the checks run (decision 23). */
+/** A column goes away: asked separately, and 올리기 stays off until it is said OK (decision 15). */
+export const ColumnRemoved: Story = {
+  parameters: { server: publishServer({ publish: 'drop' }) },
+  play: async () => {
+    const publish = await publishButton();
+    await screen.findByText(/memo/, undefined, { timeout: 8000 });
+    await expect(publish).toBeDisabled();
+    await userEvent.click(screen.getByRole('checkbox'));
+    await waitFor(() => expect(publish).toBeEnabled());
+  },
+};
+
+/** Every kind of change that asks: drop, rename, data change, and a statement nobody understood. */
+export const ManyConfirms: Story = {
+  parameters: { server: publishServer({ publish: 'confirms' }) },
+};
+
+/** The build stopped: the last lines are shown and the AI can be asked to fix it. */
+export const BuildFailure: Story = {
+  parameters: { server: publishServer({ publish: 'build_failed' }) },
+  play: async () => {
+    await screen.findByText(/앱을 만들다가 멈췄어요|Building the app stopped/, undefined, { timeout: 8000 });
+  },
+};
+
+/** The database change failed while publishing: the old version stays online. */
+export const PublishFailure: Story = {
+  parameters: { server: publishServer({ publish: 'run_failed' }) },
+  play: async () => {
+    const publish = await publishButton();
+    await waitFor(() => expect(publish).toBeEnabled(), { timeout: 8000 });
+    await userEvent.click(publish);
+    await screen.findByText(/올리다가 멈췄어요|Publishing stopped/, undefined, { timeout: 8000 });
+  },
+};
+
+/** Not signed in: the account is asked for with its reason, then the checks run (decision 23). */
 export const SignedOut: Story = {
-  args: { signedIn: false },
-  parameters: { server: cloudScript({ signInMs: 800 }) },
+  parameters: { server: publishServer({ signedIn: false, signInMs: 800 }) },
   play: async () => {
     await userEvent.click(await screen.findByRole('button', { name: /Google로 계속하기|Continue with Google/ }));
     await waitFor(() => expect(screen.getByRole('button', { name: /^올리기$|^Publish$/ })).toBeVisible(), {
-      timeout: 5000,
+      timeout: 8000,
     });
+  },
+};
+
+/** No Node.js on this computer: Alpine offers its own copy. */
+export const NoNode: Story = {
+  parameters: { server: publishServer({ node: 'missing' }) },
+};
+
+/** The restore points: data and code go back together. */
+export const Restore: Story = {
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /^되돌리기$|^Restore$/ }, { timeout: 8000 }));
+    const group = await screen.findByRole('radiogroup');
+    await userEvent.click(within(group).getAllByRole('radio')[1]!);
+    await userEvent.click(screen.getByRole('button', { name: /이 때로 되돌리기|Go back to this point/ }));
+    await screen.findByRole('status', undefined, { timeout: 8000 });
   },
 };
 

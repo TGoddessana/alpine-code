@@ -1,262 +1,245 @@
+import type { PublishStatus } from '@alpine/protocol';
 import { AutoHeight, Button, LinkButton } from '@alpine/ui/primitives';
-import clsx from 'clsx';
-import { Check as CheckIcon } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
-import { AlpineSignIn, QrCode } from '@/shared/components/cloud';
-import { useFormat, useMessages } from '@/shared/i18n';
+import { AlpineSignIn, NodeInstall, QrCode } from '@/shared/components/cloud';
+import { useLocale, useMessages } from '@/shared/i18n';
 import { openInBrowser } from '@/shared/platform';
-import { appAddress, useCloudStatus } from '@/shared/server';
+import {
+  appAddress,
+  PUBLISH_STEPS,
+  useCloudStatus,
+  useProductMap,
+  useSendMessage,
+  type PublishFlow,
+  type PublishState,
+} from '@/shared/server';
 
+import { evidenceOf, sortChecks } from './findings';
 import { messages } from './messages';
-import { runChecks, runPublish, type Check, type CheckState, type PublishStep, type Scenario } from './preview';
+import { ProgressLine, Row, rowState } from './parts';
+import { Restore } from './Restore';
+import { Review, type FixAction } from './Review';
 
-export interface PublishProject {
+export interface PublishPanelProps {
+  cwd: string;
+  /** The project's name, for the address before the app exists. */
   name: string;
-  changes: number;
-  /** When it last went online; absent before the first time. */
-  lastPublished?: Date;
+  /** `publish/status`; the sheet shows nothing until it is known. */
+  status: PublishStatus | undefined;
+  /** The publish in progress, held by the button so closing the sheet does not lose a run. */
+  flow: PublishFlow;
+  /** The project's session, where "AI에게 고쳐 달라고 하기" goes. Absent: the button is not offered. */
+  sessionId?: string | null;
+  onEvidence?: () => void;
+  /** After the AI was sent a message: the sheet is not needed while it works. */
+  onClose: () => void;
+  /** The account or Node.js changed under `publish/status`; ask it again. */
+  onStatusChange: () => void;
 }
 
-type Phase = 'sign-in' | 'checks' | 'publishing' | 'done';
-
 /**
- * The 올리기 sheet (decisions 14, 15, 17, 23 in docs/alpine-cloud.md). Signed out, it asks for the Alpine account with
- * the reason first. Then: what the AI checked, the security checks settling one by one, what changes in the data,
- * and one button. Only a secret key in the page code blocks; everything else is said in plain words with a way to
- * have the AI fix it. Publishing ends with the address and a QR code for a phone.
+ * The 올리기 sheet (decisions 14, 15, 17, 23 in docs/alpine-cloud.md) on the real `publish/*`. Signed out, it asks for
+ * the Alpine account with the reason first; without Node.js it offers Alpine's own. Otherwise it builds, checks and
+ * uploads at once (`publish/prepare`), shows what the AI tried, the checks, what changes in the data and one button,
+ * then publishes (`publish/run`) with the confirms the person said yes to, and ends with the address and a QR code.
  */
-export function PublishPanel({
-  project,
-  scenario = 'clean',
-  signedIn = true,
-  onFix,
-  onEvidence,
-  onPublished,
-}: {
-  project: PublishProject;
-  scenario?: Scenario;
-  signedIn?: boolean;
-  onFix?: () => void;
-  onEvidence?: () => void;
-  onPublished?: () => void;
-}) {
+export function PublishPanel(props: PublishPanelProps) {
   const t = useMessages(messages);
-  const address = appAddress(project.name, useCloudStatus().data?.appDomain);
-  const [phase, setPhase] = useState<Phase>(signedIn ? 'checks' : 'sign-in');
-  const [checks, setChecks] = useState<Check[]>([]);
-  const [dropOk, setDropOk] = useState(false);
-  const [step, setStep] = useState<{ step: PublishStep; progress: number }>({ step: 'restore', progress: 0 });
-
-  useEffect(() => {
-    if (phase !== 'checks') return;
-    let current = true;
-    void runChecks(scenario, (next) => current && setChecks(next));
-    return () => {
-      current = false;
-    };
-  }, [phase, scenario]);
-
-  const settled = checks.length > 0 && checks.every((check) => check.state !== 'running');
-  const blocked = checks.some((check) => check.state === 'blocked');
-  const ready = settled && !blocked && (scenario !== 'drop' || dropOk);
-
-  const publish = () => {
-    setPhase('publishing');
-    void runPublish((next, progress) => setStep({ step: next, progress })).then(() => {
-      setPhase('done');
-      onPublished?.();
-    });
-  };
-
-  let body: ReactNode;
-  switch (phase) {
-    case 'sign-in':
-      body = <AlpineSignIn reason={t.signInReason} onDone={() => setPhase('checks')} />;
-      break;
-    case 'checks':
-      body = (
-        <>
-          <Header project={project} address={address} />
-          <Section title={t.aiChecked}>
-            <Row
-              state="ok"
-              text={t.aiCheckedText}
-              action={<LinkButton onClick={onEvidence}>{t.evidence}</LinkButton>}
-            />
-          </Section>
-          <Section title={t.security}>
-            {checks.map((check) => (
-              <SecurityRow key={check.id} check={check} onFix={onFix} />
-            ))}
-          </Section>
-          <Section title={t.dataShape}>
-            {scenario === 'drop' ? (
-              <Row
-                state="attention"
-                text={t.dropColumn}
-                action={
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-meta text-fg">
-                    <input
-                      type="checkbox"
-                      checked={dropOk}
-                      onChange={(event) => setDropOk(event.target.checked)}
-                      className="size-3.5 cursor-pointer accent-interactive"
-                    />
-                    {t.dropOk}
-                  </label>
-                }
-              />
-            ) : (
-              <Row state="ok" text={t.addTables} />
-            )}
-            <p className="pl-7 text-meta text-fg-muted">{t.restoreFirst}</p>
-          </Section>
-          <div className="flex justify-end pt-1">
-            {blocked ? (
-              <Button variant="primary" onClick={onFix}>
-                {t.fixWithAi}
-              </Button>
-            ) : (
-              <Button variant="primary" disabled={!ready} onClick={publish}>
-                {t.publish}
-              </Button>
-            )}
-          </div>
-        </>
-      );
-      break;
-    case 'publishing':
-      body = <Publishing step={step.step} progress={step.progress} address={address} />;
-      break;
-    case 'done':
-      body = <Published address={address} />;
-      break;
+  const { status } = props;
+  const [view, setView] = useState<'publish' | 'restore'>('publish');
+  let body: ReactNode = null;
+  if (status) {
+    if (status.reason === 'signed_out') body = <AlpineSignIn reason={t.signInReason} onDone={props.onStatusChange} />;
+    else if (status.reason === 'no_node') body = <NeedNode onReady={props.onStatusChange} />;
+    else if (!status.publishable) body = <p className="text-body text-fg-muted">{t.cannot}</p>;
+    else if (view === 'restore')
+      body = <Restore cwd={props.cwd} onBack={() => setView('publish')} onClose={props.onClose} />;
+    else body = <Publisher {...props} status={status} onRestore={() => setView('restore')} />;
   }
-
   return (
     <AutoHeight className="w-103">
-      <div key={phase} className="motion-step flex flex-col gap-4">
+      <div key={status ? `${status.reason ?? 'ok'}-${view}` : 'loading'} className="motion-step flex flex-col gap-4">
         {body}
       </div>
     </AutoHeight>
   );
 }
 
-function Header({ project, address }: { project: PublishProject; address: string }) {
+function NeedNode({ onReady }: { onReady: () => void }) {
   const t = useMessages(messages);
-  const format = useFormat();
+  const [open, setOpen] = useState(false);
   return (
-    <div className="flex flex-col gap-0.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-title">{t.publish}</h2>
-        <span className="text-meta text-fg-muted">{t.changes(project.changes)}</span>
+    <>
+      <div className="flex flex-col gap-1">
+        <h2 className="text-title">{t.needNodeTitle}</h2>
+        <p className="text-body text-fg-muted">{t.needNodeLead}</p>
       </div>
-      <p className="flex items-baseline justify-between gap-3">
-        <span className="truncate font-mono text-meta text-fg">{address}</span>
-        <span className="shrink-0 text-meta text-fg-muted">
-          {project.lastPublished ? t.lastPublished(format.since(project.lastPublished)) : t.firstTime}
-        </span>
-      </p>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="flex flex-col gap-2 border-t border-line-subtle pt-3">
-      <h3 className="text-meta font-semibold text-fg-muted">{title}</h3>
-      {children}
-    </section>
-  );
-}
-
-function SecurityRow({ check, onFix }: { check: Check; onFix?: () => void }) {
-  const t = useMessages(messages);
-  const text = {
-    secret: check.state === 'blocked' ? t.secretFound : t.secretCheck,
-    'open-api': check.state === 'attention' ? t.openApi : t.openApiFine,
-    'logged-out': t.loggedOut,
-    phishing: t.phishing,
-  }[check.id];
-  const action = check.state === 'attention' ? <LinkButton onClick={onFix}>{t.fixWithAi}</LinkButton> : undefined;
-  return <Row state={check.state} text={text} action={action} />;
-}
-
-function Row({ state, text, action }: { state: CheckState; text: string; action?: ReactNode }) {
-  return (
-    <div className="flex gap-2">
-      <Mark state={state} />
-      <div className="flex min-w-0 grow flex-col items-start gap-1">
-        <p
-          className={clsx(
-            'text-body transition-colors',
-            state === 'running' ? 'text-fg-muted' : state === 'blocked' ? 'text-danger' : 'text-fg',
-          )}
-        >
-          {text}
-        </p>
-        {action && <div className="motion-step -ml-1">{action}</div>}
+      <div className="flex justify-end">
+        <Button variant="primary" onClick={() => setOpen(true)}>
+          {t.needNodeInstall}
+        </Button>
       </div>
-    </div>
+      <NodeInstall
+        open={open}
+        onReady={() => {
+          setOpen(false);
+          onReady();
+        }}
+        onClose={() => setOpen(false)}
+      />
+    </>
   );
 }
 
-/** One mark per state, with its word for screen readers and as a pill where a word is needed on screen. */
-function Mark({ state }: { state: CheckState }) {
-  const t = useMessages(messages);
-  const word = { running: t.checking, ok: t.ok, attention: t.attention, blocked: t.blocked }[state];
-  return (
-    <span className="relative mt-0.5 inline-flex size-5 shrink-0 items-center justify-center" title={word}>
-      <span className="sr-only">{word}</span>
-      {state === 'running' && (
-        <span aria-hidden="true" className="size-1.5 animate-pulse rounded-full bg-interactive" />
-      )}
-      {state === 'ok' && (
-        <CheckIcon aria-hidden="true" size={14} strokeWidth={2.25} className="motion-step text-interactive" />
-      )}
-      {(state === 'attention' || state === 'blocked') && (
-        <span
-          aria-hidden="true"
-          className={clsx('motion-step size-2 rounded-full', state === 'attention' ? 'bg-attention' : 'bg-danger')}
+function Publisher({
+  cwd,
+  name,
+  status,
+  flow,
+  sessionId,
+  onEvidence,
+  onClose,
+  onStatusChange,
+  onRestore,
+}: PublishPanelProps & { status: PublishStatus; onRestore: () => void }) {
+  const { locale } = useLocale();
+  const cloud = useCloudStatus().data;
+  const map = useProductMap(cwd);
+  const send = useSendMessage();
+  const changes = status.changes ?? 0;
+  const state = flow.state;
+
+  // Opening the sheet starts a prepare, unless one is working or its plan still matches what is on disk.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    const keep =
+      state.status === 'preparing' ||
+      state.status === 'running' ||
+      (state.status === 'ready' && state.changes === changes) ||
+      (state.status === 'done' && changes === 0);
+    if (!keep) flow.prepare(locale, changes);
+    // Only on opening; later changes of `status` must not start another prepare.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fix: FixAction = {
+    send: sessionId ? (text) => send.mutate({ sessionId, text }, { onSuccess: onClose }) : undefined,
+    sending: send.isPending,
+    failed: send.isError,
+  };
+  const address =
+    (state.status === 'done' && state.app.address) || status.app?.address || appAddress(name, cloud?.appDomain);
+
+  switch (state.status) {
+    case 'idle':
+    case 'preparing':
+      return <Preparing state={state} address={address} onStop={() => (flow.cancel(), onClose())} />;
+    case 'ready':
+      return (
+        <Review
+          project={address}
+          plan={state.plan}
+          app={state.plan.app ?? status.app}
+          status={status}
+          evidence={evidenceOf(map.data)}
+          fix={fix}
+          onEvidence={onEvidence}
+          onPublish={flow.run}
+          onRestore={onRestore}
         />
-      )}
-    </span>
+      );
+    case 'running':
+      return <Publishing state={state} address={address} />;
+    case 'done':
+      return <Published state={state} onRestore={onRestore} />;
+    case 'failed':
+      return (
+        <Failed
+          state={state}
+          fix={fix}
+          onAgain={() => flow.prepare(locale, changes)}
+          onSignedIn={() => {
+            onStatusChange();
+            flow.prepare(locale, changes);
+          }}
+        />
+      );
+  }
+}
+
+const PHASES = ['build', 'checks', 'upload'];
+
+function Preparing({
+  state,
+  address,
+  onStop,
+}: {
+  state: Extract<PublishState, { status: 'idle' | 'preparing' }>;
+  address: string;
+  onStop: () => void;
+}) {
+  const t = useMessages(messages);
+  const phase = state.status === 'preparing' ? state.phase : 'build';
+  const index = Math.max(0, PHASES.indexOf(phase));
+  const progress = state.status === 'preparing' ? (index + state.progress) / PHASES.length : 0;
+  const label = { build: t.prepareBuild, checks: t.prepareChecks, upload: t.prepareUpload }[phase] ?? t.prepareOther;
+  const checks = state.status === 'preparing' ? sortChecks(state.checks) : [];
+  return (
+    <>
+      <div className="flex flex-col gap-0.5">
+        <h2 className="text-title">{t.publish}</h2>
+        <p className="truncate font-mono text-meta text-fg-muted">{address}</p>
+      </div>
+      <ProgressLine progress={progress} />
+      <p key={phase} role="status" className="motion-step text-meta text-fg-muted">
+        {label}
+      </p>
+      {checks.map((check) => (
+        <Row
+          key={check.id}
+          state={rowState(check.state)}
+          text={
+            check.state === 'running'
+              ? t.checkRunning(check.id) || t.checking
+              : check.state === 'ok'
+                ? t.checkOk(check.id) || t.ok
+                : t.checkOther(check.id)
+          }
+        />
+      ))}
+      <div className="flex justify-end">
+        <LinkButton onClick={onStop}>{t.stop}</LinkButton>
+      </div>
+    </>
   );
 }
 
-function Publishing({ step, progress, address }: { step: PublishStep; progress: number; address: string }) {
+function Publishing({ state, address }: { state: Extract<PublishState, { status: 'running' }>; address: string }) {
   const t = useMessages(messages);
-  const label = { restore: t.stepRestore, files: t.stepFiles, shape: t.stepShape }[step];
+  const label =
+    { restore: t.stepRestore, files: t.stepFiles, shape: t.stepShape, live: t.stepLive }[state.step] ?? t.stepOther;
+  const progress = (state.done.length + (state.done.includes(state.step) ? 0 : 0.5)) / PUBLISH_STEPS.length;
   return (
     <>
       <div className="flex flex-col gap-0.5">
         <h2 className="text-title">{t.publishing}</h2>
         <p className="truncate font-mono text-meta text-fg-muted">{address}</p>
       </div>
-      <div
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(progress * 100)}
-        className="h-1.5 overflow-hidden rounded-full bg-canvas-sunken"
-      >
-        <div
-          className="h-full rounded-full bg-interactive transition-[width] duration-(--motion-panel)"
-          style={{ width: `${progress * 100}%` }}
-        />
-      </div>
-      <p key={step} role="status" className="motion-step text-meta text-fg-muted">
+      <ProgressLine progress={Math.min(progress, 1)} />
+      <p key={state.step} role="status" className="motion-step text-meta text-fg-muted">
         {label}
       </p>
     </>
   );
 }
 
-function Published({ address }: { address: string }) {
+function Published({ state, onRestore }: { state: Extract<PublishState, { status: 'done' }>; onRestore: () => void }) {
   const t = useMessages(messages);
   const [copied, setCopied] = useState(false);
-  const url = `https://${address}`;
+  const { app } = state;
   return (
     <>
       <div className="flex flex-col gap-0.5">
@@ -265,14 +248,14 @@ function Published({ address }: { address: string }) {
       </div>
       <div className="flex items-center gap-4">
         <div className="rounded-xl border border-line p-2">
-          <QrCode address={url} size={132} />
+          <QrCode address={app.url} size={132} />
         </div>
         <div className="flex min-w-0 grow flex-col gap-3">
-          <p className="font-mono text-body break-all text-fg">{address}</p>
+          <p className="font-mono text-body break-all text-fg">{app.address}</p>
           <div className="flex gap-2">
             <Button
               onClick={() => {
-                void navigator.clipboard?.writeText(url);
+                void navigator.clipboard?.writeText(app.url);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1600);
               }}
@@ -281,11 +264,76 @@ function Published({ address }: { address: string }) {
                 {copied ? t.copied : t.copy}
               </span>
             </Button>
-            <Button variant="primary" onClick={() => void openInBrowser(url)}>
+            <Button variant="primary" onClick={() => void openInBrowser(app.url)}>
               {t.open}
             </Button>
           </div>
         </div>
+      </div>
+      <div>
+        <LinkButton className="-ml-1" onClick={onRestore}>
+          {t.restorePoints}
+        </LinkButton>
+      </div>
+    </>
+  );
+}
+
+/** The last lines of a failed build, as the server sent them. */
+const buildTail = (message: string) => message.split('\n').slice(-40).join('\n');
+
+function Failed({
+  state,
+  fix,
+  onAgain,
+  onSignedIn,
+}: {
+  state: Extract<PublishState, { status: 'failed' }>;
+  fix: FixAction;
+  onAgain: () => void;
+  onSignedIn: () => void;
+}) {
+  const t = useMessages(messages);
+  const { failure, during } = state;
+  if (failure.reason === 'signed_out') return <AlpineSignIn reason={t.signInReason} onDone={onSignedIn} />;
+
+  const build = failure.reason === 'build_failed';
+  const known = (failure.reason && t.failure(failure.reason)) || undefined;
+  const title = build ? t.buildFailedTitle : during === 'run' ? t.runFailedTitle : t.prepareFailedTitle;
+  const lead = build ? t.buildFailedLead : during === 'run' ? t.runFailedLead : (known ?? t.failureOther);
+  return (
+    <>
+      <div className="flex flex-col gap-1">
+        <h2 className="text-title">{title}</h2>
+        <p role="alert" className="text-body text-fg-muted">
+          {lead}
+        </p>
+        {known && during === 'run' && <p className="text-body text-fg-muted">{known}</p>}
+      </div>
+      {failure.message && (build || !known) && (
+        <pre
+          aria-label={t.detail}
+          className="max-h-40 overflow-auto rounded-lg bg-canvas-sunken p-2 font-mono text-meta whitespace-pre-wrap text-fg-muted"
+        >
+          {build ? buildTail(failure.message) : failure.message}
+        </pre>
+      )}
+      {fix.failed && (
+        <p role="alert" className="text-meta text-danger">
+          {t.fixFailed}
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button onClick={onAgain}>{t.again}</Button>
+        {build && fix.send && (
+          <Button
+            variant="primary"
+            disabled={fix.sending}
+            onClick={() => fix.send?.(t.buildFixMessage(buildTail(failure.message)))}
+          >
+            {t.fixWithAi}
+          </Button>
+        )}
       </div>
     </>
   );

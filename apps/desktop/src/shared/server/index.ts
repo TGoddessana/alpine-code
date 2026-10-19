@@ -102,7 +102,20 @@ export {
   statefulScript,
   withRouterScript,
 } from './fixtures';
+export {
+  PUBLISH_STEPS,
+  publishStatusKey,
+  usePublish,
+  usePublishStatus,
+  useRestore,
+  useRestorePoints,
+  type PublishFailure,
+  type PublishFlow,
+  type PublishState,
+} from './publish';
 export { cloudScript, type CloudScriptOptions } from './cloudScript';
+export { publishServer } from './publishServer';
+export type { PublishScenario } from './publishScript';
 export { SKILLS, skillsScript, type SkillsScriptOptions } from './skillsScript';
 export { MEMORY, MEMORY_REMOVAL, MEMORY_SUGGESTION, memoryScript } from './memoryScript';
 export { mergeScripts, scriptedConnection, type Script, type ScriptContext } from './scripted';

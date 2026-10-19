@@ -8,9 +8,7 @@ import { Dock } from '@/features/dock/Dock';
 import { showDockTab } from '@/features/dock/state';
 import { PublishButton } from '@/features/publish/PublishButton';
 import { PublishOffer } from '@/features/publish/PublishOffer';
-import { cloudScript } from '@/shared/server';
-
-const PROJECT = { name: 'craft-booking', changes: 3, lastPublished: new Date(Date.now() - 7_200_000) };
+import { publishServer } from '@/shared/server';
 
 /**
  * The pieces of docs/alpine-cloud.md together, the way the session screen would hold them: the top bar's 올리기, the
@@ -27,7 +25,7 @@ function Workspace() {
         <span className="text-body text-fg">craft-booking</span>
         <span className="text-meta text-fg-muted">대기 명단 만들기</span>
         <span className="grow" />
-        <PublishButton project={PROJECT} />
+        <PublishButton cwd="/project" name="craft-booking" sessionId="session-1" />
       </div>
       <div className="mx-2 mb-2 flex min-h-0 grow overflow-hidden rounded-xl border border-line bg-canvas">
         <main className="flex min-w-0 grow justify-center overflow-y-auto">
@@ -73,7 +71,7 @@ function Workspace() {
 const meta = {
   title: 'Alpine Cloud/Workspace',
   component: Workspace,
-  parameters: { layout: 'fullscreen', server: cloudScript({ signedIn: true }) },
+  parameters: { layout: 'fullscreen', server: publishServer() },
 } satisfies Meta<typeof Workspace>;
 
 export default meta;

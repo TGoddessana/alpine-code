@@ -276,3 +276,35 @@ def test_why_an_agent_failed_reaches_the_screen_and_the_model(tmp_path, monkeypa
         assert "a3 review ok(write 저장소): failed (" in heard[0] and "overloaded" in heard[0]
 
     asyncio.run(go())
+
+
+def test_a_long_result_is_cut_but_kept_and_can_be_read_on(tmp_path, monkeypatch):
+    # The PostgreSQL run's result was 40,682 characters; its end was lost without a word (TF item 3).
+    script = 'phase("작성")\nwords = await agent("write")\nresult = "가" * 50000 + "끝"\n'
+    storage = file_storage(tmp_path / "home")
+    project = tmp_path / "project"
+    project.mkdir()
+
+    async def go():
+        heard = []
+        lead = [
+            propose(script=script, steps=[{"title": "작성", "count": 1, "model": "fake"}]),
+            "제안했어요",
+            lambda request: heard.append(request.messages[-1].text) or "다 됐어요",
+        ]
+        session = make(project, monkeypatch, lead, storage=storage)
+        await session.asend("해 줘")
+        [card] = taskforce_items(session)
+        session.taskforce.start(card.id)
+        await until(lambda: taskforce_items(session, active=False))
+        await until(lambda: not session._turns)
+        assert "the first 40,000 of 50,003 characters" in heard[0]
+        assert f'task_force_status(run="{card.id}", start=40000)' in heard[0]
+        assert "끝" not in heard[0]
+        rest = session.taskforce.status_text(card.id, 40000)
+        assert "from character 40,000 to 50,003 of 50,003" in rest and rest.endswith('끝"')
+        return session.id, card.id
+
+    session_id, run_id = asyncio.run(go())
+    again = Session.resume(storage, session_id, Settings(model="fake"), approver=Approver(), taskforce=True)
+    assert again.taskforce.status_text(run_id, 50000).endswith('끝"')  # the record keeps the whole result

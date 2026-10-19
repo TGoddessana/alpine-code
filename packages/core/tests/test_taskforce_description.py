@@ -1,5 +1,5 @@
 """What the ``task_force`` tool tells the session's model: the models the user's picker shows with their prices,
-windows and price steps (TF items 1 and 2)."""
+windows and price steps (TF items 1 and 2) and what happens to a long result (item 3)."""
 
 import json
 
@@ -111,3 +111,9 @@ def test_a_list_read_later_is_in_the_next_request(tmp_path, monkeypatch):
     picker.keep(ANTHROPIC, ["claude-haiku-5-5", "claude-opus-5-5"])
     session.taskforce.refresh()
     assert "anthropic/claude-haiku-5-5: $1 / $5" in description(session)
+
+
+def test_the_lead_learns_what_happens_to_a_long_result(tmp_path, monkeypatch):
+    session = make(tmp_path, monkeypatch, Settings(model="fake"))
+    text = description(session)
+    assert "cut\nat 40,000 characters" in text and "task_force_status(run=..., start=...)" in text

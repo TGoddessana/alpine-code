@@ -95,6 +95,9 @@ class _Run:
     needed: int | None = None
     error: str | None = None
     result: Any = None
+    output: str | None = None
+    """The whole result as the session's model reads it (the script's result, or the agents' answers), of which the
+    end notice carries the first ``RESULT_LIMIT`` characters."""
     records: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     """Each member's record (its items), by member id."""
     job: ScriptRun | None = None
@@ -123,6 +126,7 @@ class _Run:
             "step": self.step,
             "log": self.log,
             "error": self.error,
+            "output": self.output,
             "records": self.records,
         }
 
@@ -142,6 +146,7 @@ class _Run:
             step=str(data.get("step", "")),
             log=data.get("log"),
             error=data.get("error"),
+            output=data.get("output"),
             records=dict(data.get("records", {})),
         )
 
@@ -284,8 +289,11 @@ class TaskForce:
 
         return [item_from_dict(data) for data in run.records.get(member_id, [])]
 
-    def status_text(self) -> str:
-        """What the status tool tells the session's model."""
+    def status_text(self, run_id: str | None = None, start: int = 0) -> str:
+        """What the status tool tells the session's model: every TF's progress, or with ``run_id`` its result from
+        ``start`` on."""
+        if run_id is not None:
+            return self._read_on(run_id, start)
         if not self._runs:
             return "No TF in this session."
         out = []
@@ -303,6 +311,21 @@ class TaskForce:
                 lines.append(f"  - {member['id']} [{member['step']}] {member['task']}: {member['state']}{doing}")
             out.append("\n".join(lines))
         return "\n\n".join(out)
+
+    def _read_on(self, run_id: str, start: int) -> str:
+        run = self._runs.get(run_id)
+        if run is None:
+            return f"No TF {run_id!r} in this session; its id is in the notice that ended it."
+        if run.output is None:
+            return f'TF "{run.title}" ({run.id}) has no result yet: {run.status}.'
+        total = len(run.output)
+        start = min(max(0, int(start)), total)
+        end = min(total, start + RESULT_LIMIT)
+        text = f'TF "{run.title}" ({run.id}), its result from character {start:,} to {end:,} of {total:,}:\n'
+        text += run.output[start:end]
+        if end < total:
+            text += f'\n… (more: task_force_status(run="{run.id}", start={end}))'
+        return text
 
     # ------------------------------------------------------------ session lifecycle
 
@@ -406,12 +429,13 @@ class TaskForce:
         @tool(
             name="task_force_status",
             description="How the session's TFs are doing: each one's status and step, every agent's state and what "
-            "it is doing. Use it to answer the user while a TF runs.",
+            "it is doing. Use it to answer the user while a TF runs. With run (a TF's id) it gives that TF's result "
+            "from the character start on, for a result the end notice cut.",
             read_only=True,
             open_world=False,
         )
-        def status() -> str:
-            return task_force.status_text()
+        def status(run: str | None = None, start: int = 0) -> str:
+            return task_force.status_text(run, start)
 
         return status
 
@@ -693,7 +717,8 @@ class TaskForce:
         if outcome.status == "stopped":
             lines.append("The user stopped it; work with what finished.")
         if outcome.result is not None:
-            lines.append("The script's result:\n" + _clip(json.dumps(outcome.result, ensure_ascii=False, indent=1)))
+            run.output = json.dumps(outcome.result, ensure_ascii=False, indent=1)
+            lines.append("The script's result:\n" + _clip(run))
         elif run.job is not None:
             answers = [
                 f"- {m.id} [{m.step}] {m.task}: "
@@ -702,7 +727,10 @@ class TaskForce:
                 if m.state == "done"
             ]
             if answers:
-                lines.append("The agents' answers (the script set no result):\n" + _clip("\n".join(answers)))
+                run.output = "\n".join(answers)
+                lines.append("The agents' answers (the script set no result):\n" + _clip(run))
+        if run.output is not None:
+            self._save(run)
         failed = [
             f"{m['id']} {m['task']}: {m['state']}" + (f" ({m['error']})" if m.get("error") else "")
             for m in members
@@ -744,6 +772,10 @@ The script must make the same calls when it runs again (no clock, no randomness)
 More agents than the plan counts wait for the user's OK, so count honestly.
 
 {_models_facts(session)}
+
+What happens to the result: result (or, without one, every agent's answer) goes into this conversation as it is, cut
+at {RESULT_LIMIT:,} characters; the rest can be read with task_force_status(run=..., start=...). The agents' work is
+in the files they wrote, so a result that says what was done and where serves you better than everything they found.
 
 What worked (a PostgreSQL product map: one session stopped near 17 cards; a TF of 14 agents drew 103, yet an
 audit found only 77% of its promises exact):
@@ -866,8 +898,16 @@ def _json(text: str) -> Any:
     raise ValueError("the agent's answer was not the JSON asked for")
 
 
-def _clip(text: str) -> str:
-    return text if len(text) <= RESULT_LIMIT else text[:RESULT_LIMIT] + "\n… (cut: too long)"
+def _clip(run: _Run) -> str:
+    """The run's output as the end notice carries it: whole, or its start and how to read on."""
+    text = run.output or ""
+    if len(text) <= RESULT_LIMIT:
+        return text
+    return (
+        text[:RESULT_LIMIT]
+        + f"\n… (cut: this notice has the first {RESULT_LIMIT:,} of {len(text):,} characters; read on with "
+        f'task_force_status(run="{run.id}", start={RESULT_LIMIT}))'
+    )
 
 
 def _trim(data: dict[str, Any]) -> dict[str, Any]:

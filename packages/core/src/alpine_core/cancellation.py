@@ -18,6 +18,8 @@ from alpineagents import State, Tool
 
 current_session: ContextVar[str | None] = ContextVar("alpine_session", default=None)
 current_cancellation: ContextVar[threading.Event | None] = ContextVar("alpine_cancellation", default=None)
+#: Who inside a session starts the processes, e.g. one TF agent, so stopping it can end what it started.
+current_owner: ContextVar[str | None] = ContextVar("alpine_owner", default=None)
 _current_call: ContextVar[str | None] = ContextVar("alpine_tool_call", default=None)
 
 

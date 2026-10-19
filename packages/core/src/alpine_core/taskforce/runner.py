@@ -68,6 +68,12 @@ class Member:
     retried: str | None = None
     """The first error, when the agent was started over after it (TF item 5)."""
     stop_asked: bool = False
+    stopped: asyncio.Event = field(default_factory=asyncio.Event, repr=False)
+    """Set with ``stop_asked``, for what waits on the user (an approval card)."""
+
+    def ask_stop(self) -> None:
+        self.stop_asked = True
+        self.stopped.set()
 
 
 @dataclass
@@ -119,7 +125,7 @@ class ScriptRun:
     # ------------------------------------------------------------ the user's controls
 
     def stop(self) -> None:
-        """여기까지 결과 받기: no new agents; working ones stop after the reply they are writing."""
+        """여기까지 결과 받기: no new agents; working ones end with the reply they are writing."""
         if self._stopping or self.status in ("done", "stopped", "failed"):
             return
         self._stopping = True
@@ -128,14 +134,15 @@ class ScriptRun:
         self._more.set()
         for member in self.members:
             if member.state in ("working", "asking"):
-                member.stop_asked = True
+                member.ask_stop()
         self.changed()
 
     def stop_member(self, member_id: str) -> bool:
-        """Stops one agent: one waiting for its turn never starts, a working one stops after its reply."""
+        """Stops one agent: one waiting for its turn never starts, a working one ends with the reply it is writing
+        (its commands are the spawner's to end)."""
         for member in self.members:
             if member.id == member_id and member.state in ("queued", "working", "asking"):
-                member.stop_asked = True
+                member.ask_stop()
                 self.changed()
                 return True
         return False

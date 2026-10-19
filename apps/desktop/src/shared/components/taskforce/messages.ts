@@ -14,7 +14,7 @@ export const messages = defineMessages({
     declined: (title: string) => `${title} TF 없이 혼자 하기로 했어요`,
 
     working: (title: string, minutes: number) => `${title} TF · ${minutes}분째`,
-    stopping: (title: string) => `${title} TF · 하던 일만 마치는 중`,
+    stopping: (title: string) => `${title} TF · 쓰던 답만 마치는 중`,
     finished: (title: string) => `${title} TF · 끝났어요`,
     stoppedEnd: (title: string) => `${title} TF · 여기까지 했어요`,
     failedEnd: (title: string) => `${title} TF · 스크립트가 멈췄어요`,
@@ -68,7 +68,7 @@ export const messages = defineMessages({
     declined: (title: string) => `Going on alone, without a task force for ${title}`,
 
     working: (title: string, minutes: number) => `Task force: ${title} · ${minutes} min`,
-    stopping: (title: string) => `Task force: ${title} · finishing what they were doing`,
+    stopping: (title: string) => `Task force: ${title} · finishing the replies they were writing`,
     finished: (title: string) => `Task force: ${title} · done`,
     stoppedEnd: (title: string) => `Task force: ${title} · stopped here`,
     failedEnd: (title: string) => `Task force: ${title} · the script stopped`,

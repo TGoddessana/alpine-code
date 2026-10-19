@@ -15,7 +15,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Literal
 
-from .cancellation import current_cancellation, current_session
+from .cancellation import current_cancellation, current_owner, current_session
 
 
 class ManagedProcess:
@@ -32,6 +32,8 @@ class ManagedProcess:
         self.command, self.cwd, self.session_id = command, cwd, session_id
         self.title, self.pty = title or command, pty
         self.kind = kind
+        self.owner = current_owner.get()
+        """Who started it inside the session (``cancellation.current_owner``), e.g. one TF agent."""
         self.created_at = time.time()
         self.status = "running"
         self.cancelled = False
@@ -351,6 +353,11 @@ class ProcessManager:
             for p in self._processes.values()
             if (root is None or p.cwd == root) and (session_id is None or p.session_id == session_id)
         ]
+
+    async def stop_owned(self, owner: str) -> None:
+        """Kills the processes ``owner`` started that still run (a TF agent the user stopped)."""
+        running = [p for p in self._processes.values() if p.owner == owner and not p._finished.done()]
+        await asyncio.gather(*(p.stop(force=True) for p in running), return_exceptions=True)
 
     async def shutdown(self) -> None:
         await asyncio.gather(*(p.stop(force=True) for p in self._processes.values()))

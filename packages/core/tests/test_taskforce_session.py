@@ -401,3 +401,88 @@ def test_a_second_provider_error_fails_the_agent(tmp_path, monkeypatch):
     [member] = done.members
     assert member["state"] == "failed" and member["retried"] and "overloaded_error" in member["error"]
     assert "started over after" in heard
+
+
+def running(command):
+    from alpine_core.processes import process_manager
+
+    return [p for p in process_manager().list() if p.command == command and p.status == "running"]
+
+
+def stoppable(asked):
+    """Every agent's model: a long command first, then an answer it should never be asked for once stopped."""
+
+    def make(settings):
+        return FakeModel(
+            [tool_call("bash", command="sleep 30", title="wait"), lambda request: asked.append(1) or "끝났어요"]
+        )
+
+    return make
+
+
+def test_stopping_an_agent_kills_its_command_and_asks_the_model_nothing_more(tmp_path, monkeypatch):
+    # TF item 8: before, a stopped agent waited for its ten-minute test and paid one more request.
+    async def go():
+        asked = []
+        lead = [propose(script='phase("작성")\nresult = await agent("wait")\n', steps=ONE), "제안했어요", "끝"]
+        session = make(tmp_path, monkeypatch, lead, members=stoppable(asked), mode=Mode.YOLO)
+        await session.asend("해 줘")
+        [card] = taskforce_items(session)
+        session.taskforce.start(card.id)
+        await until(lambda: running("sleep 30"))
+        [member] = members_of(session)
+        started = asyncio.get_running_loop().time()
+        assert session.taskforce.stop_member(card.id, member["id"])
+        await until(lambda: taskforce_items(session, active=False))
+        assert asyncio.get_running_loop().time() - started < 10
+        [done] = taskforce_items(session, active=False)
+        assert done.members[0]["state"] == "stopped"
+        assert asked == []  # no request after the stop
+        assert not running("sleep 30")
+        await until(lambda: not session._turns)
+
+    asyncio.run(go())
+
+
+def test_stopping_the_whole_tf_kills_every_agents_command(tmp_path, monkeypatch):
+    async def go():
+        asked = []
+        script = 'phase("작성")\nresult = await parallel([agent("wait 1"), agent("wait 2")])\n'
+        steps = [{"title": "작성", "count": 2, "model": "fake"}]
+        lead = [propose(script=script, steps=steps), "제안했어요", "끝"]
+        session = make(tmp_path, monkeypatch, lead, members=stoppable(asked), mode=Mode.YOLO)
+        await session.asend("해 줘")
+        [card] = taskforce_items(session)
+        session.taskforce.start(card.id)
+        await until(lambda: len(running("sleep 30")) == 2)
+        session.taskforce.stop(card.id)
+        await until(lambda: taskforce_items(session, active=False))
+        [done] = taskforce_items(session, active=False)
+        assert done.status == "stopped" and [m["state"] for m in done.members] == ["stopped", "stopped"]
+        assert asked == [] and not running("sleep 30")
+        await until(lambda: not session._turns)
+
+    asyncio.run(go())
+
+
+def test_stopping_an_agent_that_waits_for_approval_takes_its_card_down(tmp_path, monkeypatch):
+    async def go():
+        asked = []
+        gate = asyncio.Event()  # the user never answers
+        approver = Approver(gate=gate)
+        lead = [propose(script='phase("작성")\nresult = await agent("wait")\n', steps=ONE), "제안했어요", "끝"]
+        session = make(tmp_path, monkeypatch, lead, approver=approver, members=stoppable(asked))
+        await session.asend("해 줘")
+        [card] = taskforce_items(session)
+        session.taskforce.start(card.id)
+        await until(lambda: any(m["state"] == "asking" for m in members_of(session)))
+        [member] = members_of(session)
+        session.taskforce.stop_member(card.id, member["id"])
+        await until(lambda: taskforce_items(session, active=False))
+        [done] = taskforce_items(session, active=False)
+        assert done.members[0]["state"] == "stopped" and asked == []
+        [approval] = [i for i in session.snapshot().items if isinstance(i, ApprovalItem)]
+        assert approval.decision == "deny"
+        await until(lambda: not session._turns)
+
+    asyncio.run(go())

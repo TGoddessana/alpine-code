@@ -36,15 +36,17 @@ from alpineagents.permissions import Denied, DenyPermission
 from .. import picker
 from ..approval import ApprovalRequest, Decision
 from ..bridge import EventReporter
+from ..cancellation import current_owner
 from ..catalog import Catalog, connection_entry, provider_entry, saved_catalog
 from ..chatgpt import is_chatgpt
 from ..config import Connection, Settings
 from ..context import limits_for
 from ..events import Event, TextDelta, ToolFinished, ToolStarted, TurnStarted
 from ..items import Item, ItemRecorder, TaskForceItem, TaskForceStatus, item_to_dict
-from ..loop import coding
+from ..loop import coding_until
 from ..models import make_model
 from ..permissions import Mode
+from ..processes import process_manager
 from ..prompt import build_system_prompt
 from ..skills import SkillTool, catalog
 from ..tool_sources import gather, pick
@@ -185,6 +187,8 @@ class _Group:
 
     item_id: str
     answer: asyncio.Task[Decision]
+    waiting: int = 0
+    """Members still waiting for the answer."""
 
 
 class TaskForce:
@@ -196,6 +200,7 @@ class TaskForce:
         self._runs: dict[str, _Run] = {}
         self._groups: dict[tuple[str, str], _Group] = {}
         self._proposer: Tool | None = None
+        self._killing: set[asyncio.Task[None]] = set()
 
     # ------------------------------------------------------------ what the session's model gets
 
@@ -261,14 +266,30 @@ class TaskForce:
         )
 
     def stop(self, run_id: str) -> None:
-        """멈추기 / 여기까지 결과 받기."""
+        """멈추기 / 여기까지 결과 받기: each working agent ends with the reply it is writing, sends no more requests,
+        and the commands it started are killed (TF item 8)."""
         run = self._run(run_id)
         if run.job is not None and run.status in LIVE:
             run.job.stop()
+            self._end_commands(run, [m for m in run.job.members if m.stop_asked])
 
     def stop_member(self, run_id: str, member_id: str) -> bool:
+        """이 에이전트만 멈추기, as ``stop`` for one agent."""
         run = self._run(run_id)
-        return run.job is not None and run.job.stop_member(member_id)
+        if run.job is None or not run.job.stop_member(member_id):
+            return False
+        self._end_commands(run, [m for m in run.job.members if m.id == member_id])
+        return True
+
+    def _end_commands(self, run: _Run, members: list[Member]) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        for member in members:
+            task = loop.create_task(process_manager().stop_owned(_owner(run, member)))
+            self._killing.add(task)
+            task.add_done_callback(self._killing.discard)
 
     def allow_more(self, run_id: str) -> None:
         """계속: more agents than the card said."""
@@ -385,7 +406,7 @@ class TaskForce:
             group = self._groups.get(key) if key is not None else None
             if group is not None and not group.answer.done():
                 recorder.ask_also(group.item_id, member.task)
-                return await asyncio.shield(group.answer)
+                return await self._wait(member, group)
             item = recorder.start_approval(
                 request.call_id,
                 request.title,
@@ -412,14 +433,30 @@ class TaskForce:
                     self._groups.pop(key, None)
                 return decision
 
-            task = asyncio.get_running_loop().create_task(answer())
+            group = _Group(item.id, asyncio.get_running_loop().create_task(answer()))
             if key is not None:
-                self._groups[key] = _Group(item.id, task)
-            return await asyncio.shield(task)
+                self._groups[key] = group
+            return await self._wait(member, group)
         finally:
             if member.state == "asking":
                 member.state = "working"
             self._changed(run)
+
+    async def _wait(self, member: Member, group: _Group) -> Decision:
+        """The answer to the card, or a refusal once the user stops the member; a card nobody waits for any more
+        is taken down."""
+        group.waiting += 1
+        stopped = asyncio.ensure_future(member.stopped.wait())
+        try:
+            await asyncio.wait({group.answer, stopped}, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            stopped.cancel()
+            group.waiting -= 1
+        if group.answer.done():
+            return group.answer.result()
+        if group.waiting == 0:
+            group.answer.cancel()
+        return Decision("deny", "The user stopped this agent.")
 
     # ------------------------------------------------------------ the tools
 
@@ -554,11 +591,14 @@ class TaskForce:
                     return
             self._changed(run)
 
+        def stopped_by_the_user(state: State) -> bool:
+            return member.stop_asked  # checked before every model request (TF item 8)
+
         agent = Agent(
             make_model(settings),
             system=self._system(config),
             tools=self._tools_for(config, request.tools),
-            loop=coding,
+            loop=coding_until(stopped_by_the_user),
             permissions=[StopWhenAsked(member), *session._permissions],
             reporter=EventReporter(emit),
             human=None,
@@ -571,9 +611,11 @@ class TaskForce:
                 + json.dumps(request.returns, ensure_ascii=False)
             )
         token = current_member.set((run, member))
+        owner = current_owner.set(_owner(run, member))  # its commands, to kill when it is stopped
         try:
             return await self._work(run, member, agent, prompt, recorder)
         finally:
+            current_owner.reset(owner)
             current_member.reset(token)
             state = run.states.pop(member.id, None)
             if state is not None:
@@ -932,6 +974,10 @@ def _plan(steps: Any) -> list[dict[str, Any]]:
             raise ToolError(f"A step needs at least one agent: {step!r}")
         plan.append({"title": str(step["title"]).strip(), "count": count, "model": str(step.get("model") or "")})
     return plan
+
+
+def _owner(run: _Run, member: Member) -> str:
+    return f"taskforce:{run.id}:{member.id}"
 
 
 def _activity(tool_name: str) -> str:

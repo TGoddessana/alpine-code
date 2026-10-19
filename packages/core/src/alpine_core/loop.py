@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
-from alpineagents import Agent, State, loop
+from collections.abc import Callable
+
+from alpineagents import Agent, Loop, State, loop
 
 from .tidy import athink_fitting, tidy_if_full
 
@@ -25,3 +27,9 @@ async def coding(agent: Agent, state: State) -> None:
     await athink_fitting(agent, state)
     if state.pending_calls:
         await agent.ause_tools(state)
+
+
+def coding_until(stop: Callable[[State], bool]) -> Loop:
+    """``coding`` that also ends, before its next model request, once ``stop`` says so (a TF agent the user
+    stopped)."""
+    return coding.copy(until=[is_answered, stop])

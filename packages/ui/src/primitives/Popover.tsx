@@ -13,7 +13,14 @@ interface PopupProps {
 function Popup({ side = 'bottom', align = 'start', className, children }: PopupProps) {
   return (
     <BasePopover.Portal>
-      <BasePopover.Positioner side={side} align={align} sideOffset={8} className="z-50 outline-none">
+      {/* A sheet taller than the room stays on its side and scrolls, instead of jumping beside its button. */}
+      <BasePopover.Positioner
+        side={side}
+        align={align}
+        sideOffset={8}
+        collisionAvoidance={{ side: 'flip', align: 'shift', fallbackAxisSide: 'none' }}
+        className="z-50 outline-none"
+      >
         <BasePopover.Popup
           className={clsx(
             // Never taller than the room left on its side; a long sheet scrolls inside.

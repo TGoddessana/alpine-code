@@ -173,7 +173,7 @@ export const CreatingFromJudgement: Story = {
 
 /**
  * Decision 23: a realtime web app needs the Alpine account. Signed out, 만들기 opens the sign-in sheet with the
- * reason; the browser sign-in comes back and the project is made without another click.
+ * reason; the browser sign-in comes back on Free, so the Pro sheet follows, and the trial makes the project.
  */
 export const RealtimeNeedsSignIn: Story = {
   parameters: {
@@ -184,6 +184,9 @@ export const RealtimeNeedsSignIn: Story = {
     await send('동호회 사람들이 실시간 채팅으로 모임 장소를 정하는 앱을 만들고 싶어');
     await userEvent.click(await screen.findByRole('button', { name: /^(만들기|Create)$/ }, { timeout: 5000 }));
     await userEvent.click(await screen.findByRole('button', { name: /Google로 계속하기|Continue with Google/ }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: /7일 무료로 써 보기|Try it free for 7 days/ }, { timeout: 8000 }),
+    );
     await waitFor(() => expect(screen.getByText(/alpinesite\.app/)).toBeInTheDocument(), { timeout: 8000 });
   },
 };

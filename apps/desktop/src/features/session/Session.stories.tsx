@@ -5,6 +5,7 @@ import { expect, screen, userEvent, waitFor } from 'storybook/test';
 import {
   MEMORY,
   MEMORY_SUGGESTION,
+  cloudScript,
   memoryScript,
   mergeScripts,
   sessionInfo,
@@ -441,6 +442,35 @@ export const ChatGPTLimitHit: Story = {
   },
   play: async () => {
     await waitFor(() => expect(screen.getByText(/ChatGPT 사용량 한도|ChatGPT usage limit/)).toBeVisible());
+  },
+};
+
+/** A session on the Alpine model that ran out of credits: the line says when they fill up again. */
+export const AlpineCreditsUsedUp: Story = {
+  parameters: {
+    server: mergeScripts(
+      setUpScript(),
+      cloudScript({ signedIn: true, balance: 0 }),
+      sessionScript({
+        sessions: [
+          {
+            info: sessionInfo({ id: ID, title: '예약 페이지', model: 'alpine/alpine-coder' }),
+            items: [
+              { id: 'c1', kind: 'user_message', text: '예약 확인 메일 문구를 다듬어 줘.' },
+              {
+                id: 'c2',
+                kind: 'run_stopped',
+                reason: 'credits_exhausted',
+                message: 'Alpine credits ran out; they refill on 2026-11-01.',
+              },
+            ],
+          },
+        ],
+      }),
+    ),
+  },
+  play: async () => {
+    await waitFor(() => expect(screen.getByText(/Alpine 크레딧을 다 써서|Alpine credits ran out/)).toBeVisible());
   },
 };
 

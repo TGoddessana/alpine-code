@@ -5,8 +5,11 @@ import { expect, screen, userEvent, within } from 'storybook/test';
 import {
   CHATGPT_CONNECTION,
   PROVIDERS,
+  cloudScript,
   firstRunScript,
+  mergeScripts,
   setUpScript,
+  type Script,
   statefulScript,
   withRouterScript,
 } from '@/shared/server';
@@ -32,6 +35,31 @@ export const General: Story = {
       },
     },
   },
+};
+
+const general: Script = {
+  results: {
+    initialize: { protocolVersion: 1, server: { name: 'alpine-code-server', version: '0.1.0' } },
+    'settings/get': { mode: 'default', reviewModel: null, cloneFolder: '/Users/me/AlpineCode' },
+  },
+};
+
+/** The Alpine account row on Free: who is signed in, the credits left, when they fill up again and a way to Pro. */
+export const AlpineAccountFree: Story = {
+  parameters: { server: mergeScripts(general, cloudScript({ signedIn: true, balance: 214 })) },
+  play: async () => {
+    await expect(await screen.findByRole('button', { name: /Pro 알아보기|See Pro/ })).toBeVisible();
+  },
+};
+
+/** On the Pro trial the row names its last day and offers to subscribe. */
+export const AlpineAccountTrial: Story = {
+  parameters: { server: mergeScripts(general, cloudScript({ signedIn: true, plan: 'trial' })) },
+};
+
+/** Signed out, the row is a way in. */
+export const AlpineAccountSignedOut: Story = {
+  parameters: { server: mergeScripts(general, cloudScript()) },
 };
 
 /** With 알아서 하기 as the new-session safety, a link goes to the model that checks. */

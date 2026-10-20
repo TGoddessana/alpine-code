@@ -96,7 +96,7 @@ describe('UpgradeSheet', () => {
   it('asks for the Alpine account first when signed out', async () => {
     mount({ signedIn: false });
     expect(await screen.findByText('Pro는 Alpine 계정에 붙어요. 먼저 로그인해 주세요.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Google로 계속하기' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Google로 계속하기' })).toBeTruthy();
   });
 
   it('speaks English', async () => {

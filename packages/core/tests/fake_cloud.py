@@ -43,6 +43,8 @@ class FakeCloud:
         self.requests: list[dict[str, Any]] = []
         self.gateway_requests: list[dict[str, Any]] = []
         self.sent_codes: list[dict[str, str]] = []
+        # None: an older server that does not say.
+        self.sign_in_methods: list[str] | None = ["google", "github", "email"]
         self.email_code = "123456"
         self.apps: dict[str, dict[str, Any]] = {}
         self.taken_names: set[str] = set()
@@ -268,11 +270,11 @@ def _handler(cloud: FakeCloud) -> type[BaseHTTPRequestHandler]:
         # ---- meta and plans
 
         def _GET_v1_meta(self, query: dict, body: Any) -> None:
-            self._send(
-                200,
-                {"api": "v1", "versions": ["v1"], "min_client": "0.1.0", "sunset": None, "app_domain": APP_DOMAIN,
-                 "environment": "test"},
-            )  # fmt: skip
+            body = {"api": "v1", "versions": ["v1"], "min_client": "0.1.0", "sunset": None, "app_domain": APP_DOMAIN,
+                    "environment": "test"}  # fmt: skip
+            if cloud.sign_in_methods is not None:
+                body["sign_in_methods"] = cloud.sign_in_methods
+            self._send(200, body)
 
         def _GET_v1_plans(self, query: dict, body: Any) -> None:
             free, pro = dict(cloud.limits(), apps=3), dict(cloud.limits(), apps=20, web_pro=True)

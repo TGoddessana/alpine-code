@@ -55,7 +55,7 @@ afterEach(() => {
 describe('AlpineSignIn', () => {
   it('signs in with Google through the server, opens the page it gave, and goes on', async () => {
     const { onDone, sent } = mount();
-    fireEvent.click(screen.getByRole('button', { name: 'Google로 계속하기' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Google로 계속하기' }));
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
     expect(sent('cloud/signIn')).toEqual([{ method: 'google' }]);
     expect(window.open).toHaveBeenCalledWith(expect.stringContaining('provider=google'), '_blank', 'noopener');
@@ -63,7 +63,7 @@ describe('AlpineSignIn', () => {
 
   it('shows the free credits once after the first sign-in, then starts', async () => {
     const { onDone } = mount({}, { welcome: true });
-    fireEvent.click(screen.getByRole('button', { name: 'GitHub로 계속하기' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'GitHub로 계속하기' }));
     expect(await screen.findByText('반가워요, 하늘님')).toBeTruthy();
     expect(screen.getByText('무료 크레딧 300을 드렸어요.')).toBeTruthy();
     expect(onDone).not.toHaveBeenCalled();
@@ -73,14 +73,14 @@ describe('AlpineSignIn', () => {
 
   it('says so when the browser sign-in times out or fails, and tries again', async () => {
     mount({ signInEnds: 'timed_out' });
-    fireEvent.click(screen.getByRole('button', { name: 'Google로 계속하기' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Google로 계속하기' }));
     expect((await screen.findByRole('alert')).textContent).toBe('로그인 시간이 지났어요. 다시 해 주세요.');
     expect(screen.getByRole('button', { name: '다시 하기' })).toBeTruthy();
   });
 
   it('cancels the waiting sign-in when going back', async () => {
     const { sent } = mount({ signInMs: null });
-    fireEvent.click(screen.getByRole('button', { name: 'Google로 계속하기' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Google로 계속하기' }));
     expect(await screen.findByRole('status')).toBeTruthy();
     expect(screen.getByRole('button', { name: '브라우저 다시 열기' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '‹ 뒤로' }));
@@ -90,7 +90,7 @@ describe('AlpineSignIn', () => {
 
   it('asks for a code by email with the language, rejects a wrong one and signs in on the right one', async () => {
     const { onDone, sent } = mount({}, {}, 'en');
-    fireEvent.click(screen.getByRole('button', { name: 'Get a code by email' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Get a code by email' }));
     fireEvent.input(await screen.findByLabelText('Email'), { target: { value: 'haneul@example.com' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send code' }));
     const code = await screen.findByLabelText('6-digit code');
@@ -106,6 +106,23 @@ describe('AlpineSignIn', () => {
       { email: 'haneul@example.com', code: '000000' },
       { email: 'haneul@example.com', code: '123456' },
     ]);
+  });
+
+  it('shows no Google or GitHub when the server signs in by email code only, and starts at the address', async () => {
+    const { sent } = mount({ signInMethods: ['email'] }, {}, 'en');
+    expect(await screen.findByLabelText('Email')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Google|GitHub/ })).toBeNull();
+    fireEvent.input(screen.getByLabelText('Email'), { target: { value: 'haneul@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send code' }));
+    expect(await screen.findByLabelText('6-digit code')).toBeTruthy();
+    expect(sent('cloud/sendCode')).toEqual([{ email: 'haneul@example.com', locale: 'en' }]);
+  });
+
+  it('offers all three ways when the server does not say', async () => {
+    mount({}, {}, 'en');
+    expect(await screen.findByRole('button', { name: 'Get a code by email' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Google/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /GitHub/ })).toBeTruthy();
   });
 
   it('leads with the reason when something asked for the sign-in', () => {

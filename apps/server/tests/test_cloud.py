@@ -56,6 +56,21 @@ def test_signed_out_status_names_the_api(cloud):
     asyncio.run(scenario())
 
 
+def test_sign_in_methods_follow_the_server(cloud):
+    async def scenario():
+        h = Harness()
+        assert (await h.call("cloud/signInMethods"))["result"] == {"methods": ["google", "github", "email"]}
+        account.reset()
+        cloud.sign_in_methods = ["email"]
+        assert (await h.call("cloud/signInMethods"))["result"] == {"methods": ["email"]}
+        account.reset()
+        cloud.sign_in_methods = None  # an older server does not say: everything is offered
+        assert (await h.call("cloud/signInMethods"))["result"] == {"methods": ["google", "github", "email"]}
+        await h.server.close()
+
+    asyncio.run(scenario())
+
+
 def test_browser_sign_in_announces_its_end_and_the_new_status(cloud):
     async def scenario():
         h = Harness()

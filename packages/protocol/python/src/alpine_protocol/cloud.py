@@ -78,6 +78,17 @@ class CloudStatusParams(Message):
     """Ask the API now instead of using what was fetched in the last 30 seconds."""
 
 
+class CloudSignInMethodsParams(Message):
+    pass
+
+
+class CloudSignInMethodsResult(Message):
+    """The ways to sign in on this server, in the order to show them: ``google`` | ``github`` | ``email`` (open). A
+    server that offers only ``email`` has no Google or GitHub; the app hides those buttons."""
+
+    methods: list[str]
+
+
 class CloudSignInParams(Message):
     """Starts a browser sign-in. The app opens ``url`` and waits for ``cloud/signInFinished``. Starting one cancels
     the one still waiting."""
@@ -515,6 +526,7 @@ class ProjectsNodeToolsChangedParams(Message):
 
 CLOUD_METHODS = {
     "cloud/status": (CloudStatusParams, CloudStatus),
+    "cloud/signInMethods": (CloudSignInMethodsParams, CloudSignInMethodsResult),
     "cloud/signIn": (CloudSignInParams, CloudSignInResult),
     "cloud/cancelSignIn": (CloudCancelSignInParams, CloudCancelSignInResult),
     "cloud/sendCode": (CloudSendCodeParams, CloudSendCodeResult),

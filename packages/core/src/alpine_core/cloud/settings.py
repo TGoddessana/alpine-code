@@ -14,6 +14,8 @@ import tomllib
 
 from ..home import home_dir
 
+# The only place an Alpine API address is written down. Change it when the first real address exists (a workers.dev
+# address to begin with); `ALPINE_CLOUD_URL` and `cloud_url` in config.toml still win.
 DEFAULT_API_URL = "https://api.alpinecode.app"
 URL_ENV = "ALPINE_CLOUD_URL"
 LOCALE_ENV = "ALPINE_LOCALE"

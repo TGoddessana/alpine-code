@@ -25,6 +25,21 @@ export function useCloudStatus() {
   });
 }
 
+/**
+ * The ways to sign in on the server this app talks to (`google`, `github`, `email`), or `null` while it is asked.
+ * A server that offers only the email code shows no Google or GitHub; one that cannot be asked offers all three.
+ */
+export function useSignInMethods(): string[] | null {
+  const server = useServer();
+  const { data, isError } = useQuery({
+    queryKey: ['cloud', 'signInMethods'],
+    queryFn: () => server.request('cloud/signInMethods', {}),
+    retry: false,
+  });
+  if (isError) return ['google', 'github', 'email'];
+  return data?.methods ?? null;
+}
+
 /** A web address under the apps' domain the server announced, e.g. `craft-booking.alpinesite.app`. */
 export const appAddress = (name: string, appDomain: string | null | undefined) =>
   appDomain ? `${name}.${appDomain}` : name;

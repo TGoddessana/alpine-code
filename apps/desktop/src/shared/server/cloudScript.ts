@@ -19,6 +19,8 @@ export interface CloudScriptOptions extends PublishScriptOptions, DataScriptOpti
   signInMs?: number | null;
   /** How a browser sign-in ends: signed in (the default), or one of the failures. */
   signInEnds?: 'connected' | 'timed_out' | 'failed';
+  /** The ways to sign in the scripted server offers; defaults to Google, GitHub and the email code. */
+  signInMethods?: string[];
   /** Milliseconds `cloud/sendCode` and `cloud/verifyCode` take; defaults to 600. */
   codeMs?: number;
   /** Node.js is not here yet; installing it takes `installMs` (default 2000) and then it is. */
@@ -109,6 +111,7 @@ export function cloudScript(options: CloudScriptOptions = {}): Script {
         restoreDays: () => (plan === 'free' ? FREE_LIMITS.restoreDays : PRO_LIMITS.restoreDays),
       }),
       'cloud/status': () => status(),
+      'cloud/signInMethods': () => ({ methods: options.signInMethods ?? ['google', 'github', 'email'] }),
       'cloud/signIn': ({ method }, context) => {
         const attemptId = `attempt-${++counter}`;
         const ms = options.signInMs === undefined ? 2200 : options.signInMs;

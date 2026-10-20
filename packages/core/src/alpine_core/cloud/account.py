@@ -90,6 +90,20 @@ def meta(*, client: CloudClient | None = None) -> dict[str, Any] | None:
     return body
 
 
+#: What a server that does not say (an older one, or none that answers) is taken to offer.
+ALL_SIGN_IN_METHODS = ("google", "github", "email")
+
+
+def sign_in_methods(*, client: CloudClient | None = None) -> list[str]:
+    """The ways to sign in on this server (``sign_in_methods`` of ``GET /v1/meta``: ``google``, ``github``, ``email``).
+    All three when the server does not say; a server that lists only ``email`` has no Google or GitHub."""
+    listed = (meta(client=client) or {}).get("sign_in_methods")
+    if not isinstance(listed, list):
+        return list(ALL_SIGN_IN_METHODS)
+    known = [m for m in ALL_SIGN_IN_METHODS if m in listed]
+    return known or list(ALL_SIGN_IN_METHODS)
+
+
 def snapshot(store: OAuthTokens | None = None) -> CloudStatus:
     """The status as last known, without asking the API."""
     tokens = AlpineTokens(store).current()

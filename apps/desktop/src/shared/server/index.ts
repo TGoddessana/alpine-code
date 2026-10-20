@@ -7,6 +7,7 @@ export {
   useInstallNodeTools,
   useNodeTools,
   useSendCode,
+  useSignInMethods,
   useVerifyCode,
   type AlpineSignInState,
   type NodeInstallState,

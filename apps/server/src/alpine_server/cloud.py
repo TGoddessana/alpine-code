@@ -43,6 +43,8 @@ from alpine_protocol.cloud import (
     CloudSendCodeParams,
     CloudSendCodeResult,
     CloudSignInFinishedParams,
+    CloudSignInMethodsParams,
+    CloudSignInMethodsResult,
     CloudSignInParams,
     CloudSignInResult,
     CloudSignOutParams,
@@ -77,6 +79,7 @@ class CloudMethods:
         # The publish/ family is PublishMethods's (publish.py), the data/ family DataMethods's (data.py).
         return {
             "cloud/status": self.status,
+            "cloud/signInMethods": self.sign_in_methods,
             "cloud/signIn": self.sign_in,
             "cloud/cancelSignIn": self.cancel_sign_in,
             "cloud/sendCode": self.send_code,
@@ -100,6 +103,9 @@ class CloudMethods:
     async def status(self, params: CloudStatusParams) -> CloudStatusModel:
         self._attach()
         return wire_status(await asyncio.to_thread(lambda: account.status(refresh=params.refresh)))
+
+    async def sign_in_methods(self, params: CloudSignInMethodsParams) -> CloudSignInMethodsResult:
+        return CloudSignInMethodsResult(methods=await asyncio.to_thread(account.sign_in_methods))
 
     async def sign_in(self, params: CloudSignInParams) -> CloudSignInResult:
         self._attach()

@@ -480,6 +480,21 @@ export interface CloudSignInFinishedParams {
   message?: string | null;
 }
 /**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudSignInMethodsParams".
+ */
+export interface CloudSignInMethodsParams {}
+/**
+ * The ways to sign in on this server, in the order to show them: ``google`` | ``github`` | ``email`` (open). A
+ * server that offers only ``email`` has no Google or GitHub; the app hides those buttons.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudSignInMethodsResult".
+ */
+export interface CloudSignInMethodsResult {
+  methods: string[];
+}
+/**
  * Starts a browser sign-in. The app opens ``url`` and waits for ``cloud/signInFinished``. Starting one cancels
  * the one still waiting.
  *
@@ -4408,6 +4423,7 @@ export interface ToolsTestResult {
 
 export interface Methods {
   'cloud/status': { params: CloudStatusParams; result: CloudStatus };
+  'cloud/signInMethods': { params: CloudSignInMethodsParams; result: CloudSignInMethodsResult };
   'cloud/signIn': { params: CloudSignInParams; result: CloudSignInResult };
   'cloud/cancelSignIn': { params: CloudCancelSignInParams; result: CloudCancelSignInResult };
   'cloud/sendCode': { params: CloudSendCodeParams; result: CloudSendCodeResult };

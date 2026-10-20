@@ -4,7 +4,14 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import { useFormat, useLocale, useMessages } from '@/shared/i18n';
 import { openInBrowser } from '@/shared/platform';
-import { ServerError, useAlpineSignIn, useCloudStatus, useSendCode, useVerifyCode } from '@/shared/server';
+import {
+  ServerError,
+  useAlpineSignIn,
+  useCloudStatus,
+  useSendCode,
+  useSignInMethods,
+  useVerifyCode,
+} from '@/shared/server';
 
 import { messages } from './messages';
 
@@ -39,6 +46,10 @@ export function AlpineSignIn({ reason, welcome = false, onBack, onClose, onDone 
   const t = useMessages(messages);
   const [step, setStep] = useState<Step>({ name: 'choose' });
   const signIn = useAlpineSignIn();
+  const methods = useSignInMethods();
+  // A server that sends only the email code has nothing to choose from: the sheet starts at the address.
+  const emailOnly = methods !== null && methods.length === 1 && methods[0] === 'email';
+  const current: Step = step.name === 'choose' && emailOnly ? { name: 'email' } : step;
   const connected = step.name === 'waiting' && signIn.state.status === 'connected';
   const finish = () => (welcome ? setStep({ name: 'welcome' }) : onDone());
 
@@ -61,15 +72,15 @@ export function AlpineSignIn({ reason, welcome = false, onBack, onClose, onDone 
   let body: ReactNode;
   if (connected && welcome) body = <Welcome onStart={onDone} />;
   else
-    switch (step.name) {
+    switch (current.name) {
       case 'choose':
         body = (
           <>
             <Heading title={t.signInTitle} lead={reason ?? t.signInLead} />
             <div className="flex flex-col gap-2">
-              <Way label={t.google} onClick={() => viaBrowser('google')} />
-              <Way label={t.github} onClick={() => viaBrowser('github')} />
-              <Way label={t.email} onClick={() => setStep({ name: 'email' })} />
+              {methods?.includes('google') && <Way label={t.google} onClick={() => viaBrowser('google')} />}
+              {methods?.includes('github') && <Way label={t.github} onClick={() => viaBrowser('github')} />}
+              {methods?.includes('email') && <Way label={t.email} onClick={() => setStep({ name: 'email' })} />}
             </div>
             {(onBack || onClose) && (
               <div>
@@ -92,13 +103,13 @@ export function AlpineSignIn({ reason, welcome = false, onBack, onClose, onDone 
             ) : (
               <p role="status" className="inline-flex items-center gap-2 text-meta text-fg-muted">
                 <span aria-hidden="true" className="size-1.5 animate-pulse rounded-full bg-interactive" />
-                {step.method === 'google' ? t.google : t.github}
+                {current.method === 'google' ? t.google : t.github}
               </p>
             )}
             <div className="flex items-center justify-between">
               <LinkButton onClick={leaveBrowser}>{t.back}</LinkButton>
               {stopped ? (
-                <LinkButton onClick={() => viaBrowser(step.method)}>{t.tryAgain}</LinkButton>
+                <LinkButton onClick={() => viaBrowser(current.method)}>{t.tryAgain}</LinkButton>
               ) : (
                 state.status === 'waiting' && <NoBrowser url={state.url} />
               )}
@@ -109,11 +120,15 @@ export function AlpineSignIn({ reason, welcome = false, onBack, onClose, onDone 
       }
       case 'email':
         body = (
-          <EmailStep onBack={() => setStep({ name: 'choose' })} onSent={(email) => setStep({ name: 'code', email })} />
+          <EmailStep
+            onBack={emailOnly ? (onBack ?? onClose) : () => setStep({ name: 'choose' })}
+            closes={emailOnly && !onBack}
+            onSent={(email) => setStep({ name: 'code', email })}
+          />
         );
         break;
       case 'code':
-        body = <CodeStep email={step.email} onBack={() => setStep({ name: 'email' })} onDone={finish} />;
+        body = <CodeStep email={current.email} onBack={() => setStep({ name: 'email' })} onDone={finish} />;
         break;
       case 'welcome':
         body = <Welcome onStart={onDone} />;
@@ -122,7 +137,7 @@ export function AlpineSignIn({ reason, welcome = false, onBack, onClose, onDone 
 
   return (
     <AutoHeight>
-      <div key={connected ? 'welcome' : step.name} className="motion-step flex flex-col gap-4">
+      <div key={connected ? 'welcome' : current.name} className="motion-step flex flex-col gap-4">
         {body}
       </div>
     </AutoHeight>
@@ -165,7 +180,15 @@ function Way({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-function EmailStep({ onBack, onSent }: { onBack: () => void; onSent: (email: string) => void }) {
+function EmailStep({
+  onBack,
+  closes = false,
+  onSent,
+}: {
+  onBack?: () => void;
+  closes?: boolean;
+  onSent: (email: string) => void;
+}) {
   const t = useMessages(messages);
   const { locale } = useLocale();
   const send = useSendCode();
@@ -198,7 +221,7 @@ function EmailStep({ onBack, onSent }: { onBack: () => void; onSent: (email: str
         </p>
       )}
       <div className="flex items-center justify-between">
-        <LinkButton onClick={onBack}>{t.back}</LinkButton>
+        {onBack ? <LinkButton onClick={onBack}>{closes ? t.close : t.back}</LinkButton> : <span />}
         <Button type="submit" variant="primary" disabled={!valid || send.isPending}>
           {t.sendCode}
         </Button>

@@ -7,6 +7,10 @@
       "params": "CloudStatusParams",
       "result": "CloudStatus"
     },
+    "cloud/signInMethods": {
+      "params": "CloudSignInMethodsParams",
+      "result": "CloudSignInMethodsResult"
+    },
     "cloud/signIn": {
       "params": "CloudSignInParams",
       "result": "CloudSignInResult"
@@ -1711,6 +1715,27 @@
         "result"
       ],
       "title": "CloudSignInFinishedParams",
+      "type": "object"
+    },
+    "CloudSignInMethodsParams": {
+      "properties": {},
+      "title": "CloudSignInMethodsParams",
+      "type": "object"
+    },
+    "CloudSignInMethodsResult": {
+      "description": "The ways to sign in on this server, in the order to show them: ``google`` | ``github`` | ``email`` (open). A\nserver that offers only ``email`` has no Google or GitHub; the app hides those buttons.",
+      "properties": {
+        "methods": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "methods"
+      ],
+      "title": "CloudSignInMethodsResult",
       "type": "object"
     },
     "CloudSignInParams": {

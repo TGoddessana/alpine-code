@@ -6,7 +6,7 @@ authors = [
     { name = "tgoddessana", email = "twicegoddessana1229@gmail.com" }
 ]
 requires-python = ">=3.14"
-license = "MIT"
+license = "LicenseRef-Proprietary"
 license-files = ["LICENSE"]
 dependencies = [
     "alpineagents>=0.7.1,<0.8",

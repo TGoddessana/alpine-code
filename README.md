@@ -3,20 +3,20 @@
 </p>
 
 <p align="center">
-  <b>An open-source coding agent that's easy for people who don't code,<br>and open all the way down to its tools for people who do.</b>
+  <b>A coding agent that's easy for people who don't code,<br>and open all the way down to its tools for people who do.</b>
 </p>
 
 <p align="center">
   <a href="https://downloads.alpinecode.app/AlpineCode_aarch64.dmg"><b>Download for Mac</b></a>
   &nbsp;·&nbsp;
-  <a href="LICENSE">MIT license</a>
+  <a href="https://alpinecode.app">alpinecode.app</a>
 </p>
 
 <p align="center">
   <img src="assets/images/demo.gif" alt="Alpine Code at work: asked to make a bakery website's menu page fit on a phone, it reads two files, asks before editing the stylesheet and before running the build, then reports what changed. The work result panel fills in as it goes" width="900">
 </p>
 
-Alpine Code is an open-source AI coding agent for your desktop. Open a folder, say what you want, and it reads the
+Alpine Code is an AI coding agent for your desktop. Open a folder, say what you want, and it reads the
 files, makes the changes and checks that they work.
 
 It's built for two kinds of people at once:
@@ -25,9 +25,8 @@ It's built for two kinds of people at once:
 - **If you do**, every part of it is yours to change: bring any model, build agents with their own tools and skills,
   or build on the agent core.
 
-## Open source
+## Yours to run
 
-- **MIT licensed.** The agent and the desktop app are both in this repository. Read it, fork it, change it.
 - **Any model.** Use your ChatGPT plan, an API key, or a model running on your own machine. Nothing ties you to one
   provider.
 - **No account, no server of ours.** What you ask goes straight from your computer to the model you connected, and
@@ -111,11 +110,12 @@ plans can't be used in other apps, so Claude models connect with an API key.
   <img src="assets/images/connect-a-model.png" alt="The Connect a model dialog: Sign in with ChatGPT, API key, or a local or compatible server" width="560">
 </p>
 
-## Contributing
+## Development
 
-Bug reports, ideas and pull requests are welcome: [open an issue](https://github.com/hypercodism/alpine-code/issues)
-or start with [CONTRIBUTING.md](CONTRIBUTING.md). Alpine Code is built on
-[alpineagents](https://tgoddessana.github.io/alpineagents/) and released under the [MIT license](LICENSE).
+[CONTRIBUTING.md](CONTRIBUTING.md) shows how the repository fits together. Alpine Code is built on
+[alpineagents](https://tgoddessana.github.io/alpineagents/). Releases are built on a Mac with `scripts/release.sh`.
+
+Copyright © 2026 hypercodism. All rights reserved. Versions up to 0.1.4 were published under the MIT license.
 
 ## Brand
 

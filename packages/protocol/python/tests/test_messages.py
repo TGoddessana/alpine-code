@@ -121,7 +121,7 @@ def test_cloud_methods_and_notifications_are_in_the_tables_and_the_schema():
 
     status = CloudStatus(signed_in=True, api_url="http://x", app_domain="alpinesite.app")
     assert status.model_dump(by_alias=True, exclude_none=True) == {
-        "signedIn": True, "apiUrl": "http://x", "appDomain": "alpinesite.app", "reachable": True,
+        "enabled": True, "signedIn": True, "apiUrl": "http://x", "appDomain": "alpinesite.app", "reachable": True,
     }  # fmt: skip
     defs = build()["$defs"]
     assert {"CloudSignInFinishedParams", "PublishChangedParams", "ProjectsNodeToolsChangedParams"} <= set(defs)

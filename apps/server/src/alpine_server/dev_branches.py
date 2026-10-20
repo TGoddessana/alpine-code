@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 from alpine_core.cloud import CloudError, SignedOut, pro
+from alpine_core.cloud import settings as cloud_settings
 
 
 class DevBranches:
@@ -23,6 +24,8 @@ class DevBranches:
 
     def start(self, folder: Path) -> None:
         """Begins making the project's dev branch if it needs one. Returns at once."""
+        if not cloud_settings.enabled():
+            return
         folder = folder.resolve()
         if folder in self._working or pro.needs_dev_branch(folder):
             self._task(folder)
@@ -30,6 +33,8 @@ class DevBranches:
     async def ready(self, folder: Path) -> None:
         """Waits until the project's dev branch is there (or could not be made). A project that needs none does not
         wait at all, not even for one turn of the loop: a message must start running at once."""
+        if not cloud_settings.enabled():
+            return
         folder = folder.resolve()
         if folder in self._working or pro.needs_dev_branch(folder):
             await asyncio.shield(self._task(folder))

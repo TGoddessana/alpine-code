@@ -37,6 +37,7 @@ from alpine_core import (
     list_sessions,
 )
 from alpine_core.cloud import LiveData
+from alpine_core.cloud import settings as cloud_settings
 from alpine_core.taskforce.team import TaskForce
 from alpine_core.work_changes import checkpoint_changes
 from alpine_protocol import (
@@ -192,8 +193,9 @@ class SessionManager:
 
     def tool_sources(self, project: Path) -> list[ToolSource]:
         """Where a folder's tools come from, for its sessions and for ``tools/list``: the built-ins, the project's
-        memory, then the live data of its published app."""
-        return [Builtins(Workspace(project)), self.memories.of(project), LiveData(project)]
+        memory, then (when Alpine Cloud is on) the live data of its published app."""
+        sources: list[ToolSource] = [Builtins(Workspace(project)), self.memories.of(project)]
+        return [*sources, LiveData(project)] if cloud_settings.enabled() else sources
 
     async def shutdown(self) -> None:
         """Stops every running session, so each is saved ending in ``run_stopped: interrupted``, and every TF, so

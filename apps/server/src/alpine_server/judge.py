@@ -12,13 +12,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from alpine_core import ConfigError, JudgeError, NewApp, available_templates, judge
+from alpine_core.cloud import settings as cloud_settings
 from alpine_protocol import JudgedChange, JudgedNew, ProjectsJudgeParams, ProjectsJudgeResult
 
 from .methods import APP_ERROR, MethodError, _settings
 
 
 def judge_project(params: ProjectsJudgeParams) -> ProjectsJudgeResult:
-    templates = available_templates()
+    templates = available_templates() if cloud_settings.enabled() else []  # no cloud: nothing to make
     if not templates or not params.text.strip():  # nothing to make, or nothing written: nothing to ask
         return ProjectsJudgeResult(judgement=JudgedChange())
     settings = _settings()

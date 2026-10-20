@@ -41,6 +41,7 @@ from alpine_core import (
 from alpine_core.chatgpt import account_of, is_chatgpt
 from alpine_core.cloud import auth as cloud_auth
 from alpine_core.cloud import is_alpine
+from alpine_core.cloud import settings as cloud_settings
 from alpine_protocol import (
     PROTOCOL_VERSION,
     ChatGPTAccountInfo,
@@ -230,7 +231,7 @@ def _connection(provider_id: str | None, base_url: str | None, settings: Setting
     """The saved connection for this provider or address, or a new one named after it."""
     if provider_id is not None:
         provider = PROVIDERS.get(provider_id)
-        if provider is None:
+        if provider is None or (provider.auth is Auth.ALPINE and not cloud_settings.enabled()):
             raise MethodError(INVALID_PARAMS, f"Unknown provider {provider_id!r}")
         return Connection(provider.id, provider)
     if not base_url:

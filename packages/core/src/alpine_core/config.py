@@ -95,6 +95,12 @@ class ConfigError(Exception):
     """The settings are missing or invalid. The message says how to fix it."""
 
 
+def _cloud_enabled() -> bool:
+    from .cloud.settings import enabled  # cloud imports this module, so the import waits until it is needed
+
+    return enabled()
+
+
 def config_file() -> Path:
     return home_dir() / "config.toml"
 
@@ -172,6 +178,10 @@ class Settings:
         if unknown:
             raise ConfigError(f"Unknown settings: {', '.join(unknown)}")
         _convert(values)
+        if not _cloud_enabled():  # a model of the hidden Alpine connection is not a default to keep
+            for key in ("model", "review_model"):
+                if str(values.get(key) or "").startswith("alpine/"):
+                    values[key] = None
         values["secrets"] = secrets if secrets is not None else FileSecrets(home_dir() / "auth.json")
         return cls(**values)
 
@@ -336,7 +346,11 @@ def _convert(values: dict[str, Any]) -> None:
 def _connections(tables: Any, file: Path) -> dict[str, Connection]:
     if not isinstance(tables, dict):
         raise ConfigError(f"'connections' in {file} must be a table: [connections.<name>]")
-    return {name: _connection(name, table, file) for name, table in tables.items()}
+    found = {name: _connection(name, table, file) for name, table in tables.items()}
+    if _cloud_enabled():
+        return found
+    # Cloud is off ("Shipping hidden", docs/alpine-cloud.md): an Alpine connection stays in the file but is not offered.
+    return {name: c for name, c in found.items() if c.provider is None or c.provider.auth is not Auth.ALPINE}
 
 
 def _connection(name: str, table: Mapping[str, Any], file: Path) -> Connection:

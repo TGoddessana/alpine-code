@@ -31,6 +31,7 @@ from alpine_core.cloud import (
     sign_out,
     verify_code,
 )
+from alpine_core.cloud import settings as cloud_settings
 from alpine_protocol import ErrorData
 from alpine_protocol.cloud import (
     CloudCancelSignInParams,
@@ -101,6 +102,8 @@ class CloudMethods:
     # ---- account
 
     async def status(self, params: CloudStatusParams) -> CloudStatusModel:
+        if not cloud_settings.enabled():  # hidden: no sign-in, no network
+            return CloudStatusModel(enabled=False, signed_in=False, api_url=cloud_settings.api_url())
         self._attach()
         return wire_status(await asyncio.to_thread(lambda: account.status(refresh=params.refresh)))
 

@@ -1756,6 +1756,10 @@
     },
     "CloudStatus": {
       "properties": {
+        "enabled": {
+          "default": true,
+          "type": "boolean"
+        },
         "signedIn": {
           "type": "boolean"
         },

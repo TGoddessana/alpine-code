@@ -60,6 +60,9 @@ class CloudCredits(Message):
 
 
 class CloudStatus(Message):
+    enabled: bool = True
+    """``False``: Alpine Cloud is hidden in this build (``ALPINE_CLOUD_URL`` is not set). The app shows no sign-in,
+    credits, plan, publishing, live data or new project from a template, and the rest of this status is empty."""
     signed_in: bool
     api_url: str
     """The Alpine API this app talks to (one setting)."""

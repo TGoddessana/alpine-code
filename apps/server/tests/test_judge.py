@@ -40,6 +40,7 @@ def templates(tmp_path, monkeypatch):
     for name in ("blank", "web-lite"):
         (root / name).mkdir(parents=True)
     monkeypatch.setenv("ALPINE_TEMPLATES", str(root))
+    monkeypatch.setenv("ALPINE_CLOUD_URL", "http://127.0.0.1:9")  # Alpine Cloud is on: new projects are offered
     return root
 
 
@@ -258,3 +259,11 @@ def test_a_failed_model_call_for_a_chosen_new_project_is_model_failed(templates,
     model_says(monkeypatch, ProviderError("The model is overloaded"))
     error = call(text="앱 만들어 줘", locale="ko", new_project=True)["error"]
     assert error["data"] == {"reason": "model_failed"}
+
+
+def test_with_alpine_cloud_off_nothing_is_a_new_app(templates, monkeypatch):
+    monkeypatch.delenv("ALPINE_CLOUD_URL")
+    model = model_says(monkeypatch, json.dumps(NEW))
+    result = judge_project(ProjectsJudgeParams(text="make a booking site", locale="en", new_project=True))
+    assert result.judgement == JudgedChange()
+    assert model.requests == []  # no template to offer: the model is not even asked

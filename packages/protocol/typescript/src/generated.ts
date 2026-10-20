@@ -371,6 +371,7 @@ export interface CloudChangedParams {
  * via the `definition` "CloudStatus".
  */
 export interface CloudStatus {
+  enabled?: boolean;
   signedIn: boolean;
   apiUrl: string;
   appDomain?: string | null;

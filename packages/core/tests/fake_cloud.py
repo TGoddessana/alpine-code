@@ -505,7 +505,10 @@ def _handler(cloud: FakeCloud) -> type[BaseHTTPRequestHandler]:
             }  # fmt: skip
 
         def _point(self, app_id: str, reason: str, deploy_id: str | None = None) -> dict[str, Any]:
-            point = {"id": cloud._next("rp_"), "at": "2026-10-20T01:30:00Z", "reason": reason, "deploy_id": deploy_id}
+            live = cloud.deploys.get(cloud.live.get(app_id, ""))
+            source = (live["manifest"].get("source") or None) if live is not None else None
+            point = {"id": cloud._next("rp_"), "at": "2026-10-20T01:30:00Z", "reason": reason, "deploy_id": deploy_id,
+                     "source": source}  # fmt: skip
             cloud.points.setdefault(app_id, []).append(point)
             return point
 

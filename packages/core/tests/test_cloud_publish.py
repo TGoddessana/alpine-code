@@ -436,6 +436,36 @@ def test_restore_points_are_listed_made_and_restored(cloud, signed_in, tmp_path)
     assert call["body"] == {"point": listed["points"][0]["id"]}
 
 
+def test_a_restore_makes_what_is_live_the_source_the_changes_count_from(cloud, signed_in, tmp_path):
+    folder = make_project(tmp_path)
+    first = publish.prepare(folder, progress=Recorder())
+    publish.run(folder, first.deploy_id, [], progress=Recorder())
+    (folder / "src" / "app.ts").write_text("export const a = 2;\n")
+    second = publish.prepare(folder, progress=Recorder())
+    publish.run(folder, second.deploy_id, [], progress=Recorder())
+    assert publish.status(folder).changes == 0
+    points = publish.restore_points(folder)["points"]
+    assert [p["reason"] for p in points] == ["publish", "publish"]
+
+    publish.restore(folder, points[1]["id"])  # the first publish's code is live again
+    status = publish.status(folder)
+    assert status.changes == 1  # app.ts differs from what is live now
+    (folder / "src" / "app.ts").write_text("export const a = 1;\n")
+    assert publish.status(folder).changes == 0
+
+    publish.restore(folder, points[0]["id"])  # before the first publish nothing was live
+    assert links.get(folder).published is None
+    assert publish.status(folder).changes == 0 and publish.status(folder).last_published_at is None
+
+
+def test_a_taken_down_app_is_not_publishable(cloud, signed_in, tmp_path):
+    folder = make_project(tmp_path)
+    plan = publish.prepare(folder, progress=Recorder())
+    cloud.apps[plan.app.id]["status"] = "taken_down"
+    status = publish.status(folder)
+    assert not status.publishable and status.reason == "taken_down" and status.app.status == "taken_down"
+
+
 def test_a_failed_restore_raises(cloud, signed_in, tmp_path):
     folder = make_project(tmp_path)
     publish.prepare(folder, progress=Recorder())

@@ -108,6 +108,8 @@ def status(folder: Path, *, client: CloudClient | None = None) -> Status:
         return Status(False, "no_node")
     link = links.get(folder)
     app = _known_app(folder, link, client or CloudClient(AlpineTokens())) if link is not None else None
+    if app is not None and app.status == "taken_down":
+        return Status(False, "taken_down", app, link.published.at if link is not None and link.published else None)
     published = link.published if link is not None else None
     changes = len(project.changed_paths(folder, published)) if published is not None else 0
     return Status(True, None, app, published.at if published is not None else None, changes)
@@ -348,6 +350,11 @@ def run(
     if link is None:
         raise NotLinked
     client = client or CloudClient(AlpineTokens())
+    if not deploy_id:  # the plan was blocked by the local checks: nothing was uploaded, so there is nothing to publish
+        app = _known_app(folder, link, client)
+        if app is not None and app.status == "taken_down":
+            raise CloudError(403, "taken_down", "This app was taken down.")
+        raise CloudError(422, "blocked", "The checks found something that blocks publishing.")
     client.post(f"/v1/apps/{link.app_id}/deploys/{deploy_id}/publish", {"confirm": confirm})
     deploy = _watch_deploy(client, link.app_id, deploy_id, progress)
     app = App.from_api(client.get(f"/v1/apps/{link.app_id}")["app"])
@@ -442,12 +449,20 @@ def restore(folder: Path, point: str, *, client: CloudClient | None = None) -> N
     if link is None:
         raise NotLinked
     client = client or CloudClient(AlpineTokens())
+    # What is live after the restore is the code that was live at the point (the API's ``source``).
+    listed = client.get(f"/v1/apps/{link.app_id}/restore-points")
+    source = next((p.get("source") for p in listed.get("points") or [] if p.get("id") == point), None)
     started = client.post(f"/v1/apps/{link.app_id}/restore", {"point": point})
     restore_id = started["restore"]["id"]
     deadline = time.monotonic() + WATCH_TIMEOUT
     while True:
         done = client.get(f"/v1/apps/{link.app_id}/restores/{restore_id}")["restore"]
         if done.get("status") == "done":
+            commit, tree = (source.get("commit"), source.get("tree")) if isinstance(source, dict) else (None, None)
+            if isinstance(commit, str) and isinstance(tree, str):
+                links.record_published(folder, Published(commit, tree, _now()))
+            else:  # nothing was live, or the deploy sent no source: no source to compare with
+                links.clear_published(folder)
             return
         if done.get("status") == "failed":
             raise PublishError(str(done.get("error") or "The restore failed."))

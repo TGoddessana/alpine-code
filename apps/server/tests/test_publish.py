@@ -141,6 +141,13 @@ def test_confirms_blocks_and_failures_come_back_with_their_reasons(cloud, tmp_pa
         blocked = (await h.call("publish/prepare", {"id": "p2", "cwd": str(folder)}))["result"]
         assert blocked["blocked"] is True and blocked["deployId"] == ""
         assert blocked["checks"][0]["findings"][0]["code"] == "secret.stripe_live"
+        # Running that plan is refused as blocked, not as a deploy that does not exist.
+        empty = {"id": "p2", "cwd": str(folder), "deployId": blocked["deployId"]}
+        assert reason(await h.call("publish/run", empty)) == "blocked"
+        cloud.apps[next(iter(cloud.apps))]["status"] = "taken_down"
+        assert reason(await h.call("publish/run", empty)) == "taken_down"
+        taken = (await h.call("publish/status", {"cwd": str(folder)}))["result"]
+        assert taken["publishable"] is False and taken["reason"] == "taken_down"
         await h.server.close()
 
     asyncio.run(scenario())

@@ -73,6 +73,17 @@ def record_published(project: Path | str, published: Published) -> None:
     _update(project, published=published)
 
 
+def clear_published(project: Path | str) -> None:
+    """Nothing is live from this project's source any more (a restore went back to before the first publish)."""
+    with _lock:
+        data = _read()
+        current = _link(data.get(_key(project)) or {})
+        if current is None or current.api_url != settings.api_url() or current.published is None:
+            return
+        data[_key(project)] = _entry(Link(current.app_id, current.api_url, None, current.live_read_notice))
+        _write(data)
+
+
 def mark_live_read_notice(project: Path | str) -> bool:
     """Notes that the first-live-read notice was shown. ``True`` for the call that noted it, ``False`` when it was
     already there: the notice is shown once per project."""

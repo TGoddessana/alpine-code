@@ -195,7 +195,7 @@ class PublishCwdParams(Message):
 class PublishStatus(Message):
     publishable: bool
     reason: str | None = None
-    """Why not: ``no_description`` | ``not_web`` | ``signed_out`` | ``no_node`` (open)."""
+    """Why not: ``no_description`` | ``not_web`` | ``signed_out`` | ``no_node`` | ``taken_down`` (open)."""
     app: AppInfo | None = None
     last_published_at: str | None = None
     changes: int = 0
@@ -246,6 +246,8 @@ class ShapeConfirm(Message):
     table: str | None = None
     column: str | None = None
     rows_affected: int | None = None
+    to: str | None = None
+    """For ``rename_table`` and ``rename_column``: the new name."""
     statement: str | None = None
     """For ``data_change`` and ``unknown``: the statement's first 200 characters."""
 

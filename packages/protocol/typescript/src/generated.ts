@@ -3504,6 +3504,7 @@ export interface ShapeConfirm {
   table?: string | null;
   column?: string | null;
   rowsAffected?: number | null;
+  to?: string | null;
   statement?: string | null;
 }
 /**

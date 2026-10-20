@@ -24,6 +24,12 @@ if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   echo "The working tree has changes; release from a clean checkout." >&2
   exit 1
 fi
+# The dmg step mounts a volume named AlpineCode and lays it out through Finder; an installer already mounted under
+# that name makes it fail after notarizing.
+if [ -d /Volumes/AlpineCode ]; then
+  echo "Eject /Volumes/AlpineCode first (an Alpine Code installer is mounted)." >&2
+  exit 1
+fi
 if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
   echo "Tag v$version already exists." >&2
   exit 1

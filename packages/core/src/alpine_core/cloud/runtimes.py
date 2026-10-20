@@ -4,8 +4,9 @@ or installs its own copy after one question (section 6.3 of the contract).
 Usable means Node 22.12 or newer. ``find_node`` looks on ``PATH`` and in the places a GUI app's ``PATH`` misses
 (Homebrew, nvm, Volta, fnm), then at Alpine's copy in ``~/.alpine-code/runtimes/node``. ``use_node`` puts the right
 ``bin`` first on this process's ``PATH``, which sessions, dev servers and builds inherit. ``install`` downloads the
-official Node 22 tarball from nodejs.org, checks it against ``SHASUMS256.txt`` of the same release and unpacks it
-into Alpine's folder. No admin password, nothing outside Alpine's folder; a system install later takes over by itself.
+official Node 22 archive from nodejs.org (a tarball on macOS and Linux, a zip on Windows), checks it against
+``SHASUMS256.txt`` of the same release and unpacks it into Alpine's folder. No admin password, nothing outside
+Alpine's folder; a system install later takes over by itself.
 """
 
 from __future__ import annotations
@@ -21,11 +22,15 @@ import tarfile
 import tempfile
 import urllib.error
 import urllib.request
+import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from ..home import home_dir
+
+WINDOWS = sys.platform == "win32"
+NODE_EXE = "node.exe" if WINDOWS else "node"
 
 REQUIRED = (22, 12)
 REQUIRED_TEXT = "22.12"
@@ -73,6 +78,11 @@ def runtime_dir() -> Path:
     return home_dir() / "runtimes" / "node"
 
 
+def _own_bin() -> Path:
+    """Where Alpine's copy keeps ``node``: ``bin`` on macOS and Linux, the folder itself on Windows."""
+    return runtime_dir() if WINDOWS else runtime_dir() / "bin"
+
+
 def node_version(executable: Path) -> tuple[int, int, int] | None:
     """What ``node --version`` says, or ``None`` when it does not run."""
     try:
@@ -90,8 +100,16 @@ def usable(version: tuple[int, int, int] | None) -> bool:
 def _extra_bins() -> list[Path]:
     """Places a GUI app's ``PATH`` misses, best first."""
     home = Path.home()
-    found = [Path("/opt/homebrew/bin"), Path("/usr/local/bin"), home / ".volta" / "bin"]
-    for pattern, tail in ((".nvm/versions/node", "bin"), (".fnm/node-versions", "installation/bin")):
+    if WINDOWS:
+        program_files = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
+        local = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
+        nvm = Path(os.environ.get("NVM_SYMLINK", program_files / "nodejs"))  # nvm-windows' current version
+        found = [program_files / "nodejs", local / "Volta" / "bin", nvm]
+        roots: tuple[tuple[str, str], ...] = (("AppData/Roaming/fnm/node-versions", "installation"),)
+    else:
+        found = [Path("/opt/homebrew/bin"), Path("/usr/local/bin"), home / ".volta" / "bin"]
+        roots = ((".nvm/versions/node", "bin"), (".fnm/node-versions", "installation/bin"))
+    for pattern, tail in roots:
         root = home / pattern
         if root.is_dir():
             versions = sorted(root.iterdir(), key=lambda p: _numbers(p.name), reverse=True)
@@ -106,7 +124,7 @@ def _numbers(name: str) -> tuple[int, ...]:
 def find_node(search_path: str | None = None) -> NodeInfo | None:
     """A usable system Node (on ``search_path``, default this process's ``PATH``, or in the usual places), else
     Alpine's own copy, else ``None``. Alpine's own bin on ``PATH`` is not a system Node."""
-    own = runtime_dir() / "bin"
+    own = _own_bin()
     seen: set[Path] = set()
     dirs = [
         Path(d) for d in (search_path if search_path is not None else os.environ.get("PATH", "")).split(os.pathsep) if d
@@ -115,12 +133,12 @@ def find_node(search_path: str | None = None) -> NodeInfo | None:
         if directory in seen or directory == own:
             continue
         seen.add(directory)
-        executable = directory / "node"
+        executable = directory / NODE_EXE
         if executable.is_file() and os.access(executable, os.X_OK):
             version = node_version(executable)
             if usable(version):
                 return NodeInfo(executable, version, False)  # type: ignore[arg-type]
-    executable = own / "node"
+    executable = own / NODE_EXE
     if executable.is_file():
         version = node_version(executable)
         if usable(version):
@@ -138,7 +156,7 @@ def status(search_path: str | None = None) -> NodeStatus:
 def use_node() -> NodeInfo | None:
     """Puts the chosen Node's ``bin`` first on this process's ``PATH``, so sessions, dev servers and builds find it.
     A system Node wins over Alpine's copy; when one appears later, Alpine's ``bin`` leaves ``PATH``."""
-    own = str(runtime_dir() / "bin")
+    own = str(_own_bin())
     parts = [p for p in os.environ.get("PATH", "").split(os.pathsep) if p and p != own]
     node = find_node(os.pathsep.join(parts))
     if node is not None and (node.alpine_managed or str(node.bin) not in parts):
@@ -172,7 +190,7 @@ def download(url: str, progress: Callable[[float], None] | None = None, timeout:
 def _target() -> str:
     machine = platform.machine().lower()
     arch = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "x64", "amd64": "x64"}.get(machine)
-    system = {"darwin": "darwin", "linux": "linux"}.get(sys.platform)
+    system = {"darwin": "darwin", "linux": "linux", "win32": "win"}.get(sys.platform)
     if arch is None or system is None:
         raise NodeInstallError("unsupported", f"Alpine cannot install Node.js on {sys.platform}/{machine}.")
     return f"{system}-{arch}"
@@ -188,9 +206,10 @@ def install(
             unpacked), or the archive could not be unpacked.
     """
     target = _target()
+    suffix = ".zip" if target.startswith("win-") else ".tar.gz"
     sums = _fetch_text(fetch, f"{dist_url}/SHASUMS256.txt")
     match = re.search(
-        rf"^([0-9a-f]{{64}})\s+(node-v\d+\.\d+\.\d+-{re.escape(target)}\.tar\.gz)\s*$", sums, re.MULTILINE
+        rf"^([0-9a-f]{{64}})\s+(node-v\d+\.\d+\.\d+-{re.escape(target)}{re.escape(suffix)})\s*$", sums, re.MULTILINE
     )
     if match is None:
         raise NodeInstallError("download", f"The Node.js release has no download for {target}.")
@@ -201,10 +220,10 @@ def install(
             raise NodeInstallError(
                 "checksum", "The downloaded Node.js does not match its published checksum. Nothing was installed."
             )
-        _unpack(archive, name.removesuffix(".tar.gz"))
+        _unpack(archive, name.removesuffix(suffix))
     finally:
         shutil.rmtree(archive.parent, ignore_errors=True)
-    own = runtime_dir() / "bin" / "node"
+    own = _own_bin() / NODE_EXE
     version = node_version(own)
     if version is None or not usable(version):
         raise NodeInstallError("unpack", "The installed Node.js did not run.")
@@ -235,15 +254,19 @@ def _sha256(file: Path) -> str:
 
 
 def _unpack(archive: Path, top: str) -> None:
-    """Unpacks the tarball beside the final folder, then swaps it in, so a half-written copy is never used."""
+    """Unpacks the archive beside the final folder, then swaps it in, so a half-written copy is never used."""
     final = runtime_dir()
     final.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix="node-", dir=final.parent))
     try:
-        with tarfile.open(archive) as tar:
-            tar.extractall(staging, filter="data")  # refuses paths outside the folder, links out of it, devices
+        if archive.name.endswith(".zip"):
+            with zipfile.ZipFile(archive) as zf:
+                zf.extractall(staging)  # zipfile drops ".." and absolute parts of member names
+        else:
+            with tarfile.open(archive) as tar:
+                tar.extractall(staging, filter="data")  # refuses paths outside the folder, links out of it, devices
         unpacked = staging / top
-        if not (unpacked / "bin" / "node").is_file():
+        if not (unpacked / ("node.exe" if archive.name.endswith(".zip") else "bin/node")).is_file():
             raise NodeInstallError("unpack", "The Node.js archive had an unexpected layout.")
         old = final.with_name(final.name + ".old")
         shutil.rmtree(old, ignore_errors=True)
@@ -251,7 +274,7 @@ def _unpack(archive: Path, top: str) -> None:
             final.rename(old)
         unpacked.rename(final)
         shutil.rmtree(old, ignore_errors=True)
-    except (tarfile.TarError, OSError) as e:
+    except (tarfile.TarError, zipfile.BadZipFile, OSError) as e:
         raise NodeInstallError("unpack", f"Unpacking Node.js failed: {e}") from e
     finally:
         shutil.rmtree(staging, ignore_errors=True)

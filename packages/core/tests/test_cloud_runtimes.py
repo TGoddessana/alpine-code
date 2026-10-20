@@ -6,6 +6,7 @@ import os
 import shutil
 import tarfile
 import tempfile
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -154,3 +155,30 @@ def test_an_installed_node_that_does_not_run_is_an_error(tmp_path):
     with pytest.raises(NodeInstallError) as e:
         runtimes.install(fetch=fetch, dist_url="https://nodejs.test/dist")
     assert e.value.kind == "unpack"
+
+
+def test_on_windows_the_zip_is_installed_with_node_exe_at_the_top(tmp_path, monkeypatch):
+    monkeypatch.setattr(runtimes.sys, "platform", "win32")
+    monkeypatch.setattr(runtimes.platform, "machine", lambda: "AMD64")
+    monkeypatch.setattr(runtimes, "WINDOWS", True)
+    monkeypatch.setattr(runtimes, "NODE_EXE", "node.exe")
+    # node.exe cannot run here, so its "version" is read from the fake file.
+    monkeypatch.setattr(runtimes, "node_version", lambda exe: (22, 14, 0) if Path(exe).is_file() else None)
+    name = "node-v22.14.0-win-x64"
+    archive = tmp_path / "dist" / f"{name}.zip"
+    archive.parent.mkdir(parents=True)
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr(f"{name}/node.exe", "fake")
+        zf.writestr(f"{name}/npm.cmd", "fake")
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    (tmp_path / "dist" / "SHASUMS256.txt").write_text(
+        f"{'0' * 64}  node-v22.14.0-darwin-arm64.tar.gz\n{digest}  {archive.name}\n"
+    )
+
+    def fetch(url, progress=None):
+        folder = Path(tempfile.mkdtemp(prefix="fake-download-"))
+        return Path(shutil.copy(tmp_path / "dist" / url.rsplit("/", 1)[-1], folder))
+
+    node = runtimes.install(fetch=fetch, dist_url="https://nodejs.test/dist")
+    assert node.path == runtimes.runtime_dir() / "node.exe" and node.alpine_managed
+    assert (runtimes.runtime_dir() / "npm.cmd").is_file()

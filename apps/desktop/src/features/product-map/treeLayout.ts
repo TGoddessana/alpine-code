@@ -7,7 +7,7 @@ import { tally, worst, type PromiseStatus, type TreeMap } from './flowTreeModel'
  * step, promise), so the whole map stays one even, readable sheet.
  */
 
-export type NodeKind = 'band' | 'start' | 'journey' | 'step' | 'promise' | 'addJourney' | 'addPerson';
+export type NodeKind = 'band' | 'start' | 'journey' | 'step' | 'addJourney' | 'addPerson';
 
 export interface LaidNode {
   id: string;
@@ -31,50 +31,31 @@ export const stepId = (journeyId: string, cardId: string) => `step:${journeyId}/
 export const promiseNodeId = (journeyId: string, cardId: string, promiseId: string) =>
   `promise:${journeyId}/${cardId}/${promiseId}`;
 
-const NODE_H = 32;
-const LEAF_H = 26;
-const LEAF_GAP = 6;
-const LEAF_TOP = 12;
-/** How far right of its step a promise starts; the branch runs down this gutter. */
-export const LEAF_INDENT = 28;
-export const BRANCH_X = 12;
-const ROW_GAP = 14;
-const BAND_TOP = 44;
-const BAND_BOTTOM = 28;
+/** A card's top line (its label) sits this far down; lines join cards there, so a row reads as one straight line. */
+export const ANCHOR_Y = 22;
+/** Promises a closed step card lists; an open one lists them all. */
+export const CHECKLIST_ROWS = 4;
+const CHECK_ROW = 20;
+const CARD_H = 124 + CHECKLIST_ROWS * CHECK_ROW;
+const START_W = 216;
+const JOURNEY_W = 264;
+const STEP_W = 288;
+const ROW_GAP = 20;
+const BAND_TOP = 48;
+const BAND_BOTTOM = 32;
 const LEFT = 28;
-const START_REACH = 56;
+const START_REACH = 48;
 const STEP_REACH = 40;
-const MAX = { start: 240, journey: 240, step: 300, promise: 320 } as const;
 
-export type Measure = (text: string, size: 'body' | 'meta') => number;
+/** A step card is as tall as its checklist: four promises while closed, all of them once opened. */
+export function stepHeight(promises: number, open: boolean) {
+  return open ? CARD_H + Math.max(0, promises - CHECKLIST_ROWS) * CHECK_ROW : CARD_H;
+}
 
-export function layoutTree(map: TreeMap, openSteps: Set<string>, measure: Measure = measureText): LaidNode[] {
+export function layoutTree(map: TreeMap, openSteps: Set<string>): LaidNode[] {
   const nodes: LaidNode[] = [];
-  const width = (max: number, ...parts: number[]) => Math.min(max, Math.ceil(parts.reduce((sum, n) => sum + n, 0)));
-  // One column for every band, so starts, journeys and first steps line up down the whole sheet.
-  const startW = Math.max(
-    120,
-    ...map.people.map((person) => width(MAX.start, 28, measure(person.start.ko || person.name.ko, 'body'))),
-  );
-  const journeyW = Math.max(
-    140,
-    ...map.people.flatMap((person) =>
-      person.journeys.map((journey) => width(MAX.journey, 64, measure(journey.title.ko, 'body'))),
-    ),
-  );
-  const xJourney = LEFT + startW + START_REACH;
-  const xSteps = xJourney + journeyW + STEP_REACH;
-  // Steps line up in columns down the whole sheet: the n-th step of every journey shares one width and one x.
-  const columns: number[] = [];
-  for (const person of map.people)
-    for (const journey of person.journeys)
-      journey.steps.forEach((cardId, index) => {
-        const card = map.cards[cardId];
-        if (!card) return;
-        columns[index] = Math.max(columns[index] ?? 160, width(MAX.step, 40, measure(card.title, 'body'), 64));
-      });
-  const columnX = columns.map((_, index) => columns.slice(0, index).reduce((sum, w) => sum + w + STEP_REACH, xSteps));
-
+  const xJourney = LEFT + START_W + START_REACH;
+  const xSteps = xJourney + JOURNEY_W + STEP_REACH;
   let y = 0;
   let right = xSteps;
   map.people.forEach((person, personIndex) => {
@@ -89,8 +70,8 @@ export function layoutTree(map: TreeMap, openSteps: Set<string>, measure: Measur
       parent: band,
       x: LEFT,
       y: rowY,
-      w: startW,
-      h: NODE_H,
+      w: START_W,
+      h: CARD_H,
       personId: person.id,
       index: 0,
     });
@@ -102,58 +83,37 @@ export function layoutTree(map: TreeMap, openSteps: Set<string>, measure: Measur
         parent: startNode,
         x: xJourney,
         y: rowY,
-        w: journeyW,
-        h: NODE_H,
+        w: JOURNEY_W,
+        h: CARD_H,
         personId: person.id,
         journeyId: journey.id,
         index: journeyIndex,
       });
       let previous = journeyNode;
-      let rowH = NODE_H;
+      let rowH = CARD_H;
       journey.steps.forEach((cardId, stepIndex) => {
         const card = map.cards[cardId];
         if (!card) return;
         const id = stepId(journey.id, cardId);
-        const w = columns[stepIndex]!;
-        const x = columnX[stepIndex]!;
+        const h = stepHeight(card.promises.length, openSteps.has(id));
+        const x = xSteps + stepIndex * (STEP_W + STEP_REACH);
         nodes.push({
           id,
           kind: 'step',
           parent: previous,
           x,
           y: rowY,
-          w,
-          h: NODE_H,
+          w: STEP_W,
+          h,
           personId: person.id,
           journeyId: journey.id,
           cardId,
           index: stepIndex,
           status: worst(tally(card.promises)),
         });
-        if (openSteps.has(id)) {
-          let leafY = rowY + NODE_H + LEAF_TOP;
-          card.promises.forEach((promise, promiseIndex) => {
-            nodes.push({
-              id: promiseNodeId(journey.id, cardId, promise.id),
-              kind: 'promise',
-              parent: id,
-              x: x + LEAF_INDENT,
-              y: leafY,
-              w: width(MAX.promise, 38, measure(promise.when || promise.then, 'meta'), 64),
-              h: LEAF_H,
-              personId: person.id,
-              journeyId: journey.id,
-              cardId,
-              promiseId: promise.id,
-              index: promiseIndex,
-              status: promise.status,
-            });
-            leafY += LEAF_H + LEAF_GAP;
-          });
-          rowH = Math.max(rowH, leafY - LEAF_GAP - rowY);
-        }
+        rowH = Math.max(rowH, h);
         previous = id;
-        right = Math.max(right, x + w + STEP_REACH);
+        right = Math.max(right, x + STEP_W + STEP_REACH);
       });
       rowY += rowH + ROW_GAP;
     });
@@ -164,11 +124,11 @@ export function layoutTree(map: TreeMap, openSteps: Set<string>, measure: Measur
       x: xJourney,
       y: rowY,
       w: 120,
-      h: 26,
+      h: 28,
       personId: person.id,
       index: person.journeys.length,
     });
-    rowY += 26;
+    rowY += 28;
     y = rowY + BAND_BOTTOM;
     nodes.splice(bandIndex, 0, {
       id: band,
@@ -196,38 +156,6 @@ export function layoutTree(map: TreeMap, openSteps: Set<string>, measure: Measur
   });
   return nodes;
 }
-
-/** A rough width without a browser to measure in (tests): Hangul and capitals count fuller. */
-function estimate(text: string, size: 'body' | 'meta') {
-  const em = size === 'body' ? 13 : 12;
-  let total = 0;
-  for (const char of text) total += /[ㄱ-힝]/.test(char) ? em : /[A-Z0-9]/.test(char) ? em * 0.64 : em * 0.54;
-  return total;
-}
-
-let context: CanvasRenderingContext2D | null | undefined;
-const widths = new Map<string, number>();
-
-/** The width of a label in the app's font, measured once in a canvas; the estimate where there is no canvas. */
-export const measureText: Measure = (text, size) => {
-  const key = `${size}|${text}`;
-  const known = widths.get(key);
-  if (known !== undefined) return known;
-  if (context === undefined) {
-    try {
-      context = document.createElement('canvas').getContext('2d');
-    } catch {
-      context = null;
-    }
-  }
-  let result = estimate(text, size);
-  if (context) {
-    context.font = `${size === 'body' ? 13 : 12}px 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif`;
-    result = context.measureText(text).width;
-  }
-  widths.set(key, result);
-  return result;
-};
 
 export function bounds(nodes: { x: number; y: number; w: number; h: number }[]) {
   if (!nodes.length) return { x: 0, y: 0, w: 0, h: 0 };

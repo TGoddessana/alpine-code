@@ -1,6 +1,23 @@
 import { Button, LinkButton } from '@alpine/ui/primitives';
 import clsx from 'clsx';
-import { ChevronsDownUp, ChevronsUpDown, DoorOpen, LoaderCircle, Plus } from 'lucide-react';
+import {
+  AppWindow,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Circle,
+  CircleCheck,
+  CircleDashed,
+  CircleSlash,
+  CircleX,
+  Database,
+  DoorOpen,
+  FileCode,
+  LoaderCircle,
+  Package,
+  Plus,
+  Webhook,
+  Workflow,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { useFormat, useMessages } from '@/shared/i18n';
@@ -15,6 +32,7 @@ import {
   type Person,
   type PromiseStatus,
   type Tally,
+  type TreeCard,
   type TreeMap,
   type TreePromise,
 } from './flowTreeModel';
@@ -31,7 +49,7 @@ import {
   useText,
   type PromiseTarget,
 } from './treeParts';
-import { layoutTree, promiseNodeId, stepId, type LaidNode } from './treeLayout';
+import { CHECKLIST_ROWS, layoutTree, stepId, type LaidNode } from './treeLayout';
 
 export type { PromiseTarget } from './treeParts';
 
@@ -67,9 +85,8 @@ const focusNodeId = (focus: Focus | null): string | null => {
     case 'journey':
       return `journey:${focus.journeyId}`;
     case 'step':
-      return stepId(focus.journeyId, focus.cardId);
     case 'promise':
-      return promiseNodeId(focus.journeyId, focus.cardId, focus.promiseId);
+      return stepId(focus.journeyId, focus.cardId);
     case 'addJourney':
       return `add-journey:${focus.personId}`;
     case 'addPerson':
@@ -133,7 +150,14 @@ export function FlowTree(props: FlowTreeProps) {
   const initialFocus = useMemo(
     () =>
       first
-        ? nodes.filter((node) => node.personId === first.id && node.kind !== 'band').map((node) => node.id)
+        ? nodes
+            .filter(
+              (node) =>
+                node.id === `start:${first.id}` ||
+                (node.journeyId !== undefined && node.journeyId === first.journeys[0]?.id) ||
+                (node.journeyId !== undefined && node.journeyId === first.journeys[1]?.id),
+            )
+            .map((node) => node.id)
         : undefined,
     // Only the first layout decides the first view.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -156,7 +180,7 @@ export function FlowTree(props: FlowTreeProps) {
     if (!journey) return;
     setOpenSteps((current) => new Set(current).add(stepId(journey.id, target.cardId)));
     setFocus({ kind: 'promise', personId, journeyId: journey.id, ...target });
-    reveal(promiseNodeId(journey.id, target.cardId, target.promiseId));
+    reveal(stepId(journey.id, target.cardId));
   };
 
   const removePromise = (target: PromiseTarget) => {
@@ -191,15 +215,6 @@ export function FlowTree(props: FlowTreeProps) {
         setFocus({ kind: 'step', personId: node.personId!, journeyId: node.journeyId!, cardId: node.cardId! });
         return;
       }
-      case 'promise':
-        setFocus({
-          kind: 'promise',
-          personId: node.personId!,
-          journeyId: node.journeyId!,
-          cardId: node.cardId!,
-          promiseId: node.promiseId!,
-        });
-        return;
       case 'addJourney':
         setFocus({ kind: 'addJourney', personId: node.personId! });
         return;
@@ -270,12 +285,13 @@ export function FlowTree(props: FlowTreeProps) {
 // ---------------------------------------------------------------- nodes
 
 const nodeButton =
-  'group flex size-full cursor-pointer items-center gap-2 text-left transition-[box-shadow,border-color,background-color,filter] duration-(--motion-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-interactive';
+  'group flex size-full cursor-pointer flex-col text-left transition-[box-shadow,border-color,background-color,filter] duration-(--motion-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-interactive';
 const pickedRing = 'ring-2 ring-interactive ring-offset-2 ring-offset-canvas';
 
 /**
- * The fill says the level, as in a flow diagram: the way in is dark, a journey is the strong blue, a step the light
- * blue, a promise a white leaf. A status shows as a word only where something needs a look.
+ * Cards in a flow diagram's colours: the way in is dark, a journey carries the strong blue on its label, a step is a
+ * white card whose checklist says how each promise stands. Every card reads on its own: what it is, one line of what
+ * it does, and what is known to hold.
  */
 function NodeView({
   node,
@@ -293,14 +309,12 @@ function NodeView({
   onPress: () => void;
 }) {
   const t = useMessages(messages);
-  const text = useText();
   const person = node.personId ? map.people.find((candidate) => candidate.id === node.personId) : undefined;
-  const shell = (className: string, children: ReactNode, label?: string) => (
+  const shell = (className: string, children: ReactNode) => (
     <button
       type="button"
-      aria-label={label}
       aria-pressed={picked}
-      title={label}
+      aria-expanded={node.kind === 'step' ? open : undefined}
       onClick={onPress}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
@@ -316,32 +330,15 @@ function NodeView({
     case 'start':
       if (!person) return null;
       return shell(
-        'rounded-md bg-brand-ink px-3 text-on-fill hover:brightness-125',
-        <>
-          <DoorOpen size={13} aria-hidden className="shrink-0 opacity-70" />
-          <span className="truncate">{text(person.start) || text(person.name)}</span>
-        </>,
+        'rounded-xl bg-brand-ink p-3.5 text-on-fill hover:brightness-125',
+        <StartCard map={map} person={person} />,
       );
     case 'journey': {
       const journey = person?.journeys.find((candidate) => candidate.id === node.journeyId);
       if (!journey) return null;
-      const counts = journeyTally(map, journey);
       return shell(
-        'justify-between rounded-md bg-interactive px-3 text-on-fill hover:bg-interactive-hover',
-        <>
-          <span className="truncate">{text(journey.title)}</span>
-          {counts.failed > 0 ? (
-            <span className="shrink-0 rounded-sm bg-canvas-raised px-1.5 text-meta text-danger">
-              {t.failed} {counts.failed}
-            </span>
-          ) : (
-            counts.total > 0 && (
-              <span className="shrink-0 text-meta tabular-nums opacity-70">
-                {t.fraction(counts.passed, counts.total)}
-              </span>
-            )
-          )}
-        </>,
+        'rounded-xl border border-line bg-canvas-raised p-3.5 hover:border-interactive',
+        <JourneyCard map={map} journey={journey} />,
       );
     }
     case 'step': {
@@ -350,31 +347,189 @@ function NodeView({
       const counts = tally(card.promises);
       return shell(
         clsx(
-          'justify-between rounded-md border bg-selected px-3',
-          counts.failed ? 'border-danger' : open ? 'border-interactive' : 'border-transparent hover:border-interactive',
+          'rounded-xl border bg-canvas-raised p-3.5',
+          counts.failed ? 'border-danger' : open ? 'border-interactive' : 'border-line hover:border-interactive',
           counts.checking > 0 && 'motion-sweep',
         ),
-        <>
-          <span className="truncate">{card.title}</span>
-          <StepStatus counts={counts} />
-        </>,
+        <StepCard card={card} number={node.index + 1} open={open} />,
       );
-    }
-    case 'promise': {
-      const promise = map.cards[node.cardId!]?.promises.find((item) => item.id === node.promiseId);
-      if (!promise) return null;
-      return <PromiseLeaf promise={promise} picked={picked} onHover={onHover} onPress={onPress} />;
     }
     case 'addJourney':
     case 'addPerson':
       return shell(
-        'justify-center rounded-md border border-dashed border-line text-meta text-fg-muted hover:border-interactive hover:text-fg',
+        'flex-row items-center justify-center gap-1.5 rounded-md border border-dashed border-line text-meta text-fg-muted hover:border-interactive hover:text-fg',
         <>
           <Plus size={12} aria-hidden />
           {node.kind === 'addJourney' ? t.addJourney : t.addPerson}
         </>,
       );
   }
+}
+
+/** The small first line of every card: what kind of card it is, and its loudest status on the right. */
+function CardLabel({ children, end, inverted }: { children: ReactNode; end?: ReactNode; inverted?: boolean }) {
+  return (
+    <span
+      className={clsx(
+        'flex h-5 shrink-0 items-center justify-between gap-2 text-meta',
+        inverted ? 'text-on-fill/70' : 'text-fg-muted',
+      )}
+    >
+      <span className="flex min-w-0 items-center gap-1.5">{children}</span>
+      {end}
+    </span>
+  );
+}
+
+function StartCard({ map, person }: { map: TreeMap; person: Person }) {
+  const t = useMessages(messages);
+  const text = useText();
+  const counts = personTally(map, person);
+  return (
+    <>
+      <CardLabel inverted>
+        <DoorOpen size={13} aria-hidden />
+        {t.startsWith}
+      </CardLabel>
+      <span className="mt-2 line-clamp-3 shrink-0 text-title">{text(person.start) || text(person.name)}</span>
+      <span className="mt-auto flex flex-col gap-1.5">
+        <span className="text-meta text-on-fill/70">{t.journeys(person.journeys.length)}</span>
+        <span className="text-meta tabular-nums">{t.promiseSummary(counts.passed, counts.total)}</span>
+        {counts.total > 0 && <Progress counts={counts} wide inverted />}
+      </span>
+    </>
+  );
+}
+
+function JourneyCard({ map, journey }: { map: TreeMap; journey: Journey }) {
+  const t = useMessages(messages);
+  const text = useText();
+  const counts = journeyTally(map, journey);
+  const trigger = journey.trigger ? text(journey.trigger) : '';
+  return (
+    <>
+      <CardLabel end={<LoudStatus counts={counts} />}>
+        <span className="rounded-sm bg-interactive px-1.5 text-on-fill">{t.legendJourney}</span>
+        {t.stepsCount(journey.steps.length)}
+      </CardLabel>
+      <span className="mt-2 line-clamp-2 shrink-0 text-title">{text(journey.title)}</span>
+      {trigger && (
+        <span className="mt-2 flex shrink-0 items-start gap-1.5 text-meta text-fg-muted">
+          <DoorOpen size={12} aria-hidden className="mt-1 shrink-0" />
+          <span className="line-clamp-2">{trigger}</span>
+        </span>
+      )}
+      {text(journey.goal) && <span className="mt-2 line-clamp-2 shrink-0 text-meta text-fg">{text(journey.goal)}</span>}
+      <span className="mt-auto flex items-center gap-3 pt-2 text-meta text-fg-muted">
+        <span className="shrink-0 tabular-nums">{t.promiseSummary(counts.passed, counts.total)}</span>
+        {counts.total > 0 && <Progress counts={counts} wide />}
+      </span>
+    </>
+  );
+}
+
+const kindIcons = { screen: AppWindow, api: Webhook, sdk: Package, process: Workflow, data: Database } as const;
+const kindWords = {
+  screen: 'kindScreen',
+  api: 'kindApi',
+  sdk: 'kindSdk',
+  process: 'kindProcess',
+  data: 'kindData',
+} as const;
+/** Worst first, so a closed card shows what needs a look before what is fine. */
+const CHECK_ORDER: PromiseStatus[] = ['failed', 'checking', 'blocked', 'planned', 'unconfirmed', 'passed'];
+
+function StepCard({ card, number, open }: { card: TreeCard; number: number; open: boolean }) {
+  const t = useMessages(messages);
+  const format = useFormat();
+  const counts = tally(card.promises);
+  const kind = card.kind ?? 'process';
+  const KindIcon = kindIcons[kind];
+  const ordered = open
+    ? card.promises
+    : [...card.promises].sort((a, b) => CHECK_ORDER.indexOf(a.status) - CHECK_ORDER.indexOf(b.status));
+  const shown = open ? ordered : ordered.slice(0, CHECKLIST_ROWS);
+  const more = card.promises.length - shown.length;
+  const source = card.sources?.[0];
+  const checked = card.promises
+    .map((promise) => promise.checkedAt)
+    .filter((at): at is string => Boolean(at))
+    .sort()
+    .at(-1);
+  return (
+    <>
+      <CardLabel end={<LoudStatus counts={counts} />}>
+        <span className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-selected text-fg tabular-nums">
+          {number}
+        </span>
+        <KindIcon size={12} aria-hidden className="shrink-0" />
+        {t[kindWords[kind]]}
+      </CardLabel>
+      <span className="mt-1.5 shrink-0 truncate font-medium">{card.title}</span>
+      {card.description && <span className="shrink-0 truncate text-meta text-fg-muted">{card.description}</span>}
+      <ul className="mt-2 flex shrink-0 flex-col">
+        {shown.map((promise) => (
+          <CheckRow key={promise.id} promise={promise} />
+        ))}
+        {card.promises.length === 0 && <li className="text-meta text-fg-faint">{t.noPromises}</li>}
+      </ul>
+      <span className="mt-auto flex items-center justify-between gap-2 pt-2 text-meta text-fg-muted">
+        <span className="flex min-w-0 items-center gap-1">
+          {source && (
+            <>
+              <FileCode size={12} aria-hidden className="shrink-0" />
+              <span className="truncate font-mono">{source.split('/').at(-1)}</span>
+              {card.sources!.length > 1 && <span className="shrink-0">+{card.sources!.length - 1}</span>}
+            </>
+          )}
+        </span>
+        <span className="shrink-0">
+          {more > 0
+            ? t.morePromises(more)
+            : checked
+              ? t.checkedOn(format.date(new Date(checked)))
+              : t.passedOf(counts.passed, counts.total)}
+        </span>
+      </span>
+    </>
+  );
+}
+
+const checkIcons: Record<PromiseStatus, [typeof Circle, string]> = {
+  failed: [CircleX, 'text-danger'],
+  checking: [LoaderCircle, 'text-interactive motion-spin'],
+  blocked: [CircleSlash, 'text-attention'],
+  unconfirmed: [Circle, 'text-fg-faint'],
+  planned: [CircleDashed, 'text-fg-faint'],
+  passed: [CircleCheck, 'text-interactive'],
+};
+
+/** One promise as a checklist line: a tick once a check saw it hold, an empty circle while nobody looked. */
+function CheckRow({ promise }: { promise: TreePromise }) {
+  const t = useMessages(messages);
+  const settled = useSettled(promise.status);
+  const [Icon, color] = checkIcons[promise.status];
+  return (
+    <li
+      className={clsx(
+        'flex h-5 min-w-0 items-center gap-2 rounded-sm text-meta',
+        promise.status === 'failed' ? 'text-danger' : promise.status === 'passed' ? 'text-fg' : 'text-fg-muted',
+        settled && 'motion-arrive',
+      )}
+      title={`${t[promise.status]} · ${promise.then}`}
+    >
+      <Icon size={13} aria-hidden className={clsx('shrink-0', color)} />
+      <span className="truncate">{promise.when ? `${promise.when} → ${promise.then}` : promise.then}</span>
+    </li>
+  );
+}
+
+function LoudStatus({ counts }: { counts: Tally }) {
+  const t = useMessages(messages);
+  const loud = (['failed', 'checking', 'blocked'] as PromiseStatus[]).find((status) => counts[status] > 0);
+  if (loud) return <StatusMark status={loud} count={counts[loud]} />;
+  if (counts.total && counts.passed === counts.total) return <StatusMark status="passed" />;
+  return counts.total ? <span className="tabular-nums">{t.fraction(counts.passed, counts.total)}</span> : null;
 }
 
 /** A band's name tag, top left: who this band is about and how much of theirs holds. */
@@ -410,64 +565,13 @@ function BandLabel({
   );
 }
 
-function StepStatus({ counts }: { counts: Tally }) {
-  const t = useMessages(messages);
-  const loud = (['failed', 'checking', 'blocked'] as PromiseStatus[]).find((status) => counts[status] > 0);
-  if (loud) return <StatusMark status={loud} count={counts[loud]} />;
-  if (!counts.total) return null;
-  return (
-    <span className="shrink-0 text-meta text-fg-muted tabular-nums">{t.fraction(counts.passed, counts.total)}</span>
-  );
-}
-
-function PromiseLeaf({
-  promise,
-  picked,
-  onHover,
-  onPress,
-}: {
-  promise: TreePromise;
-  picked: boolean;
-  onHover: (on: boolean) => void;
-  onPress: () => void;
-}) {
-  const t = useMessages(messages);
-  const settled = useSettled(promise.status);
-  return (
-    <button
-      type="button"
-      aria-pressed={picked}
-      title={`${promise.when || t.always} → ${promise.then}`}
-      onClick={onPress}
-      onMouseEnter={() => onHover(true)}
-      onMouseLeave={() => onHover(false)}
-      className={clsx(
-        nodeButton,
-        'justify-between rounded-full border bg-canvas-raised px-3 text-meta',
-        promise.status === 'failed'
-          ? 'border-danger text-danger'
-          : promise.status === 'blocked'
-            ? 'border-attention'
-            : 'border-line hover:border-interactive',
-        promise.status === 'checking' && 'motion-sweep',
-        settled && 'motion-arrive',
-        picked && pickedRing,
-      )}
-    >
-      <span className="truncate">{promise.when || t.always}</span>
-      <StatusMark status={promise.status} />
-    </button>
-  );
-}
-
 /** What the fills mean, top right, as a flow diagram has it. */
 function Legend() {
   const t = useMessages(messages);
   const items: [string, string][] = [
     ['bg-brand-ink', t.legendStart],
     ['bg-interactive', t.legendJourney],
-    ['bg-selected border border-line', t.legendStep],
-    ['bg-canvas-raised border border-line rounded-full', t.legendPromise],
+    ['bg-canvas-raised border border-line', t.legendStep],
   ];
   return (
     <div className="pointer-events-none absolute top-4 right-4 flex items-center gap-3 rounded-lg bg-canvas/80 px-3 py-1.5 text-meta whitespace-nowrap text-fg-muted backdrop-blur-sm">

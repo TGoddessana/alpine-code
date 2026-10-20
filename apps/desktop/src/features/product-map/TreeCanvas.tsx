@@ -14,7 +14,7 @@ import {
 import { useMessages } from '@/shared/i18n';
 
 import { flowTreeMessages as messages } from './flowTreeMessages';
-import { BRANCH_X, bounds, type LaidNode } from './treeLayout';
+import { ANCHOR_Y, bounds, type LaidNode } from './treeLayout';
 
 /** A node as drawn this frame: where it is on its way to its laid-out place, and how visible. */
 export interface ShownNode extends LaidNode {
@@ -297,27 +297,17 @@ function elbow(x1: number, y1: number, x2: number, y2: number, spine: number) {
 }
 
 /**
- * A line into a node, like a flow diagram's: from a person's start along one spine to each journey, straight on from
- * a journey through its steps, and down a step's gutter into each promise. Lines are thin and grey; the path to what
- * is pointed at turns blue. Into a promise, the line says how it stands: dashed while nobody checked it, red when it
- * broke, running while it is checked.
+ * A line into a card, like a flow diagram's: from a person's start along one spine to each journey, and straight on
+ * from a journey through its steps. Lines join cards at their top line, so a row stays straight when a card opens
+ * taller. Thin and grey; the path to what is pointed at turns blue, and runs while something on it is checked.
  */
 function Edge({ parent, child, on, opacity }: { parent: ShownNode; child: ShownNode; on: boolean; opacity: number }) {
   if (parent.kind === 'band' || child.kind === 'band' || child.kind === 'addPerson') return null;
-  let d: string;
-  if (child.kind === 'promise') {
-    const x = parent.x + BRANCH_X;
-    const y = child.y + child.h / 2;
-    const r = 6;
-    d = `M ${x} ${parent.y + parent.h} L ${x} ${y - r} Q ${x} ${y} ${x + r} ${y} L ${child.x} ${y}`;
-  } else {
-    const x1 = parent.x + parent.w;
-    const y1 = parent.y + parent.h / 2;
-    const x2 = child.x;
-    const y2 = child.y + child.h / 2;
-    d = elbow(x1, y1, x2, y2, x1 + Math.min(28, (x2 - x1) / 2));
-  }
-  const status = child.kind === 'promise' ? child.status : null;
+  const x1 = parent.x + parent.w;
+  const y1 = parent.y + ANCHOR_Y;
+  const x2 = child.x;
+  const y2 = child.y + (child.kind === 'addJourney' ? child.h / 2 : ANCHOR_Y);
+  const d = elbow(x1, y1, x2, y2, x1 + Math.min(24, (x2 - x1) / 2));
   return (
     <path
       d={d}
@@ -328,11 +318,10 @@ function Edge({ parent, child, on, opacity }: { parent: ShownNode; child: ShownN
       opacity={opacity}
       className={clsx(
         'transition-[stroke] duration-(--motion-fast)',
-        status === 'failed' ? 'stroke-danger' : on || status === 'checking' ? 'stroke-interactive' : 'stroke-fg-faint',
-        !on && status !== 'failed' && status !== 'checking' && 'opacity-50',
-        (child.kind === 'addJourney' || status === 'unconfirmed' || status === 'planned' || status === 'blocked') &&
-          '[stroke-dasharray:3_4]',
-        status === 'checking' && 'motion-flow [stroke-dasharray:6_6]',
+        on || child.status === 'checking' ? 'stroke-interactive' : 'stroke-fg-faint',
+        !on && child.status !== 'checking' && 'opacity-50',
+        child.kind === 'addJourney' && '[stroke-dasharray:3_4]',
+        child.status === 'checking' && 'motion-flow [stroke-dasharray:6_6]',
       )}
     />
   );

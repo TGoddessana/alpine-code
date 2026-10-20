@@ -20,12 +20,32 @@ export interface TreePromise {
   /** The last check's own sentence: what was seen, or why it could not be checked. */
   note: string;
   checkedAt: string | null;
+  /** What the last check tried, in order (해본 것). */
+  steps?: string[];
+  /** What it saw while trying (본 것). */
+  seen?: string[];
+  /** What it could not check (확인 못 한 것). */
+  limits?: string[];
+  /** Where it was checked, e.g. "로컬 개발 서버". */
+  environment?: string;
 }
+
+/** What a card is, read from the code: something a person sees, an API, a library call, or work done on its own. */
+export type CardKind = 'screen' | 'api' | 'sdk' | 'process' | 'data';
 
 export interface TreeCard {
   id: string;
   title: string;
   promises: TreePromise[];
+  /** One or two plain sentences of what it does, written from the code. */
+  description?: string;
+  kind?: CardKind;
+  tags?: string[];
+  /** The files it lives in, most telling first. */
+  sources?: string[];
+  /** What a person needs to try it themselves. */
+  howToTry?: string;
+  example?: string;
 }
 
 export interface Localized {
@@ -38,6 +58,8 @@ export interface Journey {
   title: Localized;
   /** One sentence of what the journey lets the person do. */
   goal: Localized;
+  /** Who starts the journey and what they do first. */
+  trigger?: Localized;
   /** Card ids in the order the person meets them. A card may sit in several journeys. */
   steps: string[];
 }

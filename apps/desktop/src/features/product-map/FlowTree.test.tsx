@@ -122,10 +122,14 @@ describe('FlowTree', () => {
     expect(within(pay[0]!).getByText('실패')).toBeTruthy();
   });
 
-  it('pressing a step opens its promises below it as leaves', async () => {
+  it('a step card lists its promises as a checklist, the broken one first, and opens to list them all', () => {
     mount();
-    fireEvent.click(screen.getAllByRole('button', { name: /결제하기/ })[0]!);
-    expect(await screen.findByRole('button', { name: /카드가 거절되면/ })).toBeTruthy();
+    const pay = screen.getAllByRole('button', { name: /결제하기/ })[0]!;
+    const rows = within(pay).getAllByRole('listitem');
+    expect(rows[0]!.textContent).toContain('카드가 거절되면');
+    expect(pay.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(pay);
+    expect(screen.getAllByRole('button', { name: /결제하기/ })[0]!.getAttribute('aria-expanded')).toBe('true');
   });
 
   it('asks to fix the broken promises and to check the unchecked ones', () => {

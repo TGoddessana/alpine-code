@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useRef, useState } from 'react';
 
 import { FlowTree, type PromiseTarget } from './FlowTree';
+import { ALPINE_TREE } from './alpineTreeExample';
 import { POSTGRES_TREE } from './flowTreeExample';
 import { updatePromises, type TreeMap, type TreePromise } from './flowTreeModel';
 
@@ -169,7 +170,7 @@ const MIXED: TreeMap = updatePromises(POSTGRES_TREE, (cardId, promise) => {
 const meta = {
   title: 'Features/Product map/Flow tree',
   component: Harness,
-  args: { start: POSTGRES_TREE },
+  args: { start: ALPINE_TREE },
   decorators: [
     (Story) => (
       <div className="flex h-screen w-full">
@@ -182,13 +183,17 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** postgres-ultracode's real map: 103 cards, 535 promises, the checks it really ran. */
-export const PostgreSQL: Story = {};
+/** alpine-code's own map, with everything read from the code: kinds, one-line descriptions, sources, check notes. */
+export const AlpineCode: Story = {};
+/** Every checklist open at once. */
+export const AlpineCodeOpen: Story = { args: { allOpen: true } };
+/** postgres-ultracode's map: 103 cards, 535 promises, titles and promises only. */
+export const PostgreSQL: Story = { args: { start: POSTGRES_TREE } };
 /** A promise broke, another step is being checked: what to do first comes to the top. */
 export const SomethingBroke: Story = { args: { start: MIXED } };
 /** Every step's promises open at once: the whole map, 535 promises. */
-export const EverythingOpen: Story = { args: { allOpen: true } };
-export const Operator: Story = { args: { initialPerson: 'ops' } };
+export const EverythingOpen: Story = { args: { start: POSTGRES_TREE, allOpen: true } };
+export const Operator: Story = { args: { start: POSTGRES_TREE, initialPerson: 'ops' } };
 export const English: Story = { globals: { locale: 'en' } };
 /** A person just added: no journeys yet. */
 export const NewPerson: Story = {

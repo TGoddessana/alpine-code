@@ -64,15 +64,19 @@ export function Avatar({ person, large, small }: { person: Person; large?: boole
   );
 }
 
-export function Progress({ counts, wide }: { counts: Tally; wide?: boolean }) {
+export function Progress({ counts, wide, inverted }: { counts: Tally; wide?: boolean; inverted?: boolean }) {
   const share = counts.total ? (counts.passed / counts.total) * 100 : 0;
   return (
     <span
       aria-hidden
-      className={clsx('block overflow-hidden rounded-full bg-line-subtle', wide ? 'h-1.5 w-full' : 'h-1 w-14')}
+      className={clsx(
+        'block overflow-hidden rounded-full',
+        inverted ? 'bg-on-fill/20' : 'bg-line-subtle',
+        wide ? 'h-1.5 w-full' : 'h-1 w-14',
+      )}
     >
       <span
-        className="block h-full rounded-full bg-interactive"
+        className={clsx('block h-full rounded-full', inverted ? 'bg-on-fill' : 'bg-interactive')}
         style={{ width: `${share}%`, transition: 'width var(--motion-panel) var(--motion-ease)' }}
       />
     </span>
@@ -278,16 +282,20 @@ export function Detail({
           {crumbs}
           <StatusMark status={promise.status} />
         </div>
-        <dl className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <dt className="text-meta text-fg-muted">{t.when}</dt>
-            <dd className="text-reading">{promise.when || t.always}</dd>
-          </div>
-          <div className="flex flex-col gap-1">
-            <dt className="text-meta text-fg-muted">{t.then}</dt>
-            <dd className="text-reading">{promise.then}</dd>
-          </div>
-        </dl>
+        {promise.when ? (
+          <dl className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <dt className="text-meta text-fg-muted">{t.when}</dt>
+              <dd className="text-reading">{promise.when}</dd>
+            </div>
+            <div className="flex flex-col gap-1">
+              <dt className="text-meta text-fg-muted">{t.then}</dt>
+              <dd className="text-reading">{promise.then}</dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="text-reading">{promise.then}</p>
+        )}
         <section className="flex flex-col gap-1.5 rounded-lg border border-line bg-canvas-raised p-3">
           <h3 className="text-meta text-fg-muted">{t.lastCheck}</h3>
           {promise.status === 'checking' ? (
@@ -300,8 +308,15 @@ export function Detail({
           ) : promise.note ? (
             <>
               <p className={clsx(promise.status === 'failed' && 'text-danger')}>{promise.note}</p>
-              {promise.checkedAt && (
-                <p className="text-meta text-fg-faint">{t.checkedOn(format.date(new Date(promise.checkedAt)))}</p>
+              <CheckList title={t.tried} items={promise.steps} />
+              <CheckList title={t.saw} items={promise.seen} />
+              <CheckList title={t.couldNot} items={promise.limits} tone="attention" />
+              {(promise.environment || promise.checkedAt) && (
+                <p className="text-meta text-fg-faint">
+                  {[promise.environment, promise.checkedAt && t.checkedOn(format.date(new Date(promise.checkedAt)))]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
               )}
             </>
           ) : (
@@ -341,6 +356,13 @@ export function Detail({
         <h2 className="text-title">{card.title}</h2>
         <span className="text-meta text-fg-muted tabular-nums">{t.promiseSummary(counts.passed, counts.total)}</span>
       </div>
+      {card.description && <p className="text-reading">{card.description}</p>}
+      {card.howToTry && (
+        <section className="flex flex-col gap-1 rounded-lg border border-line bg-canvas-raised p-3">
+          <h3 className="text-meta text-fg-muted">{t.howToTry}</h3>
+          <p>{card.howToTry}</p>
+        </section>
+      )}
       <section className="flex flex-col gap-1">
         <h3 className="text-meta text-fg-muted">{t.stepPromisesTitle}</h3>
         <ul className="flex flex-col">
@@ -352,8 +374,14 @@ export function Detail({
                 className="flex w-full cursor-pointer items-start gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-hover"
               >
                 <span className="min-w-0 grow">
-                  <span className="block truncate">{item.when || t.always}</span>
-                  <span className="block truncate text-meta text-fg-muted">{item.then}</span>
+                  {item.when ? (
+                    <>
+                      <span className="block truncate">{item.when}</span>
+                      <span className="block truncate text-meta text-fg-muted">{item.then}</span>
+                    </>
+                  ) : (
+                    <span className="line-clamp-2">{item.then}</span>
+                  )}
                 </span>
                 <StatusMark status={item.status} />
               </button>
@@ -362,6 +390,18 @@ export function Detail({
         </ul>
       </section>
       {footer}
+      {card.sources && card.sources.length > 0 && (
+        <section className="flex flex-col gap-1">
+          <h3 className="text-meta text-fg-muted">{t.sources}</h3>
+          <ul className="flex flex-col gap-0.5">
+            {card.sources.map((source) => (
+              <li key={source} className="truncate font-mono text-meta text-fg-muted" title={source}>
+                {source}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {elsewhere.length > 0 && (
         <section className="flex flex-col gap-1">
           <h3 className="text-meta text-fg-muted">{t.alsoIn}</h3>
@@ -398,6 +438,21 @@ export function RemovedNotice({ onUndo }: { onUndo: () => void }) {
         <span>{t.removed}</span>
         <LinkButton onClick={onUndo}>{t.undo}</LinkButton>
       </div>
+    </div>
+  );
+}
+
+/** One part of what a check did (해본 것, 본 것, 확인 못 한 것), left out when the check said nothing about it. */
+function CheckList({ title, items, tone }: { title: string; items?: string[]; tone?: 'attention' }) {
+  if (!items?.length) return null;
+  return (
+    <div className="flex flex-col gap-0.5 pt-1">
+      <span className={clsx('text-meta', tone === 'attention' ? 'text-attention' : 'text-fg-muted')}>{title}</span>
+      <ul className="flex list-disc flex-col gap-0.5 pl-4 text-meta">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
     </div>
   );
 }

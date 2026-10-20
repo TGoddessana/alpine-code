@@ -84,6 +84,7 @@ class PublishMethods:
             app=app_info(found.app) if found.app is not None else None,
             last_published_at=found.last_published_at,
             changes=found.changes,
+            source=found.source,
         )
 
     async def prepare(self, params: PublishPrepareParams) -> PublishPlan:
@@ -116,6 +117,7 @@ class PublishMethods:
                 "blocked": plan.blocked,
                 "shape": plan.shape,
                 "app": app_info(plan.app),
+                "source": plan.source,
             }
         )
 

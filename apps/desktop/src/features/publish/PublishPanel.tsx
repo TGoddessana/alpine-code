@@ -162,7 +162,6 @@ function Publisher({
   const cloud = useCloudStatus().data;
   const map = useProductMap(cwd);
   const send = useSendMessage();
-  const changes = status.changes ?? 0;
   const state = flow.state;
 
   // Opening the sheet starts a prepare, unless one is working or its plan still matches what is on disk.
@@ -170,12 +169,7 @@ function Publisher({
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    const keep =
-      state.status === 'preparing' ||
-      state.status === 'running' ||
-      (state.status === 'ready' && state.changes === changes) ||
-      (state.status === 'done' && changes === 0);
-    if (!keep) flow.prepare(locale, changes);
+    flow.open(locale);
     // Only on opening; later changes of `status` must not start another prepare.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -216,10 +210,10 @@ function Publisher({
         <Failed
           state={state}
           fix={fix}
-          onAgain={() => flow.prepare(locale, changes)}
+          onAgain={() => flow.prepare(locale)}
           onSignedIn={() => {
             onStatusChange();
-            flow.prepare(locale, changes);
+            flow.prepare(locale);
           }}
         />
       );

@@ -103,9 +103,10 @@ def source(project: Path) -> Published | None:
     return None if tree is None else Published(commit, tree)
 
 
-def changed_paths(project: Path, published: Published) -> list[str]:
-    """The paths (relative to ``project``) that differ between the last published tree and the working files now."""
-    now = source(project)
+def changed_paths(project: Path, published: Published, now: Published | None = None) -> list[str]:
+    """The paths (relative to ``project``) that differ between the last published tree and the working files now
+    (``now``, when the caller already has it)."""
+    now = now or source(project)
     if now is None or now.tree == published.tree:
         return []
     out = _git(project, "diff-tree", "-r", "--name-only", "-z", "--relative", published.tree, now.tree)

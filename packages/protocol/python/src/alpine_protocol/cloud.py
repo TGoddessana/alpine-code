@@ -211,6 +211,8 @@ class PublishStatus(Message):
     last_published_at: str | None = None
     changes: int = 0
     """Files changed since the last publish."""
+    source: str | None = None
+    """The working files' git tree now; a plan whose ``source`` differs was built from older files."""
 
 
 class Finding(Message):
@@ -283,6 +285,8 @@ class PublishPlan(Message):
     blocked: bool
     shape: PublishShape
     app: AppInfo | None = None
+    source: str | None = None
+    """The git tree the plan was built from (see ``PublishStatus.source``)."""
 
 
 class PublishRunParams(Message):

@@ -16,10 +16,15 @@ import { PublishButton } from './PublishButton';
 function mount(options: CloudScriptOptions = {}, locale: Locale = 'ko', withSession = true) {
   const base = scriptedConnection(publishServer({ publishMs: 0, ...options }));
   const requests: { method: string; params: Record<string, unknown> }[] = [];
+  /** The files' tree `publish/status` reports from now on, as if they were edited; unset keeps the script's. */
+  const disk: { source?: string } = {};
   const connection: ServerConnection = {
     request: (method, params) => {
       requests.push({ method, params: params as Record<string, unknown> });
-      return base.request(method, params);
+      const answer = base.request(method, params);
+      return method === 'publish/status' && disk.source
+        ? answer.then((status) => ({ ...(status as object), source: disk.source }))
+        : answer;
     },
     subscribe: base.subscribe,
   };
@@ -33,7 +38,7 @@ function mount(options: CloudScriptOptions = {}, locale: Locale = 'ko', withSess
     </QueryClientProvider>,
   );
   const sent = (method: string) => requests.filter((r) => r.method === method).map((r) => r.params);
-  return { sent };
+  return { sent, disk };
 }
 
 const publish = () => screen.findByRole('button', { name: /^올리기/ }, { timeout: 4000 });
@@ -69,6 +74,25 @@ describe('올리기 sheet', () => {
     expect(await screen.findByRole('img', { name: /QR/ }, { timeout: 4000 })).toBeTruthy();
     expect(sent('publish/run')).toEqual([expect.objectContaining({ cwd: '/project', deployId: 'dep_4', confirm: [] })]);
     expect(screen.getByText('craft-booking.alpinesite.app')).toBeTruthy();
+  });
+
+  it('reopening keeps a plan built from the files on disk, and builds again once they changed', async () => {
+    const { sent, disk } = mount();
+    await sheetPublish();
+    expect(sent('publish/prepare')).toHaveLength(1);
+    const toggle = () => fireEvent.click(screen.getAllByRole('button', { name: /^올리기/ })[0]!);
+
+    toggle();
+    toggle();
+    await waitFor(() => expect(sent('publish/status').length).toBeGreaterThan(1));
+    await sheetPublish();
+    expect(sent('publish/prepare')).toHaveLength(1);
+
+    // The same file edited again: the count stays, the tree does not.
+    disk.source = 'tree_2';
+    toggle();
+    toggle();
+    await waitFor(() => expect(sent('publish/prepare')).toHaveLength(2));
   });
 
   it('keeps 올리기 off until the dropped column is said OK, then sends that id', async () => {

@@ -3481,6 +3481,7 @@ export interface PublishPlan {
   blocked: boolean;
   shape: PublishShape;
   app?: AppInfo | null;
+  source?: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -3609,6 +3610,7 @@ export interface PublishStatus {
   app?: AppInfo | null;
   lastPublishedAt?: string | null;
   changes?: number;
+  source?: string | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema

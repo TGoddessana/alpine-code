@@ -395,6 +395,15 @@ def test_changes_count_the_files_that_differ_from_the_last_publish(cloud, signed
     assert publish.status(folder).changes == 2
 
 
+def test_a_plan_names_the_tree_it_was_built_from_and_status_the_tree_now(cloud, signed_in, tmp_path):
+    folder = make_project(tmp_path)
+    (folder / "src" / "app.ts").write_text("export const a = 2;\n")
+    plan = publish.prepare(folder, progress=Recorder())
+    assert plan.source is not None and publish.status(folder).source == plan.source
+    (folder / "src" / "app.ts").write_text("export const a = 3;\n")  # the same file again: the count would not move
+    assert publish.status(folder).source != plan.source
+
+
 def test_source_leaves_the_real_index_alone_and_needs_git(tmp_path):
     folder = make_project(tmp_path)
     (folder / "src" / "staged.ts").write_text("x")

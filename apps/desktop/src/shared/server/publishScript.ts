@@ -171,6 +171,9 @@ const BUILD_TAIL = [
  * upload with `publish/changed`, a run that walks the four steps, and restore points. Merged into `cloudScript`, which
  * owns who is signed in. A scripted stand-in; nothing is built or sent anywhere.
  */
+/** The git tree of the scripted project's files; nothing edits them, so it never changes. */
+const SOURCE = 'tree_1';
+
 export function publishResults(options: PublishScriptOptions, env: Env): NonNullable<Script['results']> {
   const scenario = options.publish ?? 'clean';
   const ms = options.publishMs ?? 450;
@@ -188,6 +191,7 @@ export function publishResults(options: PublishScriptOptions, env: Env): NonNull
           : null,
       lastPublishedAt,
       changes,
+      source: SOURCE,
     }),
     'publish/prepare': async ({ id }, context) => {
       const say = (phase: string, progress: number, checks: Check[] | null = null) =>
@@ -218,6 +222,7 @@ export function publishResults(options: PublishScriptOptions, env: Env): NonNull
           confirms: [],
         },
         app: APP,
+        source: SOURCE,
       };
       return plan;
     },

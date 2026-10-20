@@ -69,6 +69,8 @@ class Status:
     app: App | None = None
     last_published_at: str | None = None
     changes: int = 0
+    source: str | None = None
+    """The working files' git tree now (``None`` outside git); a plan built from another tree is out of date."""
 
 
 @dataclass(frozen=True)
@@ -79,6 +81,8 @@ class Plan:
     blocked: bool
     shape: dict[str, Any]
     app: App
+    source: str | None = None
+    """The git tree this plan was built from, compared with ``Status.source``."""
 
 
 @dataclass
@@ -111,8 +115,9 @@ def status(folder: Path, *, client: CloudClient | None = None) -> Status:
     if app is not None and app.status == "taken_down":
         return Status(False, "taken_down", app, link.published.at if link is not None and link.published else None)
     published = link.published if link is not None else None
-    changes = len(project.changed_paths(folder, published)) if published is not None else 0
-    return Status(True, None, app, published.at if published is not None else None, changes)
+    now = project.source(folder)
+    changes = len(project.changed_paths(folder, published, now)) if published is not None else 0
+    return Status(True, None, app, published.at if published is not None else None, changes, now.tree if now else None)
 
 
 def _known_app(folder: Path, link: links.Link, client: CloudClient) -> App | None:
@@ -175,7 +180,7 @@ def prepare(
     local = _local_checks(folder, built, dev_url)
     progress("checks", 1, None, local)
     if any(c["state"] == "blocked" for c in local):
-        return Plan("", local, True, _empty_shape(), app)
+        return Plan("", local, True, _empty_shape(), app, source.tree if source else None)
     _check_cancel(cancel)
 
     deploy = client.post(f"/v1/apps/{app.id}/deploys", _manifest(description, built, source, local), timeout=60)
@@ -194,6 +199,7 @@ def prepare(
         bool(checked.get("blocked")) or any(c["state"] == "blocked" for c in checks),
         _shape(checked.get("shape")),
         app,
+        source.tree if source else None,
     )
 
 

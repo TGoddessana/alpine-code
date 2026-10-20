@@ -123,7 +123,7 @@ export type PublishState =
   | { status: 'idle' }
   /** Building, checking, sending. `phase` is an open enum; `checks` are the ones that settled so far. */
   | { status: 'preparing'; phase: string; progress: number; checks: Check[] }
-  | { status: 'ready'; plan: PublishPlan; changes: number }
+  | { status: 'ready'; plan: PublishPlan }
   /** The four steps of the server, in order; an unknown step is shown as it comes. */
   | { status: 'running'; plan: PublishPlan; step: string; done: string[] }
   | { status: 'done'; app: AppInfo; publishedAt: string }
@@ -138,8 +138,13 @@ const failureOf = (reason: unknown): PublishFailure =>
 
 export interface PublishFlow {
   state: PublishState;
-  /** Builds, checks and uploads; `changes` is what `publish/status` said, to tell later whether the plan is stale. */
-  prepare: (locale: string, changes: number) => void;
+  /** Builds, checks and uploads. */
+  prepare: (locale: string) => void;
+  /**
+   * The sheet opened: keeps a run that is working, a plan built from the files on disk now, or a finished publish with
+   * nothing new; otherwise prepares again. Asks `publish/status` afresh, because the polled one can be 15 s old.
+   */
+  open: (locale: string) => void;
   /** Publishes the prepared plan with the confirms the person said yes to. */
   run: (confirm: string[]) => void;
   cancel: () => void;
@@ -201,7 +206,7 @@ export function usePublish(cwd: string): PublishFlow {
   );
 
   const prepare = useCallback(
-    (locale: string, changes: number) => {
+    (locale: string) => {
       if (working.current) return;
       working.current = true;
       const mine = (id.current = crypto.randomUUID());
@@ -209,7 +214,7 @@ export function usePublish(cwd: string): PublishFlow {
       server
         .request('publish/prepare', { id: mine, cwd, locale })
         .then((plan) => {
-          if (id.current === mine) setState({ status: 'ready', plan, changes });
+          if (id.current === mine) setState({ status: 'ready', plan });
         })
         .catch((reason: unknown) => {
           if (id.current === mine) setState({ status: 'failed', during: 'prepare', failure: failureOf(reason) });
@@ -244,6 +249,28 @@ export function usePublish(cwd: string): PublishFlow {
     [server, client, cwd],
   );
 
+  const open = useCallback(
+    (locale: string) => {
+      const current = latest.current;
+      if (current.status === 'preparing' || current.status === 'running') return;
+      if (current.status !== 'ready' && current.status !== 'done') return prepare(locale);
+      // The same file changed twice keeps the count, so a ready plan is compared by the tree it was built from.
+      void server
+        .request('publish/status', { cwd })
+        .then((now) => {
+          const fresh =
+            current.status === 'ready'
+              ? current.plan.source != null && current.plan.source === now.source
+              : (now.changes ?? 0) === 0;
+          if (!fresh && latest.current === current) prepare(locale);
+        })
+        .catch(() => {
+          if (latest.current === current) prepare(locale);
+        });
+    },
+    [server, cwd, prepare],
+  );
+
   const cancel = useCallback(() => {
     if (working.current && id.current) void server.request('publish/cancel', { id: id.current }).catch(() => {});
   }, [server]);
@@ -254,7 +281,7 @@ export function usePublish(cwd: string): PublishFlow {
     setState({ status: 'idle' });
   }, []);
 
-  return { state, prepare, run, cancel, reset };
+  return { state, prepare, open, run, cancel, reset };
 }
 
 export type { PublishStatus };

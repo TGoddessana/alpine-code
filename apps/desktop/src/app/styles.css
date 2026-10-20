@@ -167,3 +167,12 @@
     background-position: -50% 0;
   }
 }
+/* A line whose promise is being checked: its dashes run toward the promise. */
+@utility motion-flow {
+  animation: motion-flow 700ms linear infinite;
+}
+@keyframes motion-flow {
+  to {
+    stroke-dashoffset: -12;
+  }
+}

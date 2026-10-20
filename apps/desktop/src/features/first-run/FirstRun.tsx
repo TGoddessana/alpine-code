@@ -12,7 +12,7 @@ import {
   useConnectPrompt,
 } from '@/shared/components/connect';
 import { useMessages } from '@/shared/i18n';
-import { useConnections } from '@/shared/server';
+import { useCloudEnabled, useConnections } from '@/shared/server';
 
 import { messages } from './messages';
 
@@ -68,20 +68,23 @@ function MethodStep({ onNext }: { onNext: (step: Step) => void }) {
   const t = useMessages(messages);
   const c = useMessages(connectMessages);
   // Copilot sign-in comes with its own work; until then its row shows what is coming.
-  const [method, setMethod] = useState<Method>('alpine');
+  // Alpine's own credits come first only while Alpine Cloud is on; otherwise the list starts at ChatGPT.
+  const cloud = useCloudEnabled();
+  const [chosen, setChosen] = useState<Method | null>(null);
+  const method = chosen ?? (cloud ? 'alpine' : 'chatgpt');
   return (
     <>
       <div className="flex flex-col gap-2">
         <BrandMark size={64} />
-        <Dialog.Title>{t.title}</Dialog.Title>
-        <Dialog.Description>{t.lead}</Dialog.Description>
+        <Dialog.Title>{cloud ? t.title : t.connectTitle}</Dialog.Title>
+        <Dialog.Description>{cloud ? t.lead : t.connectLead}</Dialog.Description>
       </div>
       <OptionList<Method>
-        aria-label={t.methods}
+        aria-label={cloud ? t.methods : t.connectMethods}
         value={method}
-        onValueChange={setMethod}
+        onValueChange={setChosen}
         options={[
-          { value: 'alpine', label: t.alpine, description: t.alpineNote },
+          ...(cloud ? [{ value: 'alpine' as const, label: t.alpine, description: t.alpineNote }] : []),
           { value: 'chatgpt', label: c.chatgpt, description: c.chatgptNote },
           { value: 'copilot', label: c.copilot, description: c.soon, disabled: true },
           { value: 'api-key', label: c.apiKey, description: c.apiKeyNote },

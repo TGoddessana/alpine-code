@@ -7,8 +7,8 @@ import { firstRunScript, scriptedConnection, ServerProvider } from '@/shared/ser
 
 import { FirstRun } from './FirstRun';
 
-function mount(auto = true) {
-  const connection = scriptedConnection(firstRunScript('connected', { signInMs: 0 }));
+function mount(auto = true, cloud = true) {
+  const connection = scriptedConnection(firstRunScript('connected', { signInMs: 0, enabled: cloud }));
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ServerProvider connection={connection}>
@@ -39,9 +39,22 @@ afterEach(() => {
 });
 
 describe('FirstRun', () => {
+  it('has no Alpine row without Alpine Cloud: the list starts at ChatGPT, and says only to connect a model', async () => {
+    mount(true, false);
+    await screen.findByText('모델 연결');
+    const rows = screen.getAllByRole('radio');
+    expect(rows.map((row) => row.textContent)).not.toContain('Alpine으로 시작');
+    expect(screen.queryByText(/Alpine으로 시작|크레딧/)).toBeNull();
+    expect(rows[0]!.textContent).toContain('ChatGPT');
+    expect(rows[0]).toHaveProperty('ariaChecked', 'true');
+    expect(screen.getByText('모델 연결')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'ChatGPT로 계속하기' })).toBeTruthy();
+  });
+
   it('makes "Alpine으로 시작" the first row, and choosing it signs in for real, ending with the free credits', async () => {
     mount();
-    const rows = await screen.findAllByRole('radio');
+    await screen.findByRole('radio', { name: /Alpine으로 시작/ });
+    const rows = screen.getAllByRole('radio');
     expect(rows[0]!.textContent).toContain('Alpine으로 시작');
     expect(rows[0]).toHaveProperty('ariaChecked', 'true');
 

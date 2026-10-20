@@ -9,7 +9,7 @@ import { useWorkResult } from '@/features/work-result/useWorkResult';
 import { StatusWord } from '@/shared/components/status';
 import { useMessages } from '@/shared/i18n';
 import { restartToUpdate, useUpdateReady } from '@/shared/platform';
-import { useProjectGit, useProjects, useSession } from '@/shared/server';
+import { useCloudEnabled, useProjectGit, useProjects, useSession } from '@/shared/server';
 
 import { menuMessages, messages } from './messages';
 
@@ -88,6 +88,7 @@ function SessionPart({ sessionId }: { sessionId: string }) {
   const git = useProjectGit(info?.cwd ?? '');
   const result = useWorkResult(sessionId);
   const navigate = useNavigate();
+  const cloud = useCloudEnabled();
   const project = info && (projects.data?.projects.find((p) => p.path === info.cwd)?.name ?? info.cwd.split('/').pop());
   const branch = info && git.data?.git ? (git.data.git.branch ?? t.noBranch) : null;
 
@@ -119,7 +120,7 @@ function SessionPart({ sessionId }: { sessionId: string }) {
           {t.productMap}
         </Link>
       )}
-      {info && project && (
+      {cloud && info && project && (
         <div className="mr-2 shrink-0">
           <PublishButton
             cwd={info.cwd}

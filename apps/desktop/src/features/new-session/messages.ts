@@ -8,6 +8,9 @@ export const messages = defineMessages({
 
     newSession: '새 세션',
     heading: '무엇을 해 볼까요?',
+    // Without Alpine Cloud there is no new project to make: the screen only asks what to change.
+    changeHeading: '무엇을 바꿔 볼까요?',
+    changePlaceholder: '첫 화면 버튼을 더 크게 해 줘',
     newHeading: '무엇을 만들어 볼까요?',
     newPlaceholder: '만들고 싶은 앱을 적어 주세요',
     projectLabel: (name: string) => `프로젝트: ${name}`,
@@ -80,6 +83,8 @@ export const messages = defineMessages({
 
     newSession: 'New session',
     heading: 'What shall we do?',
+    changeHeading: 'What shall we change?',
+    changePlaceholder: 'Make the buttons on the first screen bigger',
     newHeading: 'What do you want to make?',
     newPlaceholder: 'Describe the app you want to make',
     projectLabel: (name: string) => `Project: ${name}`,

@@ -4,7 +4,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { NewSession } from '@/features/new-session/NewSession';
 import { NoProject } from '@/features/new-session/NoProject';
 import { useCurrentProject } from '@/features/rail/currentProject';
-import { useProjects } from '@/shared/server';
+import { useCloudEnabled, useProjects } from '@/shared/server';
 
 /**
  * `?project=` picks the project; without it, the one the rail shows (the one shown last, else the most recently used).
@@ -25,7 +25,9 @@ export const Route = createFileRoute('/')({
 const isOn = (value: unknown) => value === 1 || value === '1' || value === true || value === 'true';
 
 function NewSessionRoute() {
-  const { agent, new: making } = Route.useSearch();
+  const { agent, new: wanted } = Route.useSearch();
+  const cloud = useCloudEnabled();
+  const making = wanted && cloud; // a stale `?new=1` means nothing without Alpine Cloud
   const chosen = useCurrentProject() ?? undefined;
   const navigate = useNavigate();
   const projects = useProjects();

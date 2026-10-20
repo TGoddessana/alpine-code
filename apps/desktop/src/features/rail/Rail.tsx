@@ -22,7 +22,14 @@ import { ProgressBar, ProjectAddDialog, projectAddMessages } from '@/shared/comp
 import { useMessages } from '@/shared/i18n';
 import { isUnread, useNavigation, visibleSessions, type RailView } from '@/shared/navigation';
 import { revealInFinder } from '@/shared/platform';
-import { useArchiveProject, useOpenProject, useProjects, useSessions, useSetSessionDetails } from '@/shared/server';
+import {
+  useArchiveProject,
+  useCloudEnabled,
+  useOpenProject,
+  useProjects,
+  useSessions,
+  useSetSessionDetails,
+} from '@/shared/server';
 
 import { useCurrentProject } from './currentProject';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
@@ -47,6 +54,7 @@ export function Rail({ open = true }: { open?: boolean }) {
   const sessionMatch = useMatch({ from: '/session/$sessionId', shouldThrow: false });
   const currentId = sessionMatch?.params.sessionId;
   const navigate = useNavigate();
+  const cloud = useCloudEnabled();
   const width = usePanelWidth({ storageKey: 'alpine.rail.width', initial: 288, min: 240, max: 400 });
   const prefs = useNavigation();
   const [view, setView] = useState<RailView>('all');
@@ -347,7 +355,7 @@ export function Rail({ open = true }: { open?: boolean }) {
           open={adding}
           onOpenChange={setAdding}
           onDone={(path) => void navigate({ to: '/', search: { project: path } })}
-          onNew={() => void navigate({ to: '/', search: { new: 1 } })}
+          onNew={cloud ? () => void navigate({ to: '/', search: { new: 1 } }) : undefined}
         />
         <DeleteProjectDialog project={deleting} onClose={() => setDeleting(null)} />
         <DeleteSessionDialog session={deletingSession} onClose={() => setDeletingSession(null)} />

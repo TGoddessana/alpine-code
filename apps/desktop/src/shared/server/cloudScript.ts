@@ -7,6 +7,8 @@ import { publishResults, type PublishScriptOptions } from './publishScript';
 import type { Script } from './scripted';
 
 export interface CloudScriptOptions extends PublishScriptOptions, DataScriptOptions, BillingScriptOptions {
+  /** Alpine Cloud is on (the default). `false` is a normal install: `cloud/enabled` says no and the app shows no cloud. */
+  enabled?: boolean;
   /** Starts signed in. Signing in and out changes it, and announces `cloud/changed`. */
   signedIn?: boolean;
   /** The plan the account is on; `trial` is Pro on its free week. */
@@ -68,6 +70,7 @@ export function cloudScript(options: CloudScriptOptions = {}): Script {
   let counter = 0;
 
   const status = (): CloudStatus => ({
+    enabled: options.enabled ?? true,
     signedIn,
     apiUrl: 'https://api.alpinecode.app',
     appDomain: 'alpinesite.app',
@@ -110,6 +113,7 @@ export function cloudScript(options: CloudScriptOptions = {}): Script {
         badge: () => badge,
         restoreDays: () => (plan === 'free' ? FREE_LIMITS.restoreDays : PRO_LIMITS.restoreDays),
       }),
+      'cloud/enabled': () => ({ enabled: options.enabled ?? true }),
       'cloud/status': () => status(),
       'cloud/signInMethods': () => ({ methods: options.signInMethods ?? ['google', 'github', 'email'] }),
       'cloud/signIn': ({ method }, context) => {

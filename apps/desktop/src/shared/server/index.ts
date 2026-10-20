@@ -2,6 +2,7 @@ export {
   appAddress,
   cloudKey,
   useAlpineSignIn,
+  useCloudEnabled,
   useCloudSignOut,
   useCloudStatus,
   useInstallNodeTools,

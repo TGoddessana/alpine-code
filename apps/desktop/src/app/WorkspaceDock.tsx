@@ -10,7 +10,7 @@ import { ProcessControl } from '@/features/process-control';
 import { Terminal } from '@/features/terminal';
 import { FileNavigationProvider } from '@/shared/files';
 import { useMessages } from '@/shared/i18n';
-import { useDataSources } from '@/shared/server';
+import { useCloudEnabled, useDataSources } from '@/shared/server';
 import { useDevelopmentServers } from '@/shared/server/devServers';
 
 import { messages } from './messages';
@@ -34,7 +34,9 @@ export function WorkspaceDock({
   const [dockOpen] = useDockOpen();
   const servers = useDevelopmentServers(cwd, dockOpen);
   const [requestedServers, setRequestedServers] = useState<Record<string, boolean>>({});
-  const hasData = useDataSources(cwd, dockOpen).data?.sources.some((source) => source.available) ?? false;
+  // The 데이터 tab is Alpine Cloud's: without it the tab is not there and the sources are not even asked for.
+  const cloud = useCloudEnabled();
+  const hasData = useDataSources(cwd, dockOpen && cloud).data?.sources.some((source) => source.available) ?? false;
   const hasServers = Boolean(servers.data?.servers.length);
   const showServers = hasServers || requestedServers[cwd];
   const openServers = () => {

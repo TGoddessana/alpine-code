@@ -14,6 +14,7 @@ import {
   useAgents,
   useCancelClone,
   cloudKey,
+  useCloudEnabled,
   useCloudStatus,
   useConnections,
   useCreateProject,
@@ -139,9 +140,11 @@ export function NewSession({
   const judge = useJudgeNewProject();
   const createProject = useCreateProject();
   const templates = useTemplates();
+  // Without Alpine Cloud there is nothing to make: a message always goes to the project, unjudged.
+  const cloud = useCloudEnabled();
   const signedIn = useCloudStatus().data?.signedIn ?? false;
   const queryClient = useQueryClient();
-  const node = useNodeTools();
+  const node = useNodeTools(cloud);
   const [gate, setGate] = useState<Gate | null>(null);
   const [stage, setStage] = useState<Stage | null>(null);
   // Putting a message back in the input: after a session that would not start, or on the project that was made.
@@ -205,8 +208,12 @@ export function NewSession({
   // or while the setups are shown starts over with the new text.
   const send = (text: string) => {
     const mine = ++turn.current;
-    judging.current = mine;
     setStartFailed(false);
+    if (!cloud && project) {
+      work(text, project);
+      return Promise.resolve();
+    }
+    judging.current = mine;
     setStage({ name: 'judging', text });
     judge
       .mutateAsync(
@@ -345,7 +352,9 @@ export function NewSession({
                   />
                 ) : (
                   <div key="start" className="motion-step flex flex-col items-center gap-6">
-                    <h1 className="text-center text-display font-semibold">{project ? t.heading : t.newHeading}</h1>
+                    <h1 className="text-center text-display font-semibold">
+                      {project ? (cloud ? t.heading : t.changeHeading) : t.newHeading}
+                    </h1>
                     {startFailed && (
                       <p role="alert" className="text-body text-danger">
                         {t.startFailed}
@@ -361,7 +370,7 @@ export function NewSession({
         <div className="mx-auto w-full max-w-205 shrink-0 px-6">
           <Composer
             large
-            placeholder={project ? t.placeholder : t.newPlaceholder}
+            placeholder={project ? (cloud ? t.placeholder : t.changePlaceholder) : t.newPlaceholder}
             locked={locked}
             waiting={clone?.state === 'receiving' ? added.waitToSend : undefined}
             onSend={send}

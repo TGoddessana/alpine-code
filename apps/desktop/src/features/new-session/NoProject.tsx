@@ -6,6 +6,7 @@ import { Composer } from '@/shared/components/composer';
 import { CloneDialog, ProjectChoices } from '@/shared/components/project-add';
 import { useMessages } from '@/shared/i18n';
 import { useOpenFolder } from '@/shared/platform';
+import { useCloudEnabled } from '@/shared/server';
 
 import { messages } from './messages';
 
@@ -21,6 +22,7 @@ export function NoProject({
   onNewProject?: () => void;
 }) {
   const t = useMessages(messages);
+  const cloud = useCloudEnabled();
   const openFolder = useOpenFolder(onProjectChange);
   const [cloning, setCloning] = useState(false);
   return (
@@ -35,7 +37,7 @@ export function NoProject({
             <p className="text-body text-fg-muted">{t.dropHint}</p>
           </div>
           <ProjectChoices
-            onNew={() => onNewProject?.()}
+            onNew={cloud && onNewProject ? onNewProject : undefined}
             onGet={() => setCloning(true)}
             onOpen={() => void openFolder()}
           />

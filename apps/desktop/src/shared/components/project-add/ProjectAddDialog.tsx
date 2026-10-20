@@ -23,7 +23,8 @@ export function ProjectAddDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDone: (path: string) => void;
-  onNew: () => void;
+  /** Without it (Alpine Cloud is off) there is no 새로 만들기. */
+  onNew?: () => void;
 }) {
   // Here, not in the dialog's content: Finder answers after the dialog has closed.
   const openFolder = useOpenFolder(onDone);
@@ -32,10 +33,13 @@ export function ProjectAddDialog({
       <Dialog.Popup size="sm">
         {open && (
           <AddFlow
-            onNew={() => {
-              onOpenChange(false);
-              onNew();
-            }}
+            onNew={
+              onNew &&
+              (() => {
+                onOpenChange(false);
+                onNew();
+              })
+            }
             onOpen={() => {
               onOpenChange(false);
               void openFolder();
@@ -51,7 +55,15 @@ export function ProjectAddDialog({
   );
 }
 
-function AddFlow({ onDone, onNew, onOpen }: { onDone: (path: string) => void; onNew: () => void; onOpen: () => void }) {
+function AddFlow({
+  onDone,
+  onNew,
+  onOpen,
+}: {
+  onDone: (path: string) => void;
+  onNew?: () => void;
+  onOpen: () => void;
+}) {
   const t = useMessages(messages);
   const [getting, setGetting] = useState(false);
   if (getting) return <CloneForm onDone={onDone} onBack={() => setGetting(false)} />;

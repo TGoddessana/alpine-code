@@ -10,22 +10,37 @@ import { NoProject } from './NoProject';
 describe('NoProject', () => {
   afterEach(cleanup);
 
-  it('offers 새로 만들기 first among three ways in, and it goes to the new project', () => {
-    const onNewProject = vi.fn();
+  const show = (cloud: boolean, onNewProject = vi.fn()) => {
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <ServerProvider connection={scriptedConnection(firstRunScript())}>
+        <ServerProvider connection={scriptedConnection(firstRunScript('connected', { enabled: cloud }))}>
           <LocaleProvider locale="ko">
             <NoProject onNewProject={onNewProject} />
           </LocaleProvider>
         </ServerProvider>
       </QueryClientProvider>,
     );
-    const section = screen.getByRole('region', { name: '어떤 프로젝트로 시작할까요?' });
+    return screen.getByRole('region', { name: '어떤 프로젝트로 시작할까요?' });
+  };
+
+  it('offers 새로 만들기 first among three ways in, and it goes to the new project', async () => {
+    const onNewProject = vi.fn();
+    const section = show(true, onNewProject);
+    await within(section).findByRole('button', { name: /^새로 만들기/ });
     const rows = within(section).getAllByRole('button');
     expect(rows).toHaveLength(3);
     expect(rows[0]!.textContent).toContain('새로 만들기');
     fireEvent.click(rows[0]!);
     expect(onNewProject).toHaveBeenCalledOnce();
+  });
+
+  it('offers only 받기 and 열기 without Alpine Cloud, as before', async () => {
+    const section = show(false);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const rows = within(section).getAllByRole('button');
+    expect(rows.map((row) => row.textContent)).toEqual([
+      '회사·팀 프로젝트 받기GitHub, GitLab 같은 저장소 주소로',
+      '내 컴퓨터의 프로젝트 열기이미 이 컴퓨터에 있는 폴더⌘O',
+    ]);
   });
 });

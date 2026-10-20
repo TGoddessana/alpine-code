@@ -6,8 +6,24 @@ import { useServer } from './context';
 
 export const cloudKey = ['cloud', 'status'] as const;
 
+/**
+ * Whether Alpine Cloud is on in this build ("Shipping hidden" in docs/alpine-cloud.md). Every cloud screen asks this
+ * first and shows nothing of the cloud while it is `false`, which is also what it is while the answer is on its way
+ * and when the server cannot answer: a normal install never flashes a cloud row. `cloud/enabled` needs no network.
+ */
+export function useCloudEnabled(): boolean {
+  const server = useServer();
+  const { data } = useQuery({
+    queryKey: ['cloud', 'enabled'],
+    queryFn: () => server.request('cloud/enabled', {}),
+    staleTime: Infinity,
+    retry: false,
+  });
+  return data?.enabled ?? false;
+}
+
 /** What the account, its plan and its credits are now. Follows `cloud/changed`, so every screen shows the same. */
-export function useCloudStatus() {
+export function useCloudStatus(enabled = true) {
   const server = useServer();
   const client = useQueryClient();
   useEffect(
@@ -21,6 +37,7 @@ export function useCloudStatus() {
   return useQuery({
     queryKey: cloudKey,
     queryFn: () => server.request('cloud/status', {}),
+    enabled,
     retry: false,
   });
 }
@@ -151,11 +168,12 @@ export function useCloudSignOut() {
 }
 
 /** Whether a Node.js that can build web apps is here (`projects/nodeTools`). */
-export function useNodeTools() {
+export function useNodeTools(enabled = true) {
   const server = useServer();
   return useQuery({
     queryKey: ['projects', 'nodeTools'],
     queryFn: () => server.request('projects/nodeTools', {}),
+    enabled,
     retry: false,
   });
 }

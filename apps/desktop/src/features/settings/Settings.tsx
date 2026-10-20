@@ -4,6 +4,7 @@ import { LOCALES, useLocale, useMessages, type Locale } from '@/shared/i18n';
 import { MODES, modeMessages, type Mode } from '@/shared/components/composer';
 import { openInBrowser, pickFolder, tildePath, useHomeDir } from '@/shared/platform';
 import {
+  useCloudEnabled,
   useGitHub,
   useGitHubSignOut,
   useServerInfo,
@@ -65,6 +66,7 @@ function General({ onReviewModel }: { onReviewModel: () => void }) {
   const setCloneFolder = useSetCloneFolder();
   const gitHub = useGitHub().data;
   const signOut = useGitHubSignOut();
+  const cloud = useCloudEnabled();
   const home = useHomeDir();
   const changeCloneFolder = async () => {
     const picked = await pickFolder(t.cloneFolderPick);
@@ -147,7 +149,7 @@ function General({ onReviewModel }: { onReviewModel: () => void }) {
           </dd>
         </>
       )}
-      <AlpineAccount />
+      {cloud && <AlpineAccount />}
       <dt className="text-fg-muted">{t.server}</dt>
       <dd>
         {server.data

@@ -26,6 +26,7 @@ import { useMessages } from '@/shared/i18n';
 import {
   CHATGPT_USAGE_URL,
   useChatGPTSignOut,
+  useCloudEnabled,
   useCloudSignOut,
   useCloudStatus,
   useConnections,
@@ -70,7 +71,8 @@ export function ConnectionTab() {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [removing, setRemoving] = useState<ConnectionInfo | null>(null);
   const [choosing, setChoosing] = useState<ConnectionInfo | null>(null);
-  const alpine = useCloudStatus().data;
+  const cloud = useCloudEnabled();
+  const alpine = useCloudStatus(cloud).data;
   const data = connections.data;
   if (!data) return null;
 
@@ -190,7 +192,7 @@ export function ConnectionTab() {
                 <Dialog.Description>{t.addConnectionLead}</Dialog.Description>
               </div>
               <div className="flex flex-col gap-3">
-                {!alpine?.signedIn && (
+                {cloud && !alpine?.signedIn && (
                   <AddMethod
                     icon={<Snowflake size={18} />}
                     label={t.alpineStart}

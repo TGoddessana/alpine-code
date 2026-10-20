@@ -28,6 +28,7 @@ const IDEA = '동네 공방 원데이 클래스를 예약받는 페이지를 만
 const fast: NewProjectScript = { judgeMs: 0, createMs: 0 };
 
 function mount(newProject: NewProjectScript = fast, overrides: Script = {}, start: ProjectInfo | null = project) {
+  // Alpine Cloud is on unless a test says otherwise (`cloudScript({ enabled: false })` in the overrides).
   const base = scriptedConnection(mergeScripts(chatScript({ newProject }), overrides));
   const requests: { method: string; params: unknown }[] = [];
   const connection: ServerConnection = {
@@ -63,6 +64,7 @@ function mount(newProject: NewProjectScript = fast, overrides: Script = {}, star
 }
 
 async function send(text: string) {
+  await new Promise((resolve) => setTimeout(resolve, 0)); // `cloud/enabled` has answered: a send is judged only with the cloud
   fireEvent.input(await screen.findByLabelText('메시지'), { target: { value: text } });
   fireEvent.click(screen.getByRole('button', { name: '보내기' }));
 }
@@ -84,12 +86,21 @@ afterEach(() => {
 });
 
 describe('NewSession', () => {
-  it('starts with the question over a tall input in the middle of a snow scene, and no mascot', () => {
+  it('starts with the question over a tall input in the middle of a snow scene, and no mascot', async () => {
     mount();
-    expect(screen.getByRole('heading', { name: '무엇을 해 볼까요?' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: '무엇을 해 볼까요?' })).toBeTruthy();
     expect(screen.getByLabelText('메시지')).toHaveProperty('rows', 4);
     expect(document.querySelector('img[src="/brand/hare.png"]')).toBeNull();
     expect(document.querySelectorAll('main canvas')).toHaveLength(2);
+  });
+
+  it('without Alpine Cloud asks what to change, judges nothing and starts the session at once', async () => {
+    const { sent, onStarted } = mount(fast, cloudScript({ enabled: false }));
+    expect(await screen.findByRole('heading', { name: '무엇을 바꿔 볼까요?' })).toBeTruthy();
+    await send(IDEA);
+    await waitFor(() => expect(onStarted).toHaveBeenCalledOnce());
+    expect(sent('projects/judge')).toEqual([]);
+    expect(sent('session/new')).toHaveLength(1);
   });
 
   it('asks the server to judge what was sent, with the language and the project, and shows its pick and why', async () => {

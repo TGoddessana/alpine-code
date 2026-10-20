@@ -7,7 +7,7 @@ import { chipClass } from '@/shared/components/composer';
 import { ProjectAddDialog, projectAddMessages } from '@/shared/components/project-add';
 import { useMessages } from '@/shared/i18n';
 import { tildePath, useHomeDir } from '@/shared/platform';
-import { useProjects } from '@/shared/server';
+import { useCloudEnabled, useProjects } from '@/shared/server';
 
 import { messages } from './messages';
 
@@ -31,6 +31,7 @@ export function ProjectChip({
 }) {
   const t = useMessages(messages);
   const added = useMessages(projectAddMessages);
+  const cloud = useCloudEnabled();
   const home = useHomeDir();
   const [adding, setAdding] = useState(false);
   const projects = useProjects().data?.projects.filter((p) => !p.archived) ?? [];
@@ -66,7 +67,12 @@ export function ProjectChip({
           <Menu.Item onClick={() => setAdding(true)}>{added.addProjectItem}</Menu.Item>
         </Menu.Popup>
       </Menu.Root>
-      <ProjectAddDialog open={adding} onOpenChange={setAdding} onDone={onChange} onNew={onNewProject} />
+      <ProjectAddDialog
+        open={adding}
+        onOpenChange={setAdding}
+        onDone={onChange}
+        onNew={cloud ? onNewProject : undefined}
+      />
     </>
   );
 }

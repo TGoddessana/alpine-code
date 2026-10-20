@@ -12,6 +12,7 @@ import { FirstRun } from './FirstRun';
 const meta = {
   title: 'First run/Connect a model',
   component: FirstRun,
+  args: { auto: true },
   parameters: { server: firstRunScript(), layout: 'fullscreen' },
 } satisfies Meta<typeof FirstRun>;
 

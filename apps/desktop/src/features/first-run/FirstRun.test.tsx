@@ -7,13 +7,13 @@ import { firstRunScript, scriptedConnection, ServerProvider } from '@/shared/ser
 
 import { FirstRun } from './FirstRun';
 
-function mount() {
+function mount(auto = true) {
   const connection = scriptedConnection(firstRunScript('connected', { signInMs: 0 }));
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ServerProvider connection={connection}>
         <LocaleProvider locale="ko">
-          <FirstRun />
+          <FirstRun auto={auto} />
         </LocaleProvider>
       </ServerProvider>
     </QueryClientProvider>,
@@ -52,5 +52,11 @@ describe('FirstRun', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '시작하기' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it("stays closed away from the new session, so it never covers another screen's sheet", async () => {
+    mount(false);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });

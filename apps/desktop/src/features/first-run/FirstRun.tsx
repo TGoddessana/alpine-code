@@ -23,9 +23,10 @@ type Step = 'method' | 'alpine' | 'chatgpt' | 'api-key' | 'local';
  * The one thing the first run asks: how the AI is paid for. Alpine's own credits come first (decision 23 in
  * docs/alpine-cloud.md): that row is the Alpine sign-in, so there is no separate login. ChatGPT, an API key or a local
  * server follow for people who already pay for their AI. Opens over the empty new session while nothing is
- * connected; 'Later' closes it until the first message is sent.
+ * connected; 'Later' closes it until the first message is sent. `auto` is whether it may open by itself: only on the new
+ * session, so signing out in Settings or publishing signed out does not stack it over that screen's own sheet.
  */
-export function FirstRun() {
+export function FirstRun({ auto }: { auto: boolean }) {
   const connections = useConnections();
   const { dismissed, dismiss } = useConnectPrompt();
   const [step, setStep] = useState<Step>('method');
@@ -35,7 +36,7 @@ export function FirstRun() {
   return (
     // A ChatGPT sign-in connects before its welcome is read, so the sheet stays until that step is done.
     <Dialog.Root
-      open={(needed || step === 'chatgpt' || step === 'alpine') && !dismissed}
+      open={((needed && auto) || step === 'chatgpt' || step === 'alpine') && !dismissed}
       onOpenChange={(open) => !open && dismiss()}
       disablePointerDismissal
     >

@@ -48,6 +48,7 @@ function Root() {
   const [dropped, closeDropped, openFolder] = useFolderOpening();
   const [railOpen, toggleRail] = useRailOpen();
   const page = useRouterState({ select: (state) => state.location.pathname + (state.location.search.project ?? '') });
+  const onNewSession = useRouterState({ select: (state) => state.location.pathname === '/' });
   useCloneUpdates();
   const newSession = useNewSessionShortcut();
   useAppMenu(railOpen, { newSession, openFolder, toggleRail });
@@ -63,7 +64,7 @@ function Root() {
         </div>
       </div>
       <NavigationController />
-      <FirstRun />
+      <FirstRun auto={onNewSession} />
       <DroppedSkillsDialog outcome={dropped} onClose={closeDropped} />
     </div>
   );

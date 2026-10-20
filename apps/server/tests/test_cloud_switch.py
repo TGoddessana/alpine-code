@@ -8,7 +8,7 @@ import pytest
 from alpine_core import PROVIDERS
 from alpine_core.cloud import LiveData
 from alpine_protocol import ConnectionsModelsParams
-from alpine_protocol.cloud import CloudStatusParams
+from alpine_protocol.cloud import CloudEnabledParams, CloudStatusParams
 from alpine_server.cloud import CloudMethods
 from alpine_server.methods import MethodError, connection_models
 from alpine_server.sessions import SessionManager
@@ -51,3 +51,10 @@ def test_the_alpine_provider_cannot_be_asked_for_models_when_cloud_is_off():
     assert "alpine" in PROVIDERS  # the data stays; the switch decides whether it is offered
     with pytest.raises(MethodError):
         connection_models(ConnectionsModelsParams(provider="alpine"))
+
+
+def test_enabled_answers_at_once_with_no_network(monkeypatch):
+    methods = CloudMethods(lambda params: None, lambda params: None)
+    assert asyncio.run(methods.enabled(CloudEnabledParams())).enabled is False
+    monkeypatch.setenv("ALPINE_CLOUD_URL", "http://127.0.0.1:9")
+    assert asyncio.run(methods.enabled(CloudEnabledParams())).enabled is True

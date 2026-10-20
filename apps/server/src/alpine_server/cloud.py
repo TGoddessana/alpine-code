@@ -38,6 +38,8 @@ from alpine_protocol.cloud import (
     CloudCancelSignInResult,
     CloudChangedParams,
     CloudCheckoutParams,
+    CloudEnabledParams,
+    CloudEnabledResult,
     CloudPlansParams,
     CloudPlansResult,
     CloudPortalParams,
@@ -79,6 +81,7 @@ class CloudMethods:
     def handlers(self) -> dict[str, Callable[[Any], Awaitable[Any]]]:
         # The publish/ family is PublishMethods's (publish.py), the data/ family DataMethods's (data.py).
         return {
+            "cloud/enabled": self.enabled,
             "cloud/status": self.status,
             "cloud/signInMethods": self.sign_in_methods,
             "cloud/signIn": self.sign_in,
@@ -100,6 +103,9 @@ class CloudMethods:
             task.cancel()
 
     # ---- account
+
+    async def enabled(self, params: CloudEnabledParams) -> CloudEnabledResult:
+        return CloudEnabledResult(enabled=cloud_settings.enabled())
 
     async def status(self, params: CloudStatusParams) -> CloudStatusModel:
         if not cloud_settings.enabled():  # hidden: no sign-in, no network

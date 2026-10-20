@@ -7,6 +7,10 @@
       "params": "CloudStatusParams",
       "result": "CloudStatus"
     },
+    "cloud/enabled": {
+      "params": "CloudEnabledParams",
+      "result": "CloudEnabledResult"
+    },
     "cloud/signInMethods": {
       "params": "CloudSignInMethodsParams",
       "result": "CloudSignInMethodsResult"
@@ -1509,6 +1513,24 @@
         "monthly"
       ],
       "title": "CloudCredits",
+      "type": "object"
+    },
+    "CloudEnabledParams": {
+      "properties": {},
+      "title": "CloudEnabledParams",
+      "type": "object"
+    },
+    "CloudEnabledResult": {
+      "description": "Whether Alpine Cloud is on in this build. Answers at once, with no network, so a screen can decide what to show\nbefore anything else loads. Off: the app shows no cloud feature at all.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "title": "CloudEnabledResult",
       "type": "object"
     },
     "CloudLimits": {

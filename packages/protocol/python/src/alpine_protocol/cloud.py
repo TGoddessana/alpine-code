@@ -76,6 +76,17 @@ class CloudStatus(Message):
     """``False``: signed in, but the API did not answer; the rest is what was known last."""
 
 
+class CloudEnabledParams(Message):
+    pass
+
+
+class CloudEnabledResult(Message):
+    """Whether Alpine Cloud is on in this build. Answers at once, with no network, so a screen can decide what to show
+    before anything else loads. Off: the app shows no cloud feature at all."""
+
+    enabled: bool
+
+
 class CloudStatusParams(Message):
     refresh: bool = False
     """Ask the API now instead of using what was fetched in the last 30 seconds."""
@@ -533,6 +544,7 @@ class ProjectsNodeToolsChangedParams(Message):
 
 CLOUD_METHODS = {
     "cloud/status": (CloudStatusParams, CloudStatus),
+    "cloud/enabled": (CloudEnabledParams, CloudEnabledResult),
     "cloud/signInMethods": (CloudSignInMethodsParams, CloudSignInMethodsResult),
     "cloud/signIn": (CloudSignInParams, CloudSignInResult),
     "cloud/cancelSignIn": (CloudCancelSignInParams, CloudCancelSignInResult),

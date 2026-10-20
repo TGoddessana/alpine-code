@@ -108,7 +108,7 @@ def test_cloud_methods_and_notifications_are_in_the_tables_and_the_schema():
 
     for name in (
         "cloud/status", "cloud/signIn", "cloud/cancelSignIn", "cloud/sendCode", "cloud/verifyCode", "cloud/signOut",
-        "cloud/plans", "cloud/startTrial", "cloud/checkout", "cloud/portal",
+        "cloud/enabled", "cloud/plans", "cloud/startTrial", "cloud/checkout", "cloud/portal",
         "publish/status", "publish/prepare", "publish/run", "publish/cancel", "publish/restorePoints",
         "publish/restore", "publish/domains", "publish/addDomain", "publish/checkDomain", "publish/removeDomain",
         "publish/setBadge", "data/sources", "data/tables", "data/rows", "data/save", "data/delete", "data/reads",

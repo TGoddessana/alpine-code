@@ -428,6 +428,21 @@ export interface CloudCheckoutParams {
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudEnabledParams".
+ */
+export interface CloudEnabledParams {}
+/**
+ * Whether Alpine Cloud is on in this build. Answers at once, with no network, so a screen can decide what to show
+ * before anything else loads. Off: the app shows no cloud feature at all.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "CloudEnabledResult".
+ */
+export interface CloudEnabledResult {
+  enabled: boolean;
+}
+/**
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
  * via the `definition` "CloudPlansParams".
  */
 export interface CloudPlansParams {}
@@ -4260,6 +4275,7 @@ export interface ToolsListResult {
 
 export interface Methods {
   'cloud/status': { params: CloudStatusParams; result: CloudStatus };
+  'cloud/enabled': { params: CloudEnabledParams; result: CloudEnabledResult };
   'cloud/signInMethods': { params: CloudSignInMethodsParams; result: CloudSignInMethodsResult };
   'cloud/signIn': { params: CloudSignInParams; result: CloudSignInResult };
   'cloud/cancelSignIn': { params: CloudCancelSignInParams; result: CloudCancelSignInResult };

@@ -35,6 +35,9 @@ if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
   exit 1
 fi
 
+# The checkout may be shared with other work; the release is this commit, and it stops if the checkout moves.
+commit="$(git rev-parse HEAD)"
+
 # Every package carries the release's version.
 python3 - "$version" <<'EOF'
 import json, sys, tomllib
@@ -72,6 +75,11 @@ for f in "$dmg" "$archive" "$archive.sig"; do
   test -f "$f" || { echo "The build left no $f" >&2; exit 1; }
 done
 
+if [ "$(git rev-parse HEAD)" != "$commit" ] || [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  echo "The checkout changed while building $commit; nothing was uploaded. Release again from a quiet checkout." >&2
+  exit 1
+fi
+
 archive_name="AlpineCode_${version}_aarch64.app.tar.gz"
 latest="$(mktemp)"
 python3 - "$version" "$(cat "$archive.sig")" "$base_url/v$version/$archive_name" > "$latest" <<'EOF'
@@ -99,6 +107,6 @@ put "AlpineCode_aarch64.dmg" "$dmg" --cache-control no-cache
 put "latest.json" "$latest" --content-type application/json --cache-control no-cache
 rm "$latest"
 
-git tag "v$version"
+git tag "v$version" "$commit"
 git push origin "v$version"
 echo "Alpine Code $version is out: $base_url/AlpineCode_aarch64.dmg"

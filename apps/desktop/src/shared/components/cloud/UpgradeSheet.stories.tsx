@@ -28,6 +28,11 @@ export const FromRealtimeApp: Story = {
   args: { reason: '실시간 웹앱은 Pro에서 만들 수 있어요. 웹앱은 지금처럼 무료로 만들 수 있어요.' },
 };
 
+/** Opened from Settings there is no step before it: the corner says 닫기, not ‹ 뒤로. */
+export const FromSettings: Story = {
+  args: { onBack: undefined, onClose: fn() },
+};
+
 /** The free week was used: only subscribing is left, with the trial's last day in the lead. */
 export const TrialRunning: Story = {
   parameters: { server: cloudScript({ signedIn: true, plan: 'trial' }) },

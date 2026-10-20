@@ -128,6 +128,11 @@ export const NoNode: Story = {
   parameters: { server: publishServer({ node: 'missing' }) },
 };
 
+/** An admin took the app down: the button is off and one line says why, with a way to ask. */
+export const TakenDown: Story = {
+  parameters: { server: publishServer({ publishReason: 'taken_down' }) },
+};
+
 /** The restore points: data and code go back together. */
 export const Restore: Story = {
   play: async () => {

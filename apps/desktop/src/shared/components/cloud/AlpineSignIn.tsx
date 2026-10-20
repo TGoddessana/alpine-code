@@ -22,7 +22,10 @@ export interface AlpineSignInProps {
   reason?: string;
   /** Shows the free credits once, after the first sign-in. Publishing goes straight on instead. */
   welcome?: boolean;
+  /** There is a step before this one to go back to. */
   onBack?: () => void;
+  /** There is none (opened from Settings): the sheet only closes. Ignored when `onBack` is given. */
+  onClose?: () => void;
   /** Signed in: the server has the account, the plan and the credits (`useCloudStatus`). */
   onDone: () => void;
 }
@@ -32,7 +35,7 @@ export interface AlpineSignInProps {
  * `cloud/signIn` and `cloud/sendCode`. The first run shows it as the top row of the AI list; publishing and Pro show it
  * with the reason they need it. Each step settles in place and the sheet follows its height.
  */
-export function AlpineSignIn({ reason, welcome = false, onBack, onDone }: AlpineSignInProps) {
+export function AlpineSignIn({ reason, welcome = false, onBack, onClose, onDone }: AlpineSignInProps) {
   const t = useMessages(messages);
   const [step, setStep] = useState<Step>({ name: 'choose' });
   const signIn = useAlpineSignIn();
@@ -68,9 +71,9 @@ export function AlpineSignIn({ reason, welcome = false, onBack, onDone }: Alpine
               <Way label={t.github} onClick={() => viaBrowser('github')} />
               <Way label={t.email} onClick={() => setStep({ name: 'email' })} />
             </div>
-            {onBack && (
+            {(onBack || onClose) && (
               <div>
-                <LinkButton onClick={onBack}>{t.back}</LinkButton>
+                <LinkButton onClick={onBack ?? onClose}>{onBack ? t.back : t.close}</LinkButton>
               </div>
             )}
           </>

@@ -80,12 +80,12 @@ export function AlpineAccount() {
       </dd>
       <Dialog.Root open={sheet === 'sign-in'} onOpenChange={(open) => !open && setSheet(null)}>
         <Dialog.Popup>
-          <AlpineSignIn onBack={() => setSheet(null)} onDone={() => setSheet(null)} />
+          <AlpineSignIn onClose={() => setSheet(null)} onDone={() => setSheet(null)} />
         </Dialog.Popup>
       </Dialog.Root>
       <Dialog.Root open={sheet === 'upgrade'} onOpenChange={(open) => !open && setSheet(null)}>
         <Dialog.Popup>
-          <UpgradeSheet onBack={() => setSheet(null)} onDone={() => setSheet(null)} />
+          <UpgradeSheet onClose={() => setSheet(null)} onDone={() => setSheet(null)} />
         </Dialog.Popup>
       </Dialog.Root>
       <Dialog.Root open={sheet === 'sign-out'} onOpenChange={(open) => !open && setSheet(null)}>

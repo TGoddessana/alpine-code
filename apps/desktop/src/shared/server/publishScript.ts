@@ -27,7 +27,7 @@ export interface PublishScriptOptions {
   /** Milliseconds each phase takes; defaults to 450. Tests pass 0. */
   publishMs?: number;
   /** Why `publish/status` says the project cannot be published; `null` (default) means it can. */
-  publishReason?: 'no_description' | 'not_web' | null;
+  publishReason?: 'no_description' | 'not_web' | 'taken_down' | null;
   /** Starts with this many changes since the last publish; defaults to 3. */
   changes?: number;
   /** Starts never published. */
@@ -148,7 +148,7 @@ const SHAPES: Partial<Record<PublishScenario, PublishShape>> = {
     confirms: [
       DROP,
       { id: 'drop_table:old_notes', kind: 'drop_table', table: 'old_notes', rowsAffected: 0 },
-      { id: 'rename_column:bookings.nm', kind: 'rename_column', table: 'bookings', column: 'nm' },
+      { id: 'rename_column:bookings.nm', kind: 'rename_column', table: 'bookings', column: 'nm', to: 'name' },
       {
         id: 'data_change:bookings',
         kind: 'data_change',
@@ -182,7 +182,10 @@ export function publishResults(options: PublishScriptOptions, env: Env): NonNull
     'publish/status': () => ({
       publishable: !options.publishReason && env.signedIn() && env.nodeReady(),
       reason: options.publishReason ?? (!env.signedIn() ? 'signed_out' : !env.nodeReady() ? 'no_node' : null),
-      app: lastPublishedAt ? { ...APP, badge: env.badge() } : null,
+      app:
+        lastPublishedAt || options.publishReason === 'taken_down'
+          ? { ...APP, badge: env.badge(), status: options.publishReason === 'taken_down' ? 'taken_down' : APP.status }
+          : null,
       lastPublishedAt,
       changes,
     }),

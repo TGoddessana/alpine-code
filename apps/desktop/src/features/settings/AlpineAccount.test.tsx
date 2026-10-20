@@ -57,6 +57,22 @@ describe('AlpineAccount', () => {
     expect(screen.getByRole('button', { name: '구독하기' })).toBeTruthy();
   });
 
+  it('closes the Pro sheet from Settings with 닫기: there is no step before it to go back to', async () => {
+    mount({ signedIn: true });
+    fireEvent.click(await screen.findByRole('button', { name: 'Pro 알아보기' }));
+    expect(screen.queryByRole('button', { name: '‹ 뒤로' })).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: '닫기' }));
+    await waitFor(() => expect(screen.queryByText('Pro로 더 쓰기')).toBeNull());
+  });
+
+  it('closes the sign-in sheet from Settings with 닫기', async () => {
+    mount({ signedIn: false });
+    fireEvent.click(await screen.findByRole('button', { name: '로그인' }));
+    expect(screen.queryByRole('button', { name: '‹ 뒤로' })).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: '닫기' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Google로 계속하기' })).toBeNull());
+  });
+
   it('opens the subscription page for a paying account', async () => {
     vi.spyOn(window, 'open').mockImplementation(() => null);
     mount({ signedIn: true, plan: 'pro' });

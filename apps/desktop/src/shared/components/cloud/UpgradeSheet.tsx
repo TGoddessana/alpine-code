@@ -12,7 +12,10 @@ import { messages } from './messages';
 export interface UpgradeSheetProps {
   /** Why Pro is offered now, when something asked for it (a realtime web app). Replaces the usual lead. */
   reason?: string;
+  /** There is a step before this one to go back to. */
   onBack?: () => void;
+  /** There is none (opened from Settings): the sheet only closes. */
+  onClose?: () => void;
   /** The account is on Pro (a trial counts): whatever needed it can go on. */
   onDone: () => void;
 }
@@ -23,7 +26,7 @@ export interface UpgradeSheetProps {
  * (`cloud/startTrial`); paying opens the payment page in the browser (`cloud/checkout`), and the plan arrives by itself as
  * `cloud/changed` when the person is back. What Pro gives is read from the plan the server lists, never written here.
  */
-export function UpgradeSheet({ reason, onBack, onDone }: UpgradeSheetProps) {
+export function UpgradeSheet({ reason, onBack, onClose, onDone }: UpgradeSheetProps) {
   const t = useMessages(messages);
   const format = useFormat();
   const cloud = useCloudStatus().data;
@@ -41,7 +44,7 @@ export function UpgradeSheet({ reason, onBack, onDone }: UpgradeSheetProps) {
   }, [paying, paid, onDone]);
 
   if (cloud && !cloud.signedIn)
-    return <AlpineSignIn reason={t.upgradeSignInReason} onBack={onBack} onDone={() => {}} />;
+    return <AlpineSignIn reason={t.upgradeSignInReason} onBack={onBack} onClose={onClose} onDone={() => {}} />;
 
   const info = plans?.find((candidate) => candidate.id === 'pro');
   const free = plans?.find((candidate) => candidate.id === 'free')?.limits;
@@ -115,7 +118,13 @@ export function UpgradeSheet({ reason, onBack, onDone }: UpgradeSheetProps) {
           </p>
         )}
         <div className="flex items-center justify-between gap-3">
-          {onBack ? <LinkButton onClick={onBack}>{t.back}</LinkButton> : <span />}
+          {onBack ? (
+            <LinkButton onClick={onBack}>{t.back}</LinkButton>
+          ) : onClose ? (
+            <LinkButton onClick={onClose}>{t.close}</LinkButton>
+          ) : (
+            <span />
+          )}
           <div className="flex items-center gap-3">
             {canTry ? (
               <>

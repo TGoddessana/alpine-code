@@ -92,6 +92,7 @@ describe('올리기 sheet', () => {
     expect(boxes).toHaveLength(5);
     expect(screen.getByText(/무엇을 바꾸는지 알 수 없는 변경/)).toBeTruthy();
     expect(screen.getByText('확인할 변경 5개가 남았어요')).toBeTruthy();
+    expect(screen.getByText(/"nm" 칸 이름이 바뀌어요 \(새 이름: "name"\)/)).toBeTruthy();
     boxes.slice(0, 4).forEach((box) => fireEvent.click(box));
     expect(button as HTMLButtonElement).toHaveProperty('disabled', true);
     fireEvent.click(boxes[4]!);
@@ -187,6 +188,15 @@ describe('올리기 sheet', () => {
     cleanup();
     mount({ publishReason: 'not_web' });
     await waitFor(() => expect(screen.queryByRole('button', { name: /올리기/ })).toBeNull());
+  });
+
+  it('turns the button off for a taken-down app and says why, with a way to ask', async () => {
+    const { sent } = mount({ publishReason: 'taken_down' });
+    expect(await screen.findByText('이 앱은 운영 정책 때문에 내려갔어요.')).toBeTruthy();
+    for (const button of screen.getAllByRole('button', { name: /^올리기$/ }).slice(-1))
+      expect(button).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: '문의하기' })).toBeTruthy();
+    expect(sent('publish/prepare')).toEqual([]);
   });
 
   it('lists restore points and puts data and code back to the chosen one', async () => {

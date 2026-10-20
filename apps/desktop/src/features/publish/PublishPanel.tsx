@@ -53,6 +53,7 @@ export function PublishPanel(props: PublishPanelProps) {
   if (status) {
     if (status.reason === 'signed_out') body = <AlpineSignIn reason={t.signInReason} onDone={props.onStatusChange} />;
     else if (status.reason === 'no_node') body = <NeedNode onReady={props.onStatusChange} />;
+    else if (status.reason === 'taken_down') body = <TakenDown />;
     else if (!status.publishable) body = <p className="text-body text-fg-muted">{t.cannot}</p>;
     else if (view === 'restore')
       body = (
@@ -92,6 +93,30 @@ export function PublishPanel(props: PublishPanelProps) {
         {body}
       </div>
     </AutoHeight>
+  );
+}
+
+/** Where the contract's abuse address (section 2.4) takes a person who thinks the takedown is a mistake. */
+const ABUSE_MAIL = 'mailto:abuse@alpinesite.app';
+
+/** An app an admin took down cannot be published; the button stays and says nothing can be done from here. */
+function TakenDown() {
+  const t = useMessages(messages);
+  return (
+    <>
+      <div className="flex flex-col gap-1">
+        <h2 className="text-title">{t.publish}</h2>
+        <p role="status" className="text-body text-fg-muted">
+          {t.takenDown}
+        </p>
+      </div>
+      <div className="flex items-center justify-end gap-3">
+        <LinkButton onClick={() => void openInBrowser(ABUSE_MAIL)}>{t.contact}</LinkButton>
+        <Button variant="primary" disabled>
+          {t.publish}
+        </Button>
+      </div>
+    </>
   );
 }
 

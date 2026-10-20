@@ -180,10 +180,13 @@ export const messages = defineMessages({
       `"${table}" 표의 "${column}" 칸이 지워져요. 그 칸에 있던 내용은 되돌리기 지점으로만 살릴 수 있어요.`,
     confirmDropTable: (table: string) =>
       `"${table}" 표가 통째로 지워져요. 안에 있던 내용은 되돌리기 지점으로만 살릴 수 있어요.`,
-    confirmRename: (table: string, column: string | null) =>
-      column
-        ? `"${table}" 표의 "${column}" 칸 이름이 바뀌어요. 이름이 바뀌면 기존 내용이 이어지지 않을 수 있어요.`
-        : `"${table}" 표 이름이 바뀌어요. 이름이 바뀌면 기존 내용이 이어지지 않을 수 있어요.`,
+    // The new name follows a colon: no particle can be wrong after a name the code does not know.
+    confirmRename: (table: string, column: string | null, to: string | null) => {
+      const named = to ? ` (새 이름: "${to}")` : '';
+      return column
+        ? `"${table}" 표의 "${column}" 칸 이름이 바뀌어요${named}. 이름이 바뀌면 기존 내용이 이어지지 않을 수 있어요.`
+        : `"${table}" 표 이름이 바뀌어요${named}. 이름이 바뀌면 기존 내용이 이어지지 않을 수 있어요.`;
+    },
     confirmDataChange: (table: string | null) =>
       table ? `"${table}" 표의 내용이 바뀌어요.` : '데이터의 내용이 바뀌어요.',
     confirmUnknown: '무엇을 바꾸는지 알 수 없는 변경이 있어요. 올리기 전에 한 번 확인해 주세요.',
@@ -221,6 +224,8 @@ export const messages = defineMessages({
     needNodeLead: '앱을 만들 때 쓰는 프로그램이에요. Alpine이 직접 받아 둘 수 있어요.',
     needNodeInstall: 'Node.js 받기',
     cannot: '이 프로젝트는 아직 인터넷에 올릴 수 없어요.',
+    takenDown: '이 앱은 운영 정책 때문에 내려갔어요.',
+    contact: '문의하기',
     restorePoints: '되돌리기',
     restoreTitle: '되돌리기 지점',
     restoreLead:
@@ -321,10 +326,10 @@ export const messages = defineMessages({
       `The "${column}" column of the "${table}" table is removed. What it held can only come back from a restore point.`,
     confirmDropTable: (table: string) =>
       `The whole "${table}" table is removed. What it held can only come back from a restore point.`,
-    confirmRename: (table: string, column: string | null) =>
+    confirmRename: (table: string, column: string | null, to: string | null) =>
       column
-        ? `The "${column}" column of the "${table}" table is renamed. What it held may not carry over under the new name.`
-        : `The "${table}" table is renamed. What it held may not carry over under the new name.`,
+        ? `The "${column}" column of the "${table}" table is renamed${to ? ` to "${to}"` : ''}. What it held may not carry over under the new name.`
+        : `The "${table}" table is renamed${to ? ` to "${to}"` : ''}. What it held may not carry over under the new name.`,
     confirmDataChange: (table: string | null) =>
       table ? `The contents of the "${table}" table change.` : 'The contents of the data change.',
     confirmUnknown: "There's a change we can't read. Please take a look before publishing.",
@@ -362,6 +367,8 @@ export const messages = defineMessages({
     needNodeLead: 'It is the program that builds the app. Alpine can get its own copy.',
     needNodeInstall: 'Get Node.js',
     cannot: 'This project cannot be put online yet.',
+    takenDown: "This app was taken down because of Alpine's usage policy.",
+    contact: 'Contact us',
     restorePoints: 'Restore',
     restoreTitle: 'Restore points',
     restoreLead:

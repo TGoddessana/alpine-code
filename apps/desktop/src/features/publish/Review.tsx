@@ -26,9 +26,9 @@ function confirmText(confirm: ShapeConfirm, t: Copy): string {
     case 'drop_table':
       return t.confirmDropTable(table);
     case 'rename_table':
-      return t.confirmRename(table, null);
+      return t.confirmRename(table, null, confirm.to ?? null);
     case 'rename_column':
-      return t.confirmRename(table, confirm.column ?? '');
+      return t.confirmRename(table, confirm.column ?? '', confirm.to ?? null);
     case 'data_change':
       return t.confirmDataChange(confirm.table ?? null);
     case 'unknown':

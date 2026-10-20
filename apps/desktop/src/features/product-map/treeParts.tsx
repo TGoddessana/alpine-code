@@ -48,7 +48,7 @@ const tones = {
   5: 'bg-avatar-5 text-avatar-5-ink',
 } as const;
 
-export function Avatar({ person, large }: { person: Person; large?: boolean }) {
+export function Avatar({ person, large, small }: { person: Person; large?: boolean; small?: boolean }) {
   const text = useText();
   return (
     <span
@@ -56,7 +56,7 @@ export function Avatar({ person, large }: { person: Person; large?: boolean }) {
       className={clsx(
         'flex shrink-0 items-center justify-center rounded-full',
         tones[person.tone],
-        large ? 'size-12 text-title' : 'size-8 text-body',
+        large ? 'size-12 text-title' : small ? 'size-5 text-meta' : 'size-8 text-body',
       )}
     >
       {[...text(person.name)][0]}

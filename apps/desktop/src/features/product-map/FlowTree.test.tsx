@@ -110,16 +110,22 @@ describe('FlowTree', () => {
     expect(within(panel).getByText('지키지 못한 약속이 1개 있어요')).toBeTruthy();
   });
 
-  it('lays every journey out as a row: the journey card, then its steps, each card saying what it is', () => {
+  it("draws a band per person: their way in, their journeys, and each journey's steps in a row", () => {
     mount();
-    expect(screen.getByRole('button', { name: /공방 예약/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /쓰는 사람.*사장님/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /여정 1.*수업 예약하기/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /단계.*수업 고르기/ })).toBeTruthy();
-    // A step shared by two journeys has a card in each row; the broken promise shows on the card itself.
-    const pay = screen.getAllByRole('button', { name: /단계.*결제하기/ });
+    expect(screen.getByRole('button', { name: /첫 화면에서 수업을 골라요/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /사장님/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /수업 예약하기/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /수업 고르기/ })).toBeTruthy();
+    // A step shared by two journeys has a node in each row, and says it is broken.
+    const pay = screen.getAllByRole('button', { name: /결제하기/ });
     expect(pay).toHaveLength(2);
-    expect(within(pay[0]!).getByText('카드가 거절되면')).toBeTruthy();
+    expect(within(pay[0]!).getByText('실패')).toBeTruthy();
+  });
+
+  it('pressing a step opens its promises below it as leaves', async () => {
+    mount();
+    fireEvent.click(screen.getAllByRole('button', { name: /결제하기/ })[0]!);
+    expect(await screen.findByRole('button', { name: /카드가 거절되면/ })).toBeTruthy();
   });
 
   it('asks to fix the broken promises and to check the unchecked ones', () => {
@@ -140,7 +146,7 @@ describe('FlowTree', () => {
 
   it('picking a journey card explains it, and a shared step says where else it appears', async () => {
     mount();
-    fireEvent.click(screen.getByRole('button', { name: /여정 1.*수업 열기/ }));
+    fireEvent.click(screen.getByRole('button', { name: /수업 열기/ }));
     const panel = screen.getByRole('complementary');
     expect(within(panel).getByRole('heading', { name: '수업 열기' })).toBeTruthy();
     fireEvent.click(within(panel).getByRole('button', { name: /결제하기/ }));
@@ -150,7 +156,7 @@ describe('FlowTree', () => {
 
   it("adds a promise from a step's panel with the two fields", async () => {
     const props = mount();
-    fireEvent.click(screen.getByRole('button', { name: /단계.*수업 고르기/ }));
+    fireEvent.click(screen.getByRole('button', { name: /수업 고르기/ }));
     const panel = screen.getByRole('complementary');
     fireEvent.click(await within(panel).findByRole('button', { name: '약속 추가' }));
     fireEvent.change(within(panel).getByLabelText(/이럴 때/), { target: { value: '자리가 없으면' } });

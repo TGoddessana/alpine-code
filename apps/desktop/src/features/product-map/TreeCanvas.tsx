@@ -14,7 +14,7 @@ import {
 import { useMessages } from '@/shared/i18n';
 
 import { flowTreeMessages as messages } from './flowTreeMessages';
-import { bounds, type LaidNode } from './treeLayout';
+import { BRANCH_X, bounds, type LaidNode } from './treeLayout';
 
 /** A node as drawn this frame: where it is on its way to its laid-out place, and how visible. */
 export interface ShownNode extends LaidNode {
@@ -57,8 +57,10 @@ export const TreeCanvas = forwardRef<
     /** Ids whose subtree should fit the first view. */
     initialFocus?: string[];
     overlay?: ReactNode;
+    /** More buttons for the bottom toolbar, after the zoom ones. */
+    tools?: ReactNode;
   }
->(function TreeCanvas({ nodes, highlight, strand, renderNode, initialFocus, overlay }, ref) {
+>(function TreeCanvas({ nodes, highlight, strand, renderNode, initialFocus, overlay, tools }, ref) {
   const t = useMessages(messages);
   const viewport = useRef<HTMLDivElement>(null);
   const shown = useTweenedNodes(nodes);
@@ -172,7 +174,6 @@ export const TreeCanvas = forwardRef<
   };
 
   const byId = new Map(shown.map((node) => [node.id, node]));
-  const grid = 24 * view.k;
 
   return (
     <div className="relative min-w-0 grow overflow-hidden">
@@ -180,11 +181,6 @@ export const TreeCanvas = forwardRef<
         ref={viewport}
         role="presentation"
         className={clsx('absolute inset-0 touch-none select-none', dragging ? 'cursor-grabbing' : 'cursor-grab')}
-        style={{
-          backgroundImage: 'radial-gradient(var(--color-line) 1px, transparent 1px)',
-          backgroundSize: `${grid}px ${grid}px`,
-          backgroundPosition: `${view.x}px ${view.y}px`,
-        }}
         onPointerDown={(event) => {
           if ((event.target as HTMLElement).closest('[data-node]')) return;
           if (viewAnimation.current) cancelAnimationFrame(viewAnimation.current);
@@ -238,7 +234,7 @@ export const TreeCanvas = forwardRef<
                 height: node.h,
                 transform: `translate(${node.x}px, ${node.y}px)`,
                 opacity: node.opacity,
-                pointerEvents: node.leaving ? 'none' : undefined,
+                pointerEvents: node.leaving || node.passive ? 'none' : undefined,
               }}
             >
               <div
@@ -251,7 +247,7 @@ export const TreeCanvas = forwardRef<
           ))}
         </div>
       </div>
-      <div className="absolute bottom-4 left-4 flex items-center gap-0.5 rounded-lg border border-line bg-canvas-raised p-0.5 shadow-overlay">
+      <div className="absolute bottom-4 left-4 flex items-center gap-0.5 rounded-lg border border-line bg-canvas-raised p-0.5 whitespace-nowrap shadow-overlay">
         <CanvasButton label={t.zoomOut} onClick={() => zoomBy(1 / 1.25)}>
           <Minus size={14} aria-hidden />
         </CanvasButton>
@@ -264,6 +260,7 @@ export const TreeCanvas = forwardRef<
           <Maximize size={13} aria-hidden />
           <span className="text-meta">{t.fit}</span>
         </CanvasButton>
+        {tools}
       </div>
       {overlay}
     </div>
@@ -284,51 +281,59 @@ function CanvasButton({ label, onClick, children }: { label: string; onClick: ()
   );
 }
 
+/** Right-angled, with softly rounded corners: out of the parent, along a spine, into the child. */
+function elbow(x1: number, y1: number, x2: number, y2: number, spine: number) {
+  if (Math.abs(y1 - y2) < 0.5) return `M ${x1} ${y1} L ${x2} ${y2}`;
+  const r = Math.min(6, Math.abs(y2 - y1) / 2, Math.abs(spine - x1), Math.abs(x2 - spine));
+  const down = y2 > y1 ? 1 : -1;
+  return [
+    `M ${x1} ${y1}`,
+    `L ${spine - r} ${y1}`,
+    `Q ${spine} ${y1} ${spine} ${y1 + r * down}`,
+    `L ${spine} ${y2 - r * down}`,
+    `Q ${spine} ${y2} ${spine + r} ${y2}`,
+    `L ${x2} ${y2}`,
+  ].join(' ');
+}
+
 /**
- * A line into a card. Along a journey's row, an arrow from one card to the next: the order the person walks it. From
- * a person's band, a short line to each of their journeys. Lines run in the gaps only; none crosses a card.
+ * A line into a node, like a flow diagram's: from a person's start along one spine to each journey, straight on from
+ * a journey through its steps, and down a step's gutter into each promise. Lines are thin and grey; the path to what
+ * is pointed at turns blue. Into a promise, the line says how it stands: dashed while nobody checked it, red when it
+ * broke, running while it is checked.
  */
 function Edge({ parent, child, on, opacity }: { parent: ShownNode; child: ShownNode; on: boolean; opacity: number }) {
-  if (parent.kind === 'product' || child.kind === 'person' || child.kind === 'addPerson') return null;
-  const y = child.y + child.h / 2;
-  const x1 = parent.x + parent.w;
-  const x2 = child.x;
-  const ghost = child.kind === 'addJourney';
-  const stroke = clsx(
-    'transition-[stroke] duration-(--motion-fast)',
-    on ? 'stroke-interactive' : ghost ? 'stroke-line' : 'stroke-fg-faint',
-  );
-  if (child.kind === 'step') {
+  if (parent.kind === 'band' || child.kind === 'band' || child.kind === 'addPerson') return null;
+  let d: string;
+  if (child.kind === 'promise') {
+    const x = parent.x + BRANCH_X;
+    const y = child.y + child.h / 2;
+    const r = 6;
+    d = `M ${x} ${parent.y + parent.h} L ${x} ${y - r} Q ${x} ${y} ${x + r} ${y} L ${child.x} ${y}`;
+  } else {
+    const x1 = parent.x + parent.w;
     const y1 = parent.y + parent.h / 2;
-    const tip = x2 - 2;
-    return (
-      <g opacity={opacity} className={clsx(!on && 'opacity-70')}>
-        <path
-          d={`M ${x1 + 6} ${y1} L ${tip} ${y}`}
-          fill="none"
-          strokeWidth={on ? 2 : 1.5}
-          strokeLinecap="round"
-          className={clsx(stroke, child.status === 'checking' && 'motion-flow [stroke-dasharray:6_6]')}
-        />
-        <path
-          d={`M ${tip - 6} ${y - 5} L ${tip} ${y} L ${tip - 6} ${y + 5}`}
-          fill="none"
-          strokeWidth={on ? 2 : 1.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={stroke}
-        />
-      </g>
-    );
+    const x2 = child.x;
+    const y2 = child.y + child.h / 2;
+    d = elbow(x1, y1, x2, y2, x1 + Math.min(28, (x2 - x1) / 2));
   }
+  const status = child.kind === 'promise' ? child.status : null;
   return (
     <path
-      d={`M ${x1} ${y} L ${x2} ${y}`}
+      d={d}
       fill="none"
-      strokeWidth={on ? 2 : 1.5}
+      strokeWidth={on ? 1.75 : 1.25}
       strokeLinecap="round"
+      strokeLinejoin="round"
       opacity={opacity}
-      className={clsx(stroke, ghost && '[stroke-dasharray:4_5]', !on && 'opacity-70')}
+      className={clsx(
+        'transition-[stroke] duration-(--motion-fast)',
+        status === 'failed' ? 'stroke-danger' : on || status === 'checking' ? 'stroke-interactive' : 'stroke-fg-faint',
+        !on && status !== 'failed' && status !== 'checking' && 'opacity-50',
+        (child.kind === 'addJourney' || status === 'unconfirmed' || status === 'planned' || status === 'blocked') &&
+          '[stroke-dasharray:3_4]',
+        status === 'checking' && 'motion-flow [stroke-dasharray:6_6]',
+      )}
     />
   );
 }

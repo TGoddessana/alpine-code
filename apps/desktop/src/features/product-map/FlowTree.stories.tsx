@@ -6,7 +6,7 @@ import { POSTGRES_TREE } from './flowTreeExample';
 import { updatePromises, type TreeMap, type TreePromise } from './flowTreeModel';
 
 /** A stand-in for the server: checks take a moment each and settle one by one, like an agent trying them in turn. */
-function Harness({ start, initialPerson }: { start: TreeMap; initialPerson?: string }) {
+function Harness({ start, initialPerson, allOpen }: { start: TreeMap; initialPerson?: string; allOpen?: boolean }) {
   const [map, setMap] = useState(start);
   const removed = useRef<{ cardId: string; index: number; promise: TreePromise } | null>(null);
   const keyOf = (target: PromiseTarget) => `${target.cardId}/${target.promiseId}`;
@@ -35,6 +35,7 @@ function Harness({ start, initialPerson }: { start: TreeMap; initialPerson?: str
     <FlowTree
       map={map}
       initialPerson={initialPerson}
+      allOpen={allOpen}
       onCheck={(targets) =>
         settle(targets, (promise) => {
           const roll = hash(promise.id) % 17;
@@ -171,7 +172,7 @@ const meta = {
   args: { start: POSTGRES_TREE },
   decorators: [
     (Story) => (
-      <div className="flex h-200 w-full">
+      <div className="flex h-screen w-full">
         <Story />
       </div>
     ),
@@ -185,6 +186,8 @@ type Story = StoryObj<typeof meta>;
 export const PostgreSQL: Story = {};
 /** A promise broke, another step is being checked: what to do first comes to the top. */
 export const SomethingBroke: Story = { args: { start: MIXED } };
+/** Every step's promises open at once: the whole map, 535 promises. */
+export const EverythingOpen: Story = { args: { allOpen: true } };
 export const Operator: Story = { args: { initialPerson: 'ops' } };
 export const English: Story = { globals: { locale: 'en' } };
 /** A person just added: no journeys yet. */

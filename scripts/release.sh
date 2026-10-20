@@ -20,7 +20,7 @@ base_url="https://downloads.alpinecode.app"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
-if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+if [ -n "$(git status --porcelain --untracked-files=no -- . ':!.claude')" ]; then
   echo "The working tree has changes; release from a clean checkout." >&2
   exit 1
 fi
@@ -75,7 +75,7 @@ for f in "$dmg" "$archive" "$archive.sig"; do
   test -f "$f" || { echo "The build left no $f" >&2; exit 1; }
 done
 
-if [ "$(git rev-parse HEAD)" != "$commit" ] || [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+if [ "$(git rev-parse HEAD)" != "$commit" ] || [ -n "$(git status --porcelain --untracked-files=no -- . ':!.claude')" ]; then
   echo "The checkout changed while building $commit; nothing was uploaded. Release again from a quiet checkout." >&2
   exit 1
 fi

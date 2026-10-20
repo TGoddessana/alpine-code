@@ -11,7 +11,7 @@ import { checkForUpdate, inTauri, openInBrowser, restartToUpdate } from '@/share
 import appIcon from '../../src-tauri/icons/128x128@2x.png';
 import { menuMessages } from './messages';
 
-const REPO = 'https://github.com/TGoddessana/alpine-code';
+const REPO = 'https://github.com/hypercodism/alpine-code';
 
 interface Actions {
   newSession: () => void;

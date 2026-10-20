@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/TGoddessana/alpine-code/releases/latest"><b>Download for Mac</b></a>
+  <a href="https://downloads.alpinecode.app/AlpineCode_aarch64.dmg"><b>Download for Mac</b></a>
   &nbsp;·&nbsp;
   <a href="LICENSE">MIT license</a>
 </p>
@@ -89,7 +89,7 @@ is one more client. [CONTRIBUTING.md](CONTRIBUTING.md) shows how the repository 
 
 ## Get started
 
-1. **Download** Alpine Code from the [latest release](https://github.com/TGoddessana/alpine-code/releases/latest)
+1. **Download** Alpine Code from the [latest release](https://downloads.alpinecode.app/AlpineCode_aarch64.dmg)
    (the `.dmg` file), open it and drag AlpineCode into Applications.
 2. **Connect a model.** Alpine Code asks the first time you open it.
 3. **Open a folder** and say what you'd like to do.
@@ -113,11 +113,11 @@ plans can't be used in other apps, so Claude models connect with an API key.
 
 ## Contributing
 
-Bug reports, ideas and pull requests are welcome: [open an issue](https://github.com/TGoddessana/alpine-code/issues)
+Bug reports, ideas and pull requests are welcome: [open an issue](https://github.com/hypercodism/alpine-code/issues)
 or start with [CONTRIBUTING.md](CONTRIBUTING.md). Alpine Code is built on
 [alpineagents](https://tgoddessana.github.io/alpineagents/) and released under the [MIT license](LICENSE).
 
 ## Brand
 
 The snow hare’s bent ear, blue collar and horizontal wrench are shared by the app and the website.
-Find the [brand assets and usage guide](assets/brand/README.md), or work on the independent [website and getting-started guide repository](https://github.com/TGoddessana/alpinecode.app).
+Find the [brand assets and usage guide](assets/brand/README.md), or work on the independent [website and getting-started guide repository](https://github.com/hypercodism/alpinecode.app).

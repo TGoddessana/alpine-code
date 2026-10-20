@@ -27,7 +27,7 @@ from typing import Any
 
 from .secrets import OAuthTokens
 
-#: The OAuth app "AlpineCode" registered on GitHub (TGoddessana), with the device flow on and tokens that do not
+#: The OAuth app "AlpineCode" registered on GitHub (hypercodism), with the device flow on and tokens that do not
 #: expire. A client id is public by design. ``ALPINE_GITHUB_CLIENT_ID`` overrides it (another app, tests).
 CLIENT_ID = "Ov23liIpgVe20xFn3fRV"
 SCOPE = "repo"

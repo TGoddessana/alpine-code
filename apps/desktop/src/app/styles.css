@@ -132,3 +132,38 @@
     opacity: 1;
   }
 }
+
+/* Product map tree. A branch line grows down from its trunk when its step opens. */
+@utility motion-draw {
+  transform-origin: top;
+  animation: motion-draw var(--motion-normal) var(--motion-ease) both;
+}
+@keyframes motion-draw {
+  from {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+}
+@utility motion-spin {
+  animation: motion-spin 900ms linear infinite;
+}
+@keyframes motion-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+/* A row being checked: a soft light passes over it until the result arrives. */
+@utility motion-sweep {
+  background-image: linear-gradient(90deg, transparent 0%, var(--color-selected) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: motion-sweep 1600ms var(--motion-ease) infinite;
+}
+@keyframes motion-sweep {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}

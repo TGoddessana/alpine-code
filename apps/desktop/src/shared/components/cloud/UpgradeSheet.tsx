@@ -54,7 +54,10 @@ export function UpgradeSheet({ reason, onBack, onClose, onDone }: UpgradeSheetPr
   const price = info?.price as { amount?: number | string; currency?: string; interval?: string } | null | undefined;
 
   // A price of 0 is the API's placeholder until the real one is decided; it is not shown as if it were free.
-  const priceText = price && Number(price.amount) > 0 ? `${price.amount} ${price.currency ?? ''}`.trim() : null;
+  const priceText =
+    price && Number(price.amount) > 0
+      ? t.price(format.money(Number(price.amount), price.currency || 'USD'), price.interval === 'month')
+      : null;
 
   const pay = () =>
     checkout.mutate(undefined, {

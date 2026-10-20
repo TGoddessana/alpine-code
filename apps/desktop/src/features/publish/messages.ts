@@ -292,7 +292,7 @@ export const messages = defineMessages({
   en: {
     publish: 'Publish',
     unpublished: 'There are changes not published yet',
-    changes: (count: number) => `${count} changes`,
+    changes: (count: number) => `${count} ${count === 1 ? 'change' : 'changes'}`,
     lastPublished: (when: string) => `Last published · ${when}`,
     firstTime: 'First time online',
     aiChecked: 'What the AI checked',

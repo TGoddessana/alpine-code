@@ -56,7 +56,12 @@ export function useFormat() {
       number: (value: number) => number.format(value),
       duration: (ms: number) => formatDuration(ms, locale),
       money: (value: number, currency = 'USD') =>
-        new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'narrowSymbol' }).format(value),
+        new Intl.NumberFormat(locale, {
+          style: 'currency',
+          currency,
+          currencyDisplay: 'narrowSymbol',
+          trailingZeroDisplay: 'stripIfInteger',
+        }).format(value),
     };
   }, [locale]);
 }

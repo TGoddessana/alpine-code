@@ -215,6 +215,10 @@
       "params": "FlowSetParams",
       "result": "FlowGetResult"
     },
+    "flow/actor": {
+      "params": "FlowActorParams",
+      "result": "FlowGetResult"
+    },
     "flow/node": {
       "params": "FlowNodeParams",
       "result": "FlowNodeResult"
@@ -3624,6 +3628,33 @@
         "severity"
       ],
       "title": "Finding",
+      "type": "object"
+    },
+    "FlowActorParams": {
+      "description": "The person moves journeys to who walks them, or renames that group. The AI may change it again later: the\ngrouping is worked out together, not owned by either side.",
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "flowIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "type": "array"
+        },
+        "actor": {
+          "default": "",
+          "maxLength": 60,
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "flowIds"
+      ],
+      "title": "FlowActorParams",
       "type": "object"
     },
     "FlowChange": {

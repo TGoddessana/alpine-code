@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from alpine_protocol import (
     FeatureFile,
+    FlowActorParams,
     FlowChange,
     FlowDeleteParams,
     FlowEditParams,
@@ -344,6 +345,32 @@ def set_flow(params: FlowSetParams) -> FlowGetResult:
         map_state.remember(state, layout.features[params.node_id])
         map_state.set_plan(state, params.field, value)
         map_state.save_card(root, params.node_id, state)
+        return _result(root, read_layout(root))
+
+
+def actor_flow(params: FlowActorParams) -> FlowGetResult:
+    """Write who walks some journeys (the person moved them, or renamed their group) into their flow files."""
+    with lock:
+        root = folder(params.cwd)
+        layout = read_layout(root)
+        _require_writable(layout)
+        known = {flow.id for flow in layout.flows}
+        if any(flow_id not in known for flow_id in params.flow_ids):
+            raise MethodError(APP_ERROR, "Unknown journey", "invalid_flow")
+        _require_idle(root)
+        actor = " ".join(params.actor.split())
+        for flow_id in params.flow_ids:
+            path = lpath(root, f"{FLOWS}/{flow_id}.json")
+            try:
+                raw = copy.deepcopy(json.loads(read_bytes(path).decode("utf-8")))
+                if actor:
+                    raw["actor"] = actor
+                else:
+                    raw.pop("actor", None)
+                FlowFile.model_validate(raw)
+            except (OSError, ValueError, AttributeError, ValidationError) as exc:
+                raise MethodError(APP_ERROR, f"Cannot update flow {flow_id}: {exc}", "invalid_flow") from exc
+            atomic(path, dump(raw))
         return _result(root, read_layout(root))
 
 
@@ -841,7 +868,11 @@ Phase: built means implemented, NOT verified; new branches start planned; use bu
 Flows: a flow is one kind of user's journey through one door of the product (the screens of an app, a terminal
 command, a library, a protocol other programs speak), from what they start wanting to what they get. Give it a
 `trigger` (one sentence) and a `description` in the form "when/if <situation>, <who> must be able to <outcome>" (e.g.
-"회원이 이용권이 없을 때 수업을 고르면 결제하고 바로 예약할 수 있어야 한다").
+"회원이 이용권이 없을 때 수업을 고르면 결제하고 바로 예약할 수 있어야 한다"), and an `actor`: who walks it, in
+the product's own words (손님, 사장님, 다른 화면을 만드는 개발자). Anything that starts a journey counts, a person
+or not (an agent, a scheduled job, another program); flows of the same actor share the exact same words. The person
+works on this grouping with you and may rename or regroup actors in the app: build on what they wrote, and change
+it when the product gives a reason.
 - When the trigger, the goal or the door differs, make separate flows (a team lead deciding what to do today and a
   member finishing a task are two flows, even on the same screens; working in the desktop app and in the terminal
   are two flows, even when both speak the same protocol).
@@ -1008,6 +1039,7 @@ HANDLERS = {
     "flow/get": get_flow,
     "flow/prepare": prepare_flow,
     "flow/set": set_flow,
+    "flow/actor": actor_flow,
     "flow/node": node_flow,
     "flow/promise": promise_flow,
     "flow/edit": edit_flow,

@@ -413,6 +413,18 @@ export function flowScript(initial: ProductMap | ((cwd: string) => ProductMap) =
         touch(board);
         return view(board);
       },
+      'flow/actor': (params) => {
+        const board = writable(get(params.cwd));
+        const { document } = board;
+        const flows = document.flows ?? [];
+        if (params.flowIds.some((id) => !flows.some((flow) => flow.id === id)))
+          throw fail('Unknown journey', 'invalid_flow');
+        const actor = params.actor?.trim() ?? '';
+        for (const flow of flows) if (params.flowIds.includes(flow.id)) flow.actor = actor;
+        board.document = structuredClone(document);
+        touch(board);
+        return view(board);
+      },
       'flow/promise': (params) => {
         const board = writable(get(params.cwd));
         const node = find(board, params.nodeId);

@@ -2032,6 +2032,16 @@ class FlowSetParams(Message):
     value: str | None = None
 
 
+class FlowActorParams(Message):
+    """The person moves journeys to who walks them, or renames that group. The AI may change it again later: the
+    grouping is worked out together, not owned by either side."""
+
+    cwd: str
+    flow_ids: list[str] = Field(min_length=1, max_length=200)
+    actor: str = Field(default="", max_length=60)
+    """Empty takes the journeys out of any group."""
+
+
 class FlowPromiseParams(Message):
     cwd: str
     node_id: str
@@ -2202,6 +2212,7 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "flow/get": (FlowGetParams, FlowGetResult),
     "flow/prepare": (FlowPrepareParams, FlowPrepareResult),
     "flow/set": (FlowSetParams, FlowGetResult),
+    "flow/actor": (FlowActorParams, FlowGetResult),
     "flow/node": (FlowNodeParams, FlowNodeResult),
     "flow/promise": (FlowPromiseParams, FlowGetResult),
     "flow/edit": (FlowEditParams, FlowGetResult),

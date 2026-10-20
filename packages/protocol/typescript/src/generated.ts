@@ -1878,6 +1878,22 @@ export interface FilesSearchResult {
   truncated?: boolean;
 }
 /**
+ * The person moves journeys to who walks them, or renames that group. The AI may change it again later: the
+ * grouping is worked out together, not owned by either side.
+ *
+ * This interface was referenced by `AlpineProtocol`'s JSON-Schema
+ * via the `definition` "FlowActorParams".
+ */
+export interface FlowActorParams {
+  cwd: string;
+  /**
+   * @minItems 1
+   * @maxItems 200
+   */
+  flowIds: [string, ...string[]];
+  actor?: string;
+}
+/**
  * One recorded change to the map, kept by the server next to the document.
  *
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema
@@ -4329,6 +4345,7 @@ export interface Methods {
   'flow/get': { params: FlowGetParams; result: FlowGetResult };
   'flow/prepare': { params: FlowPrepareParams; result: FlowPrepareResult };
   'flow/set': { params: FlowSetParams; result: FlowGetResult };
+  'flow/actor': { params: FlowActorParams; result: FlowGetResult };
   'flow/node': { params: FlowNodeParams; result: FlowNodeResult };
   'flow/promise': { params: FlowPromiseParams; result: FlowGetResult };
   'flow/edit': { params: FlowEditParams; result: FlowGetResult };

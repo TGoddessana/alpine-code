@@ -72,6 +72,8 @@ export interface FlowTreeProps {
   onDecide?: (cardId: string, field: 'priority' | 'scope' | 'decision', value: string | null) => void;
   /** Opens the conversation last started on a card. */
   onOpenSession?: (sessionId: string) => void;
+  /** Puts journeys under who walks them (a person's name, or empty to ungroup); the AI may change it again later. */
+  onSetActor?: (journeyIds: string[], actor: string) => void;
   initialPerson?: string;
   /** Opens every step's promises from the start (the whole map at once). */
   allOpen?: boolean;
@@ -268,6 +270,20 @@ export function FlowTree(props: FlowTreeProps) {
 
   const person =
     focus && focus.kind !== 'addPerson' ? map.people.find((candidate) => candidate.id === focus.personId) : undefined;
+
+  // A group renamed or regrouped (here or by the AI) gets a new id; the focus follows its journeys to where they went.
+  const followed = useRef<string[]>([]);
+  useEffect(() => {
+    if (person) followed.current = person.journeys.map((journey) => journey.id);
+  }, [person]);
+  useEffect(() => {
+    if (!focus || focus.kind === 'addPerson' || person) return;
+    const moved = map.people.find((candidate) =>
+      candidate.journeys.some((journey) => followed.current.includes(journey.id)),
+    );
+    if (moved)
+      setFocus((current) => (current && current.kind !== 'addPerson' ? { ...current, personId: moved.id } : current));
+  }, [focus, person, map]);
 
   return (
     <div className="flex h-full min-h-0 w-full bg-canvas text-body text-fg">
@@ -1036,6 +1052,19 @@ function PersonPanel({
           <p className="text-meta text-fg-muted">{text(person.role)}</p>
         </div>
       </div>
+      {props.onSetActor && (
+        <InlineAdd
+          key={person.id}
+          label={person.id === 'actor:' ? t.actorGroup : t.actorRename}
+          fields={[t.actorNamePlaceholder]}
+          onAdd={([name]) =>
+            props.onSetActor!(
+              person.journeys.map((journey) => journey.id),
+              name!,
+            )
+          }
+        />
+      )}
       <div className="flex items-start gap-2 rounded-lg border border-line bg-canvas-raised px-3 py-2.5">
         <DoorOpen size={15} aria-hidden className="mt-0.5 shrink-0 text-interactive" />
         <span className="min-w-0">
@@ -1132,6 +1161,13 @@ function JourneyPanel({
         <h2 className="text-title">{text(journey.title)}</h2>
         {text(journey.goal) && <p className="text-fg-muted">{text(journey.goal)}</p>}
       </div>
+      {props.onSetActor && (
+        <ActorPicker
+          map={map}
+          current={person.id.startsWith('actor:') ? person.id.slice(6) : ''}
+          onPick={(actor) => props.onSetActor!([journey.id], actor)}
+        />
+      )}
       {journey.steps.length === 0 ? (
         <div className="flex flex-col items-start gap-3">
           <p className="text-fg-muted">{t.noSteps}</p>
@@ -1261,6 +1297,37 @@ function Decisions({
           </span>
         </div>
       ))}
+    </section>
+  );
+}
+
+/** Who walks a journey: one of the groups the map already has, or a new name. */
+function ActorPicker({ map, current, onPick }: { map: TreeMap; current: string; onPick: (actor: string) => void }) {
+  const t = useMessages(messages);
+  const text = useText();
+  const named = map.people.filter((person) => person.id.startsWith('actor:') && person.id !== 'actor:');
+  return (
+    <section className="flex flex-col gap-1.5">
+      <h3 className="text-meta text-fg-muted">{t.actorTitle}</h3>
+      <div role="radiogroup" aria-label={t.actorTitle} className="flex flex-wrap gap-1.5">
+        {named.map((person) => {
+          const actor = person.id.slice(6);
+          return (
+            <button
+              key={person.id}
+              type="button"
+              role="radio"
+              aria-checked={actor === current}
+              onClick={() => actor !== current && onPick(actor)}
+              className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-canvas-raised py-0.5 pr-2.5 pl-1 text-meta transition-colors hover:border-interactive aria-checked:border-interactive aria-checked:bg-selected"
+            >
+              <Avatar person={person} small />
+              {text(person.name)}
+            </button>
+          );
+        })}
+      </div>
+      <InlineAdd label={t.actorNew} fields={[t.actorPlaceholder]} onAdd={([name]) => onPick(name!)} />
     </section>
   );
 }

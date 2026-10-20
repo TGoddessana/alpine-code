@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from alpine_protocol import (
+    FlowActorParams,
     FlowEditParams,
     FlowGetParams,
     FlowNodeParams,
@@ -24,6 +25,7 @@ from alpine_protocol import (
 from alpine_server import flow as flow_module
 from alpine_server import map_evidence, map_git, map_replay, map_state
 from alpine_server.flow import (
+    actor_flow,
     edit_flow,
     get_flow,
     node_flow,
@@ -840,6 +842,19 @@ def test_set_clears_values_and_rejects_bad_input(proj):
                 )
             )
         assert error.value.data.reason == "invalid_flow"
+
+
+def test_actor_groups_journeys_in_their_files_and_clears(proj):
+    write_map(proj)
+    result = actor_flow(FlowActorParams(cwd=str(proj), flow_ids=["web", "sdk"], actor="  손님  "))
+    assert {flow.id: flow.actor for flow in result.document.flows} == {"web": "손님", "sdk": "손님"}
+    assert json.loads((proj / BASE / "flows/web.json").read_text())["actor"] == "손님"
+    result = actor_flow(FlowActorParams(cwd=str(proj), flow_ids=["sdk"], actor=""))
+    assert "actor" not in json.loads((proj / BASE / "flows/sdk.json").read_text())
+    assert {flow.id: flow.actor for flow in result.document.flows} == {"web": "손님", "sdk": ""}
+    with pytest.raises(MethodError) as error:
+        actor_flow(FlowActorParams(cwd=str(proj), flow_ids=["ghost"], actor="x"))
+    assert error.value.data.reason == "invalid_flow"
 
 
 def test_scope_keeps_project_relative_paths_inside_the_project(proj):

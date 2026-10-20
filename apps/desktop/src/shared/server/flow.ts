@@ -1,4 +1,5 @@
 import type {
+  FlowActorParams,
   FlowDeleteParams,
   FlowEditParams,
   FlowGetResult,
@@ -61,7 +62,15 @@ export function usePrepareFlow() {
 
 /** Runs a mutation whose answer is the whole map and puts that answer on screen. */
 function useBoardMutation<Params extends { cwd: string }>(
-  method: 'flow/set' | 'flow/promise' | 'flow/edit' | 'flow/review' | 'flow/scope' | 'flow/schedule' | 'flow/delete',
+  method:
+    | 'flow/set'
+    | 'flow/actor'
+    | 'flow/promise'
+    | 'flow/edit'
+    | 'flow/review'
+    | 'flow/scope'
+    | 'flow/schedule'
+    | 'flow/delete',
 ) {
   const server = useServer();
   const client = useQueryClient();
@@ -76,6 +85,11 @@ function useBoardMutation<Params extends { cwd: string }>(
 /** Writes one of the user's own decisions (priority, scope, memo, area) on a feature. */
 export function useSetFlow() {
   return useBoardMutation<FlowSetParams>('flow/set');
+}
+
+/** Moves journeys to who walks them, or renames that group; the AI may change it again later (worked out together). */
+export function useSetActor() {
+  return useBoardMutation<FlowActorParams>('flow/actor');
 }
 
 /** The user's decision on one promise: confirm it, put it off, stop caring, or allow an automatic replay. */

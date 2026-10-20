@@ -1648,4 +1648,20 @@ describe('person-first view', () => {
     expect((lastPrepare(request) as { nodeIds: string[] }).nodeIds.length).toBeGreaterThan(0);
     await waitFor(() => expect(onSession).toHaveBeenCalledWith('new-session'));
   });
+
+  it('grouping journeys under who walks them writes their actor, and the band takes that name', async () => {
+    const { request } = mount();
+    const panel = await screen.findByRole('complementary');
+    fireEvent.click(await within(panel).findByRole('button', { name: '이 여정들 묶기' }));
+    fireEvent.change(within(panel).getByLabelText(/누가 걷는지/), { target: { value: '회원' } });
+    fireEvent.click(within(panel).getByRole('button', { name: '추가' }));
+    await waitFor(() =>
+      expect(
+        request.mock.calls.some(
+          ([method, params]) => method === 'flow/actor' && (params as { actor: string }).actor === '회원',
+        ),
+      ).toBe(true),
+    );
+    expect(await screen.findByRole('heading', { name: '회원' })).toBeTruthy();
+  });
 });

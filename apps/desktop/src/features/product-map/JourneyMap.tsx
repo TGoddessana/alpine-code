@@ -2,7 +2,7 @@ import type { FlowGetResult, FlowNode, SessionInfo } from '@alpine/protocol';
 import { useMemo, useRef } from 'react';
 
 import { useMessages } from '@/shared/i18n';
-import { useEditFlow, useSetFlow } from '@/shared/server';
+import { useEditFlow, useSetActor, useSetFlow } from '@/shared/server';
 
 import { FlowTree } from './FlowTree';
 import { toTreeMap } from './flowTreeData';
@@ -36,6 +36,7 @@ export function JourneyMap({
   const t = useMessages(flowTreeMessages);
   const edit = useEditFlow();
   const decide = useSetFlow();
+  const setActor = useSetActor();
   const removed = useRef<{ cardId: string; text: string } | null>(null);
   const project = cwd.split('/').pop() ?? cwd;
   const map = useMemo(
@@ -92,6 +93,9 @@ export function JourneyMap({
       onAddPerson={(name) => void start('reshape', { request: t.addPersonRequest(name) })}
       onDecide={(cardId, field, value) => decide.mutate({ cwd, nodeId: cardId, field, value })}
       onOpenSession={onSession}
+      onSetActor={(flowIds, actor) =>
+        flowIds.length && setActor.mutate({ cwd, flowIds: flowIds as [string, ...string[]], actor })
+      }
     />
   );
 }

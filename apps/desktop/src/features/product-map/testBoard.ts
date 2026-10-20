@@ -294,6 +294,12 @@ export function boardScript(initial: FlowGetResult = bookingBoard()): Script {
         else node.scope = params.value as FlowNode['scope'];
         return bump(next);
       },
+      'flow/actor': (params) => {
+        const next = structuredClone(board);
+        for (const flow of next.document?.flows ?? [])
+          if (params.flowIds.includes(flow.id)) flow.actor = params.actor?.trim() ?? '';
+        return bump(next);
+      },
       'flow/promise': promise,
       'flow/edit': (params) => {
         const next = structuredClone(board);

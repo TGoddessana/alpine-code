@@ -310,9 +310,19 @@ export function Detail({
           ) : promise.note ? (
             <>
               <p className={clsx(promise.status === 'failed' && 'text-danger')}>{promise.note}</p>
+              <CheckList title={t.changedFiles} items={promise.changedFiles} tone="attention" mono />
               <CheckList title={t.tried} items={promise.steps} />
               <CheckList title={t.saw} items={promise.seen} />
               <CheckList title={t.couldNot} items={promise.limits} tone="attention" />
+              {promise.history && promise.history.length > 1 && (
+                <CheckList
+                  title={t.historyTitle}
+                  items={promise.history
+                    .slice(-5)
+                    .reverse()
+                    .map((entry) => `${format.date(new Date(entry.at))} · ${t.resultWord(entry.result)}`)}
+                />
+              )}
               {(promise.environment || promise.checkedAt) && (
                 <p className="text-meta text-fg-faint">
                   {[promise.environment, promise.checkedAt && t.checkedOn(format.date(new Date(promise.checkedAt)))]
@@ -445,12 +455,22 @@ export function RemovedNotice({ onUndo }: { onUndo: () => void }) {
 }
 
 /** One part of what a check did (해본 것, 본 것, 확인 못 한 것), left out when the check said nothing about it. */
-function CheckList({ title, items, tone }: { title: string; items?: string[]; tone?: 'attention' }) {
+function CheckList({
+  title,
+  items,
+  tone,
+  mono,
+}: {
+  title: string;
+  items?: string[];
+  tone?: 'attention';
+  mono?: boolean;
+}) {
   if (!items?.length) return null;
   return (
     <div className="flex flex-col gap-0.5 pt-1">
       <span className={clsx('text-meta', tone === 'attention' ? 'text-attention' : 'text-fg-muted')}>{title}</span>
-      <ul className="flex list-disc flex-col gap-0.5 pl-4 text-meta">
+      <ul className={clsx('flex list-disc flex-col gap-0.5 pl-4 text-meta', mono && 'font-mono break-all')}>
         {items.map((item) => (
           <li key={item}>{item}</li>
         ))}

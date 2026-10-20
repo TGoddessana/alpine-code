@@ -14,6 +14,22 @@ export const flowTreeMessages = defineMessages({
     // What to do next, worst first
     todoFailed: (count: number) => `지키지 못한 약속이 ${count}개 있어요`,
     todoFix: 'AI에게 고쳐 달라고 하기',
+    todoRecheck: (count: number) => `코드가 바뀌어 다시 확인할 약속이 ${count}개 있어요`,
+    todoRecheckAction: '다시 확인 맡기기',
+    changesOnly: '바뀐 것만',
+    changedFiles: '확인한 뒤로 바뀐 파일',
+    historyTitle: '확인 기록',
+    resultWord: (result: string) =>
+      result === 'passed' ? '통과' : result === 'failed' ? '실패' : result === 'blocked' ? '확인 못 함' : result,
+    changeKind: (kind: string) =>
+      ({
+        added: '새로 생김',
+        promise_added: '약속 추가',
+        check_passed: '통과',
+        check_failed: '실패',
+        check_blocked: '확인 못 함',
+        removed: '빠짐',
+      })[kind] ?? kind,
     todoShow: '보기',
     todoBlocked: (count: number) => `확인하지 못한 약속이 ${count}개 있어요`,
     todoWhy: '이유 보기',
@@ -47,7 +63,7 @@ export const flowTreeMessages = defineMessages({
     findSteps: '단계 찾아 달라고 하기',
     promiseMenu: '약속 메뉴',
     // Detail
-    recentTitle: '최근 확인',
+    recentTitle: '최근 바뀐 것',
     recentEmpty: '아직 확인한 기록이 없어요',
     checkedOn: (date: string) => `${date}에 확인`,
     lastCheck: '마지막 확인',
@@ -110,6 +126,29 @@ export const flowTreeMessages = defineMessages({
     journeys: (count: number) => `${count} ${count === 1 ? 'journey' : 'journeys'}`,
     todoFailed: (count: number) => `${count} ${count === 1 ? 'promise is' : 'promises are'} broken`,
     todoFix: 'Ask the AI to fix it',
+    todoRecheck: (count: number) =>
+      `${count} ${count === 1 ? 'promise needs' : 'promises need'} a recheck: their code changed`,
+    todoRecheckAction: 'Recheck them',
+    changesOnly: 'Changes only',
+    changedFiles: 'Files changed since the check',
+    historyTitle: 'Check history',
+    resultWord: (result: string) =>
+      result === 'passed'
+        ? 'Passed'
+        : result === 'failed'
+          ? 'Broken'
+          : result === 'blocked'
+            ? 'Could not check'
+            : result,
+    changeKind: (kind: string) =>
+      ({
+        added: 'New',
+        promise_added: 'Promise added',
+        check_passed: 'Passed',
+        check_failed: 'Broken',
+        check_blocked: 'Could not check',
+        removed: 'Removed',
+      })[kind] ?? kind,
     todoShow: 'Show',
     todoBlocked: (count: number) => `${count} ${count === 1 ? 'promise' : 'promises'} could not be checked`,
     todoWhy: 'See why',
@@ -141,7 +180,7 @@ export const flowTreeMessages = defineMessages({
     noSteps: 'No steps yet. The AI can read the code and find them.',
     findSteps: 'Ask the AI to find the steps',
     promiseMenu: 'Promise menu',
-    recentTitle: 'Recently checked',
+    recentTitle: 'Recently changed',
     recentEmpty: 'Nothing has been checked yet',
     checkedOn: (date: string) => `Checked ${date}`,
     lastCheck: 'Last check',

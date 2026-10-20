@@ -168,4 +168,31 @@ describe('FlowTree', () => {
     fireEvent.click(within(panel).getByRole('button', { name: '추가' }));
     expect(props.onAddPromise).toHaveBeenCalledWith('pick', '자리가 없으면', '대기 신청을 받아요');
   });
+  it('puts code that changed under a passed promise near the top, and says which files', async () => {
+    const map: TreeMap = {
+      ...MAP,
+      cards: {
+        ...MAP.cards,
+        pick: {
+          ...MAP.cards.pick!,
+          promises: [
+            {
+              ...MAP.cards.pick!.promises[0]!,
+              status: 'recheck',
+              changedFiles: ['src/pick.tsx'],
+              note: '고를 수 있었어요',
+            },
+            MAP.cards.pick!.promises[1]!,
+          ],
+        },
+      },
+    };
+    const props = mount({ map });
+    const panel = screen.getByRole('complementary');
+    expect(within(panel).getByText('코드가 바뀌어 다시 확인할 약속이 1개 있어요')).toBeTruthy();
+    fireEvent.click(within(panel).getByRole('button', { name: '다시 확인 맡기기' }));
+    expect(props.onCheck).toHaveBeenCalledWith([{ cardId: 'pick', promiseId: 'a' }]);
+    fireEvent.click(within(panel).getAllByRole('button', { name: '보기' })[1]!);
+    expect(await within(panel).findByText('src/pick.tsx')).toBeTruthy();
+  });
 });

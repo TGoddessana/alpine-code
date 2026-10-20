@@ -7,7 +7,17 @@ import { POSTGRES_TREE } from './flowTreeExample';
 import { updatePromises, type TreeMap, type TreePromise } from './flowTreeModel';
 
 /** A stand-in for the server: checks take a moment each and settle one by one, like an agent trying them in turn. */
-function Harness({ start, initialPerson, allOpen }: { start: TreeMap; initialPerson?: string; allOpen?: boolean }) {
+function Harness({
+  start,
+  initialPerson,
+  allOpen,
+  changesOnly,
+}: {
+  start: TreeMap;
+  initialPerson?: string;
+  allOpen?: boolean;
+  changesOnly?: boolean;
+}) {
   const [map, setMap] = useState(start);
   const removed = useRef<{ cardId: string; index: number; promise: TreePromise } | null>(null);
   const keyOf = (target: PromiseTarget) => `${target.cardId}/${target.promiseId}`;
@@ -37,6 +47,7 @@ function Harness({ start, initialPerson, allOpen }: { start: TreeMap; initialPer
       map={map}
       initialPerson={initialPerson}
       allOpen={allOpen}
+      changesOnly={changesOnly}
       onCheck={(targets) =>
         settle(targets, (promise) => {
           const roll = hash(promise.id) % 17;
@@ -187,6 +198,8 @@ type Story = StoryObj<typeof meta>;
 export const AlpineCode: Story = {};
 /** Every checklist open at once. */
 export const AlpineCodeOpen: Story = { args: { allOpen: true } };
+/** Only what changed: steps whose code moved under a passed promise, broke, or changed lately. */
+export const ChangesOnly: Story = { args: { changesOnly: true } };
 /** postgres-ultracode's map: 103 cards, 535 promises, titles and promises only. */
 export const PostgreSQL: Story = { args: { start: POSTGRES_TREE } };
 /** A promise broke, another step is being checked: what to do first comes to the top. */

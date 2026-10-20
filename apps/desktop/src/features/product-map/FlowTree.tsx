@@ -71,6 +71,10 @@ export interface FlowTreeProps {
   initialPerson?: string;
   /** Opens every step's promises from the start (the whole map at once). */
   allOpen?: boolean;
+  /** Starts with only what changed in view. */
+  changesOnly?: boolean;
+  /** When the person last looked at the map (ISO); later changes count as new. Unknown: only rechecks and breaks. */
+  seenAt?: string;
 }
 
 /** What the side panel shows: a node's details, a promise of a step, or a form for what a "+" adds. */
@@ -120,6 +124,7 @@ export function FlowTree(props: FlowTreeProps) {
   const [focus, setFocus] = useState<Focus | null>(first ? { kind: 'person', personId: first.id } : null);
   const [hover, setHover] = useState<string | null>(null);
   const [notice, setNotice] = useState(0);
+  const [changesOnly, setChangesOnly] = useState(props.changesOnly ?? false);
   const canvas = useRef<TreeCanvasHandle>(null);
 
   const layout = useMemo(() => layoutTree(map, openSteps), [map, openSteps]);
@@ -138,8 +143,25 @@ export function FlowTree(props: FlowTreeProps) {
     return lit;
   }, [hover, focusId, byId]);
 
+  // What changed: steps whose code moved under a passed promise, that broke, or that the map changed lately.
+  const changed = useMemo(() => changedCards(map, props.seenAt), [map, props.seenAt]);
+
   // Picking a journey, a step or a promise keeps its row clear and quiets the rest, so one strand can be followed.
+  // "Changes only" keeps what changed clear instead, with the cards that lead to it.
   const strand = useMemo(() => {
+    if (changesOnly) {
+      const lit = new Set<string>();
+      for (const node of nodes) {
+        if (!node.cardId || !changed.has(node.cardId)) continue;
+        let id: string | null = node.id;
+        while (id) {
+          lit.add(id);
+          id = byId.get(id)?.parent ?? null;
+        }
+        if (node.personId) lit.add(`band:${node.personId}`);
+      }
+      return lit;
+    }
     if (!focus || !('journeyId' in focus)) return null;
     return new Set(
       nodes
@@ -151,7 +173,7 @@ export function FlowTree(props: FlowTreeProps) {
         )
         .map((node) => node.id),
     );
-  }, [focus, nodes]);
+  }, [focus, nodes, changesOnly, changed, byId]);
 
   const initialFocus = useMemo(
     () =>
@@ -260,7 +282,14 @@ export function FlowTree(props: FlowTreeProps) {
             onPress={() => press(node)}
           />
         )}
-        tools={<ExpandTools onOpen={() => setOpenSteps(new Set(allSteps()))} onClose={() => setOpenSteps(new Set())} />}
+        tools={
+          <ExpandTools
+            changesOnly={changesOnly}
+            onChangesOnly={() => setChangesOnly((on) => !on)}
+            onOpen={() => setOpenSteps(new Set(allSteps()))}
+            onClose={() => setOpenSteps(new Set())}
+          />
+        }
         overlay={
           <>
             <Legend />
@@ -475,7 +504,7 @@ const kindWords = {
   data: 'kindData',
 } as const;
 /** Worst first, so a closed card shows what needs a look before what is fine. */
-const CHECK_ORDER: PromiseStatus[] = ['failed', 'checking', 'blocked', 'planned', 'unconfirmed', 'passed'];
+const CHECK_ORDER: PromiseStatus[] = ['failed', 'recheck', 'checking', 'blocked', 'planned', 'unconfirmed', 'passed'];
 
 /** The condition a branch arrives with, written just above its first card ("↳ 실행 승인이 필요할 때"). */
 function withArrival(node: LaidNode, card: ReactNode) {
@@ -630,7 +659,7 @@ function CheckRow({ promise }: { promise: TreePromise }) {
 
 function LoudStatus({ counts }: { counts: Tally }) {
   const t = useMessages(messages);
-  const loud = (['failed', 'checking', 'blocked'] as PromiseStatus[]).find((status) => counts[status] > 0);
+  const loud = (['failed', 'recheck', 'checking', 'blocked'] as PromiseStatus[]).find((status) => counts[status] > 0);
   if (loud) return <StatusMark status={loud} count={counts[loud]} />;
   if (counts.total && counts.passed === counts.total) return <StatusMark status="passed" />;
   return counts.total ? <span className="tabular-nums">{t.fraction(counts.passed, counts.total)}</span> : null;
@@ -689,11 +718,30 @@ function Legend() {
   );
 }
 
-function ExpandTools({ onOpen, onClose }: { onOpen: () => void; onClose: () => void }) {
+function ExpandTools({
+  changesOnly,
+  onChangesOnly,
+  onOpen,
+  onClose,
+}: {
+  changesOnly: boolean;
+  onChangesOnly: () => void;
+  onOpen: () => void;
+  onClose: () => void;
+}) {
   const t = useMessages(messages);
   return (
     <>
       <span className="mx-0.5 h-4 border-l border-line-subtle" aria-hidden />
+      <button
+        type="button"
+        aria-pressed={changesOnly}
+        onClick={onChangesOnly}
+        className="flex h-7 cursor-pointer items-center gap-1 rounded-md px-1.5 text-meta whitespace-nowrap text-fg-muted transition-colors hover:bg-hover hover:text-fg aria-pressed:bg-selected aria-pressed:text-fg"
+      >
+        <RotateCcw size={13} aria-hidden />
+        {t.changesOnly}
+      </button>
       <button
         type="button"
         onClick={onOpen}
@@ -908,6 +956,20 @@ function PersonPanel({
         </>
       ),
     });
+  if (counts.recheck)
+    todo.push({
+      key: 'recheck',
+      text: t.todoRecheck(counts.recheck),
+      tone: 'attention',
+      actions: (
+        <>
+          <Button variant={counts.failed ? 'secondary' : 'primary'} onClick={() => props.onCheck(targets(['recheck']))}>
+            {t.todoRecheckAction}
+          </Button>
+          <LinkButton onClick={() => onShow(targets(['recheck'])[0]!)}>{t.todoShow}</LinkButton>
+        </>
+      ),
+    });
   if (counts.blocked)
     todo.push({
       key: 'blocked',
@@ -927,7 +989,7 @@ function PersonPanel({
       text: t.todoUnconfirmed(counts.unconfirmed),
       actions: (
         <Button
-          variant={counts.failed ? 'secondary' : 'primary'}
+          variant={counts.failed || counts.recheck ? 'secondary' : 'primary'}
           onClick={() => props.onCheck(targets(['unconfirmed']))}
         >
           {t.todoCheck}
@@ -999,16 +1061,18 @@ function PersonPanel({
         <section className="flex flex-col gap-1">
           <h3 className="text-meta text-fg-muted">{t.recentTitle}</h3>
           <ul className="flex flex-col">
-            {recent.slice(0, 6).map((change) => (
+            {recent.slice(0, 8).map((change) => (
               <li
                 key={`${change.at}-${change.cardId}`}
                 className="flex flex-col gap-0.5 border-t border-line-subtle py-2 first:border-t-0"
               >
                 <span className="flex items-center justify-between gap-2">
                   <span className="min-w-0 truncate">{map.cards[change.cardId]?.title}</span>
-                  <StatusMark status={change.kind === 'check_blocked' ? 'blocked' : 'passed'} />
+                  <ChangeKind kind={change.kind} />
                 </span>
-                <span className="line-clamp-2 text-meta text-fg-muted">{change.detail}</span>
+                {change.kind !== 'added' && change.kind !== 'removed' && change.detail && (
+                  <span className="line-clamp-2 text-meta text-fg-muted">{change.detail}</span>
+                )}
                 <span className="text-meta text-fg-faint">{format.date(new Date(change.at))}</span>
               </li>
             ))}
@@ -1095,4 +1159,21 @@ function JourneyPanel({
       )}
     </div>
   );
+}
+
+/** Cards someone maintaining the product should look at: code moved under a passed promise, a promise broke, or the
+ * map changed the card since they last looked. */
+function changedCards(map: TreeMap, seenAt?: string) {
+  const changed = new Set<string>();
+  for (const card of Object.values(map.cards))
+    if (card.promises.some((promise) => promise.status === 'recheck' || promise.status === 'failed'))
+      changed.add(card.id);
+  if (seenAt) for (const change of map.recent) if (change.at > seenAt) changed.add(change.cardId);
+  return changed;
+}
+
+function ChangeKind({ kind }: { kind: string }) {
+  const t = useMessages(messages);
+  const tone = kind === 'check_failed' ? 'text-danger' : kind === 'check_passed' ? 'text-fg-muted' : 'text-interactive';
+  return <span className={clsx('shrink-0 text-meta', tone)}>{t.changeKind(kind)}</span>;
 }

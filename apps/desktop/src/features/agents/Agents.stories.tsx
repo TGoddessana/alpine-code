@@ -22,7 +22,7 @@ function Example({ start, creating = false, library }: { start?: string; creatin
 
 /**
  * Boards 에이전트 화면 and 새 에이전트: the agents along the top, the one being edited on the left and the library on
- * the right. The server is scripted with three agents, the user's tools and a session at work on 홈페이지 담당.
+ * the right. The server is scripted with three agents and a session at work on 홈페이지 담당.
  */
 const meta = {
   title: 'Agents/Agents',

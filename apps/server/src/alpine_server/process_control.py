@@ -2,13 +2,11 @@
 
 import asyncio
 
-from alpine_core.cancellation import executions
 from alpine_core.processes import process_manager
 from alpine_protocol.process_control import (
     ProcessesListParams,
     ProcessesListResult,
     ProcessesStopParams,
-    ToolExecution,
 )
 from alpine_protocol.terminals import TerminalProcess
 
@@ -22,16 +20,12 @@ async def list_processes(params: ProcessesListParams) -> ProcessesListResult:
             for p in process_manager().list(params.cwd, params.session_id)
             if params.kind is None or p.kind == params.kind
         ],
-        # User tool records carry a session, so project-only callers cannot accidentally see other projects.
-        tools=[ToolExecution(**c) for c in executions.list(params.session_id)] if params.session_id else [],
     )
 
 
 async def stop_processes(params: ProcessesStopParams) -> ProcessesListResult:
     if not params.cwd and not params.session_id:
         raise MethodError(INVALID_PARAMS, "Choose a project or a session to stop")
-    if params.session_id:
-        executions.cancel(params.session_id)
     await asyncio.gather(
         *(
             p.stop(force=params.force)

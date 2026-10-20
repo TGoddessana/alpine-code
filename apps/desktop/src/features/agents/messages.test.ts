@@ -10,10 +10,6 @@ describe('agents messages', () => {
     expect(ko.toastRemoved('명령 실행', '홈페이지 담당')).toBe('명령 실행을 홈페이지 담당에서 뺐어요');
   });
 
-  it('tells what dropping does', () => {
-    expect(ko.drop('내용 검색', '꼼꼼한 검토자')).toBe('여기에 놓으면 내용 검색을 꼼꼼한 검토자에 추가해요');
-  });
-
   it('asks before deleting with the right josa', () => {
     expect(ko.deleteTitle('블로그 작가')).toBe('블로그 작가를 지울까요?');
     expect(ko.deleteTitle('홈페이지 담당')).toBe('홈페이지 담당을 지울까요?');

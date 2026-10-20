@@ -1,4 +1,4 @@
-<p><img src="https://raw.githubusercontent.com/TGoddessana/alpine-code/main/assets/brand/wordmark.png" alt="Alpine Code" width="280"></p>
+<p><img src="https://raw.githubusercontent.com/hypercodism/alpine-code/main/assets/brand/wordmark.png" alt="Alpine Code" width="280"></p>
 
 # alpine-code-core
 

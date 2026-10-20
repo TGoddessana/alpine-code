@@ -1,14 +1,6 @@
-export type LibraryTab = 'all' | 'tool' | 'skill' | 'mcp' | 'sub';
+export type LibraryTab = 'skill' | 'mcp' | 'sub';
 
-export type LibraryView =
-  | { kind: 'list'; tab: LibraryTab }
-  | { kind: 'tool'; file: string; tool: string }
-  | { kind: 'new-tool' }
-  | { kind: 'skill'; name: string }
-  | { kind: 'new-skill' };
-
-/** The card being dragged, so the agent's side can say what dropping it does. */
-export type DraggedTool = { tool: string; label: string };
+export type LibraryView = { kind: 'list'; tab: LibraryTab } | { kind: 'skill'; name: string } | { kind: 'new-skill' };
 
 /** What the library reports about skills; the screen saves the agent and tells about it. */
 export interface SkillActions {

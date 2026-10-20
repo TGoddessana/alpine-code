@@ -50,7 +50,7 @@ describe('workResult', () => {
     ]);
   });
 
-  it('uses the latest actual final diff, including changes by a failed shell or user tool', () => {
+  it('uses the latest actual final diff, including changes by a failed shell or tool', () => {
     const final = { path: 'a.ts', added: 1, removed: 1, diff: ['@@ -1 +1 @@', '-original', '+final'] };
     const items = [
       diffApproval('e1', 'a.ts', '@@ -1 +1 @@\n-wrong\n+preview\n'),

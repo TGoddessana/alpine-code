@@ -79,10 +79,6 @@ class ErrorData(Message):
         "clone_failed",
         "no_access",
         "no_git_tools",
-        "invalid_name",
-        "package_not_approved",
-        "install_failed",
-        "name_taken",
         "agent_not_found",
         "model_failed",
         "not_found",
@@ -120,6 +116,7 @@ class ErrorData(Message):
         "taken_down",
         "needs_confirm",
         "conflict",
+        "name_taken",
         "blocked",
         "update_required",
         "rate_limited",
@@ -141,10 +138,7 @@ class ErrorData(Message):
     already there. ``no_access``: git found no repository there that this computer may see (a wrong address, or a
     sign-in needed; hosts answer both the same way). ``no_git_tools``: git is not installed (on macOS, Apple's command
     line developer tools). ``clone_failed``: git could not clone otherwise; the message is git's.
-``invalid_name``: a tool file name is not lowercase letters, digits and ``_``. ``package_not_approved``: a tool
-needs a package nobody approved.
-``install_failed``: a package did not install. ``name_taken``: a tool name is already used. ``agent_not_found``:
-no agent has the id. ``model_failed``: the model call behind a draft failed.
+``agent_not_found``: no agent has the id. ``model_failed``: the model call behind ``projects/judge`` failed.
 ``not_found``: the memory suggestion was already approved or declined, or the other app's conversation to carry
 over is gone. ``import_failed``: that conversation could not be read or has nothing to carry over.
 ``memory_full``: the scope filled up since the suggestion was made; the message says how full. ``map_read_only``:
@@ -624,35 +618,11 @@ class ToolSummary(Message):
     ask: ToolAsk
 
 
-class ToolFileInfo(Message):
-    name: str
-    """The file name without ``.py``."""
-    status: Literal["ready", "unconfirmed", "error"]
-    """``unconfirmed``: new or changed outside the app, not loaded until confirmed. ``error``: cannot load."""
-    error: str | None
-    missing_package: str | None
-    changed_at: datetime | None
-    tools: list[ToolSummary]
-    """Empty unless ``ready``."""
-    packages: list[str]
-
-
-class PackageInfo(Message):
-    """What the approval of a package Alpine has not reviewed shows. Facts PyPI did not give are ``None``."""
-
-    name: str
-    first_release: str | None
-    """``YYYY-MM``."""
-    last_month_downloads: int | None
-    similar: list[str]
-    """Reviewed packages with a look-alike name."""
-
-
 class OfferedTool(Message):
     """A tool a session can get, and where it comes from."""
 
     tool: ToolSummary
-    origin: Literal["builtin", "memory", "user"]
+    origin: Literal["builtin", "memory"]
     optional: bool
     """Whether an agent can turn it off. One that cannot is in every session (the memory's tools)."""
 
@@ -664,91 +634,7 @@ class ToolsListParams(Message):
 
 class ToolsListResult(Message):
     tools: list[OfferedTool]
-    """Every tool, the user's included, in the order a session gets them."""
-    files: list[ToolFileInfo]
-    """The user's tool files, with what each defines or why it does not load."""
-    folder: str
-    """Where the files are."""
-
-
-class ToolsSourceParams(Message):
-    name: str
-
-
-class ToolsSourceResult(Message):
-    source: str
-
-
-class ToolsCheckParams(Message):
-    source: str
-
-
-class ToolsCheckResult(Message):
-    """The unsaved source, loaded. Nothing is loaded while ``needs_approval`` is not empty."""
-
-    tools: list[ToolSummary]
-    packages: list[str]
-    error: str | None
-    missing_package: str | None
-    needs_approval: list[PackageInfo]
-
-
-class ToolsSaveParams(Message):
-    name: str
-    source: str
-    enable_in: str | None = None
-    """An agent id to turn the file's new tools on in."""
-
-
-class ToolsSaveResult(Message):
-    file: ToolFileInfo
-
-
-class ToolsConfirmParams(Message):
-    name: str
-
-
-class ToolsConfirmResult(Message):
-    file: ToolFileInfo
-
-
-class ToolsDeleteParams(Message):
-    name: str
-
-
-class ToolsDeleteResult(Message):
-    pass
-
-
-class ToolsInstallParams(Message):
-    packages: list[str]
-    """Approves and installs them."""
-
-
-class ToolsInstallResult(Message):
-    pass
-
-
-class ToolsTestParams(Message):
-    source: str
-    tool: str
-    args: dict[str, Any]
-
-
-class ToolsTestResult(Message):
-    ok: bool
-    output: str
-    seconds: float
-
-
-class ToolsDraftParams(Message):
-    description: str
-    model: str | None = None
-    """The default model when omitted."""
-
-
-class ToolsDraftResult(Message):
-    source: str
+    """Every tool, in the order a session gets them."""
 
 
 AgentLook = Literal[
@@ -2350,14 +2236,6 @@ METHODS: dict[str, tuple[type[Message], type[Message]]] = {
     "projects/judge": (ProjectsJudgeParams, ProjectsJudgeResult),
     "projects/create": (ProjectsCreateParams, ProjectsCreateResult),
     "tools/list": (ToolsListParams, ToolsListResult),
-    "tools/source": (ToolsSourceParams, ToolsSourceResult),
-    "tools/check": (ToolsCheckParams, ToolsCheckResult),
-    "tools/save": (ToolsSaveParams, ToolsSaveResult),
-    "tools/confirm": (ToolsConfirmParams, ToolsConfirmResult),
-    "tools/delete": (ToolsDeleteParams, ToolsDeleteResult),
-    "tools/install": (ToolsInstallParams, ToolsInstallResult),
-    "tools/test": (ToolsTestParams, ToolsTestResult),
-    "tools/draft": (ToolsDraftParams, ToolsDraftResult),
     "agents/list": (AgentsListParams, AgentsListResult),
     "agents/save": (AgentsSaveParams, AgentsSaveResult),
     "agents/delete": (AgentsDeleteParams, AgentsDeleteResult),

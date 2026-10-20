@@ -21,7 +21,7 @@ dev = [
 
 [[package]]
 name = "alpine-code-core"
-version = "0.1.3"
+version = "0.1.4"
 source = { editable = "packages/core" }
 dependencies = [
     { name = "alpineagents" },
@@ -48,7 +48,7 @@ requires-dist = [
 
 [[package]]
 name = "alpine-code-protocol"
-version = "0.1.3"
+version = "0.1.4"
 source = { editable = "packages/protocol/python" }
 dependencies = [
     { name = "pydantic" },
@@ -59,7 +59,7 @@ requires-dist = [{ name = "pydantic", specifier = ">=2.13" }]
 
 [[package]]
 name = "alpine-code-server"
-version = "0.1.3"
+version = "0.1.4"
 source = { editable = "apps/server" }
 dependencies = [
     { name = "alpine-code-core" },

@@ -44,16 +44,16 @@ class Fixed:
 
 
 def test_an_earlier_source_keeps_its_name(tmp_path):
-    offered = gather([Builtins(Workspace(tmp_path)), Fixed(Offered(fake_read, "user"), Offered(weather, "user"))])
+    offered = gather([Builtins(Workspace(tmp_path)), Fixed(Offered(fake_read, "memory"), Offered(weather, "memory"))])
     names = [(o.tool.name, o.origin) for o in offered]
-    assert names[-1] == ("weather", "user")
-    assert ("read", "builtin") in names and ("read", "user") not in names
+    assert names[-1] == ("weather", "memory")
+    assert ("read", "builtin") in names and ("read", "memory") not in names
 
 
 def test_an_agent_turns_off_only_what_is_optional():
     always = Offered(weather, "memory", optional=False)
-    assert pick([Offered(fake_read, "user"), always], on=[]) == [weather]
-    assert pick([Offered(fake_read, "user"), always], on=None) == [fake_read, weather]
+    assert pick([Offered(fake_read, "memory"), always], on=[]) == [weather]
+    assert pick([Offered(fake_read, "memory"), always], on=None) == [fake_read, weather]
 
 
 def test_the_memory_tool_is_in_a_session_its_agent_does_not_name(home, tmp_path, monkeypatch):
@@ -67,7 +67,7 @@ def test_the_memory_tool_is_in_a_session_its_agent_does_not_name(home, tmp_path,
         cwd=tmp_path,
         agents=agents,
         agent=reader.id,
-        tools=lambda folder: [Builtins(Workspace(folder)), memories.of(folder), Fixed(Offered(weather, "user"))],
+        tools=lambda folder: [Builtins(Workspace(folder)), memories.of(folder), Fixed(Offered(weather, "memory"))],
         memories=memories,
     )
     assert [t.name for t in session._agent.tools] == ["read", "propose_memory"]

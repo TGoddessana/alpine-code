@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/TGoddessana/alpine-code/releases/latest"><b>Download for Mac</b></a>
+  <a href="https://downloads.alpinecode.app/AlpineCode_aarch64.dmg"><b>Download for Mac</b></a>
   &nbsp;·&nbsp;
   <a href="LICENSE">MIT license</a>
 </p>
@@ -22,8 +22,8 @@ files, makes the changes and checks that they work.
 It's built for two kinds of people at once:
 
 - **If you don't code**, it talks in plain words, asks before it changes anything and shows you everything it did.
-- **If you do**, every part of it is yours to change: bring any model, write your own tools in Python, choose which
-  tools each project gets, or build on the agent core.
+- **If you do**, every part of it is yours to change: bring any model, build agents with their own tools and skills,
+  or build on the agent core.
 
 ## Open source
 
@@ -71,16 +71,6 @@ memory meter to see how much of the conversation the model is keeping in mind, a
 
 ## Hackable if you do
 
-**Write your own tools.** A tool is one Python function: its name, type hints and docstring are what the agent sees.
-List the packages it needs in the file ([inline script metadata](https://peps.python.org/pep-0723/)) and they're
-installed for you, after asking for any it hasn't reviewed. Or describe the tool in a sentence and let the model write it. **Check** shows exactly what the
-agent will see, and **Try it** runs it before you save.
-
-<p align="center">
-  <img src="assets/images/tool-editor.png" alt="The tool editor: a fetch tool written as one Python function with its dependencies declared at the top, and on the right what the agent sees: its name, description, parameters, when it asks, and a form to try it" width="800">
-</p>
-
-
 **Build agents for each job.** An agent is a model, instructions and the tools it may use, with a name and a
 face. Every agent is the same Alpine snow hare, with its own accessories and background colour. Build them on the Agents screen, pick one per session in the composer, and switch whenever you like.
 
@@ -99,7 +89,7 @@ is one more client. [CONTRIBUTING.md](CONTRIBUTING.md) shows how the repository 
 
 ## Get started
 
-1. **Download** Alpine Code from the [latest release](https://github.com/TGoddessana/alpine-code/releases/latest)
+1. **Download** Alpine Code from the [latest release](https://downloads.alpinecode.app/AlpineCode_aarch64.dmg)
    (the `.dmg` file), open it and drag AlpineCode into Applications.
 2. **Connect a model.** Alpine Code asks the first time you open it.
 3. **Open a folder** and say what you'd like to do.
@@ -123,11 +113,11 @@ plans can't be used in other apps, so Claude models connect with an API key.
 
 ## Contributing
 
-Bug reports, ideas and pull requests are welcome: [open an issue](https://github.com/TGoddessana/alpine-code/issues)
+Bug reports, ideas and pull requests are welcome: [open an issue](https://github.com/hypercodism/alpine-code/issues)
 or start with [CONTRIBUTING.md](CONTRIBUTING.md). Alpine Code is built on
 [alpineagents](https://tgoddessana.github.io/alpineagents/) and released under the [MIT license](LICENSE).
 
 ## Brand
 
 The snow hare’s bent ear, blue collar and horizontal wrench are shared by the app and the website.
-Find the [brand assets and usage guide](assets/brand/README.md), or work on the independent [website and getting-started guide repository](https://github.com/TGoddessana/alpinecode.app).
+Find the [brand assets and usage guide](assets/brand/README.md), or work on the independent [website and getting-started guide repository](https://github.com/hypercodism/alpinecode-website).

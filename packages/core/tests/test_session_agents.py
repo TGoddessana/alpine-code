@@ -17,27 +17,11 @@ from alpine_core import (
     ProjectList,
     Session,
     Settings,
-    Toolbox,
     UserMessage,
     Workspace,
     file_storage,
 )
 from alpine_core import session as session_module
-
-SHOUT = '''
-from alpineagents import tool
-
-
-@tool(read_only=True, open_world=False)
-def shout(text: str, times: int = 1) -> str:
-    """Says the text loudly.
-
-    Args:
-        text: What to say
-        times: How many times
-    """
-    return " ".join([text.upper()] * times)
-'''
 
 
 class _NoApprover:
@@ -71,23 +55,17 @@ def kinds(session):
     return [i.kind for i in session.snapshot().items]
 
 
-def with_box(home):
-    """Tool sources with the user's tools: the built-ins, then the toolbox's."""
-    return lambda folder: [Builtins(Workspace(folder)), Toolbox(home)]
-
-
 def make(tmp_path, agents, **kwargs):
     return Session(Settings(model="x/default"), approver=_NoApprover(), cwd=tmp_path, agents=agents, **kwargs)
 
 
 def test_a_new_session_takes_the_agents_tools_instructions_and_model(home, tmp_path, monkeypatch, agents):
-    Toolbox(home).save("shout", SHOUT)
     reviewer = agents.save(
-        AgentConfig("", "reviewer", tools=("read", "shout"), instructions="Only comment.", model="x/small")
+        AgentConfig("", "reviewer", tools=("read", "grep"), instructions="Only comment.", model="x/small")
     )
     models = Models(monkeypatch)
-    session = make(tmp_path, agents, tools=with_box(home), agent=reviewer.id)
-    assert tools_of(session) == ["read", "shout"]
+    session = make(tmp_path, agents, agent=reviewer.id)
+    assert tools_of(session) == ["grep", "read"]
     assert "# Instructions for this agent\nThe role and way of working the user gave this agent.\n\nOnly comment." in (
         session._agent.system
     )
@@ -96,7 +74,7 @@ def test_a_new_session_takes_the_agents_tools_instructions_and_model(home, tmp_p
     assert session.info.agent_applied == {
         "model": "x/small",
         "instructions": "Only comment.",
-        "tools": ["read", "shout"],
+        "tools": ["read", "grep"],
     }
 
 
@@ -171,9 +149,8 @@ def test_replies_carry_the_agent(tmp_path, monkeypatch, agents):
 
 
 def test_set_agent_keeps_the_conversation_and_announces_the_switch(home, tmp_path, monkeypatch, agents):
-    Toolbox(home).save("shout", SHOUT)
     reviewer = agents.save(
-        AgentConfig("", "reviewer", tools=("read", "shout"), model="x/small", look="glasses", color=3)
+        AgentConfig("", "reviewer", tools=("read", "grep"), model="x/small", look="glasses", color=3)
     )
     projects = ProjectList(tmp_path / "projects.json")
     models = Models(monkeypatch, ["one"], ["two"])
@@ -182,14 +159,13 @@ def test_set_agent_keeps_the_conversation_and_announces_the_switch(home, tmp_pat
         tmp_path,
         agents,
         projects=projects,
-        tools=with_box(home),
         on_item_event=lambda sid, seq, e: announced.append(e),
     )
     session.send("hello")
     count = session._state.messages.__len__()
     session.set_agent(reviewer.id)
     assert len(session._state.messages) == count and session.has_conversation
-    assert tools_of(session) == ["read", "shout"] and models.names == ["x/default", "x/small"]
+    assert tools_of(session) == ["grep", "read"] and models.names == ["x/default", "x/small"]
     assert session.model_name == "x/small" and session.info.agent == reviewer.id
     divider = session.snapshot().items[-1]
     assert divider == AgentSwitched(divider.id, reviewer.id, "reviewer", "glasses", 3)
@@ -228,25 +204,24 @@ def test_a_model_that_cannot_be_made_keeps_the_agent(tmp_path, monkeypatch, agen
 
 
 def test_an_edit_applies_at_the_next_message_ahead_of_it(home, tmp_path, monkeypatch, agents):
-    Toolbox(home).save("shout", SHOUT)
     site = agents.save(AgentConfig("", "site", tools=("read", "bash"), instructions="Build."))
-    models = Models(monkeypatch, ["one"], [tool_call("shout", text="hi"), "done", "more"])
-    session = make(tmp_path, agents, tools=with_box(home), agent=site.id)
+    models = Models(monkeypatch, ["one"], [tool_call("grep", pattern="hi"), "done", "more"])
+    session = make(tmp_path, agents, agent=site.id)
     session.send("hello")
     assert tools_of(session) == ["bash", "read"]
-    agents.save(dataclasses.replace(site, tools=("read", "shout"), instructions="Review.", model="x/new"))
+    agents.save(dataclasses.replace(site, tools=("read", "grep"), instructions="Review.", model="x/new"))
     assert tools_of(session) == ["bash", "read"]  # nothing happens until the next message
     assert session.send("go on") == "done"
     items = session.snapshot().items
     assert [i.kind for i in items[:4]] == ["user_message", "agent_message", "agent_changed", "user_message"]
     changed = items[2]
     assert changed == AgentChanged(
-        changed.id, site.id, "site", site.look, site.color, ["shout"], ["bash"], True, "x/new"
+        changed.id, site.id, "site", site.look, site.color, ["grep"], ["bash"], True, "x/new"
     )
     assert models.names == ["x/default", "x/new"] and session.model_name == "x/new"
     assert "Review." in session._agent.system and "Build." not in session._agent.system
-    assert [i.name for i in items if i.kind == "tool_call"] == ["shout"]
-    assert session.info.agent_applied == {"model": "x/new", "instructions": "Review.", "tools": ["read", "shout"]}
+    assert [i.name for i in items if i.kind == "tool_call"] == ["grep"]
+    assert session.info.agent_applied == {"model": "x/new", "instructions": "Review.", "tools": ["read", "grep"]}
     session.send("and again")
     assert kinds(session).count("agent_changed") == 1
 

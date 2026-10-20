@@ -2,7 +2,7 @@
 
 A bundled app runs the server as `runtime/python/bin/python3.14 -I -B -m alpine_server`, so it needs no Python or uv
 on the user's machine. The runtime is a standalone CPython (python-build-standalone, through uv) with the server and
-its locked dependencies installed, plus a uv binary that the toolbox uses to install packages for user tools.
+its locked dependencies installed.
 
     uv run python apps/desktop/scripts/bundle_runtime.py [--target aarch64-apple-darwin]
 
@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import argparse
 import compileall
-import hashlib
 import os
 import platform
 import py_compile
@@ -22,9 +21,7 @@ import re
 import shutil
 import subprocess
 import sys
-import tarfile
 import tempfile
-import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -37,7 +34,7 @@ TARGETS = {
     "aarch64-apple-darwin": "macos-aarch64",
 }
 
-# Never imported by the server or a user tool, and tkinter brings Tcl/Tk.
+# Never imported by the server, and tkinter brings Tcl/Tk.
 TRIM = [
     "bin/idle3",
     "bin/idle3.14",
@@ -82,7 +79,6 @@ def main() -> None:
         trim(python)
         install_server(python, target, Path(tmp))
         compile_all(python)
-        fetch_uv(target, Path(tmp))
 
     identity = os.environ.get("APPLE_SIGNING_IDENTITY")
     if identity:
@@ -147,26 +143,8 @@ def compile_all(python: Path) -> None:
         sys.exit("compiling the runtime's Python files failed")
 
 
-def fetch_uv(target: str, tmp: Path) -> None:
-    """The uv release matching the one building this, checksum-verified."""
-    version = re.search(r"\d+\.\d+\.\d+", run("uv", "--version")).group()
-    name = f"uv-{target}.tar.gz"
-    base = f"https://github.com/astral-sh/uv/releases/download/{version}/{name}"
-    archive = tmp / name
-    with urllib.request.urlopen(base) as response:
-        archive.write_bytes(response.read())
-    with urllib.request.urlopen(f"{base}.sha256") as response:
-        expected = response.read().decode().split()[0]
-    if hashlib.sha256(archive.read_bytes()).hexdigest() != expected:
-        sys.exit(f"{name} does not match its published checksum")
-    with tarfile.open(archive) as tar:
-        member = tar.getmember(f"uv-{target}/uv")
-        member.name = "uv"
-        tar.extract(member, OUT / "bin", filter="data")
-
-
 def sign(identity: str) -> None:
-    """Every Mach-O file, so notarization accepts the app. Python gets entitlements for cffi and user packages."""
+    """Every Mach-O file, so notarization accepts the app. Python gets the entitlement cffi and ctypes need."""
     python = OUT / "python/bin/python3.14"
     for path in sorted(p for p in OUT.rglob("*") if p.is_file() and is_macho(p) and p != python):
         codesign(identity, path)

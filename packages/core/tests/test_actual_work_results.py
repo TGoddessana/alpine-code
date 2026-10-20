@@ -97,7 +97,7 @@ def test_failed_shell_records_failure_for_model_events_items_and_actual_changes(
     assert history_result.is_error and history_result.outcome == "error"
 
 
-def test_user_tool_changes_and_partial_failure_are_observed(tmp_path, monkeypatch):
+def test_a_tools_changes_and_partial_failure_are_observed(tmp_path, monkeypatch):
     @tool(read_only=False)
     def custom() -> str:
         """Writes then reports failure."""
@@ -106,7 +106,7 @@ def test_user_tool_changes_and_partial_failure_are_observed(tmp_path, monkeypatc
 
     class Source:
         def offered(self):
-            return [Offered(custom, "user")]
+            return [Offered(custom, "builtin")]
 
     session = make(tmp_path, monkeypatch, [tool_call("custom"), "Done"], tools=lambda root: [Source()])
     session.send("go")
@@ -337,7 +337,7 @@ def test_before_versions_are_saved_before_the_mutating_tool_runs(tmp_path, monke
 
     class Source:
         def offered(self):
-            return [Offered(mutate, "user")]
+            return [Offered(mutate, "builtin")]
 
     session = make(tmp_path, monkeypatch, [tool_call("mutate"), "Done"], storage=storage, tools=lambda root: [Source()])
     session.send("do it")

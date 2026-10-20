@@ -1,18 +1,9 @@
-"""Work stop status includes tools that continue executing after their awaiting task was cancelled."""
+"""The processes a project's or a session's work started, and stopping them."""
 
 from typing import Literal
 
 from .base import Message
 from .terminals import TerminalProcess
-
-
-class ToolExecution(Message):
-    id: str
-    session_id: str | None = None
-    name: str
-    created_at: float
-    status: Literal["running", "stopping", "finished", "cancelled"]
-    cancellable: bool
 
 
 class ProcessesListParams(Message):
@@ -23,7 +14,6 @@ class ProcessesListParams(Message):
 
 class ProcessesListResult(Message):
     processes: list[TerminalProcess]
-    tools: list[ToolExecution]
 
 
 class ProcessesStopParams(ProcessesListParams):

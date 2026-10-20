@@ -121,7 +121,7 @@ afterEach(() => {
 
 describe('right dock on the routes', () => {
   it('opens actual execution state when the running conversation is stopped', async () => {
-    mount('/session/work', { results: { 'processes/list': { processes: [], tools: [] } } }, true);
+    mount('/session/work', { results: { 'processes/list': { processes: [] } } }, true);
     fireEvent.click(await screen.findByRole('button', { name: '멈추기' }));
     const dock = await screen.findByRole('complementary', { name: '오른쪽 창' });
     expect(within(dock).getByRole('tab', { name: '에이전트 실행', selected: true })).toBeTruthy();

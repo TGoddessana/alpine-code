@@ -1,5 +1,5 @@
-import type { AgentInfo, ToolsListResult } from '@alpine/protocol';
-import { Plus, Pencil, X } from 'lucide-react';
+import type { AgentInfo } from '@alpine/protocol';
+import { Plus, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useState, type ReactNode } from 'react';
 
@@ -11,12 +11,8 @@ import { useFormat, useLocale, useMessages } from '@/shared/i18n';
 import { useConnections, useSkills, useTools } from '@/shared/server';
 
 import type { LibraryTab, SkillActions } from './library';
-import { libraryMessages } from './library/messages';
-import { statusLine } from './library/status';
 import { agentsMessages } from './messages';
 
-const dashed =
-  'inline-flex min-h-13 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-dashed border-line px-3.5 py-2 text-body hover:bg-hover';
 const small =
   'inline-flex min-h-7 shrink-0 cursor-pointer items-center rounded-md border border-line bg-canvas-raised px-2.5 text-body hover:bg-canvas-sunken';
 
@@ -56,7 +52,7 @@ function Remove({ label, onClick }: { label: string; onClick: () => void }) {
 }
 
 /**
- * Board 에이전트 화면, the rows: 모델, 지침, 기본 도구, 사용자 정의 도구, 스킬 and the two
+ * Board 에이전트 화면, the rows: 모델, 지침, 기본 도구, 스킬 and the two
  * that are 준비 중. `onChange` saves the agent; `onAdd` and `onRemove` save a tool change and tell about it.
  */
 export function AgentRows({
@@ -65,9 +61,7 @@ export function AgentRows({
   onChange,
   onAdd,
   onRemove,
-  onOpenTool,
   onBrowse,
-  onNewTool,
   onOpenSkill,
   skillActions,
 }: {
@@ -77,9 +71,7 @@ export function AgentRows({
   onChange: (agent: AgentInfo) => unknown;
   onAdd: (tools: string[], label: string) => void;
   onRemove: (tools: string[], label: string) => void;
-  onOpenTool: (file: string, tool: string) => void;
   onBrowse: (tab: LibraryTab) => void;
-  onNewTool: () => void;
   onOpenSkill: (name: string) => void;
   skillActions: SkillActions;
 }) {
@@ -90,7 +82,6 @@ export function AgentRows({
   const alpine = alpineTools(tools?.tools);
   const isOn = (tool: AlpineTool) => !tool.optional || agent.tools.includes(tool.name);
   const on = alpine.filter(isOn);
-  const custom = agent.tools.filter((tool) => !alpine.some((x) => x.name === tool));
 
   return (
     <div className="flex flex-col">
@@ -126,29 +117,6 @@ export function AgentRows({
               </button>
             );
           })}
-        </div>
-      </Row>
-
-      <Row label={t.customLabel} note={t.customNote}>
-        <div className="flex flex-wrap gap-2">
-          {custom.map((tool) => (
-            <CustomTile
-              key={tool}
-              tool={tool}
-              tools={tools}
-              lit={flash === tool}
-              onOpen={onOpenTool}
-              onRemove={() => onRemove([tool], tool)}
-            />
-          ))}
-          <button type="button" onClick={() => onBrowse('tool')} className={clsx(dashed, 'text-fg-muted')}>
-            <Plus size={16} strokeWidth={1.5} aria-hidden="true" />
-            {t.addFromLibrary}
-          </button>
-          <button type="button" onClick={onNewTool} className={clsx(dashed, 'text-interactive')}>
-            <Pencil size={16} strokeWidth={1.5} aria-hidden="true" />
-            {t.createTool}
-          </button>
         </div>
       </Row>
 
@@ -232,57 +200,6 @@ function SkillRow({
         </button>
       </div>
     </Row>
-  );
-}
-
-function CustomTile({
-  tool,
-  tools,
-  lit,
-  onOpen,
-  onRemove,
-}: {
-  tool: string;
-  tools: ToolsListResult | undefined;
-  lit: boolean;
-  onOpen: (file: string, tool: string) => void;
-  onRemove: () => void;
-}) {
-  const t = useMessages(agentsMessages);
-  const l = useMessages(libraryMessages);
-  const format = useFormat();
-  // A file changed outside the app or broken lists no tools, so it is found by its name, as the library's card is.
-  const file =
-    tools?.files.find((f) => f.tools.some((x) => x.name === tool)) ??
-    tools?.files.find((f) => f.status !== 'ready' && f.name === tool);
-  const does =
-    file?.status === 'ready' || !file
-      ? (file?.tools.find((x) => x.name === tool)?.description.split('\n')[0] ?? '')
-      : statusLine(file, l, format.since);
-  const body = (
-    <>
-      <span className="text-body font-medium">{tool}</span>
-      {does && (
-        <span className={clsx('text-meta', file?.status === 'error' ? 'text-danger' : 'text-fg-muted')}>{does}</span>
-      )}
-      {file && <span className="mt-0.5 text-meta text-interactive">{t.openCode}</span>}
-    </>
-  );
-  return (
-    <div className={clsx(tile(lit), 'min-h-13 items-start py-2 pr-1.5 pl-3')}>
-      {file ? (
-        <button
-          type="button"
-          onClick={() => onOpen(file.name, tool)}
-          className="flex min-w-0 cursor-pointer flex-col text-left"
-        >
-          {body}
-        </button>
-      ) : (
-        <div className="flex min-w-0 flex-col">{body}</div>
-      )}
-      <Remove label={tool} onClick={onRemove} />
-    </div>
   );
 }
 

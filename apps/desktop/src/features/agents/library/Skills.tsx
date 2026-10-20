@@ -202,7 +202,7 @@ function Section({
 const card = 'flex min-h-33 flex-col gap-1.5 rounded-xl border border-line px-3 pt-2.5 pb-3';
 
 /** The skills I have as cards, then `children` (the card that writes a new one). */
-export function MineCards({
+function MineCards({
   skills,
   agent,
   onViewChange,

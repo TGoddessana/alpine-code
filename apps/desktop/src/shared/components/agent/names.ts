@@ -34,14 +34,14 @@ function isLabeled(name: string): name is Labeled {
 
 /**
  * The tools that come with Alpine, as `tools/list` offers them: the built-ins and the memory's (which no agent can
- * turn off), not the user's. Until the list is there, the built-ins.
+ * turn off). Until the list is there, the built-ins.
  */
 export function alpineTools(offered: readonly OfferedTool[] | undefined): AlpineTool[] {
   if (!offered) return BUILTIN_TOOLS.map((name) => ({ name, optional: true }));
-  return offered.filter((o) => o.origin !== 'user').map((o) => ({ name: o.tool.name, optional: o.optional }));
+  return offered.map((o) => ({ name: o.tool.name, optional: o.optional }));
 }
 
-/** A tool that comes with Alpine in plain words; a user's tool shows as its own name. */
+/** A tool that comes with Alpine in plain words; any other shows as its own name. */
 export function toolLabel(name: string, t: Messages): string {
   return isLabeled(name) ? t[name] : name;
 }
@@ -49,7 +49,7 @@ export function toolLabel(name: string, t: Messages): string {
 /** A model without its connection: 'anthropic/claude-sonnet-5' reads as 'claude-sonnet-5'. */
 export const shortModel = (model: string) => model.slice(model.indexOf('/') + 1);
 
-/** What the tools let an agent do, in a line: '파일 보기 · 바꾸기 · 명령 · 도구 2개 더'. */
+/** What the tools let an agent do, in a line: '파일 보기 · 바꾸기 · 명령'. */
 export function abilities(tools: readonly string[], t: Messages): string {
   const has = (...names: string[]) => names.some((name) => tools.includes(name));
   const canRead = has('read', 'glob', 'grep');
@@ -58,7 +58,5 @@ export function abilities(tools: readonly string[], t: Messages): string {
   if (has('write', 'edit')) parts.push(t.canChange);
   else if (canRead) parts.push(t.cannotChange);
   if (has('bash')) parts.push(t.canRun);
-  const more = tools.filter((name) => !isLabeled(name)).length;
-  if (more > 0) parts.push(t.moreTools(more));
   return parts.join(' · ');
 }

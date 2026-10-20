@@ -126,7 +126,7 @@ await sharp({ create: { width: 1280, height: 640, channels: 4, background: '#eaf
     },
     { input: await label('Alpine Code', 84, '#1a222a', true), left: 88, top: 155 },
     { input: await label('An open-source AI coding agent.', 29, '#2c5a7a'), left: 92, top: 285 },
-    { input: await label('github.com/TGoddessana/alpine-code', 20, '#53616f'), left: 92, top: 480 },
+    { input: await label('github.com/hypercodism/alpine-code', 20, '#53616f'), left: 92, top: 480 },
   ])
   .png()
   .toFile(join(brand, 'social-preview.png'));

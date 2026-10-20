@@ -62,7 +62,6 @@ from .publish import PublishMethods
 from .sessions import SessionManager
 from .skills import HANDLERS as SKILL_HANDLERS
 from .terminals import HANDLERS as TERMINAL_HANDLERS
-from .tools import HANDLERS as TOOL_HANDLERS
 
 PARSE_ERROR = -32700
 INVALID_REQUEST = -32600
@@ -72,15 +71,7 @@ INTERNAL_ERROR = -32603
 Write = Callable[[str], None]
 
 
-HANDLERS = {
-    **METHOD_HANDLERS,
-    **TOOL_HANDLERS,
-    **AGENT_HANDLERS,
-    **SKILL_HANDLERS,
-    **FLOW_HANDLERS,
-    **FILE_HANDLERS,
-    **JUDGE_HANDLERS,
-}
+HANDLERS = {**METHOD_HANDLERS, **AGENT_HANDLERS, **SKILL_HANDLERS, **FLOW_HANDLERS, **FILE_HANDLERS, **JUDGE_HANDLERS}
 
 
 class _Failure(Exception):

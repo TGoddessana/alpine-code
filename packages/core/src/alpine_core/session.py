@@ -31,7 +31,7 @@ from . import shell
 from .agents import AgentConfig, AgentList
 from .approval import ApprovalRequest, Approver, Decision, build_permissions
 from .bridge import EventReporter
-from .cancellation import current_cancellation, current_notice, current_session, executions, track_user_tool
+from .cancellation import current_cancellation, current_notice, current_session
 from .chatgpt import PlanUsageOff, SignInNeeded, UsageLimitError
 from .cloud import CreditsExhausted, SignedOut
 from .config import ConfigError, Settings
@@ -384,9 +384,8 @@ class Session:
         offered = gather(self._tool_sources(self.workspace.root))
         self._always = {o.tool.name for o in offered if not o.optional}
         selected = pick(offered, self._applied.tools if self._applied is not None else None)
-        user = {id(o.tool) for o in offered if o.origin == "user"}
         self._tool_names = frozenset(t.name for t in selected)
-        return [track_user_tool(t) if id(t) in user else t for t in selected]
+        return selected
 
     # ------------------------------------------------------------ actions
 
@@ -500,12 +499,11 @@ class Session:
         return answer if isinstance(answer, str) else None
 
     async def stop_processes(self) -> None:
-        """Request real process termination and mark worker calls still executing."""
+        """Request real process termination."""
         from .processes import process_manager
 
         if event := getattr(self, "_cancel_event", None):
             event.set()
-        executions.cancel(self.id)
         await asyncio.gather(
             *(
                 p.stop()

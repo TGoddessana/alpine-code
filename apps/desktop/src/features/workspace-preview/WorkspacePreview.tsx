@@ -725,7 +725,7 @@ export function WorkspacePreview({ mode = 'files' }: { mode?: PreviewMode }) {
                       <FileCode2 size={18} />
                       <div>
                         <h3>메뉴 이미지 최적화</h3>
-                        <span className="wp-command">사용자 도구 · optimize_images</span>
+                        <span className="wp-command">node scripts/optimize-images.mjs</span>
                       </div>
                       <span className={stop === 'remaining' ? 'wp-warning' : 'wp-muted'}>
                         {stop === 'stopped'

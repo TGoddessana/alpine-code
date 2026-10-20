@@ -10,7 +10,7 @@ import {
   LoaderCircle,
   Plus,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { useFormat, useLocale, useMessages } from '@/shared/i18n';
 
@@ -195,6 +195,7 @@ export function Detail({
   onCheck,
   onFix,
   onRemove,
+  footer,
 }: {
   map: TreeMap;
   person: Person;
@@ -203,6 +204,8 @@ export function Detail({
   onCheck: (targets: PromiseTarget[]) => void;
   onFix: (targets: PromiseTarget[]) => void;
   onRemove: (target: PromiseTarget) => void;
+  /** Below a step's promises: where a new one is added. */
+  footer?: ReactNode;
 }) {
   const t = useMessages(messages);
   const text = useText();
@@ -358,6 +361,7 @@ export function Detail({
           ))}
         </ul>
       </section>
+      {footer}
       {elsewhere.length > 0 && (
         <section className="flex flex-col gap-1">
           <h3 className="text-meta text-fg-muted">{t.alsoIn}</h3>

@@ -14,7 +14,7 @@ import {
 import { useMessages } from '@/shared/i18n';
 
 import { flowTreeMessages as messages } from './flowTreeMessages';
-import { BRANCH_X, bounds, type LaidNode } from './treeLayout';
+import { bounds, type LaidNode } from './treeLayout';
 
 /** A node as drawn this frame: where it is on its way to its laid-out place, and how visible. */
 export interface ShownNode extends LaidNode {
@@ -51,12 +51,14 @@ export const TreeCanvas = forwardRef<
   {
     nodes: LaidNode[];
     highlight: Set<string>;
+    /** When set, only these stay clear; the rest of the map quiets down so one strand can be followed. */
+    strand?: Set<string> | null;
     renderNode: (node: ShownNode) => ReactNode;
     /** Ids whose subtree should fit the first view. */
     initialFocus?: string[];
     overlay?: ReactNode;
   }
->(function TreeCanvas({ nodes, highlight, renderNode, initialFocus, overlay }, ref) {
+>(function TreeCanvas({ nodes, highlight, strand, renderNode, initialFocus, overlay }, ref) {
   const t = useMessages(messages);
   const viewport = useRef<HTMLDivElement>(null);
   const shown = useTweenedNodes(nodes);
@@ -221,7 +223,7 @@ export const TreeCanvas = forwardRef<
                   parent={parent}
                   child={node}
                   on={highlight.has(node.id)}
-                  opacity={Math.min(node.opacity, parent.opacity)}
+                  opacity={Math.min(node.opacity, parent.opacity) * (strand && !strand.has(node.id) ? 0.25 : 1)}
                 />
               );
             })}
@@ -239,7 +241,12 @@ export const TreeCanvas = forwardRef<
                 pointerEvents: node.leaving ? 'none' : undefined,
               }}
             >
-              {renderNode(node)}
+              <div
+                className="size-full transition-opacity duration-(--motion-normal)"
+                style={{ opacity: strand && !strand.has(node.id) ? 0.35 : 1 }}
+              >
+                {renderNode(node)}
+              </div>
             </div>
           ))}
         </div>
@@ -278,66 +285,50 @@ function CanvasButton({ label, onClick, children }: { label: string; onClick: ()
 }
 
 /**
- * A line into a node. Between the product, people and journeys, and along a journey's steps, a curve from the right
- * edge to the left edge (straight when the two sit level). Into a promise, a branch down the step's gutter: solid once
- * the promise is known to hold, dashed while nobody checked it, red when broken, and running while it is checked.
+ * A line into a card. Along a journey's row, an arrow from one card to the next: the order the person walks it. From
+ * a person's band, a short line to each of their journeys. Lines run in the gaps only; none crosses a card.
  */
 function Edge({ parent, child, on, opacity }: { parent: ShownNode; child: ShownNode; on: boolean; opacity: number }) {
-  if (child.kind === 'promise' || child.kind === 'addPromise') {
-    const x = parent.x + BRANCH_X;
-    const top = parent.y + parent.h;
-    const y = child.y + child.h / 2;
-    const r = 10;
-    const d = `M ${x} ${top} L ${x} ${y - r} Q ${x} ${y} ${x + r} ${y} L ${child.x} ${y}`;
-    const status = child.status;
+  if (parent.kind === 'product' || child.kind === 'person' || child.kind === 'addPerson') return null;
+  const y = child.y + child.h / 2;
+  const x1 = parent.x + parent.w;
+  const x2 = child.x;
+  const ghost = child.kind === 'addJourney';
+  const stroke = clsx(
+    'transition-[stroke] duration-(--motion-fast)',
+    on ? 'stroke-interactive' : ghost ? 'stroke-line' : 'stroke-fg-faint',
+  );
+  if (child.kind === 'step') {
+    const y1 = parent.y + parent.h / 2;
+    const tip = x2 - 2;
     return (
-      <path
-        d={d}
-        fill="none"
-        strokeWidth={on ? 2 : 1.5}
-        strokeLinecap="round"
-        opacity={opacity}
-        className={clsx(
-          'transition-[stroke] duration-(--motion-fast)',
-          child.kind === 'addPromise'
-            ? 'stroke-line'
-            : status === 'failed'
-              ? 'stroke-danger'
-              : status === 'blocked'
-                ? 'stroke-attention'
-                : on || status === 'checking'
-                  ? 'stroke-interactive'
-                  : status === 'passed'
-                    ? 'stroke-fg-faint'
-                    : 'stroke-line',
-          (child.kind === 'addPromise' || status === 'unconfirmed' || status === 'planned' || status === 'blocked') &&
-            '[stroke-dasharray:4_5]',
-          status === 'checking' && 'motion-flow [stroke-dasharray:6_6]',
-        )}
-      />
+      <g opacity={opacity} className={clsx(!on && 'opacity-70')}>
+        <path
+          d={`M ${x1 + 6} ${y1} L ${tip} ${y}`}
+          fill="none"
+          strokeWidth={on ? 2 : 1.5}
+          strokeLinecap="round"
+          className={clsx(stroke, child.status === 'checking' && 'motion-flow [stroke-dasharray:6_6]')}
+        />
+        <path
+          d={`M ${tip - 6} ${y - 5} L ${tip} ${y} L ${tip - 6} ${y + 5}`}
+          fill="none"
+          strokeWidth={on ? 2 : 1.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={stroke}
+        />
+      </g>
     );
   }
-  const x1 = parent.x + parent.w;
-  const y1 = parent.y + parent.h / 2;
-  const x2 = child.x;
-  const y2 = child.y + child.h / 2;
-  const mid = (x1 + x2) / 2;
-  const d =
-    Math.abs(y1 - y2) < 0.5 ? `M ${x1} ${y1} L ${x2} ${y2}` : `M ${x1} ${y1} C ${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`;
-  const ghost = child.kind === 'addJourney' || child.kind === 'addPerson';
   return (
     <path
-      d={d}
+      d={`M ${x1} ${y} L ${x2} ${y}`}
       fill="none"
-      strokeWidth={on ? 2.5 : child.kind === 'step' ? 2 : 1.5}
+      strokeWidth={on ? 2 : 1.5}
       strokeLinecap="round"
       opacity={opacity}
-      className={clsx(
-        'transition-[stroke] duration-(--motion-fast)',
-        on ? 'stroke-interactive' : ghost ? 'stroke-line' : 'stroke-fg-faint',
-        ghost && '[stroke-dasharray:4_5]',
-        !on && !ghost && 'opacity-60',
-      )}
+      className={clsx(stroke, ghost && '[stroke-dasharray:4_5]', !on && 'opacity-70')}
     />
   );
 }

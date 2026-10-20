@@ -64,6 +64,11 @@ export const flowTreeMessages = defineMessages({
     undo: '되돌리기',
     close: '닫기',
     product: '제품',
+    productSummary: (people: number, journeys: number, passed: number, total: number) =>
+      `쓰는 사람 ${people} · 여정 ${journeys} · 약속 ${total}개 중 ${passed}개 통과`,
+    personLabel: '쓰는 사람',
+    journeyLabel: (number: number) => `여정 ${number}`,
+    stepLabel: '단계',
     peopleCount: (count: number) => `쓰는 사람 ${count}`,
     stepsCount: (count: number) => (count ? `단계 ${count}` : '단계 없음'),
     next: '다음에 할 일',
@@ -132,6 +137,11 @@ export const flowTreeMessages = defineMessages({
     undo: 'Undo',
     close: 'Close',
     product: 'Product',
+    productSummary: (people: number, journeys: number, passed: number, total: number) =>
+      `${people} ${people === 1 ? 'person' : 'people'} · ${journeys} ${journeys === 1 ? 'journey' : 'journeys'} · ${passed} of ${total} promises pass`,
+    personLabel: 'Who uses it',
+    journeyLabel: (number: number) => `Journey ${number}`,
+    stepLabel: 'Step',
     peopleCount: (count: number) => `${count} ${count === 1 ? 'person uses it' : 'people use it'}`,
     stepsCount: (count: number) => (count ? `${count} ${count === 1 ? 'step' : 'steps'}` : 'No steps'),
     next: 'Next',

@@ -29,11 +29,8 @@ export function ProcessControl({
   const processes = [...(query.data?.processes ?? [])]
     .filter((p) => p.kind !== 'shell')
     .sort((a, b) => b.createdAt - a.createdAt);
-  const tools = query.data?.tools ?? [];
-  const active =
-    processes.some((p) => p.status === 'running' || p.status === 'stopping') ||
-    tools.some((p) => p.status === 'running' || p.status === 'stopping');
-  const remaining = processes.some((p) => p.status === 'stopping') || tools.some((p) => p.status === 'stopping');
+  const active = processes.some((p) => p.status === 'running' || p.status === 'stopping');
+  const remaining = processes.some((p) => p.status === 'stopping');
   const stop = async (id?: string, force = false) => {
     setPending(id ?? 'all');
     setError('');
@@ -77,7 +74,7 @@ export function ProcessControl({
           {t.waiting}
         </p>
       )}
-      {!processes.length && !tools.length && !query.isPending && <p className="text-body text-fg-muted">{t.empty}</p>}
+      {!processes.length && !query.isPending && <p className="text-body text-fg-muted">{t.empty}</p>}
       {processes.map((p) => (
         <article key={p.id} className="flex flex-col gap-2 rounded-lg border border-line p-3">
           <div className="flex flex-wrap items-center gap-3">
@@ -120,17 +117,6 @@ export function ProcessControl({
               {p.stopError}
             </p>
           )}
-        </article>
-      ))}
-      {tools.map((tool) => (
-        <article key={tool.id} className="flex flex-col gap-2 rounded-lg border border-line p-3">
-          <div className="flex items-center justify-between gap-3 text-meta">
-            <strong>
-              {t.userTool} · {tool.name}
-            </strong>
-            <span className="text-fg-muted">{t[tool.status]}</span>
-          </div>
-          {tool.status === 'stopping' && <p className="text-meta text-danger">{t.worker}</p>}
         </article>
       ))}
       {(error || query.error) && (

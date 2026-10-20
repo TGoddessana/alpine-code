@@ -1,14 +1,14 @@
 import type { AgentInfo } from '@alpine/protocol';
-import { useCallback, useEffect, useState, type DragEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { Character, agentMessages, agentName } from '@/shared/components/agent';
+import { agentMessages, agentName } from '@/shared/components/agent';
 import { useMessages } from '@/shared/i18n';
 import { useAgents, useRemoveSkill, useSaveAgent } from '@/shared/server';
 
 import { AgentHeader, WorkingLine } from './AgentHeader';
 import { AgentRows } from './AgentRows';
 import { AgentStrip } from './AgentStrip';
-import { Library, type DraggedTool, type LibraryTab, type LibraryView, type SkillActions } from './library';
+import { Library, type LibraryTab, type LibraryView, type SkillActions } from './library';
 import { agentsMessages } from './messages';
 import { NewAgentDialog } from './NewAgentDialog';
 import { Toast } from './Toast';
@@ -20,7 +20,7 @@ const FLASH_MS = 1500;
 
 /**
  * Boards 에이전트 화면 and 새 에이전트: the agents along the top, the one being edited on the left (character, name,
- * rows of what it has) and the library of everything the user owns on the right. Every change is saved at once; adding
+ * rows of what it has) and the library of skills on the right. Every change is saved at once; adding
  * or removing a tool says so in a toast that can take it back. `onChange` writes the route's search.
  */
 export function Agents({
@@ -49,7 +49,7 @@ export function Agents({
         onSelect={select}
         onNew={() => onChange({ ...(agent.id !== 'default' ? { agent: agent.id } : {}), create: true })}
       />
-      <Editor key={agent.id} agent={agent} agents={agents} tab={library ?? 'all'} onSelect={select} />
+      <Editor key={agent.id} agent={agent} agents={agents} tab={library ?? 'skill'} onSelect={select} />
       <NewAgentDialog open={creating} onClose={() => onChange(agentId ? { agent: agentId } : {})} onCreated={select} />
     </>
   );
@@ -79,7 +79,6 @@ function Editor({
   const save = useSaveAgent();
   const removeSkill = useRemoveSkill();
   const [view, setView] = useState<LibraryView>({ kind: 'list', tab });
-  const [dragging, setDragging] = useState<DraggedTool | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState(0);
@@ -128,17 +127,6 @@ function Editor({
       t.toastRemoved(label, name),
       null,
     );
-  // The server already turned the new tools on; only the telling is left.
-  const created = (tools: string[], label: string) => {
-    const previous = agent.tools;
-    setToast({
-      id: Date.now(),
-      text: t.toastAdded(label, name),
-      undo: () => void persist({ ...agent, tools: previous }),
-    });
-    setFlash(tools[0] ?? null);
-    setSavedAt(Date.now());
-  };
   const undo = () => {
     toast?.undo();
     setToast(null);
@@ -173,25 +161,10 @@ function Editor({
     },
   };
 
-  const over = (event: DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'copy';
-  };
-  const drop = (event: DragEvent) => {
-    event.preventDefault();
-    if (dragging) add([dragging.tool], dragging.label);
-    setDragging(null);
-  };
-
   return (
     <div className="flex min-h-0 grow">
       <div className="relative flex min-w-0 grow flex-col">
-        <section
-          aria-label={t.screen}
-          onDragOver={dragging ? over : undefined}
-          onDrop={dragging ? drop : undefined}
-          className="flex grow flex-col gap-4 overflow-y-auto px-6 py-5"
-        >
+        <section aria-label={t.screen} className="flex grow flex-col gap-4 overflow-y-auto px-6 py-5">
           <AgentHeader agent={agent} saved={savedAt !== 0} failed={failed} onSave={persist} onSelect={onSelect} />
           <WorkingLine agentId={agent.id} />
           <AgentRows
@@ -200,32 +173,14 @@ function Editor({
             onChange={persist}
             onAdd={add}
             onRemove={remove}
-            onOpenTool={(file, tool) => setView({ kind: 'tool', file, tool })}
             onBrowse={(tab) => setView({ kind: 'list', tab })}
-            onNewTool={() => setView({ kind: 'new-tool' })}
             onOpenSkill={(skill) => setView({ kind: 'skill', name: skill })}
             skillActions={skillActions}
           />
         </section>
-        {dragging && (
-          <div className="pointer-events-none absolute inset-3 z-10 flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-interactive bg-selected/90">
-            <Character look={agent.look} color={agent.color} size={96} label="" />
-            <span className="text-title font-medium">{t.drop(dragging.label, name)}</span>
-          </div>
-        )}
       </div>
       <div className="flex w-110 shrink-0 flex-col">
-        <Library
-          agent={agent}
-          agents={agents}
-          view={view}
-          onViewChange={setView}
-          onAdd={add}
-          onRemove={remove}
-          onCreated={created}
-          onDragChange={setDragging}
-          skillActions={skillActions}
-        />
+        <Library agent={agent} agents={agents} view={view} onViewChange={setView} skillActions={skillActions} />
       </div>
       {toast && <Toast id={toast.id} agent={agent} text={toast.text} onUndo={undo} onDismiss={dismiss} />}
     </div>

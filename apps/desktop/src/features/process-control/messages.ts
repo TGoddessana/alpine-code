@@ -11,16 +11,12 @@ export const messages = defineMessages({
     count: (count: number) => `명령 ${count}개`,
     exitCode: (code: number) => `종료 코드 ${code}`,
     remaining: '종료되지 않은 작업이 있습니다. 상태를 확인하고 필요한 프로세스를 강제 종료하세요.',
-    worker:
-      '이 사용자 도구는 앱 안에서 실행 중입니다. 중단을 요청했지만 실제 함수가 끝날 때까지 계속 실행될 수 있습니다.',
     waiting: '중단 요청 처리 중…',
-    userTool: '사용자 도구',
     running: '실행 중',
     stopping: '종료 대기 · 아직 실행 중',
     exited: '완료',
     failed: '실패',
     cancelled: '중단됨',
-    finished: '완료',
   },
   en: {
     title: 'Agent commands',
@@ -32,15 +28,11 @@ export const messages = defineMessages({
     count: (count: number) => `${count} commands`,
     exitCode: (code: number) => `Exit code ${code}`,
     remaining: 'Some work has not stopped. Check its status and force stop remaining processes if needed.',
-    worker:
-      'This user tool runs inside the app. Cancellation was requested, but it may continue until the function actually returns.',
     waiting: 'Requesting cancellation…',
-    userTool: 'User tool',
     running: 'Running',
     stopping: 'Waiting for exit · still running',
     exited: 'Finished',
     failed: 'Failed',
     cancelled: 'Stopped',
-    finished: 'Finished',
   },
 });

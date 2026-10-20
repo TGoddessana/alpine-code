@@ -22,8 +22,8 @@ files, makes the changes and checks that they work.
 It's built for two kinds of people at once:
 
 - **If you don't code**, it talks in plain words, asks before it changes anything and shows you everything it did.
-- **If you do**, every part of it is yours to change: bring any model, write your own tools in Python, choose which
-  tools each project gets, or build on the agent core.
+- **If you do**, every part of it is yours to change: bring any model, build agents with their own tools and skills,
+  or build on the agent core.
 
 ## Open source
 
@@ -70,16 +70,6 @@ memory meter to see how much of the conversation the model is keeping in mind, a
 </table>
 
 ## Hackable if you do
-
-**Write your own tools.** A tool is one Python function: its name, type hints and docstring are what the agent sees.
-List the packages it needs in the file ([inline script metadata](https://peps.python.org/pep-0723/)) and they're
-installed for you, after asking for any it hasn't reviewed. Or describe the tool in a sentence and let the model write it. **Check** shows exactly what the
-agent will see, and **Try it** runs it before you save.
-
-<p align="center">
-  <img src="assets/images/tool-editor.png" alt="The tool editor: a fetch tool written as one Python function with its dependencies declared at the top, and on the right what the agent sees: its name, description, parameters, when it asks, and a form to try it" width="800">
-</p>
-
 
 **Build agents for each job.** An agent is a model, instructions and the tools it may use, with a name and a
 face. Every agent is the same Alpine snow hare, with its own accessories and background colour. Build them on the Agents screen, pick one per session in the composer, and switch whenever you like.

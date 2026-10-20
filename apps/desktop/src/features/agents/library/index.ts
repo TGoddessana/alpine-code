@@ -1,2 +1,2 @@
 export { Library } from './Library';
-export type { DraggedTool, LibraryTab, LibraryView, SkillActions } from './types';
+export type { LibraryTab, LibraryView, SkillActions } from './types';

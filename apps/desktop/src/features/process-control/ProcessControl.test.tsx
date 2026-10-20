@@ -28,7 +28,7 @@ it('stops the agent before session processes and leaves uncooperative work visib
   };
   const script: Script = {
     results: {
-      'processes/list': () => ({ processes: [process], tools: [] }),
+      'processes/list': () => ({ processes: [process] }),
       'session/cancel': ({ sessionId }) => {
         requests.push(`agent:${sessionId}`);
         return {};
@@ -36,7 +36,7 @@ it('stops the agent before session processes and leaves uncooperative work visib
       'processes/stop': ({ sessionId }) => {
         requests.push(`processes:${sessionId}`);
         process = { ...process, status: 'stopping', cancelled: true };
-        return { processes: [process], tools: [] };
+        return { processes: [process] };
       },
       'terminals/stop': ({ processId, force }) => {
         requests.push(`${processId}:${String(force)}`);
@@ -68,40 +68,6 @@ it('stops the agent before session processes and leaves uncooperative work visib
   client.clear();
 });
 
-it('shows residual user functions as still executing without offering an unsafe thread kill', async () => {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <LocaleProvider locale="en">
-      <QueryClientProvider client={client}>
-        <ServerProvider
-          connection={scriptedConnection({
-            results: {
-              'processes/list': {
-                processes: [],
-                tools: [
-                  {
-                    id: 'thread',
-                    sessionId: 'chat',
-                    name: 'export',
-                    createdAt: 1,
-                    status: 'stopping',
-                    cancellable: false,
-                  },
-                ],
-              },
-            },
-          })}
-        >
-          <ProcessControl cwd="/project" sessionId="chat" />
-        </ServerProvider>
-      </QueryClientProvider>
-    </LocaleProvider>,
-  );
-  await screen.findByText(/may continue until the function actually returns/);
-  expect(screen.queryByRole('button', { name: 'Force stop' })).toBeNull();
-  client.clear();
-});
-
 it('shows the agent purpose alongside its exact command and excludes interactive shells', async () => {
   const inspected: string[] = [];
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -128,7 +94,7 @@ it('shows the agent purpose alongside its exact command and excludes interactive
               'processes/list': ({ kind, sessionId }) => {
                 expect(kind).toBe('command');
                 expect(sessionId).toBe('chat');
-                return { processes: [base, { ...base, id: 'shell', title: 'My shell', kind: 'shell' }], tools: [] };
+                return { processes: [base, { ...base, id: 'shell', title: 'My shell', kind: 'shell' }] };
               },
             },
           })}

@@ -51,17 +51,4 @@ describe('toolsScript agents', () => {
     const ids = (await connection.request('agents/list', {})).agents.map((a) => a.id);
     expect(ids).toEqual(['default', 'a-review', 'a-writer']);
   });
-
-  it('turns a new tool on in one agent and strips deleted tools from all', async () => {
-    const connection = scriptedConnection(toolsScript());
-    const source = '@tool(read_only=True)\ndef stats(x: str) -> str:\n    """Counts."""\n';
-    await connection.request('tools/save', { name: 'stats', source, enableIn: 'a-review' });
-    const tools = async (id: string) =>
-      (await connection.request('agents/list', {})).agents.find((a) => a.id === id)!.tools;
-    expect(await tools('a-review')).toContain('stats');
-    expect(await tools('a-site')).not.toContain('stats');
-    await connection.request('tools/delete', { name: 'fetch' });
-    expect(await tools('default')).not.toContain('fetch');
-    expect(await tools('a-site')).not.toContain('fetch');
-  });
 });

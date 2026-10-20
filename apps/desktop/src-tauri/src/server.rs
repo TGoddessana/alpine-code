@@ -4,7 +4,7 @@
 //! When the server exits, `server://exit` carries its exit code.
 
 use std::io::{BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{Mutex, mpsc};
 use std::thread;
@@ -64,16 +64,14 @@ fn command(app: &AppHandle) -> std::io::Result<Command> {
     let runtime = app.path().resource_dir().map_err(std::io::Error::other)?.join("runtime");
     // -I: ignore the user's PYTHON* variables and site-packages. -B: never write into the signed bundle.
     let mut command = Command::new(runtime.join("python/bin/python3.14"));
-    command.args(["-I", "-B", "-m", "alpine_server"]).env("PATH", tool_path(&runtime));
+    command.args(["-I", "-B", "-m", "alpine_server"]).env("PATH", tool_path());
     Ok(command)
 }
 
 /// An app opened from Finder gets launchd's bare PATH, without Homebrew, nvm and the like, so the agent's commands
-/// would not find the user's tools. Take PATH from the user's login shell, and add the runtime's `uv` last for the
-/// toolbox.
-fn tool_path(runtime: &Path) -> String {
-    let path = login_shell_path().or_else(|| std::env::var("PATH").ok()).unwrap_or_default();
-    format!("{path}:{}", runtime.join("bin").display())
+/// would not find the user's programs. Take PATH from the user's login shell.
+fn tool_path() -> String {
+    login_shell_path().or_else(|| std::env::var("PATH").ok()).unwrap_or_default()
 }
 
 fn login_shell_path() -> Option<String> {

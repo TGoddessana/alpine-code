@@ -35,7 +35,6 @@ export const agentMessages = defineMessages({
     canChange: '바꾸기',
     cannotChange: '파일은 바꾸지 못해요',
     canRun: '명령',
-    moreTools: (n: number) => `도구 ${n}개 더`,
   },
   en: {
     defaultAgent: 'Default agent',
@@ -71,6 +70,5 @@ export const agentMessages = defineMessages({
     canChange: 'change them',
     cannotChange: "can't change files",
     canRun: 'commands',
-    moreTools: (n: number) => `${n} more ${n === 1 ? 'tool' : 'tools'}`,
   },
 });

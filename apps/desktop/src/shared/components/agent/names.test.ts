@@ -17,7 +17,7 @@ describe('agentName', () => {
 });
 
 describe('toolLabel', () => {
-  it('says a built-in tool in plain words and a user tool as it is', () => {
+  it('says a built-in tool in plain words and any other as it is', () => {
     expect(toolLabel('read', t)).toBe('파일 읽기');
     expect(toolLabel('edit', t)).toBe('파일 고치기');
     expect(toolLabel('fetch', t)).toBe('fetch');
@@ -43,11 +43,6 @@ describe('abilities', () => {
     expect(abilities(['read', 'glob', 'grep'], t)).toBe('파일 보기 · 파일은 바꾸지 못해요');
   });
 
-  it('counts the user tools', () => {
-    expect(abilities(['read', 'write', 'fetch', 'weather'], t)).toBe('파일 보기 · 바꾸기 · 도구 2개 더');
-    expect(abilities(['fetch'], t)).toBe('도구 1개 더');
-  });
-
   it('does not count the memory tool, which every agent has', () => {
     expect(abilities(['read', 'propose_memory'], t)).toBe('파일 보기 · 파일은 바꾸지 못해요');
   });
@@ -60,12 +55,8 @@ describe('alpineTools', () => {
     optional,
   });
 
-  it('takes the built-in and memory tools from the list, not the user tools', () => {
-    const tools = [
-      offered('read', 'builtin', true),
-      offered('propose_memory', 'memory', false),
-      offered('fetch', 'user', true),
-    ];
+  it('takes the built-in and memory tools from the list', () => {
+    const tools = [offered('read', 'builtin', true), offered('propose_memory', 'memory', false)];
     expect(alpineTools(tools)).toEqual([
       { name: 'read', optional: true },
       { name: 'propose_memory', optional: false },

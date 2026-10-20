@@ -24,7 +24,7 @@ function script(): Script {
   let current = { ...process };
   return {
     results: {
-      'processes/list': () => ({ processes: [current], tools: [] }),
+      'processes/list': () => ({ processes: [current] }),
       'terminals/stop': ({ force }) => {
         current = {
           ...current,
@@ -37,7 +37,7 @@ function script(): Script {
       'session/cancel': {},
       'processes/stop': () => {
         current = { ...current, status: 'stopping', cancelled: true };
-        return { processes: [current], tools: [] };
+        return { processes: [current] };
       },
     },
   };
@@ -69,27 +69,6 @@ export const StopAndForce: Story = {
     await expect(await screen.findByText(/^(중단됨|Stopped)$/)).toBeVisible();
   },
 };
-export const ResidualUserTool: Story = {
-  parameters: {
-    server: {
-      results: {
-        'processes/list': {
-          processes: [{ ...process, status: 'cancelled', exitCode: -15, cancelled: true }],
-          tools: [
-            {
-              id: 'worker',
-              sessionId: 'chat',
-              name: 'slow_export',
-              createdAt: 1,
-              status: 'stopping',
-              cancellable: false,
-            },
-          ],
-        },
-      },
-    } satisfies Script,
-  },
-};
 export const StopAll: Story = {
   parameters: { server: script() },
   play: async () => {
@@ -98,7 +77,7 @@ export const StopAll: Story = {
   },
 };
 export const Empty: Story = {
-  parameters: { server: { results: { 'processes/list': { processes: [], tools: [] } } } satisfies Script },
+  parameters: { server: { results: { 'processes/list': { processes: [] } } } satisfies Script },
 };
 
 export const AgentCommands: Story = {
@@ -127,7 +106,6 @@ export const AgentCommands: Story = {
               createdAt: 1,
             },
           ],
-          tools: [],
         },
       },
     } satisfies Script,

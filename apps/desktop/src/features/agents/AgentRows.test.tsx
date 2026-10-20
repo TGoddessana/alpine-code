@@ -20,8 +20,6 @@ const tools: ToolsListResult = {
     ...['read', 'glob', 'grep', 'write', 'edit', 'bash'].map((name) => offered(name, 'builtin')),
     offered('propose_memory', 'memory', false),
   ],
-  files: [],
-  folder: '/tools',
 };
 
 const connection = {
@@ -64,9 +62,7 @@ describe('AgentRows', () => {
         onChange={noop}
         onAdd={noop}
         onRemove={noop}
-        onOpenTool={noop}
         onBrowse={noop}
-        onNewTool={noop}
         onOpenSkill={noop}
         skillActions={{ onToggle: noop, onInstalled: noop }}
       />,

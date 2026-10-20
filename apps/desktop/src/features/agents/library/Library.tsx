@@ -3,49 +3,35 @@ import { Button, Menu } from '@alpine/ui/primitives';
 import clsx from 'clsx';
 import { Plus } from 'lucide-react';
 
-import { agentMessages, agentName } from '@/shared/components/agent';
-import { useFormat, useMessages } from '@/shared/i18n';
-import { useSkills, useTools } from '@/shared/server';
+import { useMessages } from '@/shared/i18n';
+import { useSkills } from '@/shared/server';
 
-import { cards, type Card } from './cards';
 import { libraryMessages } from './messages';
 import { NewSkill } from './NewSkill';
-import { NewTool } from './NewTool';
 import { SkillDetail } from './SkillDetail';
-import { MineCards, Skills } from './Skills';
-import { librarySkillMessages } from './skillMessages';
-import { statusLine } from './status';
-import { ToolDetail } from './ToolDetail';
-import type { DraggedTool, LibraryTab, LibraryView, SkillActions } from './types';
+import { Skills } from './Skills';
+import type { LibraryTab, LibraryView, SkillActions } from './types';
 
-export type { DraggedTool, LibraryTab, LibraryView, SkillActions };
+export type { LibraryTab, LibraryView, SkillActions };
 
-const TABS: LibraryTab[] = ['all', 'tool', 'skill', 'mcp', 'sub'];
+const TABS: LibraryTab[] = ['skill', 'mcp', 'sub'];
 
 /**
- * Board 에이전트 화면, the library side: everything the user owns, as cards the agent being edited can pick from.
- * Opening a card replaces the list in place. The library never saves the agent: it reports what was picked
- * (`onAdd`, `onRemove`, `onCreated`) and what is being dragged, and the screen does the saving and the telling.
+ * Board 에이전트 화면, the library side: the skills the agent being edited can use, to find, add, open and write.
+ * Opening one replaces the list in place. The library never saves the agent: it reports what changed
+ * (`skillActions`), and the screen does the saving and the telling.
  */
 export function Library({
   agent,
   agents,
   view,
   onViewChange,
-  onAdd,
-  onRemove,
-  onCreated,
-  onDragChange,
   skillActions,
 }: {
   agent: AgentInfo;
   agents: AgentInfo[];
   view: LibraryView;
   onViewChange: (view: LibraryView) => void;
-  onAdd: (tools: string[], label: string) => void;
-  onRemove: (tools: string[], label: string) => void;
-  onCreated: (tools: string[], label: string) => void;
-  onDragChange: (item: DraggedTool | null) => void;
   skillActions: SkillActions;
 }) {
   const t = useMessages(libraryMessages);
@@ -55,30 +41,8 @@ export function Library({
       className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto border-l border-line bg-canvas"
     >
       {view.kind === 'list' && (
-        <List
-          agent={agent}
-          agents={agents}
-          tab={view.tab}
-          onViewChange={onViewChange}
-          onAdd={onAdd}
-          onRemove={onRemove}
-          onDragChange={onDragChange}
-          skillActions={skillActions}
-        />
+        <List agent={agent} tab={view.tab} onViewChange={onViewChange} skillActions={skillActions} />
       )}
-      {view.kind === 'tool' && (
-        <ToolDetail
-          key={view.file}
-          agent={agent}
-          agents={agents}
-          file={view.file}
-          tool={view.tool}
-          onViewChange={onViewChange}
-          onAdd={onAdd}
-          onRemove={onRemove}
-        />
-      )}
-      {view.kind === 'new-tool' && <NewTool agent={agent} onViewChange={onViewChange} onCreated={onCreated} />}
       {view.kind === 'skill' && (
         <SkillDetail
           key={view.name}
@@ -96,56 +60,32 @@ export function Library({
 
 function List({
   agent,
-  agents,
   tab,
   onViewChange,
-  onAdd,
-  onRemove,
-  onDragChange,
   skillActions,
 }: {
   agent: AgentInfo;
-  agents: AgentInfo[];
   tab: LibraryTab;
   onViewChange: (view: LibraryView) => void;
-  onAdd: (tools: string[], label: string) => void;
-  onRemove: (tools: string[], label: string) => void;
-  onDragChange: (item: DraggedTool | null) => void;
   skillActions: SkillActions;
 }) {
   const t = useMessages(libraryMessages);
-  const ts = useMessages(librarySkillMessages);
-  const a = useMessages(agentMessages);
-  const tools = useTools().data;
   const skills = useSkills().data?.skills ?? [];
-  if (!tools) return null;
-  const all = cards(tools, agent, agents, (x) => agentName(x, a));
   const soon = tab === 'mcp' || tab === 'sub' ? tab : null;
-  const counts: Partial<Record<LibraryTab, number>> = {
-    all: all.length + skills.length,
-    tool: all.length,
-    skill: skills.length,
-  };
-  const label = { all: t.tabAll, tool: t.tabTool, skill: t.tabSkill, mcp: t.tabMcp, sub: t.tabSub };
-  const newTool = () => onViewChange({ kind: 'new-tool' });
+  const counts: Partial<Record<LibraryTab, number>> = { skill: skills.length };
+  const label = { skill: t.tabSkill, mcp: t.tabMcp, sub: t.tabSub };
 
   return (
     <>
       <div className="flex flex-col gap-3 px-5 pt-5 pb-3">
         <div className="flex items-center gap-2">
-          <div className="grow">
-            <h2 className="text-title">{t.title}</h2>
-            {tab !== 'skill' && <span className="text-meta text-fg-faint">{t.note}</span>}
-          </div>
+          <h2 className="grow text-title">{t.title}</h2>
           <Menu.Root>
             <Menu.Trigger render={<Button />}>
               <Plus size={16} strokeWidth={1.5} aria-hidden="true" />
               {t.create}
             </Menu.Trigger>
             <Menu.Popup align="end" className="w-68">
-              <Menu.Item onClick={newTool}>
-                <MenuText title={t.createTool} note={t.createToolNote} />
-              </Menu.Item>
               <Menu.Item onClick={() => onViewChange({ kind: 'new-skill' })}>
                 <MenuText title={t.writeSkill} note={t.writeSkillNote} />
               </Menu.Item>
@@ -173,42 +113,7 @@ function List({
           ))}
         </div>
       </div>
-      {soon ? (
-        <Soon tab={soon} />
-      ) : tab === 'skill' ? (
-        <Skills agent={agent} onViewChange={onViewChange} actions={skillActions} />
-      ) : (
-        <div className="flex flex-col gap-3 px-5 pb-6">
-          {all.length === 0 && <p className="text-body text-fg-muted">{t.empty}</p>}
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
-            <button
-              type="button"
-              onClick={newTool}
-              className="flex min-h-33 cursor-pointer flex-col items-start gap-1.5 rounded-xl border border-dashed border-interactive px-3 pt-2.5 pb-3 text-left hover:bg-canvas-sunken"
-            >
-              <span className="text-meta text-fg-faint">{t.kindTool}</span>
-              <span className="font-medium text-interactive">{t.newCardTitle}</span>
-              <span className="text-meta text-fg-muted">{t.newCardBody}</span>
-            </button>
-            {all.map((card) => (
-              <ToolCard
-                key={card.tool}
-                card={card}
-                onOpen={() => onViewChange({ kind: 'tool', file: card.file, tool: card.tool })}
-                onAdd={() => onAdd([card.tool], card.label)}
-                onRemove={() => onRemove([card.tool], card.label)}
-                onDragChange={onDragChange}
-              />
-            ))}
-          </div>
-          {tab === 'all' && skills.length > 0 && (
-            <div className="flex flex-col gap-2 pt-2">
-              <h3 className="text-body font-medium">{ts.mine}</h3>
-              <MineCards skills={skills} agent={agent} onViewChange={onViewChange} actions={skillActions} />
-            </div>
-          )}
-        </div>
-      )}
+      {soon ? <Soon tab={soon} /> : <Skills agent={agent} onViewChange={onViewChange} actions={skillActions} />}
     </>
   );
 }
@@ -236,73 +141,6 @@ function Soon({ tab }: { tab: 'mcp' | 'sub' }) {
       <span className="rounded-full bg-canvas-sunken px-2 text-meta text-fg-muted">{t.soon}</span>
       <span className="font-medium">{words[0]}</span>
       <span className="text-meta text-fg-muted">{words[1]}</span>
-    </div>
-  );
-}
-
-function ToolCard({
-  card,
-  onOpen,
-  onAdd,
-  onRemove,
-  onDragChange,
-}: {
-  card: Card;
-  onOpen: () => void;
-  onAdd: () => void;
-  onRemove: () => void;
-  onDragChange: (item: DraggedTool | null) => void;
-}) {
-  const t = useMessages(libraryMessages);
-  const f = useFormat();
-  const ready = card.status === 'ready';
-  const draggable = ready && !card.added;
-  return (
-    <div
-      draggable={draggable}
-      onDragStart={(event) => {
-        event.dataTransfer.setData('text/plain', card.tool);
-        event.dataTransfer.effectAllowed = 'copy';
-        onDragChange({ tool: card.tool, label: card.label });
-      }}
-      onDragEnd={() => onDragChange(null)}
-      className={clsx(
-        'flex min-h-33 flex-col gap-1.5 rounded-xl border border-line px-3 pt-2.5 pb-3',
-        card.added ? 'bg-canvas-sunken' : 'bg-canvas-raised',
-        draggable && 'cursor-grab',
-      )}
-    >
-      <span className="text-meta text-fg-faint">{t.kindTool}</span>
-      <button type="button" onClick={onOpen} className="flex grow cursor-pointer flex-col gap-0.5 text-left">
-        <span className={clsx('font-medium', !ready && 'font-mono text-meta')}>
-          {ready ? card.label : `${card.file}.py`}
-        </span>
-        <span className={clsx('text-meta', ready ? 'text-fg-muted' : card.status === 'error' && 'text-danger')}>
-          {ready ? card.does : statusLine(card, t, f.since)}
-        </span>
-        <span className="text-meta text-interactive">{t.openCode}</span>
-      </button>
-      {ready && card.added && (
-        <div className="flex items-center justify-between">
-          <span className="text-meta text-interactive">{t.added}</span>
-          <Button
-            className="min-h-6.5 border-transparent bg-transparent px-2 text-meta text-fg-muted"
-            aria-label={t.removeTool(card.label)}
-            onClick={onRemove}
-          >
-            {t.remove}
-          </Button>
-        </div>
-      )}
-      {ready && !card.added && (
-        <Button
-          className="min-h-7 border-interactive text-interactive"
-          aria-label={t.addTool(card.label)}
-          onClick={onAdd}
-        >
-          {t.add}
-        </Button>
-      )}
     </div>
   );
 }

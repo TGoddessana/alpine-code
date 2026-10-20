@@ -5,7 +5,7 @@ session starts with the agent the user picked, else the one its project used las
 always exists. Safety belongs to the session and memory to the project, so an agent holds neither. Nothing picks an
 agent by project or model.
 
-Kept in ``~/.alpine-code/agents.json``. Tool names cover built-in and user tools alike. Profiles from before agents
+Kept in ``~/.alpine-code/agents.json``. Tool names are the built-in tools'. Profiles from before agents
 (``profiles.json``) become agents the first time the list is read; that file is left where it is.
 """
 
@@ -148,21 +148,6 @@ class AgentList:
         with self._lock:
             self._write([a for a in self._read() if a.id != agent_id])
 
-    def enable(self, agent_id: str, tool: str) -> None:
-        """Turns one tool on in one agent."""
-        with self._lock:
-            self._write(
-                [
-                    replace(a, tools=(*a.tools, tool)) if a.id == agent_id and tool not in a.tools else a
-                    for a in self._read()
-                ]
-            )
-
-    def forget_tools(self, tools: set[str]) -> None:
-        """Turns these tools off everywhere, after their file was deleted."""
-        with self._lock:
-            self._write([replace(a, tools=tuple(t for t in a.tools if t not in tools)) for a in self._read()])
-
     def _read(self) -> list[AgentConfig]:
         try:
             data = json.loads(self._file.read_text("utf-8"))
@@ -254,8 +239,9 @@ def _default_first(agents: list[AgentConfig]) -> list[AgentConfig]:
 
 
 def _tools_of(value: object) -> tuple[str, ...]:
+    """The built-in tools named in ``value``. Other names (tools once written by the user) are dropped."""
     if isinstance(value, list) and all(isinstance(t, str) for t in value):
-        return tuple(value)
+        return tuple(t for t in value if t in BUILTIN)
     return BUILTIN
 
 

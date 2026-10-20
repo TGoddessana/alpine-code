@@ -70,15 +70,12 @@ def test_free_character_searches_colours_then_looks():
     assert free_character(everything, "chef", 4) == ("chef", 4)
 
 
-def test_enable_and_forget_tools(agents):
-    saved = agents.save(AgentConfig("", "a", tools=("read",)))
-    agents.enable(saved.id, "shout")
-    agents.enable(saved.id, "shout")
-    assert agents.get(saved.id).tools == ("read", "shout")
-    agents.enable("missing", "shout")
-    agents.forget_tools({"shout", "read"})
-    assert agents.get(saved.id).tools == ()
-    assert agents.default().tools == tuple(t for t in BUILTIN if t != "read")
+def test_names_that_are_not_built_in_tools_are_dropped(agents, home):
+    agents.save(AgentConfig("", "a", tools=("read",)))
+    data = json.loads((home / "agents.json").read_text("utf-8"))
+    data["agents"][1]["tools"] = ["read", "shout"]
+    (home / "agents.json").write_text(json.dumps(data), "utf-8")
+    assert agents.list()[1].tools == ("read",)
 
 
 def test_a_corrupt_file_gives_the_default(home):

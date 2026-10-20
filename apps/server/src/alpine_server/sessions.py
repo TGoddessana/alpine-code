@@ -90,7 +90,7 @@ from . import map_state
 from .agents import agents
 from .methods import APP_ERROR, INVALID_PARAMS, MethodError
 from .skills import skills
-from .tools import list_tools, toolbox
+from .tools import list_tools
 from .wire import to_event_params, to_info, to_item
 
 Notify = Callable[[SessionEventParams], None]
@@ -186,9 +186,9 @@ class SessionManager:
         }
 
     def tool_sources(self, project: Path) -> list[ToolSource]:
-        """Where a folder's tools come from, for its sessions and for ``tools/list``: the built-ins, the project's
-        memory, then the user's tools, so a user tool cannot take an earlier one's name."""
-        return [Builtins(Workspace(project)), self.memories.of(project), toolbox()]
+        """Where a folder's tools come from, for its sessions and for ``tools/list``: the built-ins, then the
+        project's memory."""
+        return [Builtins(Workspace(project)), self.memories.of(project)]
 
     async def shutdown(self) -> None:
         """Stops every running session, so each is saved ending in ``run_stopped: interrupted``, and every TF, so

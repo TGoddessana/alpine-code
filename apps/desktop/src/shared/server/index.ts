@@ -57,17 +57,7 @@ export {
   useShowModel,
   shownModels,
 } from './queries';
-export {
-  useCheckTool,
-  useConfirmTool,
-  useDeleteTool,
-  useDraftTool,
-  useInstallPackages,
-  useSaveTool,
-  useTestTool,
-  useToolSource,
-  useTools,
-} from './tools';
+export { useTools } from './tools';
 export {
   CHATGPT_CONNECTION,
   CONNECTED,

@@ -68,6 +68,10 @@ export interface FlowTreeProps {
   onAddJourney: (personId: string, title: string, goal: string) => void;
   onFindSteps: (journeyId: string) => void;
   onAddPerson: (name: string) => void;
+  /** A person's own call on a card (how much it matters, when, a one-line note). */
+  onDecide?: (cardId: string, field: 'priority' | 'scope' | 'decision', value: string | null) => void;
+  /** Opens the conversation last started on a card. */
+  onOpenSession?: (sessionId: string) => void;
   initialPerson?: string;
   /** Opens every step's promises from the start (the whole map at once). */
   allOpen?: boolean;
@@ -182,8 +186,10 @@ export function FlowTree(props: FlowTreeProps) {
             .filter(
               (node) =>
                 node.id === `start:${first.id}` ||
-                (node.journeyId !== undefined && node.journeyId === first.journeys[0]?.id) ||
-                (node.journeyId !== undefined && node.journeyId === first.journeys[1]?.id),
+                (node.journeyId !== undefined &&
+                  (node.journeyId === first.journeys[0]?.id || node.journeyId === first.journeys[1]?.id) &&
+                  // Long journeys run on to the right; the first view shows where they begin.
+                  node.index < 4),
             )
             .map((node) => node.id)
         : undefined,
@@ -593,6 +599,11 @@ function StepCard({
         </span>
         <KindIcon size={12} aria-hidden className="shrink-0" />
         {t[kindWords[kind]]}
+        {card.priority === 'must' && <span className="rounded-sm bg-selected px-1 text-fg">{t.priorityMust}</span>}
+        {card.scope === 'now' && <span className="rounded-sm bg-selected px-1 text-fg">{t.scopeNow}</span>}
+        {(card.scope === 'out' || card.priority === 'later') && (
+          <span className="rounded-sm px-1 text-fg-faint">{card.scope === 'out' ? t.scopeOut : t.priorityLater}</span>
+        )}
       </CardLabel>
       <span className="mt-1.5 shrink-0 truncate font-medium">{card.title}</span>
       {card.description && <span className="shrink-0 truncate text-meta text-fg-muted">{card.description}</span>}
@@ -863,11 +874,21 @@ function Panel({
           onRemove={onRemove}
           footer={
             focus.kind === 'step' && (
-              <InlineAdd
-                label={t.addPromise}
-                fields={[t.whenPlaceholder, t.thenPlaceholder]}
-                onAdd={([when, then]) => props.onAddPromise(focus.cardId, when!, then ?? '')}
-              />
+              <>
+                <InlineAdd
+                  label={t.addPromise}
+                  fields={[t.whenPlaceholder, t.thenPlaceholder]}
+                  onAdd={([when, then]) => props.onAddPromise(focus.cardId, when!, then ?? '')}
+                />
+                {props.onDecide && map.cards[focus.cardId] && (
+                  <Decisions card={map.cards[focus.cardId]!} onDecide={props.onDecide} />
+                )}
+                {props.onOpenSession && map.cards[focus.cardId]?.sessionId && (
+                  <LinkButton onClick={() => props.onOpenSession!(map.cards[focus.cardId]!.sessionId!)}>
+                    {t.openSession}
+                  </LinkButton>
+                )}
+              </>
             )
           }
         />
@@ -1176,4 +1197,70 @@ function ChangeKind({ kind }: { kind: string }) {
   const t = useMessages(messages);
   const tone = kind === 'check_failed' ? 'text-danger' : kind === 'check_passed' ? 'text-fg-muted' : 'text-interactive';
   return <span className={clsx('shrink-0 text-meta', tone)}>{t.changeKind(kind)}</span>;
+}
+
+/** The person's own calls on a card: how much it matters and when. Only a person sets them; pressing the chosen one
+ * again clears it. */
+function Decisions({
+  card,
+  onDecide,
+}: {
+  card: TreeCard;
+  onDecide: (cardId: string, field: 'priority' | 'scope' | 'decision', value: string | null) => void;
+}) {
+  const t = useMessages(messages);
+  const rows: {
+    field: 'priority' | 'scope';
+    label: string;
+    current: string | null | undefined;
+    options: [string, string][];
+  }[] = [
+    {
+      field: 'priority',
+      label: t.priorityTitle,
+      current: card.priority,
+      options: [
+        ['must', t.priorityMust],
+        ['should', t.priorityShould],
+        ['later', t.priorityLater],
+      ],
+    },
+    {
+      field: 'scope',
+      label: t.scopeTitle,
+      current: card.scope,
+      options: [
+        ['now', t.scopeNow],
+        ['next', t.scopeNext],
+        ['out', t.scopeOut],
+      ],
+    },
+  ];
+  return (
+    <section className="flex flex-col gap-2">
+      {rows.map((row) => (
+        <div key={row.field} className="flex items-center justify-between gap-3">
+          <span className="text-meta text-fg-muted">{row.label}</span>
+          <span
+            role="radiogroup"
+            aria-label={row.label}
+            className="flex rounded-md border border-line bg-canvas-raised p-0.5"
+          >
+            {row.options.map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={row.current === value}
+                onClick={() => onDecide(card.id, row.field, row.current === value ? null : value)}
+                className="cursor-pointer rounded-sm px-2 py-0.5 text-meta text-fg-muted transition-colors hover:text-fg aria-checked:bg-selected aria-checked:text-fg"
+              >
+                {label}
+              </button>
+            ))}
+          </span>
+        </div>
+      ))}
+    </section>
+  );
 }

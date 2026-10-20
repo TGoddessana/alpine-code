@@ -254,6 +254,8 @@ describe('right dock on the routes', () => {
     [700, true],
     [1400, false],
   ])('with the map area %ipx wide, an open feature panel overlays the dock: %s', async (width, overlaid) => {
+    // The feature panel belongs to the card map.
+    localStorage.setItem('alpine.product-map.view', 'cards');
     vi.stubGlobal(
       'ResizeObserver',
       class {

@@ -3910,6 +3910,11 @@
           "maxLength": 200,
           "type": "string"
         },
+        "actor": {
+          "default": "",
+          "maxLength": 60,
+          "type": "string"
+        },
         "nodeIds": {
           "items": {
             "type": "string"
@@ -6073,6 +6078,11 @@
         "trigger": {
           "default": "",
           "maxLength": 200,
+          "type": "string"
+        },
+        "actor": {
+          "default": "",
+          "maxLength": 60,
           "type": "string"
         },
         "nodeIds": {

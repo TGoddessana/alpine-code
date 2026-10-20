@@ -24,6 +24,8 @@ import { focusItems, recheckIds, useFocusReasons } from './Focus';
 import { FlowCanvas } from './FlowCanvas';
 import { FlowList } from './FlowList';
 import { Inspector } from './Inspector';
+import { JourneyMap } from './JourneyMap';
+import { flowTreeMessages } from './flowTreeMessages';
 import { DeleteMap, MapMenu, ScopeEditor } from './MapSettings';
 import { promiseCounts, Summary } from './Summary';
 import { Unmapped } from './Unmapped';
@@ -48,6 +50,7 @@ const MIN_MAP_WIDTH = 560;
 const PANEL_WIDTH = 384;
 const DAY = 86_400_000;
 const SIDE_KEY = 'alpine.product-map.side';
+const VIEW_KEY = 'alpine.product-map.view';
 /** Whether the daily check has not run for a day (or ever). */
 const due = (lastRun?: string | null) => {
   const at = lastRun ? Date.parse(lastRun) : 0;
@@ -82,7 +85,24 @@ export function ProductMap({
   hidden?: boolean;
 }) {
   const t = useMessages(messages);
+  const tree = useMessages(flowTreeMessages);
   const board = useProductMap(cwd);
+  // Person by person (the journeys each one walks) or the card map; remembered.
+  const [view, setView] = useState<'journeys' | 'cards'>(() => {
+    try {
+      return localStorage.getItem(VIEW_KEY) === 'cards' ? 'cards' : 'journeys';
+    } catch {
+      return 'journeys';
+    }
+  });
+  const chooseView = (next: 'journeys' | 'cards') => {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // Private windows may refuse storage; the view still changes for this visit.
+    }
+  };
   const sessions = useSessions().data ?? [];
   const live = useSession(sessionId);
   const create = useNewSession();
@@ -550,262 +570,296 @@ export function ProductMap({
           {t.loadFailed}
         </p>
       )}
-      <div className="flex min-h-0 min-w-0 grow">
-        {hasMap && totals && document && data && (
-          <SlidingPanel open={sideOpen} width={288}>
-            <section
-              aria-label={t.mapPanel}
-              className="flex w-72 shrink-0 flex-col gap-5 overflow-y-auto border-r border-line px-4 pt-3 pb-4"
-            >
-              <div className="flex items-start gap-1">
-                <div className="mr-auto min-w-0">
-                  <h1 className="text-title font-semibold">{t.title}</h1>
-                  <p className="truncate text-meta text-fg-muted">{demo ? t.demo : cwd.split('/').pop()}</p>
-                </div>
-                <MapMenu
-                  cwd={cwd}
-                  board={data}
-                  readOnly={readOnly}
-                  unseen={unseen}
-                  canStart={!(busy || active || board.isError || readOnly)}
-                  onChanges={data.changes?.length ? openChanges : undefined}
-                  onRediscover={() => setConfirmRebuild(true)}
-                  onAdd={() => {
-                    close();
-                    setPanel('feature');
-                    setForm('flow');
-                  }}
-                  onScope={() => setScopeOpen(true)}
-                  onDelete={() => setDeleting(true)}
-                  recheck={recheck.length}
-                  onRecheck={recheckAll}
-                />
-                <button
-                  type="button"
-                  aria-label={t.hidePanel}
-                  onClick={() => toggleSide(false)}
-                  className="flex size-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted hover:bg-hover"
-                >
-                  <PanelLeftClose size={17} aria-hidden />
-                </button>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-1">
-                  <label className="relative flex min-w-0 grow items-center">
-                    <span className="sr-only">{t.searchLabel}</span>
-                    <Search size={13} className="pointer-events-none absolute left-2 text-fg-faint" />
-                    <input
-                      ref={search}
-                      type="search"
-                      value={query}
-                      placeholder={t.searchPlaceholder}
-                      onChange={(event) => {
-                        hit.current = -1;
-                        setReveal(null);
-                        setQuery(event.target.value);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Escape') {
-                          event.stopPropagation();
-                          hit.current = -1;
-                          setReveal(null);
-                          setQuery('');
-                        } else if (event.key === 'Enter' && query.trim()) {
-                          event.preventDefault();
-                          nextHit();
-                        }
-                      }}
-                      className="w-full min-w-0 rounded-md border border-line bg-canvas py-1 pr-2 pl-7 text-body"
-                    />
-                  </label>
-                  <FilterMenu filters={filters} counts={totals.counts} onChange={setFilters} />
-                </div>
-                {query.trim() && (
-                  <span className="flex items-center gap-1.5 px-2 text-meta text-fg-muted">
-                    <span className="tabular-nums">{t.found(hits.length)}</span>
-                    {hits.length > 1 && (
-                      <LinkButton aria-label={t.nextMatch} onClick={nextHit}>
-                        {t.nextMatchShort}
-                      </LinkButton>
-                    )}
-                    {hits.length > 0 && (
-                      <LinkButton disabled={busy || anyActive || readOnly} onClick={verifyFound} className="ml-auto">
-                        {t.verifyFound}
-                      </LinkButton>
-                    )}
-                  </span>
-                )}
-                <ActiveFilters filters={filters} onChange={setFilters} />
-              </div>
-              <Summary counts={promiseCounts(document, data?.states)} features={totals.features} />
-              {editedCount > 0 && (
-                <p data-edited className="flex items-center gap-2 text-body">
-                  <span className="min-w-0 grow">{t.editedPromises(editedCount)}</span>
-                  <LinkButton disabled={busy || anyActive || readOnly} onClick={checkEdited}>
-                    {t.editedCheck}
-                  </LinkButton>
-                </p>
-              )}
-              {!!data.removedCards?.length && (
-                <section aria-label={t.removedCards} className="flex flex-col gap-1.5">
-                  <h2 className="text-meta font-semibold text-attention">{t.removedCards}</h2>
-                  <ul className="flex flex-col gap-1.5">
-                    {data.removedCards.map((card) => (
-                      <li key={card.id} className="flex flex-wrap items-center gap-x-2 text-body">
-                        <span className="min-w-0 grow">{card.title}</span>
-                        <LinkButton
-                          disabled={review.isPending || anyActive || readOnly}
-                          onClick={() => review.mutate({ cwd, target: 'card', action: 'accept', nodeId: card.id })}
-                        >
-                          {t.acceptChange}
-                        </LinkButton>
-                        <LinkButton
-                          disabled={review.isPending || anyActive || readOnly}
-                          onClick={() => review.mutate({ cwd, target: 'card', action: 'restore', nodeId: card.id })}
-                        >
-                          {t.restoreMine}
-                        </LinkButton>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-              <FlowList
-                flows={document.flows ?? []}
-                looks={allLooks}
-                active={focusFlow}
-                onToggle={toggleFlow}
-                extra={
-                  // Only rows that render: an element that draws nothing would still keep the list's border.
-                  ((!!data?.coverage?.git && !!data.coverage.uncoveredCount) || !!data?.unmapped?.length) && (
-                    <>
-                      {!!data?.coverage?.git && !!data.coverage.uncoveredCount && (
-                        <Coverage
-                          coverage={data.coverage}
-                          exclude={data.exclude ?? []}
-                          disabled={busy || active || readOnly}
-                          onSync={syncMap}
-                        />
-                      )}
-                      <Unmapped
-                        parts={data?.unmapped ?? []}
-                        disabled={busy || active || readOnly}
-                        onContinue={continueMap}
-                      />
-                    </>
-                  )
-                }
-              />
-            </section>
-          </SlidingPanel>
-        )}
-        {board.isError && !data ? (
-          <div className="flex grow flex-col items-center justify-center gap-3 p-8">
-            <p role="alert" className="text-body text-danger">
-              {t.loadFailed}
-            </p>
-            <Button onClick={() => void board.refetch()}>{t.retry}</Button>
-          </div>
-        ) : !data ? (
-          <p className="p-8 text-body text-fg-muted">{t.loading}</p>
-        ) : !hasMap ? (
-          <div className="flex min-w-0 grow flex-col items-center justify-center gap-4 p-8 text-center">
-            <GitBranchPlus size={42} strokeWidth={1} className="text-interactive" />
-            <h2 className="text-display font-semibold">{t.empty}</h2>
-            <p className="max-w-100 text-reading text-fg-muted">{t.emptyLead}</p>
-            <ScopeEditor cwd={cwd} board={data} readOnly={readOnly} label={t.scopeBefore} />
-            <Button variant="primary" disabled={busy || active || readOnly} onClick={() => void start('discover')}>
-              <Search size={16} />
-              {busy ? t.starting : t.discover}
-            </Button>
-          </div>
-        ) : (
-          <div className="relative flex min-h-0 min-w-0 grow flex-col">
-            {!sideOpen && (
+      {hasMap && data && (
+        <div className="flex h-9 shrink-0 items-center justify-end gap-2 border-b border-line px-3">
+          <span role="radiogroup" aria-label={tree.viewJourneys} className="flex rounded-md border border-line p-0.5">
+            {(['journeys', 'cards'] as const).map((value) => (
               <button
+                key={value}
                 type="button"
-                aria-label={t.showPanel}
-                onClick={() => toggleSide(true)}
-                className="absolute top-3 left-3 z-10 flex size-8 cursor-pointer items-center justify-center rounded-lg border border-line bg-canvas-raised text-fg-muted shadow-overlay hover:bg-hover"
+                role="radio"
+                aria-checked={view === value}
+                onClick={() => chooseView(value)}
+                className="cursor-pointer rounded-sm px-2 py-0.5 text-meta text-fg-muted transition-colors hover:text-fg aria-checked:bg-selected aria-checked:text-fg"
               >
-                <PanelLeftOpen size={17} aria-hidden />
+                {value === 'journeys' ? tree.viewJourneys : tree.viewCards}
               </button>
-            )}
-            <FlowCanvas
-              board={data}
-              sessions={sessions}
-              selected={node?.id ?? null}
-              selectedFlow={selection?.flow ?? null}
-              numbered={numbered}
-              matched={shown}
-              tags={lookTags}
-              reveal={reveal}
-              revealFlow={revealFlow}
-              onSelect={select}
-              onVerifyFlow={readOnly ? undefined : verifyFlow}
-              verifyDisabled={busy || anyActive}
-            />
-          </div>
-        )}
-        <div
-          data-overlay={overlay || undefined}
-          className={overlay ? 'absolute inset-y-0 right-0 z-20 flex bg-canvas shadow-overlay' : 'contents'}
-        >
-          <SlidingPanel open={!!data && (panel === 'changes' || !!node || form === 'flow')} width={384}>
-            {panel === 'changes' && data && (
-              <Changes
-                board={data}
-                since={viewedSince}
-                onSelect={(id) => {
-                  const target = document?.nodes?.find((n) => n.id === id);
-                  if (target) select(target, flowsOf(id)[0]);
-                }}
-                onClose={() => setPanel('feature')}
-              />
-            )}
-            {panel === 'changes'
-              ? null
-              : (node || form === 'flow') &&
-                data && (
-                  <Inspector
+            ))}
+          </span>
+        </div>
+      )}
+      {hasMap && data && view === 'journeys' ? (
+        <div className="flex min-h-0 min-w-0 grow">
+          <JourneyMap
+            cwd={cwd}
+            board={data}
+            sessions={sessions}
+            seenAt={seenAt}
+            start={(action, target) => start(action, target)}
+            onSession={(id) => {
+              onSession(id);
+              onShowConversation?.();
+            }}
+          />
+        </div>
+      ) : (
+        <div className="flex min-h-0 min-w-0 grow">
+          {hasMap && totals && document && data && (
+            <SlidingPanel open={sideOpen} width={288}>
+              <section
+                aria-label={t.mapPanel}
+                className="flex w-72 shrink-0 flex-col gap-5 overflow-y-auto border-r border-line px-4 pt-3 pb-4"
+              >
+                <div className="flex items-start gap-1">
+                  <div className="mr-auto min-w-0">
+                    <h1 className="text-title font-semibold">{t.title}</h1>
+                    <p className="truncate text-meta text-fg-muted">{demo ? t.demo : cwd.split('/').pop()}</p>
+                  </div>
+                  <MapMenu
                     cwd={cwd}
                     board={data}
-                    node={node}
-                    number={node ? numbered.get(node.id) : undefined}
-                    status={result?.status}
-                    working={!!node && isWorking(node, sessions)}
-                    flows={memberOf}
-                    form={form}
-                    text={text}
-                    busy={busy}
-                    running={nodeRunning}
-                    hasSession={!!node?.sessionId}
                     readOnly={readOnly}
-                    editLocked={anyActive}
-                    images={nodeImages.data}
-                    onText={(value) => {
-                      setText(value);
-                      setError(null);
+                    unseen={unseen}
+                    canStart={!(busy || active || board.isError || readOnly)}
+                    onChanges={data.changes?.length ? openChanges : undefined}
+                    onRediscover={() => setConfirmRebuild(true)}
+                    onAdd={() => {
+                      close();
+                      setPanel('feature');
+                      setForm('flow');
                     }}
-                    onForm={setForm}
-                    onSubmit={() => form && void start(formAction[form])}
-                    onCancelForm={() => (node ? reset() : close())}
-                    onStart={(action) => void start(action)}
-                    onConversation={() => {
-                      if (node?.sessionId) onSession(node.sessionId);
-                      onShowConversation?.();
-                    }}
-                    onOpenFlow={(flow) => {
-                      if (!node) return;
-                      setSelection({ node: node.id, flow: flow.id });
-                    }}
-                    onNotARule={notARule}
-                    onClose={close}
+                    onScope={() => setScopeOpen(true)}
+                    onDelete={() => setDeleting(true)}
+                    recheck={recheck.length}
+                    onRecheck={recheckAll}
                   />
+                  <button
+                    type="button"
+                    aria-label={t.hidePanel}
+                    onClick={() => toggleSide(false)}
+                    className="flex size-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted hover:bg-hover"
+                  >
+                    <PanelLeftClose size={17} aria-hidden />
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1">
+                    <label className="relative flex min-w-0 grow items-center">
+                      <span className="sr-only">{t.searchLabel}</span>
+                      <Search size={13} className="pointer-events-none absolute left-2 text-fg-faint" />
+                      <input
+                        ref={search}
+                        type="search"
+                        value={query}
+                        placeholder={t.searchPlaceholder}
+                        onChange={(event) => {
+                          hit.current = -1;
+                          setReveal(null);
+                          setQuery(event.target.value);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Escape') {
+                            event.stopPropagation();
+                            hit.current = -1;
+                            setReveal(null);
+                            setQuery('');
+                          } else if (event.key === 'Enter' && query.trim()) {
+                            event.preventDefault();
+                            nextHit();
+                          }
+                        }}
+                        className="w-full min-w-0 rounded-md border border-line bg-canvas py-1 pr-2 pl-7 text-body"
+                      />
+                    </label>
+                    <FilterMenu filters={filters} counts={totals.counts} onChange={setFilters} />
+                  </div>
+                  {query.trim() && (
+                    <span className="flex items-center gap-1.5 px-2 text-meta text-fg-muted">
+                      <span className="tabular-nums">{t.found(hits.length)}</span>
+                      {hits.length > 1 && (
+                        <LinkButton aria-label={t.nextMatch} onClick={nextHit}>
+                          {t.nextMatchShort}
+                        </LinkButton>
+                      )}
+                      {hits.length > 0 && (
+                        <LinkButton disabled={busy || anyActive || readOnly} onClick={verifyFound} className="ml-auto">
+                          {t.verifyFound}
+                        </LinkButton>
+                      )}
+                    </span>
+                  )}
+                  <ActiveFilters filters={filters} onChange={setFilters} />
+                </div>
+                <Summary counts={promiseCounts(document, data?.states)} features={totals.features} />
+                {editedCount > 0 && (
+                  <p data-edited className="flex items-center gap-2 text-body">
+                    <span className="min-w-0 grow">{t.editedPromises(editedCount)}</span>
+                    <LinkButton disabled={busy || anyActive || readOnly} onClick={checkEdited}>
+                      {t.editedCheck}
+                    </LinkButton>
+                  </p>
                 )}
-          </SlidingPanel>
+                {!!data.removedCards?.length && (
+                  <section aria-label={t.removedCards} className="flex flex-col gap-1.5">
+                    <h2 className="text-meta font-semibold text-attention">{t.removedCards}</h2>
+                    <ul className="flex flex-col gap-1.5">
+                      {data.removedCards.map((card) => (
+                        <li key={card.id} className="flex flex-wrap items-center gap-x-2 text-body">
+                          <span className="min-w-0 grow">{card.title}</span>
+                          <LinkButton
+                            disabled={review.isPending || anyActive || readOnly}
+                            onClick={() => review.mutate({ cwd, target: 'card', action: 'accept', nodeId: card.id })}
+                          >
+                            {t.acceptChange}
+                          </LinkButton>
+                          <LinkButton
+                            disabled={review.isPending || anyActive || readOnly}
+                            onClick={() => review.mutate({ cwd, target: 'card', action: 'restore', nodeId: card.id })}
+                          >
+                            {t.restoreMine}
+                          </LinkButton>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+                <FlowList
+                  flows={document.flows ?? []}
+                  looks={allLooks}
+                  active={focusFlow}
+                  onToggle={toggleFlow}
+                  extra={
+                    // Only rows that render: an element that draws nothing would still keep the list's border.
+                    ((!!data?.coverage?.git && !!data.coverage.uncoveredCount) || !!data?.unmapped?.length) && (
+                      <>
+                        {!!data?.coverage?.git && !!data.coverage.uncoveredCount && (
+                          <Coverage
+                            coverage={data.coverage}
+                            exclude={data.exclude ?? []}
+                            disabled={busy || active || readOnly}
+                            onSync={syncMap}
+                          />
+                        )}
+                        <Unmapped
+                          parts={data?.unmapped ?? []}
+                          disabled={busy || active || readOnly}
+                          onContinue={continueMap}
+                        />
+                      </>
+                    )
+                  }
+                />
+              </section>
+            </SlidingPanel>
+          )}
+          {board.isError && !data ? (
+            <div className="flex grow flex-col items-center justify-center gap-3 p-8">
+              <p role="alert" className="text-body text-danger">
+                {t.loadFailed}
+              </p>
+              <Button onClick={() => void board.refetch()}>{t.retry}</Button>
+            </div>
+          ) : !data ? (
+            <p className="p-8 text-body text-fg-muted">{t.loading}</p>
+          ) : !hasMap ? (
+            <div className="flex min-w-0 grow flex-col items-center justify-center gap-4 p-8 text-center">
+              <GitBranchPlus size={42} strokeWidth={1} className="text-interactive" />
+              <h2 className="text-display font-semibold">{t.empty}</h2>
+              <p className="max-w-100 text-reading text-fg-muted">{t.emptyLead}</p>
+              <ScopeEditor cwd={cwd} board={data} readOnly={readOnly} label={t.scopeBefore} />
+              <Button variant="primary" disabled={busy || active || readOnly} onClick={() => void start('discover')}>
+                <Search size={16} />
+                {busy ? t.starting : t.discover}
+              </Button>
+            </div>
+          ) : (
+            <div className="relative flex min-h-0 min-w-0 grow flex-col">
+              {!sideOpen && (
+                <button
+                  type="button"
+                  aria-label={t.showPanel}
+                  onClick={() => toggleSide(true)}
+                  className="absolute top-3 left-3 z-10 flex size-8 cursor-pointer items-center justify-center rounded-lg border border-line bg-canvas-raised text-fg-muted shadow-overlay hover:bg-hover"
+                >
+                  <PanelLeftOpen size={17} aria-hidden />
+                </button>
+              )}
+              <FlowCanvas
+                board={data}
+                sessions={sessions}
+                selected={node?.id ?? null}
+                selectedFlow={selection?.flow ?? null}
+                numbered={numbered}
+                matched={shown}
+                tags={lookTags}
+                reveal={reveal}
+                revealFlow={revealFlow}
+                onSelect={select}
+                onVerifyFlow={readOnly ? undefined : verifyFlow}
+                verifyDisabled={busy || anyActive}
+              />
+            </div>
+          )}
+          <div
+            data-overlay={overlay || undefined}
+            className={overlay ? 'absolute inset-y-0 right-0 z-20 flex bg-canvas shadow-overlay' : 'contents'}
+          >
+            <SlidingPanel open={!!data && (panel === 'changes' || !!node || form === 'flow')} width={384}>
+              {panel === 'changes' && data && (
+                <Changes
+                  board={data}
+                  since={viewedSince}
+                  onSelect={(id) => {
+                    const target = document?.nodes?.find((n) => n.id === id);
+                    if (target) select(target, flowsOf(id)[0]);
+                  }}
+                  onClose={() => setPanel('feature')}
+                />
+              )}
+              {panel === 'changes'
+                ? null
+                : (node || form === 'flow') &&
+                  data && (
+                    <Inspector
+                      cwd={cwd}
+                      board={data}
+                      node={node}
+                      number={node ? numbered.get(node.id) : undefined}
+                      status={result?.status}
+                      working={!!node && isWorking(node, sessions)}
+                      flows={memberOf}
+                      form={form}
+                      text={text}
+                      busy={busy}
+                      running={nodeRunning}
+                      hasSession={!!node?.sessionId}
+                      readOnly={readOnly}
+                      editLocked={anyActive}
+                      images={nodeImages.data}
+                      onText={(value) => {
+                        setText(value);
+                        setError(null);
+                      }}
+                      onForm={setForm}
+                      onSubmit={() => form && void start(formAction[form])}
+                      onCancelForm={() => (node ? reset() : close())}
+                      onStart={(action) => void start(action)}
+                      onConversation={() => {
+                        if (node?.sessionId) onSession(node.sessionId);
+                        onShowConversation?.();
+                      }}
+                      onOpenFlow={(flow) => {
+                        if (!node) return;
+                        setSelection({ node: node.id, flow: flow.id });
+                      }}
+                      onNotARule={notARule}
+                      onClose={close}
+                    />
+                  )}
+            </SlidingPanel>
+          </div>
         </div>
-      </div>
+      )}
     </main>
   );
 }

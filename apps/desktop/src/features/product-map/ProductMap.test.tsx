@@ -84,6 +84,8 @@ function mount(script: Script = {}, onSession = vi.fn(), onShowConversation = vi
   return { ...result, request, onSession, onShowConversation, client };
 }
 beforeEach(() => {
+  // These tests are about the card map; the person-first view has its own block at the end.
+  localStorage.setItem('alpine.product-map.view', 'cards');
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -95,6 +97,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  localStorage.clear();
 });
 
 /** The prepare request the app sent last. */
@@ -1622,5 +1625,27 @@ describe('flows that call another flow (decision 19)', () => {
     const box = await screen.findByRole('button', { name: `${calledTitle} 흐름으로 이동` });
     expect(within(box).getByText(`카드 ${cards}장 · 눌러서 보기`)).toBeTruthy();
     fireEvent.click(box);
+  });
+});
+
+describe('person-first view', () => {
+  beforeEach(() => localStorage.removeItem('alpine.product-map.view'));
+
+  it('opens by person, and switching to the card map is remembered', async () => {
+    mount();
+    const byPerson = await screen.findByRole('radio', { name: '사람별 흐름' });
+    expect(byPerson.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('radio', { name: '카드 지도' }));
+    expect(localStorage.getItem('alpine.product-map.view')).toBe('cards');
+    expect(await loaded()).toBeTruthy();
+  });
+
+  it('asking the AI to check sends one verify for the unchecked steps and opens its session', async () => {
+    const { request, onSession } = mount();
+    const panel = await screen.findByRole('complementary');
+    fireEvent.click(await within(panel).findByRole('button', { name: 'AI에게 확인 맡기기' }));
+    await waitFor(() => expect(lastPrepare(request)).toMatchObject({ action: 'verify', cwd }));
+    expect((lastPrepare(request) as { nodeIds: string[] }).nodeIds.length).toBeGreaterThan(0);
+    await waitFor(() => expect(onSession).toHaveBeenCalledWith('new-session'));
   });
 });

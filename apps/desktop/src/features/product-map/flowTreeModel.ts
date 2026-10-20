@@ -64,6 +64,13 @@ export interface TreeCard {
   /** What a person needs to try it themselves. */
   howToTry?: string;
   example?: string;
+  /** The person's own calls on the card, which only a person sets: how much it matters, and when. */
+  priority?: 'must' | 'should' | 'later' | null;
+  scope?: 'now' | 'next' | 'out' | null;
+  /** A one-line note of what the person decided. */
+  decision?: string;
+  /** The conversation last started on this card. */
+  sessionId?: string | null;
 }
 
 export interface Localized {

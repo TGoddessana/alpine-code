@@ -1738,6 +1738,9 @@ class ProductFlow(Message):
     결제하고 바로 예약할 수 있어야 한다." Shown under the flow's title."""
     trigger: str = Field(default="", max_length=200)
     """Who starts this journey and what they do first, shown as the flow's start."""
+    actor: str = Field(default="", max_length=60)
+    """Who walks this journey, in the product's own words (손님, 사장님, 다른 화면을 만드는 개발자). Journeys with the
+    same actor sit together on the person-first map; empty until the map names one."""
     node_ids: list[str] = Field(default_factory=list, max_length=200)
     """The journey's steps: card ids, or ``flow:<flow id>`` for a step that calls another flow (the ways to one result
     gathered in their own flow, e.g. connecting a model). Edges use the same ids."""

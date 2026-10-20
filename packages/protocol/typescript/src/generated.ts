@@ -1948,6 +1948,7 @@ export interface FlowFile {
   title: string;
   description?: string;
   trigger?: string;
+  actor?: string;
   /**
    * @maxItems 200
    */
@@ -2015,6 +2016,7 @@ export interface ProductFlow {
   title: string;
   description?: string;
   trigger?: string;
+  actor?: string;
   /**
    * @maxItems 200
    */

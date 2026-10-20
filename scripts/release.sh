@@ -20,7 +20,7 @@ base_url="https://downloads.alpinecode.app"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
-if [ -n "$(git status --porcelain)" ]; then
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   echo "The working tree has changes; release from a clean checkout." >&2
   exit 1
 fi

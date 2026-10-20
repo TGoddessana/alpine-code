@@ -1,6 +1,6 @@
 [project]
 name = "alpine-code-server"
-version = "0.1.4"
+version = "0.1.5"
 description = "Runs the alpine-code core for an app, speaking the alpine-code protocol over stdio"
 authors = [
     { name = "tgoddessana", email = "twicegoddessana1229@gmail.com" }

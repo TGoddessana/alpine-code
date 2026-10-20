@@ -6,12 +6,10 @@ import { useEffect, useRef } from 'react';
 
 import { useLocale, useMessages } from '@/shared/i18n';
 import { useNavigation } from '@/shared/navigation';
-import { checkForUpdate, inTauri, openInBrowser, restartToUpdate } from '@/shared/platform';
+import { checkForUpdate, inTauri, restartToUpdate } from '@/shared/platform';
 
 import appIcon from '../../src-tauri/icons/128x128@2x.png';
 import { menuMessages } from './messages';
-
-const REPO = 'https://github.com/hypercodism/alpine-code';
 
 interface Actions {
   newSession: () => void;
@@ -64,13 +62,6 @@ async function buildMenu(railOpen: boolean, get: () => Latest): Promise<Menu> {
       { item: 'Maximize', text: t.zoom },
       { item: 'Separator' },
       { item: 'BringAllToFront', text: t.bringAllToFront },
-    ],
-  });
-  const help = await Submenu.new({
-    text: t.help,
-    items: [
-      { text: t.whatsNew, action: () => void openInBrowser(`${REPO}/releases`) },
-      { text: t.reportProblem, action: () => void openInBrowser(`${REPO}/issues/new`) },
     ],
   });
   const menu = await Menu.new({
@@ -138,11 +129,9 @@ async function buildMenu(railOpen: boolean, get: () => Latest): Promise<Menu> {
         ],
       },
       windowMenu,
-      help,
     ],
   });
   await windowMenu.setAsWindowsMenuForNSApp();
-  await help.setAsHelpMenuForNSApp();
   return menu;
 }
 

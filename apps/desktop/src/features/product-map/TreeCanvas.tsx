@@ -14,7 +14,7 @@ import {
 import { useMessages } from '@/shared/i18n';
 
 import { flowTreeMessages as messages } from './flowTreeMessages';
-import { ANCHOR_Y, bounds, type LaidNode } from './treeLayout';
+import { ANCHOR_Y, bounds, type LaidEdge, type LaidNode } from './treeLayout';
 
 /** A node as drawn this frame: where it is on its way to its laid-out place, and how visible. */
 export interface ShownNode extends LaidNode {
@@ -50,6 +50,7 @@ export const TreeCanvas = forwardRef<
   TreeCanvasHandle,
   {
     nodes: LaidNode[];
+    edges: LaidEdge[];
     highlight: Set<string>;
     /** When set, only these stay clear; the rest of the map quiets down so one strand can be followed. */
     strand?: Set<string> | null;
@@ -60,7 +61,7 @@ export const TreeCanvas = forwardRef<
     /** More buttons for the bottom toolbar, after the zoom ones. */
     tools?: ReactNode;
   }
->(function TreeCanvas({ nodes, highlight, strand, renderNode, initialFocus, overlay, tools }, ref) {
+>(function TreeCanvas({ nodes, edges, highlight, strand, renderNode, initialFocus, overlay, tools }, ref) {
   const t = useMessages(messages);
   const viewport = useRef<HTMLDivElement>(null);
   const shown = useTweenedNodes(nodes);
@@ -210,16 +211,20 @@ export const TreeCanvas = forwardRef<
           style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}
         >
           <svg className="pointer-events-none absolute top-0 left-0 overflow-visible" width={1} height={1} aria-hidden>
-            {shown.map((node) => {
-              const parent = node.parent ? byId.get(node.parent) : undefined;
-              if (!parent) return null;
+            {edges.map((edge) => {
+              const from = byId.get(edge.from);
+              const to = byId.get(edge.to);
+              if (!from || !to) return null;
+              const quiet = (id: string) => strand && !strand.has(id);
               return (
                 <Edge
-                  key={node.id}
-                  parent={parent}
-                  child={node}
-                  on={highlight.has(node.id)}
-                  opacity={Math.min(node.opacity, parent.opacity) * (strand && !strand.has(node.id) ? 0.25 : 1)}
+                  key={edge.id}
+                  parent={from}
+                  child={to}
+                  merge={edge.merge}
+                  label={edge.label}
+                  on={highlight.has(edge.to) && highlight.has(edge.from)}
+                  opacity={Math.min(from.opacity, to.opacity) * (quiet(edge.to) || quiet(edge.from) ? 0.25 : 1)}
                 />
               );
             })}
@@ -301,7 +306,21 @@ function elbow(x1: number, y1: number, x2: number, y2: number, spine: number) {
  * from a journey through its steps. Lines join cards at their top line, so a row stays straight when a card opens
  * taller. Thin and grey; the path to what is pointed at turns blue, and runs while something on it is checked.
  */
-function Edge({ parent, child, on, opacity }: { parent: ShownNode; child: ShownNode; on: boolean; opacity: number }) {
+function Edge({
+  parent,
+  child,
+  on,
+  opacity,
+  merge,
+  label,
+}: {
+  parent: ShownNode;
+  child: ShownNode;
+  on: boolean;
+  opacity: number;
+  merge?: boolean;
+  label?: string;
+}) {
   if (parent.kind === 'band' || child.kind === 'band' || child.kind === 'addPerson') return null;
   const x1 = parent.x + parent.w;
   const y1 = parent.y + ANCHOR_Y;
@@ -313,6 +332,7 @@ function Edge({ parent, child, on, opacity }: { parent: ShownNode; child: ShownN
       d={d}
       fill="none"
       strokeWidth={on ? 1.75 : 1.25}
+      strokeDasharray={merge ? '2 4' : undefined}
       strokeLinecap="round"
       strokeLinejoin="round"
       opacity={opacity}
@@ -323,7 +343,9 @@ function Edge({ parent, child, on, opacity }: { parent: ShownNode; child: ShownN
         child.kind === 'addJourney' && '[stroke-dasharray:3_4]',
         child.status === 'checking' && 'motion-flow [stroke-dasharray:6_6]',
       )}
-    />
+    >
+      {label && <title>{label}</title>}
+    </path>
   );
 }
 

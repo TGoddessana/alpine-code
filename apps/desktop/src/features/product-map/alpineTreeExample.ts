@@ -1,5 +1,6 @@
-// Generated from alpine-code's own product map (.alpine-code/map) for the flow-tree design: cards, promises,
-// checks and journeys are the map's; who walks which journey was grouped by hand.
+// Generated from alpine-code's own product map (.alpine-code/map and the app's map history) for the flow-tree
+// design: cards, promises, checks, their history and journeys with their edges are the map's; a passed promise
+// whose files changed since its check reads as recheck. Who walks which journey was grouped by hand.
 /* eslint-disable */
 import type { TreeMap } from './flowTreeModel';
 
@@ -37,6 +38,13 @@ export const ALPINE_TREE: TreeMap = {
             en: '사용자가 처음 시작하거나 다른 모델을 연결하려 한다.',
           },
           steps: ['connect-chatgpt', 'connect-api-key', 'connect-server'],
+          edges: [
+            {
+              from: 'connect-chatgpt',
+              to: 'connect-api-key',
+              label: '요금제 사용 거절 후 API 키 선택',
+            },
+          ],
         },
         {
           id: 'select-project',
@@ -53,6 +61,43 @@ export const ALPINE_TREE: TreeMap = {
             en: '사용자가 내 폴더나 원격 저장소에서 작업할 프로젝트를 추가한다.',
           },
           steps: ['open-project', 'clone-project', 'github-sign-in', 'github-repositories', 'install-git-tools'],
+          edges: [
+            {
+              from: 'clone-project',
+              to: 'open-project',
+              label: '가져오기 완료 또는 기존 프로젝트 열기',
+            },
+            {
+              from: 'clone-project',
+              to: 'github-sign-in',
+              label: 'GitHub 로그인으로 저장소 고르기',
+            },
+            {
+              from: 'github-sign-in',
+              to: 'github-repositories',
+              label: '인증 완료 후 계정 저장소 목록',
+            },
+            {
+              from: 'clone-project',
+              to: 'github-repositories',
+              label: '이미 GitHub에 로그인되어 있을 때',
+            },
+            {
+              from: 'github-repositories',
+              to: 'clone-project',
+              label: '목록 항목 선택 또는 검색 후 Enter',
+            },
+            {
+              from: 'clone-project',
+              to: 'install-git-tools',
+              label: 'Git이 없어 가져오기 실패',
+            },
+            {
+              from: 'install-git-tools',
+              to: 'clone-project',
+              label: '설치 완료 후 원래 요청 계속',
+            },
+          ],
         },
         {
           id: 'desktop-work',
@@ -69,6 +114,8 @@ export const ALPINE_TREE: TreeMap = {
             en: '사용자가 프로젝트에서 설명·수정·실행 확인을 요청한다.',
           },
           steps: [
+            'flow:select-project',
+            'flow:connect-model',
             'chat-work',
             'approve-action',
             'work-result',
@@ -77,6 +124,99 @@ export const ALPINE_TREE: TreeMap = {
             'import-conversation',
             'project-instructions',
             'compact-conversation',
+            'flow:agent-file-work',
+          ],
+          edges: [
+            {
+              from: 'flow:select-project',
+              to: 'project-instructions',
+              label: '프로젝트에서 대화 시작 시 지침 구성',
+            },
+            {
+              from: 'project-instructions',
+              to: 'chat-work',
+              label: '지침과 함께 작업 요청',
+            },
+            {
+              from: 'chat-work',
+              to: 'compact-conversation',
+              label: '다음 모델 턴 전에 문맥이 가득 찼을 때',
+            },
+            {
+              from: 'compact-conversation',
+              to: 'chat-work',
+              label: '요약 후 대화 계속',
+            },
+            {
+              from: 'chat-work',
+              to: 'flow:agent-file-work',
+              label: '요청을 수행하기 위해 기본 도구 사용',
+            },
+            {
+              from: 'flow:agent-file-work',
+              to: 'chat-work',
+              label: '도구 결과를 바탕으로 답변',
+            },
+            {
+              from: 'flow:select-project',
+              to: 'chat-work',
+              label: '프로젝트에서 새 대화',
+            },
+            {
+              from: 'chat-work',
+              to: 'flow:connect-model',
+              label: '아직 모델 연결이 없을 때',
+            },
+            {
+              from: 'flow:connect-model',
+              to: 'chat-work',
+              label: '연결 후 요청',
+            },
+            {
+              from: 'chat-work',
+              to: 'approve-action',
+              label: '실행 승인이 필요할 때',
+            },
+            {
+              from: 'approve-action',
+              to: 'chat-work',
+              label: '허용·건너뛰기·대신 할 일',
+            },
+            {
+              from: 'chat-work',
+              to: 'work-result',
+              label: '작업 결과 탭',
+            },
+            {
+              from: 'chat-work',
+              to: 'conversation-usage',
+              label: '대화 길이 표시 누르기',
+            },
+            {
+              from: 'work-result',
+              to: 'chat-work',
+              label: '대화로 돌아와 후속 요청',
+            },
+            {
+              from: 'flow:select-project',
+              to: 'reopen-conversation',
+              label: '프로젝트의 기존 대화 선택',
+            },
+            {
+              from: 'reopen-conversation',
+              to: 'chat-work',
+              label: '이어서 요청',
+            },
+            {
+              from: 'flow:select-project',
+              to: 'import-conversation',
+              label: '새 대화의 다른 앱 기록 링크',
+            },
+            {
+              from: 'import-conversation',
+              to: 'chat-work',
+              label: '가져온 대화에서 이어가기',
+            },
           ],
         },
         {
@@ -94,6 +234,7 @@ export const ALPINE_TREE: TreeMap = {
             en: '프로젝트 사용자가 무엇이 구현됐고 어떤 흐름인지 파악하려 한다.',
           },
           steps: [
+            'flow:select-project',
             'discover-map',
             'explore-map',
             'edit-map-promises',
@@ -103,6 +244,103 @@ export const ALPINE_TREE: TreeMap = {
             'decide-map-issue',
             'map-history',
             'delete-map',
+          ],
+          edges: [
+            {
+              from: 'explore-map',
+              to: 'decide-map-issue',
+              label: '약속의 질문·문제 처리 결정',
+            },
+            {
+              from: 'decide-map-issue',
+              to: 'verify-map',
+              label: '변경된 실패 다시 확인',
+            },
+            {
+              from: 'decide-map-issue',
+              to: 'explore-map',
+              label: '결정 저장 후 상태 보기',
+            },
+            {
+              from: 'explore-map',
+              to: 'map-history',
+              label: '지도 메뉴의 변경 내역',
+            },
+            {
+              from: 'map-history',
+              to: 'explore-map',
+              label: '현재 카드가 남은 항목 선택',
+            },
+            {
+              from: 'explore-map',
+              to: 'delete-map',
+              label: '지도 메뉴의 전체 삭제',
+            },
+            {
+              from: 'delete-map',
+              to: 'discover-map',
+              label: '삭제 후 비어 있는 지도',
+            },
+            {
+              from: 'flow:select-project',
+              to: 'discover-map',
+              label: '지도 페이지에 아직 지도가 없을 때',
+            },
+            {
+              from: 'flow:select-project',
+              to: 'explore-map',
+              label: '이미 있는 지도 열기',
+            },
+            {
+              from: 'discover-map',
+              to: 'explore-map',
+              label: '발견한 카드·흐름 보기',
+            },
+            {
+              from: 'explore-map',
+              to: 'discover-map',
+              label: '메뉴에서 다시 찾기',
+            },
+            {
+              from: 'explore-map',
+              to: 'edit-map-promises',
+              label: '카드의 문장·결정 편집',
+            },
+            {
+              from: 'edit-map-promises',
+              to: 'explore-map',
+              label: '저장한 기준과 상태 읽기',
+            },
+            {
+              from: 'explore-map',
+              to: 'review-map-reshape',
+              label: '지도 고치기 요청',
+            },
+            {
+              from: 'review-map-reshape',
+              to: 'explore-map',
+              label: '새 구성 수락 또는 이전 지도 복원',
+            },
+            {
+              from: 'explore-map',
+              to: 'verify-map',
+              label: '카드·흐름·검색 결과 다시 확인',
+            },
+            {
+              from: 'verify-map',
+              to: 'explore-map',
+              label: '확인 기록·상태 읽기',
+            },
+            {
+              from: 'explore-map',
+              to: 'replay-check',
+              label: '확인 기록의 재실행 명령 승인',
+            },
+            {
+              from: 'replay-check',
+              to: 'explore-map',
+              label: '파일 변경 후 같은 결과인지 확인',
+            },
           ],
         },
         {
@@ -120,6 +358,43 @@ export const ALPINE_TREE: TreeMap = {
             en: '사용자가 지도에서 바꾸거나 추가할 기능을 결정한다.',
           },
           steps: ['explore-map', 'request-map-change', 'approve-action', 'work-result', 'verify-map'],
+          edges: [
+            {
+              from: 'explore-map',
+              to: 'request-map-change',
+              label: '카드에서 수정·추가 요청',
+            },
+            {
+              from: 'request-map-change',
+              to: 'approve-action',
+              label: '연결된 대화에서 승인이 필요할 때',
+            },
+            {
+              from: 'approve-action',
+              to: 'request-map-change',
+              label: '승인·건너뛰기로 작업 계속',
+            },
+            {
+              from: 'request-map-change',
+              to: 'work-result',
+              label: '도크에서 변경과 실행 결과 확인',
+            },
+            {
+              from: 'request-map-change',
+              to: 'verify-map',
+              label: '작업 종료 후 영향받은 흐름 재확인',
+            },
+            {
+              from: 'work-result',
+              to: 'verify-map',
+              label: '지도로 돌아와 확인 요청',
+            },
+            {
+              from: 'verify-map',
+              to: 'explore-map',
+              label: '확인 기록과 남은 문제 읽기',
+            },
+          ],
         },
         {
           id: 'configure-agents',
@@ -135,7 +410,61 @@ export const ALPINE_TREE: TreeMap = {
             ko: '사용자가 역할에 맞는 모델·지침·도구를 가진 에이전트를 원한다.',
             en: '사용자가 역할에 맞는 모델·지침·도구를 가진 에이전트를 원한다.',
           },
-          steps: ['configure-agent', 'chat-work', 'delete-agent'],
+          steps: [
+            'configure-agent',
+            'flow:connect-model',
+            'flow:custom-tools',
+            'flow:custom-skills',
+            'chat-work',
+            'delete-agent',
+          ],
+          edges: [
+            {
+              from: 'configure-agent',
+              to: 'delete-agent',
+              label: '에이전트 메뉴의 삭제',
+            },
+            {
+              from: 'delete-agent',
+              to: 'configure-agent',
+              label: '삭제 완료 후 기본 선택 또는 취소',
+            },
+            {
+              from: 'configure-agent',
+              to: 'flow:connect-model',
+              label: '모델 선택에서 새 연결이 필요할 때',
+            },
+            {
+              from: 'flow:connect-model',
+              to: 'configure-agent',
+              label: '연결한 모델 선택',
+            },
+            {
+              from: 'configure-agent',
+              to: 'flow:custom-tools',
+              label: '라이브러리에서 사용자 도구 만들기',
+            },
+            {
+              from: 'flow:custom-tools',
+              to: 'configure-agent',
+              label: '도구를 에이전트에 추가',
+            },
+            {
+              from: 'configure-agent',
+              to: 'flow:custom-skills',
+              label: '라이브러리의 스킬 탭',
+            },
+            {
+              from: 'flow:custom-skills',
+              to: 'configure-agent',
+              label: '에이전트별 스킬 켜기·끄기',
+            },
+            {
+              from: 'configure-agent',
+              to: 'chat-work',
+              label: '대화로 이동해 에이전트 선택',
+            },
+          ],
         },
         {
           id: 'custom-skills',
@@ -152,6 +481,53 @@ export const ALPINE_TREE: TreeMap = {
             en: '사용자가 에이전트에게 재사용할 작업 지침을 마련하려 한다.',
           },
           steps: ['install-skill', 'write-skill', 'chat-work', 'use-skill', 'delete-skill'],
+          edges: [
+            {
+              from: 'chat-work',
+              to: 'use-skill',
+              label: '슬래시로 스킬 선택 또는 모델의 지침 읽기',
+            },
+            {
+              from: 'use-skill',
+              to: 'chat-work',
+              label: '지침을 포함한 작업 계속',
+            },
+            {
+              from: 'write-skill',
+              to: 'delete-skill',
+              label: '스킬 상세에서 삭제 확인',
+            },
+            {
+              from: 'delete-skill',
+              to: 'install-skill',
+              label: '삭제 완료 후 라이브러리',
+            },
+            {
+              from: 'write-skill',
+              to: 'install-skill',
+              label: '기록한 출처에서 다시 가져오기',
+            },
+            {
+              from: 'install-skill',
+              to: 'write-skill',
+              label: '설치한 Alpine 소유 스킬 상세에서 편집',
+            },
+            {
+              from: 'write-skill',
+              to: 'chat-work',
+              label: '새 대화로 이동해 스킬 사용',
+            },
+            {
+              from: 'install-skill',
+              to: 'chat-work',
+              label: '설치한 스킬을 대화에서 사용',
+            },
+            {
+              from: 'chat-work',
+              to: 'install-skill',
+              label: '/ 메뉴의 스킬 더 찾기',
+            },
+          ],
         },
         {
           id: 'custom-tools',
@@ -168,6 +544,43 @@ export const ALPINE_TREE: TreeMap = {
             en: '사용자가 기본 제공 도구에 없는 일을 에이전트가 하게 하려 한다.',
           },
           steps: ['draft-tool', 'save-tool', 'try-tool', 'confirm-tool', 'delete-tool'],
+          edges: [
+            {
+              from: 'save-tool',
+              to: 'confirm-tool',
+              label: '외부 편집으로 미확인된 파일 상세',
+            },
+            {
+              from: 'confirm-tool',
+              to: 'save-tool',
+              label: '내용 확인 후 사용·편집',
+            },
+            {
+              from: 'save-tool',
+              to: 'delete-tool',
+              label: '상세에서 라이브러리 삭제',
+            },
+            {
+              from: 'delete-tool',
+              to: 'save-tool',
+              label: '삭제 취소 후 상세',
+            },
+            {
+              from: 'draft-tool',
+              to: 'save-tool',
+              label: '생성한 초안을 확인하고 저장',
+            },
+            {
+              from: 'save-tool',
+              to: 'try-tool',
+              label: '저장 후 도구 상세의 시험 입력',
+            },
+            {
+              from: 'try-tool',
+              to: 'save-tool',
+              label: '시험 결과를 보고 코드 수정',
+            },
+          ],
         },
         {
           id: 'project-memory',
@@ -191,6 +604,53 @@ export const ALPINE_TREE: TreeMap = {
             'enforce-memory-rules',
             'approve-action',
           ],
+          edges: [
+            {
+              from: 'keep-memory',
+              to: 'project-instructions',
+              label: '승인한 기억이 작업 안내로 전달됨',
+            },
+            {
+              from: 'project-instructions',
+              to: 'chat-work',
+              label: '프로젝트 지침·기억과 함께 요청',
+            },
+            {
+              from: 'keep-memory',
+              to: 'enforce-memory-rules',
+              label: '승인한 기억에 검사·가드가 있을 때',
+            },
+            {
+              from: 'enforce-memory-rules',
+              to: 'approve-action',
+              label: '보호한 호출은 사람에게 확인',
+            },
+            {
+              from: 'enforce-memory-rules',
+              to: 'chat-work',
+              label: '선행 작업 검사·수정 후 알림',
+            },
+            {
+              from: 'chat-work',
+              to: 'keep-memory',
+              label: '기억 제안 또는 프로젝트의 기억 페이지',
+            },
+            {
+              from: 'keep-memory',
+              to: 'chat-work',
+              label: '대화로 돌아가 다음 작업',
+            },
+            {
+              from: 'keep-memory',
+              to: 'forget-memory',
+              label: '남긴 기억 펼쳐 잊기 선택',
+            },
+            {
+              from: 'forget-memory',
+              to: 'keep-memory',
+              label: '삭제 후 기억 목록',
+            },
+          ],
         },
         {
           id: 'organize-project-records',
@@ -207,6 +667,48 @@ export const ALPINE_TREE: TreeMap = {
             en: '사용자가 당장 쓰지 않는 프로젝트를 숨기거나 남겨 둔 기록을 지우려 한다.',
           },
           steps: ['open-project', 'archive-project', 'delete-project', 'reopen-conversation', 'delete-conversation'],
+          edges: [
+            {
+              from: 'open-project',
+              to: 'archive-project',
+              label: '프로젝트 메뉴의 보관',
+            },
+            {
+              from: 'archive-project',
+              to: 'open-project',
+              label: '프로젝트 추가에서 같은 폴더 다시 열기',
+            },
+            {
+              from: 'open-project',
+              to: 'delete-project',
+              label: '프로젝트 메뉴의 삭제',
+            },
+            {
+              from: 'delete-project',
+              to: 'open-project',
+              label: '삭제 확인 취소 또는 같은 폴더 다시 등록',
+            },
+            {
+              from: 'open-project',
+              to: 'reopen-conversation',
+              label: '프로젝트의 대화 목록',
+            },
+            {
+              from: 'reopen-conversation',
+              to: 'delete-conversation',
+              label: '대화 메뉴의 삭제',
+            },
+            {
+              from: 'delete-conversation',
+              to: 'reopen-conversation',
+              label: '취소 후 기존 대화 유지',
+            },
+            {
+              from: 'delete-conversation',
+              to: 'open-project',
+              label: '삭제 성공 후 프로젝트의 새 대화',
+            },
+          ],
         },
         {
           id: 'personalize-desktop',
@@ -230,9 +732,92 @@ export const ALPINE_TREE: TreeMap = {
             'default-model',
             'choose-visible-models',
             'remove-model-connection',
+            'flow:connect-model',
             'github-sign-out',
             'chatgpt-sign-out',
             'app-help',
+          ],
+          edges: [
+            {
+              from: 'chat-work',
+              to: 'github-sign-out',
+              label: '일반 설정의 GitHub 계정 해제',
+            },
+            {
+              from: 'default-model',
+              to: 'chatgpt-sign-out',
+              label: 'ChatGPT 계정 메뉴·사용량 페이지',
+            },
+            {
+              from: 'chatgpt-sign-out',
+              to: 'flow:connect-model',
+              label: '다시 로그인 또는 사용 동의',
+            },
+            {
+              from: 'chat-work',
+              to: 'app-help',
+              label: '일반 설정·앱 정보·도움말',
+            },
+            {
+              from: 'chat-work',
+              to: 'change-language',
+              label: '설정·일반의 언어',
+            },
+            {
+              from: 'chat-work',
+              to: 'default-safety',
+              label: '설정·일반의 승인 방식',
+            },
+            {
+              from: 'chat-work',
+              to: 'change-clone-folder',
+              label: '설정·일반의 저장소 받을 폴더',
+            },
+            {
+              from: 'chat-work',
+              to: 'default-model',
+              label: '설정·모델 연결의 새 세션 모델',
+            },
+            {
+              from: 'default-safety',
+              to: 'default-model',
+              label: '자동 검토 모델 변경으로 모델 연결 탭 이동',
+            },
+            {
+              from: 'default-model',
+              to: 'choose-visible-models',
+              label: '연결별 모델 선택',
+            },
+            {
+              from: 'default-model',
+              to: 'remove-model-connection',
+              label: '연결 메뉴에서 삭제',
+            },
+            {
+              from: 'default-model',
+              to: 'flow:connect-model',
+              label: '연결 추가·변경',
+            },
+            {
+              from: 'flow:connect-model',
+              to: 'default-model',
+              label: '연결 후 기본 모델 선택',
+            },
+            {
+              from: 'choose-visible-models',
+              to: 'default-model',
+              label: '모델 선택 창 닫기',
+            },
+            {
+              from: 'remove-model-connection',
+              to: 'default-model',
+              label: '삭제 성공 또는 취소 후 설정 목록',
+            },
+            {
+              from: 'default-model',
+              to: 'chat-work',
+              label: '새 대화로 돌아가기',
+            },
           ],
         },
         {
@@ -250,6 +835,18 @@ export const ALPINE_TREE: TreeMap = {
             en: '배포 앱을 시작하거나 사용자가 메뉴에서 새 버전을 확인한다.',
           },
           steps: ['download-update', 'install-update'],
+          edges: [
+            {
+              from: 'download-update',
+              to: 'install-update',
+              label: '다운로드 완료 후 상단 버튼·지금 재시작',
+            },
+            {
+              from: 'download-update',
+              to: 'install-update',
+              label: '준비 후 나중에 선택 → 앱 종료 시 설치',
+            },
+          ],
         },
       ],
     },
@@ -295,6 +892,68 @@ export const ALPINE_TREE: TreeMap = {
             'default-safety',
             'change-clone-folder',
           ],
+          edges: [
+            {
+              from: 'rpc-connect',
+              to: 'default-model',
+              label: 'connections/list·settings/get 조회',
+            },
+            {
+              from: 'default-model',
+              to: 'connect-chatgpt',
+              label: 'chatgpt/signIn·cancelSignIn·완료 알림',
+            },
+            {
+              from: 'default-model',
+              to: 'connect-api-key',
+              label: 'connections/models·add',
+            },
+            {
+              from: 'default-model',
+              to: 'connect-server',
+              label: 'baseUrl로 models·add',
+            },
+            {
+              from: 'connect-chatgpt',
+              to: 'default-model',
+              label: '연결 후 connections/setDefault',
+            },
+            {
+              from: 'connect-api-key',
+              to: 'default-model',
+              label: '연결 후 기본값 지정',
+            },
+            {
+              from: 'connect-server',
+              to: 'default-model',
+              label: '연결 후 기본값 지정',
+            },
+            {
+              from: 'default-model',
+              to: 'choose-visible-models',
+              label: 'connections/showModel',
+            },
+            {
+              from: 'default-model',
+              to: 'remove-model-connection',
+              label: 'connections/remove',
+            },
+            {
+              from: 'default-model',
+              to: 'chatgpt-sign-out',
+              label: 'chatgpt/signOut',
+            },
+            {
+              from: 'default-model',
+              to: 'default-safety',
+              label: 'settings/setMode·setReviewModel',
+            },
+            {
+              from: 'default-model',
+              to: 'change-clone-folder',
+              label: 'settings/setCloneFolder',
+            },
+          ],
         },
         {
           id: 'rpc-projects',
@@ -322,6 +981,63 @@ export const ALPINE_TREE: TreeMap = {
             'archive-project',
             'delete-project',
           ],
+          edges: [
+            {
+              from: 'rpc-connect',
+              to: 'open-project',
+              label: 'projects/list·open',
+            },
+            {
+              from: 'open-project',
+              to: 'clone-project',
+              label: 'projects/clone·cancelClone·cloneChanged',
+            },
+            {
+              from: 'clone-project',
+              to: 'install-git-tools',
+              label: 'projects/gitTools·installGitTools',
+            },
+            {
+              from: 'clone-project',
+              to: 'github-sign-in',
+              label: 'github/status·signIn·cancelSignIn·완료 알림',
+            },
+            {
+              from: 'github-sign-in',
+              to: 'github-repositories',
+              label: 'github/repos',
+            },
+            {
+              from: 'github-repositories',
+              to: 'clone-project',
+              label: '선택 cloneUrl로 복제',
+            },
+            {
+              from: 'clone-project',
+              to: 'open-project',
+              label: '완료 프로젝트 경로',
+            },
+            {
+              from: 'open-project',
+              to: 'project-git-status',
+              label: 'projects/git',
+            },
+            {
+              from: 'open-project',
+              to: 'archive-project',
+              label: 'projects/archive',
+            },
+            {
+              from: 'open-project',
+              to: 'delete-project',
+              label: 'projects/delete',
+            },
+            {
+              from: 'github-repositories',
+              to: 'github-sign-out',
+              label: 'github/signOut',
+            },
+          ],
         },
         {
           id: 'rpc-session',
@@ -340,6 +1056,7 @@ export const ALPINE_TREE: TreeMap = {
           steps: [
             'rpc-connect',
             'rpc-errors',
+            'flow:rpc-model-setup',
             'chat-work',
             'observe-session',
             'approve-action',
@@ -347,6 +1064,73 @@ export const ALPINE_TREE: TreeMap = {
             'import-conversation',
             'delete-conversation',
             'conversation-usage',
+          ],
+          edges: [
+            {
+              from: 'rpc-connect',
+              to: 'chat-work',
+              label: 'session/new·send',
+            },
+            {
+              from: 'rpc-connect',
+              to: 'flow:rpc-model-setup',
+              label: '아직 연결된 모델이 없을 때',
+            },
+            {
+              from: 'flow:rpc-model-setup',
+              to: 'chat-work',
+              label: '준비한 모델로 세션 생성',
+            },
+            {
+              from: 'chat-work',
+              to: 'observe-session',
+              label: 'session/event·open·list',
+            },
+            {
+              from: 'observe-session',
+              to: 'approve-action',
+              label: 'approval 항목 수신',
+            },
+            {
+              from: 'approve-action',
+              to: 'chat-work',
+              label: 'session/answer로 requestId에 답변',
+            },
+            {
+              from: 'observe-session',
+              to: 'conversation-usage',
+              label: 'SessionInfo의 usage·runUsage',
+            },
+            {
+              from: 'observe-session',
+              to: 'reopen-conversation',
+              label: '다시 연결하거나 저장 세션 열기',
+            },
+            {
+              from: 'reopen-conversation',
+              to: 'chat-work',
+              label: 'session/send로 계속',
+            },
+            {
+              from: 'chat-work',
+              to: 'import-conversation',
+              label: 'session/importable·import',
+            },
+            {
+              from: 'import-conversation',
+              to: 'observe-session',
+              label: '가져온 ID 스냅샷 읽기',
+            },
+            {
+              from: 'chat-work',
+              to: 'delete-conversation',
+              label: 'session/delete',
+            },
+            {
+              from: 'chat-work',
+              to: 'rpc-errors',
+              label: '중복 실행·모델 변경·입력 오류 처리',
+            },
           ],
         },
         {
@@ -376,6 +1160,68 @@ export const ALPINE_TREE: TreeMap = {
             'write-skill',
             'delete-skill',
           ],
+          edges: [
+            {
+              from: 'rpc-connect',
+              to: 'configure-agent',
+              label: 'agents/list·save',
+            },
+            {
+              from: 'configure-agent',
+              to: 'delete-agent',
+              label: 'agents/delete',
+            },
+            {
+              from: 'configure-agent',
+              to: 'save-tool',
+              label: 'tools/list·source·check·install·save',
+            },
+            {
+              from: 'save-tool',
+              to: 'draft-tool',
+              label: 'tools/draft로 초안 받기',
+            },
+            {
+              from: 'draft-tool',
+              to: 'save-tool',
+              label: '초안을 확인·저장',
+            },
+            {
+              from: 'save-tool',
+              to: 'try-tool',
+              label: 'tools/test',
+            },
+            {
+              from: 'save-tool',
+              to: 'confirm-tool',
+              label: 'tools/confirm',
+            },
+            {
+              from: 'save-tool',
+              to: 'delete-tool',
+              label: 'tools/delete',
+            },
+            {
+              from: 'configure-agent',
+              to: 'install-skill',
+              label: 'skills/list·search·add',
+            },
+            {
+              from: 'install-skill',
+              to: 'write-skill',
+              label: 'skills/get·save',
+            },
+            {
+              from: 'write-skill',
+              to: 'delete-skill',
+              label: 'skills/remove',
+            },
+            {
+              from: 'save-tool',
+              to: 'configure-agent',
+              label: 'enableIn 또는 agents/save에 도구 이름',
+            },
+          ],
         },
         {
           id: 'rpc-memory',
@@ -398,6 +1244,43 @@ export const ALPINE_TREE: TreeMap = {
             'forget-memory',
             'project-instructions',
             'enforce-memory-rules',
+          ],
+          edges: [
+            {
+              from: 'rpc-connect',
+              to: 'keep-memory',
+              label: 'memory/list',
+            },
+            {
+              from: 'chat-work',
+              to: 'keep-memory',
+              label: '제안 뒤 memory/changed 수신·목록 갱신',
+            },
+            {
+              from: 'keep-memory',
+              to: 'keep-memory',
+              label: 'memory/approve·reject 후 목록 갱신',
+            },
+            {
+              from: 'keep-memory',
+              to: 'forget-memory',
+              label: 'memory/forget',
+            },
+            {
+              from: 'forget-memory',
+              to: 'keep-memory',
+              label: '변경 알림 후 다시 읽기',
+            },
+            {
+              from: 'keep-memory',
+              to: 'project-instructions',
+              label: '승인·제거가 세션에 전달됨',
+            },
+            {
+              from: 'keep-memory',
+              to: 'enforce-memory-rules',
+              label: '승인 기억의 검사·가드 적용',
+            },
           ],
         },
         {
@@ -427,6 +1310,78 @@ export const ALPINE_TREE: TreeMap = {
             'replay-check',
             'delete-map',
             'map-history',
+          ],
+          edges: [
+            {
+              from: 'rpc-connect',
+              to: 'explore-map',
+              label: 'flow/get·node',
+            },
+            {
+              from: 'explore-map',
+              to: 'discover-map',
+              label: 'flow/prepare의 discover·sync',
+            },
+            {
+              from: 'discover-map',
+              to: 'chat-work',
+              label: '반환 prompt를 session/send로 전송',
+            },
+            {
+              from: 'chat-work',
+              to: 'explore-map',
+              label: '작업 후 지도를 다시 조회',
+            },
+            {
+              from: 'explore-map',
+              to: 'edit-map-promises',
+              label: 'flow/set·edit·review·scope',
+            },
+            {
+              from: 'explore-map',
+              to: 'verify-map',
+              label: 'flow/prepare verify·flow/schedule',
+            },
+            {
+              from: 'verify-map',
+              to: 'chat-work',
+              label: '준비한 확인 요청 전송',
+            },
+            {
+              from: 'explore-map',
+              to: 'request-map-change',
+              label: 'flow/prepare change·extend',
+            },
+            {
+              from: 'request-map-change',
+              to: 'chat-work',
+              label: '준비된 수정 요청 전송',
+            },
+            {
+              from: 'explore-map',
+              to: 'review-map-reshape',
+              label: 'flow/prepare reshape·flow/review',
+            },
+            {
+              from: 'explore-map',
+              to: 'decide-map-issue',
+              label: 'flow/promise 결정',
+            },
+            {
+              from: 'explore-map',
+              to: 'replay-check',
+              label: 'flow/promise 재실행 승인·철회',
+            },
+            {
+              from: 'explore-map',
+              to: 'delete-map',
+              label: 'flow/delete',
+            },
+            {
+              from: 'explore-map',
+              to: 'map-history',
+              label: 'flow/get의 changes 읽기',
+            },
           ],
         },
       ],
@@ -470,8 +1425,76 @@ export const ALPINE_TREE: TreeMap = {
             'compact-conversation',
             'reopen-conversation',
             'delete-conversation',
+            'flow:agent-file-work',
             'use-skill',
             'enforce-memory-rules',
+          ],
+          edges: [
+            {
+              from: 'load-runtime-settings',
+              to: 'chat-work',
+              label: 'Settings·Approver로 Session 생성',
+            },
+            {
+              from: 'chat-work',
+              to: 'project-instructions',
+              label: '세션 생성 시 프로젝트·기억 지침 읽기',
+            },
+            {
+              from: 'chat-work',
+              to: 'approve-action',
+              label: 'approve 또는 aapprove 콜백',
+            },
+            {
+              from: 'approve-action',
+              to: 'chat-work',
+              label: 'Decision 반환 후 실행 계속',
+            },
+            {
+              from: 'chat-work',
+              to: 'observe-session',
+              label: 'on_event·on_item_event·snapshot',
+            },
+            {
+              from: 'chat-work',
+              to: 'flow:agent-file-work',
+              label: '공급한 기본 도구 실행',
+            },
+            {
+              from: 'chat-work',
+              to: 'use-skill',
+              label: 'skills 라이브러리가 있을 때 지침 읽기',
+            },
+            {
+              from: 'chat-work',
+              to: 'enforce-memory-rules',
+              label: 'memories가 연결된 경우 검사·가드',
+            },
+            {
+              from: 'chat-work',
+              to: 'compact-conversation',
+              label: '명시적 compact 또는 자동 요약',
+            },
+            {
+              from: 'compact-conversation',
+              to: 'chat-work',
+              label: '요약 후 후속 요청',
+            },
+            {
+              from: 'chat-work',
+              to: 'reopen-conversation',
+              label: '저장한 ID로 Session.resume',
+            },
+            {
+              from: 'reopen-conversation',
+              to: 'chat-work',
+              label: '저장 모델·폴더·모드로 계속',
+            },
+            {
+              from: 'chat-work',
+              to: 'delete-conversation',
+              label: '실행 중지 후 delete',
+            },
           ],
         },
         {
@@ -501,6 +1524,63 @@ export const ALPINE_TREE: TreeMap = {
             'delete-skill',
             'chat-work',
           ],
+          edges: [
+            {
+              from: 'load-runtime-settings',
+              to: 'configure-agent',
+              label: '같은 home의 AgentList 준비',
+            },
+            {
+              from: 'configure-agent',
+              to: 'save-tool',
+              label: 'Toolbox로 코드·의존성을 확인하고 저장',
+            },
+            {
+              from: 'save-tool',
+              to: 'try-tool',
+              label: 'Toolbox.test로 실제 실행',
+            },
+            {
+              from: 'try-tool',
+              to: 'save-tool',
+              label: '결과를 보고 코드 수정',
+            },
+            {
+              from: 'save-tool',
+              to: 'confirm-tool',
+              label: '외부에서 수정한 파일을 Toolbox.confirm으로 확인',
+            },
+            {
+              from: 'save-tool',
+              to: 'delete-tool',
+              label: 'Toolbox.delete로 필요 없는 파일 제거',
+            },
+            {
+              from: 'configure-agent',
+              to: 'install-skill',
+              label: 'SkillFetcher로 찾아 SkillLibrary에 설치',
+            },
+            {
+              from: 'install-skill',
+              to: 'write-skill',
+              label: 'SkillLibrary.get·write로 지침 읽기·작성',
+            },
+            {
+              from: 'write-skill',
+              to: 'delete-skill',
+              label: 'SkillLibrary.remove',
+            },
+            {
+              from: 'configure-agent',
+              to: 'chat-work',
+              label: 'Session에 agents·tools·skills 공급',
+            },
+            {
+              from: 'configure-agent',
+              to: 'delete-agent',
+              label: 'AgentList.delete',
+            },
+          ],
         },
         {
           id: 'sdk-memory',
@@ -524,6 +1604,53 @@ export const ALPINE_TREE: TreeMap = {
             'project-instructions',
             'enforce-memory-rules',
             'approve-action',
+          ],
+          edges: [
+            {
+              from: 'load-runtime-settings',
+              to: 'chat-work',
+              label: '공유 Memories를 Session에 지정',
+            },
+            {
+              from: 'chat-work',
+              to: 'keep-memory',
+              label: 'of(project)의 승인함과 on_change로 제안 확인',
+            },
+            {
+              from: 'keep-memory',
+              to: 'project-instructions',
+              label: 'Memories.approve로 승인 후 적용 알림',
+            },
+            {
+              from: 'keep-memory',
+              to: 'forget-memory',
+              label: '남긴 기억을 Memories.forget으로 제거',
+            },
+            {
+              from: 'forget-memory',
+              to: 'project-instructions',
+              label: '해당 세션에 제거 알림',
+            },
+            {
+              from: 'project-instructions',
+              to: 'chat-work',
+              label: '다음 요청에 기억을 전달',
+            },
+            {
+              from: 'chat-work',
+              to: 'enforce-memory-rules',
+              label: '해당되는 실행 전 확인·작업 검사',
+            },
+            {
+              from: 'enforce-memory-rules',
+              to: 'approve-action',
+              label: '보호된 실행은 승인자에게 확인',
+            },
+            {
+              from: 'approve-action',
+              to: 'chat-work',
+              label: '허용·거절 결과에 따라 계속',
+            },
           ],
         },
       ],
@@ -559,6 +1686,43 @@ export const ALPINE_TREE: TreeMap = {
             en: '작업 중인 에이전트 또는 도구를 공급받은 프로그램이 프로젝트 내용을 읽거나 바꾸려 한다.',
           },
           steps: ['find-files', 'search-contents', 'read-workspace', 'edit-file-text', 'write-file', 'run-command'],
+          edges: [
+            {
+              from: 'find-files',
+              to: 'read-workspace',
+              label: '찾은 경로 내용 읽기',
+            },
+            {
+              from: 'search-contents',
+              to: 'read-workspace',
+              label: '검색한 줄 주변 읽기',
+            },
+            {
+              from: 'read-workspace',
+              to: 'edit-file-text',
+              label: '확인한 문구 부분 교체',
+            },
+            {
+              from: 'read-workspace',
+              to: 'write-file',
+              label: '전체 내용 저장이 필요할 때',
+            },
+            {
+              from: 'edit-file-text',
+              to: 'run-command',
+              label: '바꾼 결과를 실행·검사',
+            },
+            {
+              from: 'write-file',
+              to: 'run-command',
+              label: '생성한 파일 실행·검사',
+            },
+            {
+              from: 'run-command',
+              to: 'read-workspace',
+              label: '출력에 따라 파일 다시 확인',
+            },
+          ],
         },
       ],
     },
@@ -572,13 +1736,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'confirm',
           when: '',
           then: '현재 도구 파일을 확인하면 현재 바이트 내용의 해시를 승인 기록에 저장하고 파일 상태를 반환한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '확인은 파일 이름만이 아니라 지금 읽은 내용에 대해 저장된다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:27:02Z',
           steps: ['확인 기록에 무엇을 저장하는지 읽었다.'],
           seen: ['현재 내용의 해시를 기록한다'],
           limits: ['도구 파일을 변경하거나 승인하지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['packages/core/src/alpine_core/toolbox.py'],
+          history: [
+            {
+              at: '2026-10-17T06:27:02Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'missing',
@@ -610,13 +1781,34 @@ export const ALPINE_TREE: TreeMap = {
           id: 'concurrent',
           when: '',
           then: '같은 파일의 동시 편집은 정규화된 경로의 프로세스 간 잠금으로 직렬화하여 독립 수정이 모두 남고, 저장 준비 실패나 감지한 외부 변경에는 원본을 덮어쓰지 않는다.',
-          status: 'passed',
+          status: 'recheck',
           note: '동시 편집·별칭 경로·프로세스 간 잠금·외부 변경 감지 회귀 검사',
-          checkedAt: null,
+          checkedAt: '2026-10-17T07:19:28Z',
           steps: [],
           seen: [],
           limits: ['협력하지 않는 외부 프로그램의 마지막 비교 이후 쓰기까지 OS가 강제로 차단하는 것은 아니다.'],
           environment: '',
+          changedFiles: [
+            'apps/server/src/alpine_server/wire.py',
+            'packages/core/src/alpine_core/bridge.py',
+            'packages/core/src/alpine_core/events.py',
+            'packages/core/src/alpine_core/items.py',
+            'packages/core/src/alpine_core/session.py',
+            'packages/core/src/alpine_core/storage.py',
+            'packages/core/src/alpine_core/tools/edit.py',
+            'packages/core/src/alpine_core/tools/write.py',
+            'packages/core/src/alpine_core/work_changes.py',
+            'packages/core/tests/test_actual_work_results.py',
+            'packages/core/tests/test_tools.py',
+            'packages/protocol/python/src/alpine_protocol/messages.py',
+            'uv.lock',
+          ],
+          history: [
+            {
+              at: '2026-10-17T07:19:28Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'edit',
@@ -630,13 +1822,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'multiple',
           when: '',
           then: '기존 문구가 여러 번 나오고 replace_all이 false이면 수정하지 않고 주변 문맥 또는 모두 바꾸기를 요구하는 오류를 반환한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '어느 부분을 바꿀지 모호하면 파일을 쓰기 전에 멈추는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:28:30Z',
           steps: ['일치 개수 검사와 파일 쓰기 순서를 읽었다.'],
           seen: ['중복 문구를 임의로 골라 수정하지 않는다'],
           limits: ['실제 파일 변경은 하지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['packages/core/src/alpine_core/tools/edit.py'],
+          history: [
+            {
+              at: '2026-10-17T06:28:30Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'invalid',
@@ -683,11 +1882,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '고치지 않음을 선택할 때 이유가 비어 있으면 화면 제출을 막고 서버도 이유 없는 결정을 거절한다.',
           status: 'passed',
           note: '고치지 않음은 이유 없이 저장할 수 없도록 제한되어 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:27:02Z',
           steps: ['화면 제출 전 이유 검사와 서버의 사유 오류를 확인했다.'],
           seen: ['보류와 고치지 않음을 구분해 기록한다'],
           limits: ['실제 결정을 저장하지 않았다.'],
           environment: '로컬 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:27:02Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'reopen',
@@ -736,21 +1941,28 @@ export const ALPINE_TREE: TreeMap = {
           id: 'result',
           when: '',
           then: '서버의 도구 시험이 끝나면 성공 여부·출력·걸린 시간을 결과로 반환한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '시험 결과에 성공 여부와 출력, 시간이 포함되도록 구현되어 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:10:24Z',
           steps: ['도구 시험 처리의 응답 구성을 읽었다.'],
           seen: ['시험 결과의 세 항목'],
           limits: ['실제 도구 시험이나 출력 화면을 실행하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          changedFiles: ['apps/server/src/alpine_server/tools.py'],
+          history: [
+            {
+              at: '2026-10-17T06:10:24Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'timeout',
           when: '',
           then: '도구 시험의 대기 한도를 넘으면 실패와 아직 실행 중이라는 출력을 반환하지만 실행 스레드를 강제로 종료하지는 않는다.',
-          status: 'passed',
+          status: 'recheck',
           note: '대기 시간이 지나면 아직 실행 중이라고 알려주지만 도구 자체를 중지시키지는 않는 코드다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:43:47Z',
           steps: [
             '도구 시험을 별도 스레드에서 시작하는 코드를 읽었다.',
             '대기 한도와 스레드 생존 여부에 따른 응답을 확인했다.',
@@ -758,6 +1970,13 @@ export const ALPINE_TREE: TreeMap = {
           seen: ['시간 초과는 실행 종료가 아니다'],
           limits: ['실제 도구를 실행하거나 시간 초과를 재현하지 않았다.'],
           environment: '로컬 저장소 코드 열람',
+          changedFiles: ['packages/core/src/alpine_core/toolbox.py'],
+          history: [
+            {
+              at: '2026-10-17T06:43:47Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'tool-errors',
@@ -793,11 +2012,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '출처에서 여러 스킬을 찾았고 가져올 이름을 지정하지 않았으면 바로 설치하지 않고 후보 목록을 반환한다.',
           status: 'passed',
           note: '여러 스킬이 있으면 설치 결과를 비워 두고 선택 목록부터 돌려주는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:10:24Z',
           steps: ['가져오기 처리에서 이름 미지정·다중 후보 분기를 읽었다.'],
           seen: ['설치 전에 후보 선택을 요청한다'],
           limits: ['원격 검색이나 설치를 하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:10:24Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'install',
@@ -887,13 +2112,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'conflict',
           when: '',
           then: '지도 준비 요청의 revision이 현재 지도와 다르면 flow_conflict 오류로 중단한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '사용자가 본 지도와 현재 지도가 다르면 새 작업을 준비하지 않도록 구현되어 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:12:42Z',
           steps: ['지도 작업 준비의 revision 검사와 오류를 읽었다.'],
           seen: ['지도 변경 충돌을 구분한다'],
           limits: ['새 지도 작업을 별도로 실행해 보지는 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          changedFiles: ['apps/server/src/alpine_server/flow.py'],
+          history: [
+            {
+              at: '2026-10-17T06:12:42Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'busy',
@@ -952,11 +2184,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '로그인이 실패하거나 시간이 초과되면 이유와 다시 시도 버튼을 보여준다.',
           status: 'passed',
           note: '로그인이 멈춘 경우 오류 안내와 재시도 버튼을 표시하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:08:11Z',
           steps: ['로그인 상태별 화면 분기를 읽었다.', '실패·시간 초과 상태의 안내와 재시도 버튼을 확인했다.'],
           seen: ['실패·시간 초과 상태를 따로 처리한다'],
           limits: ['실제 계정 로그인이나 화면 실행은 하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:08:11Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'cancel',
@@ -991,11 +2229,17 @@ export const ALPINE_TREE: TreeMap = {
           then: 'GitHub 로그아웃 요청을 받으면 로컬의 저장 계정을 잊고 완료 응답을 반환한다.',
           status: 'passed',
           note: '로그아웃은 저장된 GitHub 계정을 지우는 동작으로 구현되어 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:25:26Z',
           steps: ['로그아웃 핸들러를 읽었다.'],
           seen: ['저장 계정을 잊는다'],
           limits: ['실제 로그아웃이나 원격 권한 취소는 하지 않았다.'],
           environment: '로컬 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:25:26Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'status',
@@ -1024,9 +2268,9 @@ export const ALPINE_TREE: TreeMap = {
           id: 'button',
           when: '',
           then: '새 버전이 준비되지 않았으면 상단 재시작 버튼을 숨기고 준비되면 버전 안내와 함께 보여주며 클릭 시 업데이트 재시작을 요청한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '준비 전 버튼 숨김과 준비 후 버전 안내·재시작 요청을 확인하도록 작성된 화면 테스트가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:19:07Z',
           steps: ['업데이트 상태를 모의한 두 화면 테스트의 기대값을 읽었다.'],
           seen: ['버전 준비 후 클릭이 재시작 요청으로 이어지도록 검사한다'],
           limits: [
@@ -1034,6 +2278,13 @@ export const ALPINE_TREE: TreeMap = {
             '모의된 화면 테스트는 실제 설치·서명 검증·새 버전 실행 성공을 검증하지 않는다.',
           ],
           environment: '로컬 저장소 테스트·코드 열람',
+          changedFiles: ['apps/desktop/src/app/TopBar.tsx'],
+          history: [
+            {
+              at: '2026-10-17T06:19:07Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'restart-order',
@@ -1134,11 +2385,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '스킬 상세에서는 origin이 alpine인 스킬에만 내용 편집 동작을 제공한다.',
           status: 'passed',
           note: 'Alpine 소유인 경우에만 편집 버튼을 보여주는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:10:24Z',
           steps: ['owned 계산과 편집 버튼 표시 조건을 읽었다.'],
           seen: ['편집 가능 출처를 구분한다'],
           limits: ['화면의 편집 버튼 제한만 확인했으며 저장 API의 소유권 방어 전체를 검증한 것은 아니다.'],
           environment: '로컬 저장소의 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:10:24Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'failure',
@@ -1180,13 +2437,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'unknown-price',
           when: '',
           then: '비용이 null이면 전체 대화 비용에 가격 정보 없음 안내를 표시하고 현재 작업 비용에는 대시를 표시한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '가격을 모르는 경우 0원으로 보이지 않게 별도의 안내를 표시하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:08:11Z',
           steps: ['비용 변환 함수와 전체·현재 작업 비용의 대체 표시를 읽었다.'],
           seen: ['알 수 없는 비용을 금액으로 바꾸지 않는다'],
           limits: ['실제 모델의 과금 정확도는 확인하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          changedFiles: ['apps/desktop/src/features/session/ContextMeter.tsx'],
+          history: [
+            {
+              at: '2026-10-17T06:08:11Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'unknown-window',
@@ -1223,13 +2487,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'disabled',
           when: '',
           then: '설명이 비어 있거나 초안 생성 중이면 초안 생성 버튼을 사용할 수 없다.',
-          status: 'passed',
+          status: 'recheck',
           note: '빈 설명이나 초안 생성 중의 중복 요청을 버튼에서 막고 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:10:24Z',
           steps: ['초안 폼과 제출 버튼의 비활성화 조건을 읽었다.'],
           seen: ['빈 입력과 진행 중 요청을 제한한다'],
           limits: ['실제 모델로 초안을 만들지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          changedFiles: ['apps/desktop/src/features/agents/library/code.tsx'],
+          history: [
+            {
+              at: '2026-10-17T06:10:24Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'failure',
@@ -1261,13 +2532,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'busy',
           when: '',
           then: '해당 프로젝트 세션이 작업 중이면 지도 삭제를 flow_busy 오류로 거절한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '작업 중인 프로젝트의 지도는 삭제하지 않게 막는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:27:02Z',
           steps: ['삭제 처리의 작업 중 검사를 읽었다.'],
           seen: ['작업 중 지도 재작성과 삭제가 겹치지 않게 한다'],
           limits: ['지도를 실제로 지우지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['apps/server/src/alpine_server/flow.py'],
+          history: [
+            {
+              at: '2026-10-17T06:27:02Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'delete',
@@ -1311,13 +2589,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'not-folder',
           when: '',
           then: '프로그램이 projects/open에 폴더가 아닌 경로를 전달하면 not_a_folder 오류를 돌려준다.',
-          status: 'passed',
+          status: 'recheck',
           note: '폴더가 아닌 경로는 프로젝트로 열지 않고 이유가 담긴 오류로 돌려주도록 구현되어 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:08:11Z',
           steps: ['프로젝트 열기 처리의 예외 분기를 읽었다.'],
           seen: ['폴더가 아닌 경로의 오류 이름'],
           limits: ['Finder 선택이나 실제 경로 오류 요청은 실행하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          changedFiles: ['apps/server/src/alpine_server/methods.py'],
+          history: [
+            {
+              at: '2026-10-17T06:08:11Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'pages',
@@ -1349,13 +2634,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'links',
           when: '',
           then: '도움말에서 새 소식은 저장소 릴리스 페이지로, 문제 신고는 저장소의 새 이슈 페이지로 브라우저를 연다.',
-          status: 'passed',
+          status: 'recheck',
           note: '문제 신고는 앱에서 자동 전송하지 않고 GitHub 작성 페이지를 여는 방식이다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:33:29Z',
           steps: ['도움말 두 메뉴의 브라우저 목적지를 읽었다.'],
           seen: ['신고 작성은 외부 페이지에서 한다'],
           limits: ['외부 페이지를 열거나 이슈를 작성하지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['apps/desktop/src/app/useAppMenu.ts'],
+          history: [
+            {
+              at: '2026-10-17T06:33:29Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'versions',
@@ -1394,11 +2686,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '폴더를 읽으면 폴더 우선·이름순으로 최대 500개 항목을 반환하고 더 있으면 생략 개수를 알린다.',
           status: 'passed',
           note: '폴더 목록을 정렬하고 500개까지만 표시하며 생략 수를 알리는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:28:30Z',
           steps: ['list_directory와 항목 제한을 읽었다.'],
           seen: ['큰 폴더 출력의 개수를 제한한다'],
           limits: ['파일 도구를 직접 실행하지 않았다.'],
           environment: '로컬 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:28:30Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'image',
@@ -1453,11 +2751,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '모델 이름이 비어 있거나 저장 중이면 연결 버튼을 사용할 수 없다.',
           status: 'passed',
           note: '모델이 없거나 연결을 저장하는 동안에는 버튼을 비활성화하도록 구현되어 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:08:11Z',
           steps: ['연결 폼의 제출 버튼 조건을 읽었다.'],
           seen: ['빈 모델과 저장 중 상태를 차단한다'],
           limits: ['유효한 키로 외부 모델 조회·저장을 실행하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:08:11Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'error',
@@ -1489,13 +2793,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'edit',
           when: '',
           then: '사용자가 약속을 고쳐 저장하면 사용자 기준으로 보관하고 이전 문장의 확인 결과로는 새 문장을 확인된 것으로 취급하지 않는다.',
-          status: 'passed',
+          status: 'recheck',
           note: '고친 약속을 사용자 기준으로 남기되 다시 확인할 대상으로 보는 테스트가 작성되어 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:12:42Z',
           steps: ['약속 문장 수정 뒤 소유권과 확인 상태를 검사하는 테스트를 읽었다.'],
           seen: ['이전 확인 기록은 새 문장의 확인이 아니다'],
           limits: ['테스트 열람이며 실제 통과나 편집 화면 조작은 확인하지 않았다.'],
           environment: '로컬 저장소의 코드·테스트 열람',
+          changedFiles: ['apps/server/src/alpine_server/flow.py', 'apps/server/tests/test_flow.py'],
+          history: [
+            {
+              at: '2026-10-17T06:12:42Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'add-remove',
@@ -1578,11 +2889,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '언어 선택 저장에 실패해도 현재 실행 중에는 고른 언어 상태를 유지한다.',
           status: 'passed',
           note: '저장 실패 여부와 별개로 먼저 언어 상태를 적용하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:20:44Z',
           steps: ['언어 상태 변경이 저장 시도보다 앞에 있는지 읽었다.'],
           seen: ['저장 실패가 화면 언어 변경을 되돌리지 않는다'],
           limits: ['화면을 실행하거나 저장 실패를 재현하지 않았다.'],
           environment: '로컬 저장소 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:20:44Z',
+              result: 'passed',
+            },
+          ],
         },
       ],
       description:
@@ -1607,13 +2924,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'precedence',
           when: '',
           then: '설정을 불러오면 파일보다 환경 변수를 우선하고 None이 아닌 명시 인자를 가장 우선하며 알 수 없는 설정 이름은 ConfigError로 거절한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '파일·환경 변수 뒤 명시 인자로 덮어쓰고 알 수 없는 항목은 거절하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:30:19Z',
           steps: ['설정 조합 순서와 키 검사를 읽었다.'],
           seen: ['호출자가 지정한 설정이 최종 적용된다'],
           limits: ['실제 인증 정보를 읽거나 설정을 변경하지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['packages/core/src/alpine_core/config.py'],
+          history: [
+            {
+              at: '2026-10-17T06:30:19Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'key',
@@ -1672,11 +2996,17 @@ export const ALPINE_TREE: TreeMap = {
           then: 'Git 설치 대기 중 창을 닫으면 준비 여부 확인을 끝내고 저장소 가져오기를 이어서 제출하지 않는다.',
           status: 'passed',
           note: '창을 닫은 뒤에는 원래 복제를 다시 시작하지 않도록 검사하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:25:26Z',
           steps: ['반복 확인과 재제출의 닫힘 검사를 읽었다.'],
           seen: ['창이 닫히면 자동 이어가기를 멈춘다'],
           limits: ['실제 Git 설치를 실행하지 않았다.'],
           environment: '로컬 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:25:26Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'external',
@@ -1708,13 +3038,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'planned',
           when: '',
           then: '기능 추가를 준비하면 새 카드를 planned 상태로 만들고 선택한 흐름 또는 새 흐름에 연결한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '새로 요청한 기능은 구현 완료가 아니라 계획 상태로 지도에 붙이는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:12:42Z',
           steps: ['extend 분기의 카드 생성 상태와 기존·새 흐름 연결을 읽었다.'],
           seen: ['새 기능은 계획 상태에서 시작한다'],
           limits: ['수정·추가 요청이나 제품 코드 변경을 실행하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          changedFiles: ['apps/server/src/alpine_server/flow.py'],
+          history: [
+            {
+              at: '2026-10-17T06:12:42Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'selection',
@@ -1779,13 +3116,23 @@ export const ALPINE_TREE: TreeMap = {
           id: 'review-model',
           when: '',
           then: '검토 모델을 지정하면 설정에 저장하고 세션 자체 모델 사용을 선택하면 별도 검토 모델 설정을 제거한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '검토 모델을 지정하거나 별도 지정을 해제해 대화 모델을 쓰는 저장 분기가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:20:44Z',
           steps: ['설정 화면에서 null 선택을 보내는 동작을 읽었다.', '코어의 검토 모델 저장·제거를 확인했다.'],
           seen: ['별도 검토 모델을 지정하지 않는 선택이 있다'],
           limits: ['설정을 실제로 저장하거나 자동 검토를 실행하지 않았다.'],
           environment: '로컬 저장소 코드 열람',
+          changedFiles: [
+            'apps/desktop/src/features/settings/Connection.tsx',
+            'packages/core/src/alpine_core/config.py',
+          ],
+          history: [
+            {
+              at: '2026-10-17T06:20:44Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'config-error',
@@ -1837,11 +3184,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '보관된 프로젝트의 폴더를 다시 열면 보관을 해제하고 최근 사용 시점을 갱신한다.',
           status: 'passed',
           note: '같은 폴더를 열면 보관을 풀고 사용 시각을 갱신하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:19:07Z',
           steps: ['기존 프로젝트를 여는 분기에서 보관 해제를 확인했다.'],
           seen: ['보관 해제와 최근 사용 갱신이 함께 수행된다'],
           limits: ['실제 프로젝트를 보관하거나 복원하지 않았다.'],
           environment: '로컬 저장소 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:19:07Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'unknown',
@@ -1881,13 +3234,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'restart',
           when: '',
           then: '서버가 승인 대기 중 종료된 뒤 대화를 다시 열면 중단 기록이 남아 있고 새 요청을 이어서 보낼 수 있다.',
-          status: 'passed',
+          status: 'recheck',
           note: '종료된 서버의 대화를 다시 열어 중단 기록을 확인하고 이어 보내는 테스트가 작성되어 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:08:11Z',
           steps: ['서버를 종료한 뒤 새 서버에서 대화를 여는 테스트를 읽었다.'],
           seen: ['복구 뒤 추가 요청을 전송한다'],
           limits: ['테스트를 실행하지 않아 현재 환경에서의 통과 여부는 알 수 없다.'],
           environment: '로컬 저장소의 테스트 열람',
+          changedFiles: ['apps/server/src/alpine_server/sessions.py', 'apps/server/tests/test_sessions.py'],
+          history: [
+            {
+              at: '2026-10-17T06:08:11Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'dead-status',
@@ -1953,13 +3313,23 @@ export const ALPINE_TREE: TreeMap = {
           id: 'wire',
           when: '',
           then: '서버는 한 줄에 JSON 객체 하나를 주고받으며 응답·알림 필드는 camelCase로 직렬화한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '응답을 wire 필드명으로 직렬화해 한 줄씩 보내는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:30:19Z',
           steps: ['응답·알림의 직렬화와 개행 처리를 읽었다.'],
           seen: ['서버 출력은 줄 단위 JSON이다'],
           limits: ['서버 프로세스나 클라이언트를 실행하지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: [
+            'apps/server/src/alpine_server/stdio.py',
+            'packages/protocol/python/src/alpine_protocol/messages.py',
+          ],
+          history: [
+            {
+              at: '2026-10-17T06:30:19Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'concurrency',
@@ -2002,13 +3372,34 @@ export const ALPINE_TREE: TreeMap = {
           id: 'atomic',
           when: '',
           then: '전체 쓰기는 부분 편집과 같은 경로 잠금을 공유하고 임시 파일 저장 후 원자적으로 교체하며, 교체 실패나 감지한 외부 변경에는 기존 파일을 보존한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '교체 실패 원본 보존·공유 잠금·실행 권한 보존 검사',
-          checkedAt: null,
+          checkedAt: '2026-10-17T07:19:28Z',
           steps: [],
           seen: [],
           limits: ['write는 여전히 전체 내용 덮어쓰기다.'],
           environment: '',
+          changedFiles: [
+            'apps/server/src/alpine_server/wire.py',
+            'packages/core/src/alpine_core/bridge.py',
+            'packages/core/src/alpine_core/events.py',
+            'packages/core/src/alpine_core/items.py',
+            'packages/core/src/alpine_core/session.py',
+            'packages/core/src/alpine_core/storage.py',
+            'packages/core/src/alpine_core/tools/edit.py',
+            'packages/core/src/alpine_core/tools/write.py',
+            'packages/core/src/alpine_core/work_changes.py',
+            'packages/core/tests/test_actual_work_results.py',
+            'packages/core/tests/test_tools.py',
+            'packages/protocol/python/src/alpine_protocol/messages.py',
+            'uv.lock',
+          ],
+          history: [
+            {
+              at: '2026-10-17T07:19:28Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'save',
@@ -2022,13 +3413,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'directory',
           when: '',
           then: '파일 대신 폴더 경로를 지정하면 쓰지 않고 폴더라는 오류를 반환한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '폴더를 파일처럼 덮어쓰지 않도록 검사하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:28:30Z',
           steps: ['쓰기 전 경로 유형 검사를 읽었다.'],
           seen: ['폴더에는 전체 파일 쓰기를 수행하지 않는다'],
           limits: ['파일을 실제로 쓰지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['packages/core/src/alpine_core/tools/write.py'],
+          history: [
+            {
+              at: '2026-10-17T06:28:30Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'os-error',
@@ -2069,7 +3467,7 @@ export const ALPINE_TREE: TreeMap = {
           then: '확인 기록에 시도 순서·관찰·판정·제한·환경이 있으면 각 내용을 나누어 보여주고 명령과 출력은 상세 기록에서 볼 수 있다.',
           status: 'passed',
           note: '확인 기록을 시도·관찰·판정·제한으로 나누고 상세 명령·출력을 펼쳐 보게 하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:12:42Z',
           steps: [
             'CheckRecord가 기록의 각 항목을 읽는 방식을 확인했다.',
             '세부 명령·출력을 details 안에 표시하는 코드를 읽었다.',
@@ -2077,6 +3475,12 @@ export const ALPINE_TREE: TreeMap = {
           seen: ['단계·관찰·제한을 별도 구역으로 표시한다'],
           limits: ['지도 화면을 실행하거나 실제 스크린샷을 캡처하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:12:42Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'images',
@@ -2221,13 +3625,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'first-answer',
           when: '',
           then: '같은 승인에 여러 번 답하거나 존재하지 않는 승인에 답하면 첫 유효한 답변만 받아들이고 나머지는 accepted=false로 응답한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '첫 승인만 받아들이고 중복·알 수 없는 응답은 거절하도록 작성된 테스트를 확인했다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:08:11Z',
           steps: ['첫 승인 뒤 두 번째 승인과 잘못된 요청 ID를 보내는 테스트를 읽었다.'],
           seen: ['중복 승인과 잘못된 ID의 기대값'],
           limits: ['테스트의 작성 내용을 읽은 확인이며 테스트 통과나 화면 조작을 확인한 것은 아니다.'],
           environment: '로컬 저장소의 테스트 열람',
+          changedFiles: ['apps/server/src/alpine_server/sessions.py', 'apps/server/tests/test_sessions.py'],
+          history: [
+            {
+              at: '2026-10-17T06:08:11Z',
+              result: 'passed',
+            },
+          ],
         },
       ],
       description:
@@ -2263,13 +3674,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'detach',
           when: '',
           then: '도구 파일을 삭제하면 그 파일의 도구 이름을 모든 에이전트 구성에서 제거한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '삭제된 도구를 에이전트가 계속 가리키지 않도록 정리하는 호출이 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:27:02Z',
           steps: ['삭제 핸들러의 이름 수집과 연결 제거를 읽었다.'],
           seen: ['도구 파일과 에이전트 연결을 함께 정리한다'],
           limits: ['실제 도구를 지우지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['apps/server/src/alpine_server/tools.py', 'packages/core/src/alpine_core/agents.py'],
+          history: [
+            {
+              at: '2026-10-17T06:27:02Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'broken',
@@ -2327,7 +3745,7 @@ export const ALPINE_TREE: TreeMap = {
           then: '프로젝트 삭제를 확인하면 삭제 안내에 표시된 해당 프로젝트의 세션도 함께 제거한다.',
           status: 'failed',
           note: '화면에서는 세션도 삭제한다고 안내하지만 서버가 호출하는 코어 삭제 함수는 프로젝트 등록과 개인 기록 폴더만 지우고 세션은 남긴다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:19:07Z',
           steps: [
             '삭제 화면의 지워지는 항목 안내를 읽었다.',
             'projects/delete가 호출하는 함수를 따라갔다.',
@@ -2342,6 +3760,12 @@ export const ALPINE_TREE: TreeMap = {
             '되돌리기 지점의 삭제 여부는 확인하지 않았다.',
           ],
           environment: '로컬 저장소 코드·화면 문구 열람',
+          history: [
+            {
+              at: '2026-10-17T06:19:07Z',
+              result: 'failed',
+            },
+          ],
         },
         {
           id: 'error',
@@ -2402,11 +3826,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '기억 승인 중 저장 한도 때문에 거절되면 memory_full 오류를 돌려준다.',
           status: 'passed',
           note: '기억을 더 보관할 수 없는 경우 별도의 한도 오류를 돌려주는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:10:24Z',
           steps: ['기억 승인 처리에서 Refused 예외 분기를 읽었다.'],
           seen: ['한도 오류를 구분한다'],
           limits: ['실제 한도 수치와 한도 도달 시나리오는 확인하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:10:24Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'reject',
@@ -2483,11 +3913,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '지침을 구성할 때 공통 AGENTS.md를 먼저 읽고 Git 루트부터 작업 폴더까지 각 폴더에서 AGENTS.md를 우선하며 없으면 CLAUDE.md를 읽는다.',
           status: 'passed',
           note: '공통 지침 다음 프로젝트 경로의 지침을 읽고 같은 폴더의 두 파일 중 하나를 고르는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:30:19Z',
           steps: ['공통 파일과 Git 루트부터 내려오는 탐색 순서를 읽었다.'],
           seen: ['한 폴더에서는 AGENTS.md를 먼저 선택한다'],
           limits: ['모델이 실제로 지침을 따랐는지 확인한 것은 아니다.'],
           environment: '로컬 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:30:19Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'no-git',
@@ -2624,13 +4060,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'busy',
           when: '',
           then: '세션이 실행 중이거나 승인을 기다릴 때 API로 새 요청 전송이나 모델·에이전트 변경을 요청하면 실행 중 오류로 거절한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '진행 중인 세션에는 새 요청이나 모델·에이전트 변경을 겹쳐 실행하지 않는 제한이 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:08:11Z',
           steps: ['send, set_model, set_agent의 실행 중 검사 분기를 읽었다.'],
           seen: ['세 작업 모두 실행 중 검사를 둔다'],
           limits: ['가짜 모델 테스트를 읽었지만 실행하지 않았고 실제 대화도 시작하지 않았다.'],
           environment: '로컬 저장소의 코드·테스트 열람',
+          changedFiles: ['apps/server/src/alpine_server/sessions.py'],
+          history: [
+            {
+              at: '2026-10-17T06:08:11Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'stop',
@@ -2652,13 +4095,24 @@ export const ALPINE_TREE: TreeMap = {
           id: 'session-agent-model',
           when: '',
           then: '세션 입력창의 에이전트 이름 옆에 현재 세션 모델을 연결 접두사 없이 표시하며, 실행 중에도 보이고 모델 정보가 없으면 구분자도 표시하지 않는다. 새 대화의 이름 표시는 유지한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '에이전트 칩의 세션 모델 표시 회귀 테스트',
-          checkedAt: null,
+          checkedAt: '2026-10-17T12:02:55Z',
           steps: [],
           seen: [],
           limits: ['모킹한 에이전트 목록을 사용하는 컴포넌트 테스트이며 실제 데스크톱 화면은 확인하지 않았다.'],
           environment: '',
+          changedFiles: [
+            'apps/desktop/src/shared/components/agent/names.ts',
+            'apps/desktop/src/shared/components/composer/AgentChip.test.tsx',
+            'apps/desktop/src/shared/components/composer/AgentChip.tsx',
+          ],
+          history: [
+            {
+              at: '2026-10-17T12:02:55Z',
+              result: 'passed',
+            },
+          ],
         },
       ],
       description:
@@ -2687,13 +4141,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'default',
           when: '',
           then: '기본 에이전트는 화면에서 삭제 선택이 비활성화되고 SDK에서 삭제해도 제거되지 않는다.',
-          status: 'passed',
+          status: 'recheck',
           note: '기본 에이전트 삭제를 화면뿐 아니라 저장 함수에서도 막는다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:27:02Z',
           steps: ['삭제 메뉴 비활성화와 코어의 기본 ID 검사를 읽었다.'],
           seen: ['기본 에이전트가 보호된다'],
           limits: ['실제 에이전트를 지우지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['packages/core/src/alpine_core/agents.py'],
+          history: [
+            {
+              at: '2026-10-17T06:27:02Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'confirm',
@@ -2731,11 +4192,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '이름이 같은 스킬이 여러 위치에 있으면 프로젝트 스킬을 우선하고 그 다음 Alpine 설치 스킬·다른 앱 스킬 순서로 첫 이름을 사용한다.',
           status: 'passed',
           note: '프로젝트 스킬을 먼저 넣고 같은 이름을 하나만 남기는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:27:02Z',
           steps: ['설치 목록과 프로젝트 목록 결합 순서를 읽었다.'],
           seen: ['프로젝트 지침이 같은 이름의 설치 지침보다 먼저 선택된다'],
           limits: ['실제 스킬 작업을 실행하지 않았다.'],
           environment: '로컬 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:27:02Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'load',
@@ -2811,13 +4278,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'timeout',
           when: '',
           then: '실행 제한 시간은 1초에서 600초로 제한하고 시간 초과나 작업 취소 시 해당 프로세스 그룹을 종료한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '명령이 끝없이 실행되지 않게 시간 범위를 제한하고 초과·취소 때 실행 그룹을 종료한다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:28:30Z',
           steps: ['시간 값 제한과 예외 처리의 그룹 종료 함수를 읽었다.'],
           seen: ['명령 제한과 취소 처리가 있다'],
           limits: ['명령을 실행해 프로세스 종료를 시험하지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['packages/core/src/alpine_core/tools/bash.py'],
+          history: [
+            {
+              at: '2026-10-17T06:28:30Z',
+              result: 'passed',
+            },
+          ],
         },
       ],
       description:
@@ -2846,13 +4320,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'empty',
           when: '',
           then: 'SDK에서 대화 메시지가 없을 때 요약을 요청하면 모델 실행 없이 false를 반환한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '요약할 대화가 없으면 모델을 호출하지 않는 분기가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:30:19Z',
           steps: ['요약 시작 전 빈 대화 검사를 읽었다.'],
           seen: ['빈 대화는 요약하지 않는다'],
           limits: ['실제 요약 모델을 실행하지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['packages/core/src/alpine_core/session.py'],
+          history: [
+            {
+              at: '2026-10-17T06:30:19Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'result',
@@ -2897,13 +4378,24 @@ export const ALPINE_TREE: TreeMap = {
           id: 'stop-delete',
           when: '',
           then: '세션 삭제 요청을 받으면 해당 실행을 멈춘 뒤 저장된 세션을 삭제하고 서버의 활성 세션 목록에서 제거한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '삭제 전에 작업 중지를 기다린 뒤 저장소와 활성 세션에서 제거하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:19:07Z',
           steps: ['서버 삭제 처리의 중지·삭제·목록 제거 순서를 읽었다.', '코어와 저장소의 삭제 경로를 확인했다.'],
           seen: ['작업 중지 뒤 대화를 지운다'],
           limits: ['실제 대화를 삭제하지 않았다.'],
           environment: '로컬 저장소 코드 열람',
+          changedFiles: [
+            'apps/server/src/alpine_server/sessions.py',
+            'packages/core/src/alpine_core/session.py',
+            'packages/core/src/alpine_core/storage.py',
+          ],
+          history: [
+            {
+              at: '2026-10-17T06:19:07Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'navigate',
@@ -2953,13 +4445,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'guard',
           when: '',
           then: '승인된 가드가 명령·파일 편집과 일치하면 권한 모드와 이전 허용 여부보다 먼저 사용자 승인을 요구한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '항상 확인하기로 정한 호출은 자동 허용보다 앞서 검사한다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:30:19Z',
           steps: ['가드 검사와 yolo 분기의 순서를 읽었다.', '자동 검토가 가드를 대신 답하지 않는 설명을 읽었다.'],
           seen: ['보호한 작업은 무제한 모드에서도 사용자에게 묻는다'],
           limits: ['실제 명령·편집으로 가드를 실행하지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['packages/core/src/alpine_core/approval.py'],
+          history: [
+            {
+              at: '2026-10-17T06:30:19Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'facts',
@@ -3025,13 +4524,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'keep-current',
           when: '',
           then: '현재 기본 모델이 조회된 목록에 없어도 그 선택값을 별도 항목으로 표시한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '현재 모델이 불러온 목록에 없더라도 선택란에 남겨 표시하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:20:44Z',
           steps: ['선택 목록과 현재 값의 차이를 처리하는 분기를 읽었다.'],
           seen: ['현재 모델을 잃어버리지 않게 표시한다'],
           limits: ['연결 실패나 모델 선택을 화면에서 실행하지 않았다.'],
           environment: '로컬 저장소 코드 열람',
+          changedFiles: ['apps/desktop/src/features/settings/Connection.tsx'],
+          history: [
+            {
+              at: '2026-10-17T06:20:44Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'no-connection',
@@ -3071,13 +4577,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'confirm',
           when: '',
           then: '기억 잊기를 선택하면 확인과 취소 동작을 보여주고 확인한 경우에만 해당 범위·ID의 잊기 요청을 보낸다.',
-          status: 'passed',
+          status: 'recheck',
           note: '잊기 확인 영역에서 선택한 기억의 범위와 ID를 지정해 요청하도록 구현되어 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:10:24Z',
           steps: ['confirming 상태의 확인·취소 버튼과 요청 인자를 읽었다.'],
           seen: ['기억 하나를 지정해 잊기를 요청한다'],
           limits: ['기억을 실제로 지우지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          changedFiles: ['apps/desktop/src/features/memory/Memory.tsx'],
+          history: [
+            {
+              at: '2026-10-17T06:10:24Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'invalid-project',
@@ -3140,13 +4653,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'empty',
           when: '',
           then: '연결된 작업이 없거나 아직 파일 변경·명령 실행이 없으면 해당 빈 상태를 안내한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '작업 미연결과 아직 결과가 없는 경우를 구분해 안내하도록 구현되어 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:08:11Z',
           steps: ['작업 결과의 빈 상태 분기 두 곳을 읽었다.'],
           seen: ['미연결과 결과 없음 안내가 따로 있다'],
           limits: ['화면 실행과 변경 집계 로직 전체는 확인하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          changedFiles: ['apps/desktop/src/features/work-result/WorkResult.tsx'],
+          history: [
+            {
+              at: '2026-10-17T06:08:11Z',
+              result: 'passed',
+            },
+          ],
         },
       ],
       description:
@@ -3190,13 +4710,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'notification',
           when: '',
           then: '유효한 요청의 id가 없으면 처리한 뒤 성공·실패 응답 객체를 쓰지 않는다.',
-          status: 'passed',
+          status: 'recheck',
           note: '응답 ID가 없는 알림에는 결과 응답을 보내지 않도록 구현되어 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:30:19Z',
           steps: ['성공·오류 응답 뒤 ID에 따른 반환을 읽었다.'],
           seen: ['알림과 요청을 구분한다'],
           limits: ['잘못된 요청을 서버에 전송하지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['apps/server/src/alpine_server/stdio.py'],
+          history: [
+            {
+              at: '2026-10-17T06:30:19Z',
+              result: 'passed',
+            },
+          ],
         },
       ],
       description:
@@ -3225,13 +4752,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'reuse',
           when: '',
           then: '같은 원본 버전에서 이미 가져온 대화를 선택하면 기존 Alpine 세션을 열고 새로 가져오지 않는다.',
-          status: 'passed',
+          status: 'recheck',
           note: '이미 가져온 대화 ID가 있으면 복사 요청 없이 그 대화를 여는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:08:11Z',
           steps: ['대화 선택 시 기존 세션을 여는 분기와 원본 버전별 imported 계산을 읽었다.'],
           seen: ['가져온 세션을 바로 연다'],
           limits: ['실제 다른 앱의 기록 파일을 가져오지는 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          changedFiles: ['apps/server/src/alpine_server/sessions.py'],
+          history: [
+            {
+              at: '2026-10-17T06:08:11Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'import',
@@ -3269,11 +4803,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '없거나 ChatGPT가 아닌 연결의 로그아웃 요청은 잘못된 요청 오류로 반환한다.',
           status: 'passed',
           note: 'ChatGPT 연결인지 확인한 뒤에만 로그아웃을 수행하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:25:26Z',
           steps: ['로그아웃 대상 검사를 읽었다.'],
           seen: ['일반 API 연결을 ChatGPT 계정으로 해제하지 않는다'],
           limits: ['실제 계정 해제와 사용량 웹 페이지를 열지 않았다.'],
           environment: '로컬 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:25:26Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'revoked',
@@ -3325,13 +4865,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'remove-defaults',
           when: '',
           then: '연결을 삭제하면 설정에서 연결을 제거하고 그 연결을 쓰는 기본 모델·검토 모델 지정도 함께 제거한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '연결만 지워 기본값이 끊어지게 두지 않고 그 연결을 가리키는 모델 지정도 지우는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:20:44Z',
           steps: ['연결 삭제 함수에서 기본·검토 모델 정리 조건을 읽었다.'],
           seen: ['삭제하는 연결에 속한 기본값만 함께 제거한다'],
           limits: ['연결·키를 실제로 삭제하지 않았다.'],
           environment: '로컬 저장소 코드 열람',
+          changedFiles: ['apps/server/src/alpine_server/methods.py', 'packages/core/src/alpine_core/config.py'],
+          history: [
+            {
+              at: '2026-10-17T06:20:44Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'secret',
@@ -3390,11 +4937,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '키를 비워 두고 연결하면 API 키 없이 서버 연결 저장을 요청한다.',
           status: 'passed',
           note: '키를 비워 두면 키 값을 보내지 않는 연결 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:08:11Z',
           steps: ['키 정리와 저장 요청의 인자를 읽었다.'],
           seen: ['빈 키를 생략한다'],
           limits: ['호환 서버를 실행하거나 실제 응답을 확인하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:08:11Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'model-required',
@@ -3434,9 +4987,9 @@ export const ALPINE_TREE: TreeMap = {
           id: 'snapshot',
           when: '',
           then: '지도 고치기를 준비하면 이전 카드·흐름 파일을 보관하고, 관련 세션이 끝나 실제 변경이 있을 때 검토할 추가·삭제·변경 목록을 보여준다.',
-          status: 'passed',
+          status: 'recheck',
           note: '지도 고치기 전 내용을 보관하고 작업이 끝나 변경된 경우에만 검토를 만드는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:12:42Z',
           steps: [
             'reshape 준비의 스냅샷 저장을 읽었다.',
             '세션 종료·변경 여부를 확인한 뒤 검토 목록을 만드는 코드를 읽었다.',
@@ -3444,6 +4997,13 @@ export const ALPINE_TREE: TreeMap = {
           seen: ['지도 구성 변경 전 파일을 보관한다'],
           limits: ['실제 지도 구성 변경이나 복원은 실행하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          changedFiles: ['apps/server/src/alpine_server/flow.py'],
+          history: [
+            {
+              at: '2026-10-17T06:12:42Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'restore',
@@ -3500,13 +5060,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'persist',
           when: '',
           then: '에이전트 변경 저장이 성공하면 저장 표시를 보이고 실패하면 성공 표시 대신 실패 상태를 보여준다.',
-          status: 'passed',
+          status: 'recheck',
           note: '저장 실패 때 성공 표시를 지우고 실패를 알리는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:10:24Z',
           steps: ['에이전트 변경을 저장하는 persist 함수의 성공·실패 분기를 읽었다.'],
           seen: ['저장 실패는 성공으로 표시하지 않는다'],
           limits: ['실제 저장이나 에이전트 전환은 실행하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          changedFiles: ['apps/desktop/src/features/agents/Agents.tsx'],
+          history: [
+            {
+              at: '2026-10-17T06:10:24Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'undo-tools',
@@ -3564,13 +5131,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'invalid',
           when: '',
           then: '검색 경로가 없거나 Python 정규식 검사에서 패턴이 잘못됐으면 검색 전 도구 오류를 반환한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '잘못된 검색 패턴은 검색 실행 전 오류로 구분한다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:28:30Z',
           steps: ['경로 존재 확인과 정규식 검사 순서를 읽었다.'],
           seen: ['검색 조건 오류를 명확히 알린다'],
           limits: ['실제 정규식 검색을 실행하지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['packages/core/src/alpine_core/tools/grep.py'],
+          history: [
+            {
+              at: '2026-10-17T06:28:30Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'no-match',
@@ -3607,11 +5181,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '가져올 위치에 재사용할 프로젝트가 있으면 새로 복제하지 않고 기존 프로젝트를 연다.',
           status: 'passed',
           note: '이미 사용할 수 있는 프로젝트가 있으면 그것을 열어 반환하는 분기가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:08:11Z',
           steps: ['복제 위치 결정 뒤 기존 프로젝트를 처리하는 분기를 읽었다.'],
           seen: ['기존 폴더를 열어 반환한다'],
           limits: ['네트워크 연결이나 실제 저장소 복제를 하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:08:11Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'validation',
@@ -3686,11 +5266,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '확인·다운로드가 겹치면 순서대로 처리하고 이미 준비된 버전이 있으면 다시 내려받지 않고 그 버전을 반환한다.',
           status: 'passed',
           note: '동시에 확인하더라도 잠금으로 순서를 지키고 받은 버전을 다시 받지 않는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:19:07Z',
           steps: ['fetch가 잠금을 얻은 뒤 준비된 버전을 검사하는 순서를 읽었다.'],
           seen: ['이미 받은 버전은 바로 반환한다'],
           limits: ['업데이트 서버 연결·다운로드는 실행하지 않았다.'],
           environment: '로컬 저장소 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:19:07Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'new-window',
@@ -3751,7 +5337,7 @@ export const ALPINE_TREE: TreeMap = {
           then: '모델 표시 체크를 바꾸면 화면 상태에 즉시 반영하고 해당 연결·모델의 표시 여부 저장을 요청한다.',
           status: 'passed',
           note: '체크를 바꾸면 먼저 화면 선택을 갱신하고 서버에 저장을 요청하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:20:44Z',
           steps: ['체크박스 변경 처리에서 상태와 저장 요청 인자를 읽었다.'],
           seen: ['표시 선택이 화면 갱신과 저장 요청으로 이어진다'],
           limits: [
@@ -3759,6 +5345,12 @@ export const ALPINE_TREE: TreeMap = {
             '저장 실패 시 화면 선택을 되돌리는 동작까지 보장하는 기록은 아니다.',
           ],
           environment: '로컬 저장소 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:20:44Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'empty',
@@ -3839,13 +5431,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'check-before-save',
           when: '',
           then: '저장할 코드의 유효한 확인 결과가 없으면 먼저 확인하고, 확인 결과에 오류가 있으면 저장하지 않는다.',
-          status: 'passed',
+          status: 'recheck',
           note: '확인 결과가 없으면 먼저 확인하고 오류가 있으면 저장을 멈추는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:10:24Z',
           steps: ['현재 코드와 확인 결과의 일치 여부를 읽었다.', 'runSave의 오류 중단과 commit 순서를 확인했다.'],
           seen: ['오류가 있으면 저장 단계로 넘어가지 않는다'],
           limits: ['도구 코드를 실행하거나 패키지를 설치하지 않았다.'],
           environment: '로컬 저장소의 코드 열람',
+          changedFiles: ['apps/desktop/src/features/agents/library/code.tsx'],
+          history: [
+            {
+              at: '2026-10-17T06:10:24Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'packages',
@@ -3914,11 +5513,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '저장소 조회에서 인증이 만료되었으면 저장된 계정을 잊고 auth 오류를 반환하며 GitHub에 접근할 수 없으면 unreachable 오류를 반환한다.',
           status: 'passed',
           note: '인증이 유효하지 않은 계정은 지우고 재인증 가능한 오류로 구분하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:25:26Z',
           steps: ['저장소 조회의 두 예외 분기를 읽었다.'],
           seen: ['인증과 접근 불가 오류가 구분된다'],
           limits: ['원격 저장소 목록을 조회하지 않았다.'],
           environment: '로컬 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:25:26Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'empty',
@@ -3958,13 +5563,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'no-git',
           when: '',
           then: '프로젝트가 Git 저장소가 아니면 projects/git은 git=null을 반환한다.',
-          status: 'passed',
+          status: 'recheck',
           note: 'Git 저장소가 아니면 비어 있는 Git 상태로 응답하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:25:26Z',
           steps: ['상태 조회의 빈 결과 분기를 읽었다.'],
           seen: ['일반 폴더에서도 조회 실패로 처리하지 않는다'],
           limits: ['실제 Git·gh 명령은 실행하지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['apps/server/src/alpine_server/methods.py'],
+          history: [
+            {
+              at: '2026-10-17T06:25:26Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'branch',
@@ -4025,13 +5637,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'changed',
           when: '',
           then: '확인된 약속의 실패 기록이 의존하는 파일이 바뀌면 해결된 것으로 단정하지 않고 재확인·수정 가능 상태를 표시한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '관련 파일이 바뀌어도 기존 실패를 없애지 않고 재확인 대상으로 남기는 테스트가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:12:42Z',
           steps: ['실패 기록을 만든 뒤 의존 파일을 변경하는 테스트의 상태 기대값을 읽었다.'],
           seen: ['변경만으로 해결을 선언하지 않는다'],
           limits: ['상태 테스트를 실행하지 않았고 실제 에이전트 검증도 시작하지 않았다.'],
           environment: '로컬 저장소의 코드·테스트 열람',
+          changedFiles: ['apps/server/tests/test_flow.py'],
+          history: [
+            {
+              at: '2026-10-17T06:12:42Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'daily',
@@ -4073,13 +5692,23 @@ export const ALPINE_TREE: TreeMap = {
           id: 'snapshot',
           when: '',
           then: 'session/open은 세션 정보·현재 seq·완료 항목·진행 중 항목을 함께 반환한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '완료된 대화만이 아니라 진행 중 항목과 기준 순서도 반환하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:30:19Z',
           steps: ['스냅샷 모델과 서버 응답을 읽었다.'],
           seen: ['실행 도중 열린 클라이언트도 현재 상태를 받을 수 있다'],
           limits: ['연결 복구·스트리밍을 실제로 실행하지 않았다.'],
           environment: '로컬 코드 열람',
+          changedFiles: [
+            'apps/server/src/alpine_server/sessions.py',
+            'packages/protocol/python/src/alpine_protocol/messages.py',
+          ],
+          history: [
+            {
+              at: '2026-10-17T06:30:19Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'events',
@@ -4130,11 +5759,17 @@ export const ALPINE_TREE: TreeMap = {
           then: 'GitHub 앱을 사용할 수 없는 빌드이면 저장소 가져오기 화면에서 GitHub 로그인 영역을 숨긴다.',
           status: 'passed',
           note: 'GitHub 연동이 없는 빌드에서는 로그인 영역을 표시하지 않는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:25:26Z',
           steps: ['GitHub 상태에 따른 화면 분기를 읽었다.'],
           seen: ['연동 가능 여부로 영역을 숨긴다'],
           limits: ['실제 계정 연결은 하지 않았다.'],
           environment: '로컬 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:25:26Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'code',
@@ -4191,11 +5826,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '다른 앱에만 있는 스킬을 삭제 요청하면 not_owned 오류로 거절한다.',
           status: 'passed',
           note: '다른 앱 소유 스킬은 API에서 요청해도 지우지 않도록 거절한다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:27:02Z',
           steps: ['자체 스킬 폴더와 외부 스킬 처리 분기를 읽었다.'],
           seen: ['다른 앱 스킬을 보존한다'],
           limits: ['스킬을 실제로 지우지 않았다.'],
           environment: '로컬 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:27:02Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'missing',
@@ -4235,13 +5876,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'cancel',
           when: '',
           then: '폴더 선택을 취소하면 위치 변경 요청을 보내지 않는다.',
-          status: 'passed',
+          status: 'recheck',
           note: '폴더를 실제로 골랐을 때만 위치 변경을 요청하는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:20:44Z',
           steps: ['폴더 선택 결과의 조건부 저장을 읽었다.'],
           seen: ['취소는 설정을 바꾸지 않는다'],
           limits: ['네이티브 폴더 선택기를 열지 않았다.'],
           environment: '로컬 저장소 코드 열람',
+          changedFiles: ['apps/desktop/src/features/settings/Settings.tsx'],
+          history: [
+            {
+              at: '2026-10-17T06:20:44Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'reset',
@@ -4299,11 +5947,17 @@ export const ALPINE_TREE: TreeMap = {
           then: '현재 지도에 남아 있는 카드의 변경 항목만 눌러 이동할 수 있고 사라진 카드 항목은 이동을 비활성화한다.',
           status: 'passed',
           note: '변경 기록은 남겨도 삭제된 카드로 이동하려는 클릭은 막는 코드가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:33:29Z',
           steps: ['현재 카드 ID 집합과 버튼 비활성화 조건을 읽었다.'],
           seen: ['과거 내역과 현재 카드 존재 여부를 구분한다'],
           limits: ['변경 내역 화면을 실행하지 않았다.'],
           environment: '로컬 코드 열람',
+          history: [
+            {
+              at: '2026-10-17T06:33:29Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'empty',
@@ -4343,13 +5997,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'none',
           when: '',
           then: '이름에 맞는 파일이 없으면 일치 없음 안내를 반환하고 검색 경로가 폴더가 아니면 오류를 반환한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '검색 결과가 없는 경우와 잘못된 검색 폴더를 구분해 알려준다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:28:30Z',
           steps: ['검색 전 폴더 검사와 결과 없음 응답을 읽었다.'],
           seen: ['검색 결과 없음도 명시적으로 응답한다'],
           limits: ['실제 검색을 실행한 확인은 아니다.'],
           environment: '로컬 코드 열람',
+          changedFiles: ['packages/core/src/alpine_core/tools/glob_files.py'],
+          history: [
+            {
+              at: '2026-10-17T06:28:30Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'exclude',
@@ -4408,13 +6069,20 @@ export const ALPINE_TREE: TreeMap = {
           id: 'failure-stays',
           when: '',
           then: '이전에 실패한 확인을 다시 실행해 같은 실패가 나면 결과가 같더라도 실패 상태를 유지한다.',
-          status: 'passed',
+          status: 'recheck',
           note: '명령 결과가 이전과 같아도 원래 실패였으면 계속 실패로 표시하는 테스트가 있다.',
-          checkedAt: null,
+          checkedAt: '2026-10-17T06:12:42Z',
           steps: ['실패 명령을 승인하고 파일 변경 후 다시 실행하는 테스트를 읽었다.'],
           seen: ['같음과 성공을 혼동하지 않는다'],
           limits: ['재실행 테스트나 실제 명령은 실행하지 않았다.'],
           environment: '로컬 저장소의 코드·테스트 열람',
+          changedFiles: ['apps/server/src/alpine_server/flow.py', 'apps/server/tests/test_flow.py'],
+          history: [
+            {
+              at: '2026-10-17T06:12:42Z',
+              result: 'passed',
+            },
+          ],
         },
         {
           id: 'timeout',
@@ -4449,5 +6117,760 @@ export const ALPINE_TREE: TreeMap = {
         '명령과 폴더를 승인해 두면 파일 변경 후 결과가 같은지 표시된다. 명령이 바뀌면 다시 승인이 필요하다. 기술적으로 flow/promise의 approve_replay가 명령 키를 저장하고 재확인 후보를 백그라운드에서 실행한다.',
     },
   },
-  recent: [],
+  recent: [
+    {
+      at: '2026-10-17T12:03:29Z',
+      kind: 'promise_added',
+      cardId: 'chat-work',
+      detail:
+        '세션 입력창의 에이전트 이름 옆에 현재 세션 모델을 연결 접두사 없이 표시하며, 실행 중에도 보이고 모델 정보가 없으면 구분자도 표시하지 않는다. 새 대화의 이름 표시는 유지한다.',
+    },
+    {
+      at: '2026-10-17T12:02:55Z',
+      kind: 'check_passed',
+      cardId: 'chat-work',
+      detail:
+        '세션 입력창의 에이전트 이름 옆에 현재 세션 모델을 연결 접두사 없이 표시하며, 실행 중에도 보이고 모델 정보가 없으면 구분자도 표시하지 않는다. 새 대화의 이름 표시는 유지한다.',
+    },
+    {
+      at: '2026-10-17T08:31:36Z',
+      kind: 'promise_added',
+      cardId: 'edit-file-text',
+      detail:
+        '같은 파일의 동시 편집은 정규화된 경로의 프로세스 간 잠금으로 직렬화하여 독립 수정이 모두 남고, 저장 준비 실패나 감지한 외부 변경에는 원본을 덮어쓰지 않는다.',
+    },
+    {
+      at: '2026-10-17T08:31:36Z',
+      kind: 'promise_added',
+      cardId: 'write-file',
+      detail:
+        '전체 쓰기는 부분 편집과 같은 경로 잠금을 공유하고 임시 파일 저장 후 원자적으로 교체하며, 교체 실패나 감지한 외부 변경에는 기존 파일을 보존한다.',
+    },
+    {
+      at: '2026-10-17T08:31:36Z',
+      kind: 'removed',
+      cardId: 'run-command',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T08:31:36Z',
+      kind: 'removed',
+      cardId: 'work-result',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T07:19:28Z',
+      kind: 'check_passed',
+      cardId: 'edit-file-text',
+      detail:
+        '같은 파일의 동시 편집은 정규화된 경로의 프로세스 간 잠금으로 직렬화하여 독립 수정이 모두 남고, 저장 준비 실패나 감지한 외부 변경에는 원본을 덮어쓰지 않는다.',
+    },
+    {
+      at: '2026-10-17T07:19:28Z',
+      kind: 'check_passed',
+      cardId: 'write-file',
+      detail:
+        '전체 쓰기는 부분 편집과 같은 경로 잠금을 공유하고 임시 파일 저장 후 원자적으로 교체하며, 교체 실패나 감지한 외부 변경에는 기존 파일을 보존한다.',
+    },
+    {
+      at: '2026-10-17T06:43:47Z',
+      kind: 'check_passed',
+      cardId: 'try-tool',
+      detail: '대기 시간이 지나면 아직 실행 중이라고 알려주지만 도구 자체를 중지시키지는 않는 코드다.',
+    },
+    {
+      at: '2026-10-17T06:43:32Z',
+      kind: 'promise_added',
+      cardId: 'explore-map',
+      detail:
+        'Git에서 지도에 반영되지 않은 변경 수가 있으면 개수와 파일 목록을 보여주고, 범위 밖·제외된 변경은 별도로 표시하며 동기화 요청 버튼을 제공한다.',
+    },
+    {
+      at: '2026-10-17T06:41:22Z',
+      kind: 'promise_added',
+      cardId: 'install-skill',
+      detail:
+        '창에 ZIP·.skill·SKILL.md 또는 SKILL.md가 있는 폴더를 놓으면 스킬 가져오기를 요청하고, 일반 폴더에서 SKILL.md를 찾지 못하면 프로젝트 열기로 넘긴다.',
+    },
+    {
+      at: '2026-10-17T06:41:22Z',
+      kind: 'promise_added',
+      cardId: 'install-skill',
+      detail:
+        'SDK SkillFetcher.find는 GitHub·skills.sh 링크, owner/repo 형식, 웹 파일과 로컬 경로를 해석하며 붙여 넣은 npx skills add 명령문 자체를 실행하지 않는다.',
+    },
+    {
+      at: '2026-10-17T06:41:22Z',
+      kind: 'promise_added',
+      cardId: 'install-skill',
+      detail:
+        '기본 스킬 다운로드에서 404는 not_found, 다른 네트워크 실패는 offline, 100MiB를 넘는 응답은 too_big 오류로 구분한다.',
+    },
+    {
+      at: '2026-10-17T06:41:06Z',
+      kind: 'promise_added',
+      cardId: 'reopen-conversation',
+      detail:
+        'SDK Session.resume(storage, session_id, settings, approver=...)로 저장된 대화를 열면 저장된 모델·승인 방식·폴더를 현재 설정과 cwd보다 우선해 복원한다.',
+    },
+    {
+      at: '2026-10-17T06:41:06Z',
+      kind: 'promise_added',
+      cardId: 'reopen-conversation',
+      detail:
+        'SDK에서 없는 대화를 재개하면 LookupError, 사용할 수 없는 저장 모델은 ConfigError, 손상된 저장 대화는 ValueError로 구분한다.',
+    },
+    {
+      at: '2026-10-17T06:40:47Z',
+      kind: 'promise_added',
+      cardId: 'try-tool',
+      detail:
+        '도구 시험의 대기 한도를 넘으면 실패와 아직 실행 중이라는 출력을 반환하지만 실행 스레드를 강제로 종료하지는 않는다.',
+    },
+    {
+      at: '2026-10-17T06:40:47Z',
+      kind: 'promise_added',
+      cardId: 'try-tool',
+      detail:
+        'SDK Toolbox.test에서 코드 로딩 실패·없는 도구 이름·도구 실행 예외가 발생하면 성공 여부를 false로 하고 오류를 출력에 담는다.',
+    },
+    {
+      at: '2026-10-17T06:40:30Z',
+      kind: 'promise_added',
+      cardId: 'keep-memory',
+      detail: '새 기억 제안을 받으면 사용자 승인 전에는 기억 저장소에 쓰지 않고, 비슷한 대기 제안은 근거를 합친다.',
+    },
+    {
+      at: '2026-10-17T06:40:30Z',
+      kind: 'promise_added',
+      cardId: 'keep-memory',
+      detail: '기본 구성에서 범위별 기억이 30개를 넘게 되는 제안은 병합·교체할 기억을 지정하지 않으면 거절한다.',
+    },
+    {
+      at: '2026-10-17T06:40:30Z',
+      kind: 'promise_added',
+      cardId: 'keep-memory',
+      detail:
+        '허용하지 않는 종류·범위, 없는 교체 대상, 지원하지 않는 검사·확인 형식이나 이미 거절한 같은 근거의 제안은 Refused로 거절한다.',
+    },
+    {
+      at: '2026-10-17T06:40:30Z',
+      kind: 'promise_added',
+      cardId: 'keep-memory',
+      detail:
+        'SDK에서 Memories.approve로 승인하면 해당 프로젝트 구독자에게 알리고, 모든 프로젝트의 나 범위 기억은 다른 프로젝트 구독자에게도 알리며 반환된 해제 함수를 부르면 구독을 멈춘다.',
+    },
+    {
+      at: '2026-10-17T06:33:31Z',
+      kind: 'added',
+      cardId: 'app-help',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:33:31Z',
+      kind: 'added',
+      cardId: 'map-history',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:33:29Z',
+      kind: 'check_passed',
+      cardId: 'app-help',
+      detail: '문제 신고는 앱에서 자동 전송하지 않고 GitHub 작성 페이지를 여는 방식이다.',
+    },
+    {
+      at: '2026-10-17T06:33:29Z',
+      kind: 'check_passed',
+      cardId: 'map-history',
+      detail: '변경 기록은 남겨도 삭제된 카드로 이동하려는 클릭은 막는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:32:32Z',
+      kind: 'promise_added',
+      cardId: 'write-skill',
+      detail:
+        '서버·SDK 저장에서 스킬 이름이 유효하지 않으면 bad_name, 설명 있는 front matter가 없으면 invalid 오류를 반환한다.',
+    },
+    {
+      at: '2026-10-17T06:32:32Z',
+      kind: 'promise_added',
+      cardId: 'write-skill',
+      detail:
+        '새 스킬 이름이 이미 Alpine 또는 다른 앱의 스킬과 겹치면 exists로 거절하고, Alpine이 변경할 수 있는 기존 파일이 없으면 수정 요청은 not_owned로 거절한다.',
+    },
+    {
+      at: '2026-10-17T06:32:32Z',
+      kind: 'promise_added',
+      cardId: 'write-skill',
+      detail: 'skills/get에서 해당 이름을 찾을 수 없거나 파일을 읽을 수 없으면 not_found로 알린다.',
+    },
+    {
+      at: '2026-10-17T06:32:13Z',
+      kind: 'promise_added',
+      cardId: 'save-tool',
+      detail: '서버·SDK에서 기본 도구 또는 다른 파일 도구와 같은 이름을 저장하려 하면 name_taken 오류로 거절한다.',
+    },
+    {
+      at: '2026-10-17T06:32:13Z',
+      kind: 'promise_added',
+      cardId: 'save-tool',
+      detail:
+        '서버·SDK 저장에서 미승인 패키지가 있으면 package_not_approved, 설치가 실패하면 install_failed로 거절한다.',
+    },
+    {
+      at: '2026-10-17T06:32:13Z',
+      kind: 'promise_added',
+      cardId: 'save-tool',
+      detail:
+        'tools/list는 해당 폴더 세션과 같은 공급자의 도구·사용자 파일 상태·라이브러리 폴더를 반환하고 폴더를 생략하면 사용자 홈 기준으로 목록을 만든다.',
+    },
+    {
+      at: '2026-10-17T06:32:13Z',
+      kind: 'promise_added',
+      cardId: 'save-tool',
+      detail: 'tools/source는 지정한 사용자 파일의 전체 Python 소스를 반환한다.',
+    },
+    {
+      at: '2026-10-17T06:31:51Z',
+      kind: 'promise_added',
+      cardId: 'chat-work',
+      detail:
+        'SDK에서 모델을 바꾸면 대화·에이전트는 유지하고 다음 메시지에 적용하며 잘못된 모델 설정은 기존 모델을 유지한 채 ConfigError로 거절한다.',
+    },
+    {
+      at: '2026-10-17T06:31:51Z',
+      kind: 'promise_added',
+      cardId: 'chat-work',
+      detail:
+        'SDK에 tools 공급자를 지정하면 앞선 공급자가 가진 이름을 뒤 공급자가 덮어쓰지 못하며 optional=false 도구는 에이전트의 선택 목록에 없어도 제공한다.',
+    },
+    {
+      at: '2026-10-17T06:31:22Z',
+      kind: 'promise_added',
+      cardId: 'approve-action',
+      detail:
+        '기본 모드에서는 프로젝트 내부 일반 파일 읽기·검색은 자동 허용하고 파일 변경과 명령 실행에는 허용 규칙이 없으면 승인을 요청한다.',
+    },
+    {
+      at: '2026-10-17T06:31:22Z',
+      kind: 'promise_added',
+      cardId: 'approve-action',
+      detail:
+        'accept_edits와 auto 모드에서는 프로젝트 내부 파일 편집을 자동 허용하되 경로 밖 접근·비밀 파일 읽기와 일반 실행 호출은 별도 판정을 거친다.',
+    },
+    {
+      at: '2026-10-17T06:31:22Z',
+      kind: 'promise_added',
+      cardId: 'approve-action',
+      detail:
+        '.env·비밀 환경 파일을 직접 읽거나 작업 폴더 밖 파일에 접근하면 명시적으로 기억한 해당 허용 범위가 없는 한 승인을 요청하며 심볼릭 링크도 실제 경로로 판단한다.',
+    },
+    {
+      at: '2026-10-17T06:31:22Z',
+      kind: 'promise_added',
+      cardId: 'approve-action',
+      detail: 'yolo 모드에서는 일반 권한 검사를 건너뛰지만 기억 가드와 선행 작업 검사를 우회하지 않는다.',
+    },
+    {
+      at: '2026-10-17T06:31:22Z',
+      kind: 'promise_added',
+      cardId: 'approve-action',
+      detail:
+        '항상 허용의 도구·파일·디렉터리·명령 접두사 허용은 해당 대화에 저장해 재개할 때 유지하고 새 대화에는 넘기지 않는다.',
+    },
+    {
+      at: '2026-10-17T06:31:22Z',
+      kind: 'promise_added',
+      cardId: 'approve-action',
+      detail:
+        '기억한 명령 접두사가 맞아도 파일 리다이렉션·미허용 외부 경로·비밀 경로·실행 시에만 알 수 있는 경로가 있으면 셸 호출을 자동 허용하지 않는다.',
+    },
+    {
+      at: '2026-10-17T06:31:22Z',
+      kind: 'promise_added',
+      cardId: 'approve-action',
+      detail:
+        '자동 검토가 90초 안에 답하지 못하거나 실패하거나 연속 세 번 차단하면 사용자에게 직접 묻는 경로를 사용한다.',
+    },
+    {
+      at: '2026-10-17T06:31:22Z',
+      kind: 'promise_added',
+      cardId: 'approve-action',
+      detail:
+        '기본 검토 모델에는 사용자 메시지와 도구 호출을 제공하고 에이전트의 일반 답변·도구 결과·알림은 대화 판단 자료에서 제외한다.',
+    },
+    {
+      at: '2026-10-17T06:31:22Z',
+      kind: 'promise_added',
+      cardId: 'approve-action',
+      detail:
+        'SDK 승인자는 approve 또는 aapprove를 구현해야 하며 둘 다 있으면 aapprove를 사용하고 둘 다 없으면 TypeError로 거절한다.',
+    },
+    {
+      at: '2026-10-17T06:30:48Z',
+      kind: 'promise_added',
+      cardId: 'chat-work',
+      detail:
+        'SDK의 Session.asend는 최종 문자열 답변 또는 중단·모델 오류 시 None을 반환하며 중단·실패 이벤트로 이유를 구분한다.',
+    },
+    {
+      at: '2026-10-17T06:30:48Z',
+      kind: 'promise_added',
+      cardId: 'chat-work',
+      detail: 'SDK의 비동기 전송 작업을 취소하면 대화는 남기고 중단 이벤트·idle 상태를 기록한 뒤 취소 예외를 전달한다.',
+    },
+    {
+      at: '2026-10-17T06:30:48Z',
+      kind: 'promise_added',
+      cardId: 'chat-work',
+      detail:
+        'SDK의 Session.send는 별도 이벤트 루프에서 실행하며 같은 스레드에 실행 중인 이벤트 루프가 있을 때는 호출할 수 없다.',
+    },
+    {
+      at: '2026-10-17T06:30:48Z',
+      kind: 'promise_added',
+      cardId: 'chat-work',
+      detail: 'SDK에서 clear를 호출하면 새 대화 ID로 시작하고 저장소를 연결한 경우 기존 대화는 저장된 채 남긴다.',
+    },
+    {
+      at: '2026-10-17T06:30:48Z',
+      kind: 'promise_added',
+      cardId: 'chat-work',
+      detail: '기본 작업 루프는 한 번의 실행에서 최대 200회 모델 턴으로 제한한다.',
+    },
+    {
+      at: '2026-10-17T06:30:48Z',
+      kind: 'promise_added',
+      cardId: 'chat-work',
+      detail:
+        '서버의 session/send는 실행 작업을 시작한 뒤 빈 완료 응답을 즉시 반환하고 답변은 session/event로 전달한다.',
+    },
+    {
+      at: '2026-10-17T06:30:48Z',
+      kind: 'promise_added',
+      cardId: 'chat-work',
+      detail:
+        'session/setMode는 세션의 권한 모드를 바꾸어 반환하며 이미 대기 중인 승인 자체를 자동으로 해결하지 않는다.',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'check_passed',
+      cardId: 'compact-conversation',
+      detail: '요약할 대화가 없으면 모델을 호출하지 않는 분기가 있다.',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'check_passed',
+      cardId: 'enforce-memory-rules',
+      detail: '항상 확인하기로 정한 호출은 자동 허용보다 앞서 검사한다.',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'check_passed',
+      cardId: 'load-runtime-settings',
+      detail: '파일·환경 변수 뒤 명시 인자로 덮어쓰고 알 수 없는 항목은 거절하는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'check_passed',
+      cardId: 'observe-session',
+      detail: '완료된 대화만이 아니라 진행 중 항목과 기준 순서도 반환하는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'check_passed',
+      cardId: 'project-instructions',
+      detail: '공통 지침 다음 프로젝트 경로의 지침을 읽고 같은 폴더의 두 파일 중 하나를 고르는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'check_passed',
+      cardId: 'rpc-connect',
+      detail: '응답을 wire 필드명으로 직렬화해 한 줄씩 보내는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'check_passed',
+      cardId: 'rpc-errors',
+      detail: '응답 ID가 없는 알림에는 결과 응답을 보내지 않도록 구현되어 있다.',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'added',
+      cardId: 'compact-conversation',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'added',
+      cardId: 'enforce-memory-rules',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'added',
+      cardId: 'load-runtime-settings',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'added',
+      cardId: 'observe-session',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'added',
+      cardId: 'project-instructions',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'added',
+      cardId: 'rpc-connect',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:30:19Z',
+      kind: 'added',
+      cardId: 'rpc-errors',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:28:31Z',
+      kind: 'added',
+      cardId: 'edit-file-text',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:28:31Z',
+      kind: 'added',
+      cardId: 'find-files',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:28:31Z',
+      kind: 'added',
+      cardId: 'read-workspace',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:28:31Z',
+      kind: 'added',
+      cardId: 'run-command',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:28:31Z',
+      kind: 'added',
+      cardId: 'search-contents',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:28:31Z',
+      kind: 'added',
+      cardId: 'write-file',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:28:30Z',
+      kind: 'check_passed',
+      cardId: 'edit-file-text',
+      detail: '어느 부분을 바꿀지 모호하면 파일을 쓰기 전에 멈추는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:28:30Z',
+      kind: 'check_passed',
+      cardId: 'find-files',
+      detail: '검색 결과가 없는 경우와 잘못된 검색 폴더를 구분해 알려준다.',
+    },
+    {
+      at: '2026-10-17T06:28:30Z',
+      kind: 'check_passed',
+      cardId: 'read-workspace',
+      detail: '폴더 목록을 정렬하고 500개까지만 표시하며 생략 수를 알리는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:28:30Z',
+      kind: 'check_passed',
+      cardId: 'run-command',
+      detail: '명령이 끝없이 실행되지 않게 시간 범위를 제한하고 초과·취소 때 실행 그룹을 종료한다.',
+    },
+    {
+      at: '2026-10-17T06:28:30Z',
+      kind: 'check_passed',
+      cardId: 'search-contents',
+      detail: '잘못된 검색 패턴은 검색 실행 전 오류로 구분한다.',
+    },
+    {
+      at: '2026-10-17T06:28:30Z',
+      kind: 'check_passed',
+      cardId: 'write-file',
+      detail: '폴더를 파일처럼 덮어쓰지 않도록 검사하는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:27:26Z',
+      kind: 'added',
+      cardId: 'confirm-tool',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:27:26Z',
+      kind: 'added',
+      cardId: 'decide-map-issue',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:27:26Z',
+      kind: 'added',
+      cardId: 'delete-agent',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:27:26Z',
+      kind: 'added',
+      cardId: 'delete-map',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:27:26Z',
+      kind: 'added',
+      cardId: 'delete-skill',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:27:26Z',
+      kind: 'added',
+      cardId: 'delete-tool',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:27:26Z',
+      kind: 'added',
+      cardId: 'use-skill',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:27:02Z',
+      kind: 'check_passed',
+      cardId: 'confirm-tool',
+      detail: '확인은 파일 이름만이 아니라 지금 읽은 내용에 대해 저장된다.',
+    },
+    {
+      at: '2026-10-17T06:27:02Z',
+      kind: 'check_passed',
+      cardId: 'decide-map-issue',
+      detail: '고치지 않음은 이유 없이 저장할 수 없도록 제한되어 있다.',
+    },
+    {
+      at: '2026-10-17T06:27:02Z',
+      kind: 'check_passed',
+      cardId: 'delete-agent',
+      detail: '기본 에이전트 삭제를 화면뿐 아니라 저장 함수에서도 막는다.',
+    },
+    {
+      at: '2026-10-17T06:27:02Z',
+      kind: 'check_passed',
+      cardId: 'delete-map',
+      detail: '작업 중인 프로젝트의 지도는 삭제하지 않게 막는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:27:02Z',
+      kind: 'check_passed',
+      cardId: 'delete-skill',
+      detail: '다른 앱 소유 스킬은 API에서 요청해도 지우지 않도록 거절한다.',
+    },
+    {
+      at: '2026-10-17T06:27:02Z',
+      kind: 'check_passed',
+      cardId: 'delete-tool',
+      detail: '삭제된 도구를 에이전트가 계속 가리키지 않도록 정리하는 호출이 있다.',
+    },
+    {
+      at: '2026-10-17T06:27:02Z',
+      kind: 'check_passed',
+      cardId: 'use-skill',
+      detail: '프로젝트 스킬을 먼저 넣고 같은 이름을 하나만 남기는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:25:28Z',
+      kind: 'added',
+      cardId: 'chatgpt-sign-out',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:25:28Z',
+      kind: 'added',
+      cardId: 'github-repositories',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:25:28Z',
+      kind: 'added',
+      cardId: 'github-sign-in',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:25:28Z',
+      kind: 'added',
+      cardId: 'github-sign-out',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:25:28Z',
+      kind: 'added',
+      cardId: 'install-git-tools',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:25:28Z',
+      kind: 'added',
+      cardId: 'project-git-status',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:25:26Z',
+      kind: 'check_passed',
+      cardId: 'chatgpt-sign-out',
+      detail: 'ChatGPT 연결인지 확인한 뒤에만 로그아웃을 수행하는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:25:26Z',
+      kind: 'check_passed',
+      cardId: 'github-repositories',
+      detail: '인증이 유효하지 않은 계정은 지우고 재인증 가능한 오류로 구분하는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:25:26Z',
+      kind: 'check_passed',
+      cardId: 'github-sign-in',
+      detail: 'GitHub 연동이 없는 빌드에서는 로그인 영역을 표시하지 않는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:25:26Z',
+      kind: 'check_passed',
+      cardId: 'github-sign-out',
+      detail: '로그아웃은 저장된 GitHub 계정을 지우는 동작으로 구현되어 있다.',
+    },
+    {
+      at: '2026-10-17T06:25:26Z',
+      kind: 'check_passed',
+      cardId: 'install-git-tools',
+      detail: '창을 닫은 뒤에는 원래 복제를 다시 시작하지 않도록 검사하는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:25:26Z',
+      kind: 'check_passed',
+      cardId: 'project-git-status',
+      detail: 'Git 저장소가 아니면 비어 있는 Git 상태로 응답하는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:20:45Z',
+      kind: 'added',
+      cardId: 'change-clone-folder',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:20:45Z',
+      kind: 'added',
+      cardId: 'change-language',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:20:45Z',
+      kind: 'added',
+      cardId: 'choose-visible-models',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:20:45Z',
+      kind: 'added',
+      cardId: 'default-model',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:20:45Z',
+      kind: 'added',
+      cardId: 'default-safety',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:20:45Z',
+      kind: 'added',
+      cardId: 'remove-model-connection',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:20:44Z',
+      kind: 'check_passed',
+      cardId: 'change-clone-folder',
+      detail: '폴더를 실제로 골랐을 때만 위치 변경을 요청하는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:20:44Z',
+      kind: 'check_passed',
+      cardId: 'change-language',
+      detail: '저장 실패 여부와 별개로 먼저 언어 상태를 적용하는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:20:44Z',
+      kind: 'check_passed',
+      cardId: 'choose-visible-models',
+      detail: '체크를 바꾸면 먼저 화면 선택을 갱신하고 서버에 저장을 요청하는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:20:44Z',
+      kind: 'check_passed',
+      cardId: 'default-model',
+      detail: '현재 모델이 불러온 목록에 없더라도 선택란에 남겨 표시하는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:20:44Z',
+      kind: 'check_passed',
+      cardId: 'default-safety',
+      detail: '검토 모델을 지정하거나 별도 지정을 해제해 대화 모델을 쓰는 저장 분기가 있다.',
+    },
+    {
+      at: '2026-10-17T06:20:44Z',
+      kind: 'check_passed',
+      cardId: 'remove-model-connection',
+      detail: '연결만 지워 기본값이 끊어지게 두지 않고 그 연결을 가리키는 모델 지정도 지우는 코드가 있다.',
+    },
+    {
+      at: '2026-10-17T06:19:10Z',
+      kind: 'added',
+      cardId: 'archive-project',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:19:10Z',
+      kind: 'added',
+      cardId: 'delete-conversation',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:19:10Z',
+      kind: 'added',
+      cardId: 'delete-project',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:19:10Z',
+      kind: 'added',
+      cardId: 'download-update',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:19:10Z',
+      kind: 'added',
+      cardId: 'install-update',
+      detail: 'built',
+    },
+    {
+      at: '2026-10-17T06:19:07Z',
+      kind: 'check_passed',
+      cardId: 'archive-project',
+      detail: '같은 폴더를 열면 보관을 풀고 사용 시각을 갱신하는 코드가 있다.',
+    },
+  ],
 };

@@ -5,10 +5,22 @@
  * nothing above a promise can drift from what was checked.
  */
 
-export type PromiseStatus = 'failed' | 'checking' | 'blocked' | 'unconfirmed' | 'planned' | 'passed';
+/**
+ * `recheck`: it passed, but a file its check depended on changed since, so the pass no longer counts until checked
+ * again (the map keeps each check's file hashes).
+ */
+export type PromiseStatus = 'failed' | 'recheck' | 'checking' | 'blocked' | 'unconfirmed' | 'planned' | 'passed';
 
 /** Worst first: a row shows the first of these that any promise under it has. */
-export const STATUS_ORDER: PromiseStatus[] = ['failed', 'checking', 'blocked', 'unconfirmed', 'planned', 'passed'];
+export const STATUS_ORDER: PromiseStatus[] = [
+  'failed',
+  'recheck',
+  'checking',
+  'blocked',
+  'unconfirmed',
+  'planned',
+  'passed',
+];
 
 export interface TreePromise {
   id: string;
@@ -28,6 +40,12 @@ export interface TreePromise {
   limits?: string[];
   /** Where it was checked, e.g. "로컬 개발 서버". */
   environment?: string;
+  /** Every result the map recorded for it, oldest first. */
+  history?: { at: string; result: string }[];
+  /** For `recheck`: the files that changed since the check. */
+  changedFiles?: string[];
+  /** The person's call (set only by a person): how much it matters, and whether it is for now. */
+  priority?: 'must' | 'should' | 'later';
 }
 
 /** What a card is, read from the code: something a person sees, an API, a library call, or work done on its own. */
@@ -60,8 +78,13 @@ export interface Journey {
   goal: Localized;
   /** Who starts the journey and what they do first. */
   trigger?: Localized;
-  /** Card ids in the order the person meets them. A card may sit in several journeys. */
+  /**
+   * Card ids in the order the map lists them, or `flow:<journey id>` for a step that goes through another journey.
+   * A card may sit in several journeys.
+   */
   steps: string[];
+  /** How the steps lead to one another: branches (several ways on), merges and loops back, each with its condition. */
+  edges?: { from: string; to: string; label: string }[];
 }
 
 export interface Person {
@@ -93,6 +116,7 @@ export type Tally = Record<PromiseStatus, number> & { total: number };
 
 const emptyTally = (): Tally => ({
   failed: 0,
+  recheck: 0,
   checking: 0,
   blocked: 0,
   unconfirmed: 0,
@@ -121,13 +145,15 @@ export function worst(counts: Tally): PromiseStatus | null {
   return STATUS_ORDER.find((status) => counts[status] > 0) ?? null;
 }
 
+export const isJourneyLink = (step: string) => step.startsWith('flow:');
+
 export function cardTally(map: TreeMap, cardId: string): Tally {
   return tally(map.cards[cardId]?.promises ?? []);
 }
 
 /** A card shared by two journeys counts once in each journey, and once for the person. */
 export function journeyTally(map: TreeMap, journey: Journey): Tally {
-  return addTallies(journey.steps.map((id) => cardTally(map, id)));
+  return addTallies(journey.steps.filter((id) => !isJourneyLink(id)).map((id) => cardTally(map, id)));
 }
 
 export function personTally(map: TreeMap, person: Person): Tally {
@@ -135,7 +161,7 @@ export function personTally(map: TreeMap, person: Person): Tally {
 }
 
 export function personCards(person: Person): Set<string> {
-  return new Set(person.journeys.flatMap((journey) => journey.steps));
+  return new Set(person.journeys.flatMap((journey) => journey.steps.filter((id) => !isJourneyLink(id))));
 }
 
 /** The other journeys (of anyone) a card also appears in, so editing it says who else it touches. */

@@ -2,6 +2,7 @@ import { Button, LinkButton } from '@alpine/ui/primitives';
 import clsx from 'clsx';
 import {
   AppWindow,
+  ArrowRight,
   ChevronsDownUp,
   ChevronsUpDown,
   Circle,
@@ -9,12 +10,15 @@ import {
   CircleDashed,
   CircleSlash,
   CircleX,
+  CornerDownRight,
   Database,
   DoorOpen,
   FileCode,
   LoaderCircle,
   Package,
   Plus,
+  RotateCcw,
+  Undo2,
   Webhook,
   Workflow,
 } from 'lucide-react';
@@ -23,6 +27,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFormat, useMessages } from '@/shared/i18n';
 
 import {
+  isJourneyLink,
   journeyTally,
   personCards,
   personTally,
@@ -117,7 +122,8 @@ export function FlowTree(props: FlowTreeProps) {
   const [notice, setNotice] = useState(0);
   const canvas = useRef<TreeCanvasHandle>(null);
 
-  const nodes = useMemo(() => layoutTree(map, openSteps), [map, openSteps]);
+  const layout = useMemo(() => layoutTree(map, openSteps), [map, openSteps]);
+  const nodes = layout.nodes;
   const byId = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const focusId = focusNodeId(focus);
 
@@ -192,7 +198,9 @@ export function FlowTree(props: FlowTreeProps) {
 
   const allSteps = () =>
     map.people.flatMap((person) =>
-      person.journeys.flatMap((journey) => journey.steps.map((cardId) => stepId(journey.id, cardId))),
+      person.journeys.flatMap((journey) =>
+        journey.steps.filter((step) => !isJourneyLink(step)).map((cardId) => stepId(journey.id, cardId)),
+      ),
     );
 
   function press(node: LaidNode) {
@@ -215,6 +223,13 @@ export function FlowTree(props: FlowTreeProps) {
         setFocus({ kind: 'step', personId: node.personId!, journeyId: node.journeyId!, cardId: node.cardId! });
         return;
       }
+      case 'link': {
+        const owner = map.people.find((candidate) => candidate.journeys.some((journey) => journey.id === node.linkTo));
+        if (!owner) return;
+        setFocus({ kind: 'journey', personId: owner.id, journeyId: node.linkTo! });
+        reveal(`journey:${node.linkTo}`);
+        return;
+      }
       case 'addJourney':
         setFocus({ kind: 'addJourney', personId: node.personId! });
         return;
@@ -231,6 +246,7 @@ export function FlowTree(props: FlowTreeProps) {
       <TreeCanvas
         ref={canvas}
         nodes={nodes}
+        edges={layout.edges}
         highlight={highlight}
         strand={strand}
         initialFocus={initialFocus}
@@ -341,17 +357,39 @@ function NodeView({
         <JourneyCard map={map} journey={journey} />,
       );
     }
+    case 'link': {
+      const target = map.people
+        .flatMap((candidate) => candidate.journeys)
+        .find((journey) => journey.id === node.linkTo);
+      if (!target) return null;
+      return withArrival(
+        node,
+        shell(
+          'justify-center gap-1 rounded-xl border border-dashed border-interactive/50 bg-canvas px-3.5 hover:border-interactive',
+          <LinkCard map={map} journey={target} loops={node.loops} />,
+        ),
+      );
+    }
     case 'step': {
       const card = map.cards[node.cardId!];
       if (!card) return null;
       const counts = tally(card.promises);
-      return shell(
-        clsx(
-          'rounded-xl border bg-canvas-raised p-3.5',
-          counts.failed ? 'border-danger' : open ? 'border-interactive' : 'border-line hover:border-interactive',
-          counts.checking > 0 && 'motion-sweep',
+      return withArrival(
+        node,
+        shell(
+          clsx(
+            'rounded-xl border bg-canvas-raised p-3.5',
+            counts.failed
+              ? 'border-danger'
+              : counts.recheck
+                ? 'border-attention'
+                : open
+                  ? 'border-interactive'
+                  : 'border-line hover:border-interactive',
+            counts.checking > 0 && 'motion-sweep',
+          ),
+          <StepCard card={card} number={node.index + 1} open={open} loops={node.loops} />,
         ),
-        <StepCard card={card} number={node.index + 1} open={open} />,
       );
     }
     case 'addJourney':
@@ -439,7 +477,69 @@ const kindWords = {
 /** Worst first, so a closed card shows what needs a look before what is fine. */
 const CHECK_ORDER: PromiseStatus[] = ['failed', 'checking', 'blocked', 'planned', 'unconfirmed', 'passed'];
 
-function StepCard({ card, number, open }: { card: TreeCard; number: number; open: boolean }) {
+/** The condition a branch arrives with, written just above its first card ("↳ 실행 승인이 필요할 때"). */
+function withArrival(node: LaidNode, card: ReactNode) {
+  if (!node.arrival) return card;
+  return (
+    <>
+      <span
+        title={node.arrival}
+        className="pointer-events-none absolute -top-6 left-0 flex max-w-full items-center gap-1 truncate text-meta text-fg-muted"
+      >
+        <CornerDownRight size={12} aria-hidden className="shrink-0" />
+        <span className="truncate">{node.arrival}</span>
+      </span>
+      {card}
+    </>
+  );
+}
+
+/** A step that goes through a whole other journey: its title and how it stands; pressing it goes there. */
+function LinkCard({ map, journey, loops }: { map: TreeMap; journey: Journey; loops?: LaidNode['loops'] }) {
+  const t = useMessages(messages);
+  const text = useText();
+  const counts = journeyTally(map, journey);
+  return (
+    <>
+      <span className="flex items-center gap-1.5 text-meta text-interactive">
+        <ArrowRight size={12} aria-hidden />
+        {t.throughJourney}
+      </span>
+      <span className="flex items-center justify-between gap-2">
+        <span className="truncate font-medium">{text(journey.title)}</span>
+        <LoudStatus counts={counts} />
+      </span>
+      {loops && loops.length > 0 && <LoopsLine loops={loops} />}
+    </>
+  );
+}
+
+/** Where a card leads back to (loops), in one quiet line: "↺ 대화로 요청하기 +2". */
+function LoopsLine({ loops }: { loops: NonNullable<LaidNode['loops']> }) {
+  const t = useMessages(messages);
+  return (
+    <span
+      className="flex min-w-0 items-center gap-1 text-meta text-fg-muted"
+      title={loops.map((loop) => `${loop.title}${loop.label ? ` · ${loop.label}` : ''}`).join('\n')}
+    >
+      <Undo2 size={12} aria-hidden className="shrink-0" />
+      <span className="truncate">{t.backTo(loops[0]!.title)}</span>
+      {loops.length > 1 && <span className="shrink-0">+{loops.length - 1}</span>}
+    </span>
+  );
+}
+
+function StepCard({
+  card,
+  number,
+  open,
+  loops,
+}: {
+  card: TreeCard;
+  number: number;
+  open: boolean;
+  loops?: LaidNode['loops'];
+}) {
   const t = useMessages(messages);
   const format = useFormat();
   const counts = tally(card.promises);
@@ -473,22 +573,25 @@ function StepCard({ card, number, open }: { card: TreeCard; number: number; open
         ))}
         {card.promises.length === 0 && <li className="text-meta text-fg-faint">{t.noPromises}</li>}
       </ul>
-      <span className="mt-auto flex items-center justify-between gap-2 pt-2 text-meta text-fg-muted">
-        <span className="flex min-w-0 items-center gap-1">
-          {source && (
-            <>
-              <FileCode size={12} aria-hidden className="shrink-0" />
-              <span className="truncate font-mono">{source.split('/').at(-1)}</span>
-              {card.sources!.length > 1 && <span className="shrink-0">+{card.sources!.length - 1}</span>}
-            </>
-          )}
-        </span>
-        <span className="shrink-0">
-          {more > 0
-            ? t.morePromises(more)
-            : checked
-              ? t.checkedOn(format.date(new Date(checked)))
-              : t.passedOf(counts.passed, counts.total)}
+      <span className="mt-auto flex shrink-0 flex-col gap-1 pt-2">
+        {loops && loops.length > 0 && <LoopsLine loops={loops} />}
+        <span className="flex items-center justify-between gap-2 text-meta text-fg-muted">
+          <span className="flex min-w-0 items-center gap-1">
+            {source && (
+              <>
+                <FileCode size={12} aria-hidden className="shrink-0" />
+                <span className="truncate font-mono">{source.split('/').at(-1)}</span>
+                {card.sources!.length > 1 && <span className="shrink-0">+{card.sources!.length - 1}</span>}
+              </>
+            )}
+          </span>
+          <span className="shrink-0">
+            {more > 0
+              ? t.morePromises(more)
+              : checked
+                ? t.checkedOn(format.date(new Date(checked)))
+                : t.passedOf(counts.passed, counts.total)}
+          </span>
         </span>
       </span>
     </>
@@ -497,6 +600,7 @@ function StepCard({ card, number, open }: { card: TreeCard; number: number; open
 
 const checkIcons: Record<PromiseStatus, [typeof Circle, string]> = {
   failed: [CircleX, 'text-danger'],
+  recheck: [RotateCcw, 'text-attention'],
   checking: [LoaderCircle, 'text-interactive motion-spin'],
   blocked: [CircleSlash, 'text-attention'],
   unconfirmed: [Circle, 'text-fg-faint'],

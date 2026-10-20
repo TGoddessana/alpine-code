@@ -9,6 +9,7 @@ import {
   CircleX,
   LoaderCircle,
   Plus,
+  RotateCcw,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
@@ -171,6 +172,7 @@ export function InlineAdd({
 
 const marks: Record<PromiseStatus, [typeof Circle, string, string]> = {
   failed: [CircleX, 'text-danger', 'text-danger'],
+  recheck: [RotateCcw, 'text-attention', 'text-attention'],
   checking: [LoaderCircle, 'text-interactive motion-spin', 'text-interactive'],
   blocked: [CircleSlash, 'text-attention', 'text-attention'],
   unconfirmed: [Circle, 'text-fg-faint', 'text-fg-muted'],

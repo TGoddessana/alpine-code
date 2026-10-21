@@ -1,10 +1,11 @@
 import type { FlowGetResult } from '@alpine/protocol';
 import { Button, Menu } from '@alpine/ui/primitives';
-import { Check, Ellipsis, X } from 'lucide-react';
+import { Check, ChevronRight, Ellipsis, Folder } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { useMessages } from '@/shared/i18n';
-import { ServerError, useDeleteMap, useSetSchedule, useSetScope } from '@/shared/server';
+import { ServerError, useDeleteMap, useServer, useSetSchedule, useSetScope } from '@/shared/server';
 
 import { messages } from './messages';
 
@@ -14,15 +15,13 @@ import { messages } from './messages';
  * in one "⋯" menu, and the scope editor or the delete confirmation opens as a strip under the header.
  */
 
-/** Keeps a typed folder as a project-relative path with forward slashes. */
-const clean = (value: string) =>
-  value
-    .trim()
-    .replace(/\\/g, '/')
-    .replace(/^\.\//, '')
-    .replace(/^\/+|\/+$/g, '');
+/** Folders a map never needs: tooling, dependencies and build output. */
+const HIDDEN = new Set(['node_modules', 'dist', 'build', 'out', 'target', 'vendor', '__pycache__']);
 
-/** Which folders the map covers (the user's choice): chips to remove, a field to add one with Enter. */
+/**
+ * Which folders the map covers (the user's choice), picked from the project's own folders: none picked means the
+ * whole project. A folder opens to its subfolders; picking a folder covers everything in it.
+ */
 export function ScopeEditor({
   cwd,
   board,
@@ -32,61 +31,144 @@ export function ScopeEditor({
   cwd: string;
   board: FlowGetResult;
   readOnly: boolean;
-  /** The words in front, e.g. "지도로 만들 폴더" before the map exists. */
+  /** The words in front of what is chosen. */
   label: string;
 }) {
   const t = useMessages(messages);
   const scope = useSetScope();
-  const [path, setPath] = useState('');
   const include = board.include ?? [];
   const save = (next: string[]) => scope.mutate({ cwd, include: next });
+  const toggle = (path: string) => {
+    if (include.includes(path)) return save(include.filter((item) => item !== path));
+    // A folder covers what is in it: picking it drops its subfolders picked before.
+    save([...include.filter((item) => !item.startsWith(`${path}/`)), path]);
+  };
   return (
-    <section aria-label={t.scopeTitle} className="flex flex-col gap-1">
-      <form
-        className="flex flex-wrap items-center gap-1.5 text-meta"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const value = clean(path);
-          if (value && !include.includes(value)) save([...include, value]);
-          setPath('');
-        }}
-      >
-        <span className="text-fg-muted">{label}</span>
-        {include.length ? (
-          include.map((item) => (
-            <span key={item} className="inline-flex items-center gap-1 rounded-md border border-line px-1.5 font-mono">
-              {item}
-              <button
-                type="button"
-                disabled={readOnly || scope.isPending}
-                aria-label={t.scopeRemove(item)}
-                onClick={() => save(include.filter((other) => other !== item))}
-                className="cursor-pointer text-fg-muted hover:text-fg disabled:cursor-default"
-              >
-                <X size={12} aria-hidden />
-              </button>
-            </span>
-          ))
-        ) : (
-          <span>{t.scopeAll}</span>
-        )}
-        {!readOnly && (
-          <input
-            type="text"
-            aria-label={t.scopeLabel}
-            value={path}
-            placeholder={t.scopeAddPlaceholder}
-            onChange={(event) => setPath(event.target.value)}
-            className="w-32 min-w-0 grow rounded-md border border-transparent bg-transparent px-1.5 py-0.5 font-mono outline-none placeholder:text-fg-faint focus:border-interactive"
-          />
-        )}
-      </form>
+    <section aria-label={t.scopeTitle} className="flex w-80 max-w-full flex-col gap-2 text-left">
+      <p className="text-meta text-fg-muted">
+        {label} · <span className="text-fg">{include.length ? include.join(', ') : t.scopeAll}</span>
+      </p>
+      <div className="max-h-64 overflow-y-auto rounded-lg border border-line bg-canvas-raised p-1">
+        <FolderList cwd={cwd} path="" include={include} disabled={readOnly || scope.isPending} onToggle={toggle} />
+      </div>
       {scope.isError && (
         <p role="alert" className="text-meta text-danger">
           {t.scopeFailed}
         </p>
       )}
     </section>
+  );
+}
+
+function FolderList({
+  cwd,
+  path,
+  include,
+  disabled,
+  covered = false,
+  onToggle,
+}: {
+  cwd: string;
+  path: string;
+  include: string[];
+  disabled: boolean;
+  /** A folder above is picked: everything here is in already. */
+  covered?: boolean;
+  onToggle: (path: string) => void;
+}) {
+  const server = useServer();
+  const t = useMessages(messages);
+  const listing = useQuery({
+    queryKey: ['map-scope-folders', cwd, path],
+    queryFn: () => server.request('files/list', { cwd, path, limit: 500 }),
+    retry: false,
+  });
+  const folders = (listing.data?.entries ?? []).filter(
+    (entry) => entry.kind === 'directory' && !entry.name.startsWith('.') && !HIDDEN.has(entry.name),
+  );
+  if (listing.isLoading) return <p className="px-2 py-1 text-meta text-fg-faint">{t.loading}</p>;
+  if (!folders.length && !path) return <p className="px-2 py-1 text-meta text-fg-muted">{t.scopeNoFolders}</p>;
+  return (
+    <ul
+      role={path ? 'group' : 'tree'}
+      aria-label={path ? undefined : t.scopeTitle}
+      className={path ? 'ml-4' : undefined}
+    >
+      {folders.map((folder) => (
+        <FolderRow
+          key={folder.path}
+          cwd={cwd}
+          folder={folder.path}
+          name={folder.name}
+          include={include}
+          disabled={disabled}
+          covered={covered}
+          onToggle={onToggle}
+        />
+      ))}
+    </ul>
+  );
+}
+
+function FolderRow({
+  cwd,
+  folder,
+  name,
+  include,
+  disabled,
+  covered,
+  onToggle,
+}: {
+  cwd: string;
+  folder: string;
+  name: string;
+  include: string[];
+  disabled: boolean;
+  covered: boolean;
+  onToggle: (path: string) => void;
+}) {
+  const t = useMessages(messages);
+  const [open, setOpen] = useState(false);
+  const picked = covered || include.includes(folder);
+  // Something inside is picked: the folder shows it, so a choice deep down is never lost from sight.
+  const partly = !picked && include.some((item) => item.startsWith(`${folder}/`));
+  return (
+    <li role="treeitem" aria-expanded={open} aria-selected={picked}>
+      <div className="flex min-h-7 items-center gap-1 rounded-md px-1 hover:bg-hover">
+        <button
+          type="button"
+          aria-label={open ? t.scopeFold(name) : t.scopeUnfold(name)}
+          onClick={() => setOpen(!open)}
+          className="flex size-5 shrink-0 cursor-pointer items-center justify-center text-fg-faint hover:text-fg"
+        >
+          <ChevronRight size={13} aria-hidden className={open ? 'rotate-90' : undefined} />
+        </button>
+        <label className="flex min-w-0 grow cursor-pointer items-center gap-2 text-body">
+          <input
+            type="checkbox"
+            checked={picked}
+            ref={(box) => {
+              if (box) box.indeterminate = partly;
+            }}
+            disabled={disabled || covered}
+            onChange={() => onToggle(folder)}
+            className="size-3.5 shrink-0 accent-interactive"
+          />
+          <Folder size={14} aria-hidden className="shrink-0 text-fg-muted" />
+          <span className="truncate">{name}</span>
+        </label>
+      </div>
+      {open && (
+        <FolderList
+          cwd={cwd}
+          path={folder}
+          include={include}
+          disabled={disabled}
+          covered={picked}
+          onToggle={onToggle}
+        />
+      )}
+    </li>
   );
 }
 

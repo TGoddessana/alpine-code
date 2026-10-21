@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { ChevronRight, CircleX, RotateCcw, Search, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import { AgentChip } from '@/shared/components/composer';
+import { AgentChip, ModeChip, type Mode } from '@/shared/components/composer';
 import { latestTaskForce } from '@/shared/components/taskforce';
 import { useMessages } from '@/shared/i18n';
 import {
@@ -22,6 +22,7 @@ import {
   useSessions,
   useSetSchedule,
   useSetSessionAgent,
+  useSetSessionMode,
   useTaskForceAction,
 } from '@/shared/server';
 
@@ -240,6 +241,18 @@ export function ProductMap({
   const setAgent = useSetSessionAgent();
   const wantedAgent = newAgent ?? lastAgent ?? 'default';
   const pickedAgent = agents?.some((a) => a.id === wantedAgent) ? wantedAgent : 'default';
+  // How much the map's agents may do without asking (a TF's agents follow it too): the conversation's, until it
+  // exists my pick for it.
+  const [newMode, setNewMode] = useState<Mode | null>(null);
+  const setMode = useSetSessionMode();
+  const modeChip = (
+    <ModeChip
+      mode={mapConversation?.mode ?? newMode ?? 'default'}
+      onChange={(mode) =>
+        mapConversation ? setMode.mutate({ sessionId: mapConversation.id, mode }) : setNewMode(mode)
+      }
+    />
+  );
   const agentChip = mapConversation ? (
     <AgentChip
       context="session"
@@ -286,7 +299,15 @@ export function ProductMap({
       if (attempt.current?.key !== key) {
         // All map work goes on in the project's one map conversation, made the first time.
         const conversation =
-          mapConversation?.id ?? (await create.mutateAsync({ cwd, purpose: 'map', agent: newAgent ?? undefined })).id;
+          mapConversation?.id ??
+          (
+            await create.mutateAsync({
+              cwd,
+              purpose: 'map',
+              agent: newAgent ?? undefined,
+              mode: newMode ?? undefined,
+            })
+          ).id;
         attempt.current = { key, session: conversation };
       }
       const current = attempt.current;
@@ -740,17 +761,30 @@ export function ProductMap({
           )
         )}
         {flight && <AskFlight key={flight.at} {...flight} landed={landed} />}
-        {sessionId && live.data && !readOnly && (
-          <MapReplies
-            sessionId={sessionId}
-            items={live.data.items}
-            waiting={live.data.info.status === 'waiting'}
-            onOpen={() => onShowConversation?.()}
-          />
-        )}
-        {data && !readOnly && !board.isError && (
-          <MapAsk empty={!hasMap} disabled={busy || anyActive} onSend={askMap} agent={agentChip} />
-        )}
+        {/* What the map's conversation says back sits right above the map's input, never under it. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 mx-auto flex w-[min(560px,calc(100%-32px))] flex-col gap-2">
+          {sessionId && live.data && !readOnly && (
+            <MapReplies
+              sessionId={sessionId}
+              items={live.data.items}
+              waiting={live.data.info.status === 'waiting'}
+              onOpen={() => onShowConversation?.()}
+            />
+          )}
+          {data && !readOnly && !board.isError && (
+            <MapAsk
+              empty={!hasMap}
+              disabled={busy || anyActive}
+              onSend={askMap}
+              agent={
+                <>
+                  {agentChip}
+                  {modeChip}
+                </>
+              }
+            />
+          )}
+        </div>
         <div
           data-overlay={overlay || undefined}
           className={overlay ? 'absolute inset-y-0 right-0 z-20 flex bg-canvas shadow-overlay' : 'contents'}

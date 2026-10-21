@@ -45,7 +45,7 @@ export function MapAsk({
         event.preventDefault();
         void send();
       }}
-      className="absolute bottom-4 left-1/2 z-10 flex w-[min(560px,calc(100%-32px))] -translate-x-1/2 flex-col gap-1 rounded-2xl border border-line bg-canvas-raised p-2 pl-4 shadow-overlay"
+      className="pointer-events-auto flex w-full flex-col gap-1 rounded-2xl border border-line bg-canvas-raised p-2 pl-4 shadow-overlay"
     >
       <textarea
         value={text}
@@ -62,7 +62,7 @@ export function MapAsk({
         className="max-h-32 min-h-8 resize-none bg-transparent py-1.5 text-reading outline-none"
       />
       <div className="flex items-center gap-2">
-        <span className="-ml-2 min-w-0 grow">{agent}</span>
+        <span className="-ml-2 flex min-w-0 grow items-center gap-1">{agent}</span>
         <button
           type="submit"
           disabled={!canSend}
@@ -204,9 +204,5 @@ export function MapReplies({
       </div>
     );
   if (!body) return null;
-  return (
-    <div className="absolute bottom-20 left-1/2 z-10 flex max-h-[45%] w-[min(560px,calc(100%-32px))] -translate-x-1/2 flex-col overflow-y-auto">
-      {body}
-    </div>
-  );
+  return <div className="pointer-events-auto flex max-h-[55vh] w-full flex-col overflow-y-auto">{body}</div>;
 }

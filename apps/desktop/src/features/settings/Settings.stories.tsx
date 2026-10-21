@@ -139,7 +139,6 @@ export const AddProvider: Story = {
     await userEvent.click(await screen.findByRole('button', { name: /공급자 추가|Add provider/ }));
     const dialog = await screen.findByRole('dialog');
     await expect(within(dialog).getByRole('button', { name: /ChatGPT/ })).toBeVisible();
-    await expect(within(dialog).queryByText(/Copilot/)).not.toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: /API 키|API key/ }));
     await expect(await screen.findByLabelText(/^(키|API 키|Key|API key)$/)).toBeVisible();
   },

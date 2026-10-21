@@ -16,7 +16,7 @@ import { useCloudEnabled, useConnections } from '@/shared/server';
 
 import { messages } from './messages';
 
-type Method = 'alpine' | 'chatgpt' | 'copilot' | 'api-key' | 'local';
+type Method = 'alpine' | 'chatgpt' | 'api-key' | 'local';
 type Step = 'method' | 'alpine' | 'chatgpt' | 'api-key' | 'local';
 
 /**
@@ -67,7 +67,6 @@ export function FirstRun({ auto }: { auto: boolean }) {
 function MethodStep({ onNext }: { onNext: (step: Step) => void }) {
   const t = useMessages(messages);
   const c = useMessages(connectMessages);
-  // Copilot sign-in comes with its own work; until then its row shows what is coming.
   // Alpine's own credits come first only while Alpine Cloud is on; otherwise the list starts at ChatGPT.
   const cloud = useCloudEnabled();
   const [chosen, setChosen] = useState<Method | null>(null);
@@ -86,7 +85,6 @@ function MethodStep({ onNext }: { onNext: (step: Step) => void }) {
         options={[
           ...(cloud ? [{ value: 'alpine' as const, label: t.alpine, description: t.alpineNote }] : []),
           { value: 'chatgpt', label: c.chatgpt, description: c.chatgptNote },
-          { value: 'copilot', label: c.copilot, description: c.soon, disabled: true },
           { value: 'api-key', label: c.apiKey, description: c.apiKeyNote },
           { value: 'local', label: c.local, description: c.localNote },
         ]}
@@ -94,7 +92,7 @@ function MethodStep({ onNext }: { onNext: (step: Step) => void }) {
       <p className="text-meta text-fg-muted">{c.claudeNote}</p>
       <div className="flex justify-end gap-2 pt-2">
         <Dialog.Close render={<Button />}>{t.later}</Dialog.Close>
-        <Button variant="primary" onClick={() => onNext(method === 'copilot' ? 'api-key' : method)}>
+        <Button variant="primary" onClick={() => onNext(method)}>
           {method === 'alpine' ? t.continueWithAlpine : method === 'chatgpt' ? c.continueWithChatGPT : t.next}
         </Button>
       </div>

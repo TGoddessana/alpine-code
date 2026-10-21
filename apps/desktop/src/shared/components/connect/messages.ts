@@ -5,9 +5,6 @@ export const messages = defineMessages({
   ko: {
     chatgpt: 'ChatGPT로 로그인',
     chatgptNote: 'Plus·Pro 구독 한도 안에서 써요',
-    copilot: 'GitHub Copilot으로 로그인',
-    copilotNote: 'Pro·Pro+·Business 구독',
-    soon: '곧 연결할 수 있어요',
     apiKey: 'API 키',
     apiKeyNote: 'Anthropic, OpenAI, 코딩 플랜(GLM·Kimi) 등',
     local: '로컬·호환 서버',
@@ -81,9 +78,6 @@ export const messages = defineMessages({
   en: {
     chatgpt: 'Sign in with ChatGPT',
     chatgptNote: 'Uses your Plus or Pro plan limits',
-    copilot: 'Sign in with GitHub Copilot',
-    copilotNote: 'Pro, Pro+ or Business plan',
-    soon: 'Coming soon',
     apiKey: 'API key',
     apiKeyNote: 'Anthropic, OpenAI, coding plans (GLM, Kimi) and more',
     local: 'Local or compatible server',

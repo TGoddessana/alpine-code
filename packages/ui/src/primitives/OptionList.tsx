@@ -8,7 +8,6 @@ export interface Option<V extends string> {
   label: ReactNode;
   /** One line after the label: what choosing it means. */
   description?: ReactNode;
-  disabled?: boolean;
 }
 
 export interface OptionListProps<V extends string> {
@@ -33,7 +32,7 @@ export function OptionList<V extends string>({
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const option = options[Number(event.key) - 1];
-    if (option && !option.disabled) {
+    if (option) {
       event.preventDefault();
       onValueChange(option.value);
     }
@@ -50,10 +49,9 @@ export function OptionList<V extends string>({
         <Radio.Root
           key={option.value}
           value={option.value}
-          disabled={option.disabled}
           nativeButton
           render={<button type="button" />}
-          className="group grid w-full cursor-pointer grid-cols-[20px_200px_minmax(0,1fr)] items-start gap-3 px-3 py-2.5 text-left not-first:border-t not-first:border-line-subtle hover:bg-canvas-sunken data-checked:bg-selected data-disabled:cursor-default data-disabled:hover:bg-transparent"
+          className="group grid w-full cursor-pointer grid-cols-[20px_200px_minmax(0,1fr)] items-start gap-3 px-3 py-2.5 text-left not-first:border-t not-first:border-line-subtle hover:bg-canvas-sunken data-checked:bg-selected"
         >
           <span
             aria-hidden="true"
@@ -61,7 +59,7 @@ export function OptionList<V extends string>({
           >
             {index + 1}
           </span>
-          <span className="text-body group-data-disabled:text-fg-muted">{option.label}</span>
+          <span className="text-body">{option.label}</span>
           <span className="text-meta text-fg-muted">{option.description}</span>
         </Radio.Root>
       ))}

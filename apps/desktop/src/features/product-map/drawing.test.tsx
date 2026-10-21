@@ -214,3 +214,30 @@ it('keeps the map menu, with deleting the map, before its first card', async () 
   fireEvent.click(await screen.findByRole('button', { name: '지도 메뉴' }));
   expect(await screen.findByRole('menuitem', { name: '지도 삭제' })).toBeTruthy();
 });
+
+it('starts over when the map is deleted: its conversation is put away and let go of', async () => {
+  const onSession = vi.fn();
+  const { request } = wrap(
+    {
+      results: {
+        'flow/get': { document: { flows: [], nodes: [], edges: [] }, revision: 'r', exists: true },
+        'session/list': { sessions: [sessionInfo({ id: 'map-talk', cwd, purpose: 'map' })] },
+        'flow/delete': {},
+        'session/setDetails': { info: sessionInfo({ id: 'map-talk', cwd, purpose: 'map', archived: true }) },
+      },
+    },
+    <ProductMap cwd={cwd} onSession={onSession} />,
+  );
+  fireEvent.click(await screen.findByRole('button', { name: '지도 메뉴' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: '지도 삭제' }));
+  fireEvent.click(
+    within(await screen.findByRole('region', { name: '지도 삭제' })).getByRole('button', { name: '삭제' }),
+  );
+  await waitFor(() =>
+    expect(request.mock.calls.find(([method]) => method === 'session/setDetails')?.[1]).toEqual({
+      sessionId: 'map-talk',
+      archived: true,
+    }),
+  );
+  expect(onSession).toHaveBeenCalledWith('');
+});

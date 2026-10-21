@@ -58,8 +58,13 @@ function BoardRoute() {
         hidden={expanded}
         demo={!('__TAURI_INTERNALS__' in window)}
         onShowConversation={() => showDockTab(SUMMARY_TAB)}
+        // An empty id lets go of the session (the map started over).
         onSession={(id) =>
-          void navigate({ to: '/board', search: { project: project.path, session: id }, replace: true })
+          void navigate({
+            to: '/board',
+            search: id ? { project: project.path, session: id } : { project: project.path },
+            replace: true,
+          })
         }
       />
     </WorkspaceDock>

@@ -22,6 +22,7 @@ import {
   useSessions,
   useSetSchedule,
   useSetSessionAgent,
+  useSetSessionDetails,
   useSetSessionMode,
   useTaskForceAction,
 } from '@/shared/server';
@@ -441,6 +442,16 @@ export function ProductMap({
   const notices =
     !!data && hasMap && (uncovered > 0 || !!data.unmapped?.length || editedCount > 0 || !!data.removedCards?.length);
 
+  // A deleted map starts over from nothing: its conversation is put away (archived, not deleted) and the next request
+  // begins a new one, so nothing of the old drawing shows above the input.
+  const details = useSetSessionDetails();
+  const startOver = () => {
+    rememberDrawing(null);
+    setFlight(null);
+    if (mapConversation && !anyActive) details.mutate({ sessionId: mapConversation.id, archived: true });
+    onSession('');
+  };
+
   const mapMenu = data && (
     <MapMenu
       cwd={cwd}
@@ -602,7 +613,7 @@ export function ProductMap({
           <Button onClick={() => setScopeOpen(false)}>{t.close}</Button>
         </div>
       )}
-      {deleting && <DeleteMap cwd={cwd} onClose={() => setDeleting(false)} />}
+      {deleting && <DeleteMap cwd={cwd} onClose={() => setDeleting(false)} onDeleted={startOver} />}
       {readOnly && (
         <p role="status" className="border-b border-line bg-canvas-sunken px-5 py-2 text-body">
           {t.readOnlyBanner}

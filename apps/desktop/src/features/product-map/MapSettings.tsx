@@ -248,7 +248,16 @@ export function MapMenu({
 }
 
 /** The delete confirmation, as a strip under the header (opened from the menu). */
-export function DeleteMap({ cwd, onClose }: { cwd: string; onClose: () => void }) {
+export function DeleteMap({
+  cwd,
+  onClose,
+  onDeleted,
+}: {
+  cwd: string;
+  onClose: () => void;
+  /** The map is gone: whatever was about it starts over too. */
+  onDeleted?: () => void;
+}) {
   const t = useMessages(messages);
   const remove = useDeleteMap();
   const busy = remove.error instanceof ServerError && remove.error.data?.reason === 'flow_busy';
@@ -268,7 +277,17 @@ export function DeleteMap({ cwd, onClose }: { cwd: string; onClose: () => void }
       <Button
         variant="danger"
         disabled={remove.isPending}
-        onClick={() => remove.mutate({ cwd }, { onSuccess: onClose })}
+        onClick={() =>
+          remove.mutate(
+            { cwd },
+            {
+              onSuccess: () => {
+                onDeleted?.();
+                onClose();
+              },
+            },
+          )
+        }
       >
         {t.deleteMapNow}
       </Button>

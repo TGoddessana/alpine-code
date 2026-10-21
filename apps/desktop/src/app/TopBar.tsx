@@ -51,7 +51,7 @@ export function TopBar({ railOpen, onToggleRail }: { railOpen: boolean; onToggle
       ) : board ? (
         <BoardPart project={board.search.project} sessionId={board.search.session ?? null} />
       ) : memory ? (
-        <ProjectPages project={memory.search.project} current="memory" />
+        <ProjectName project={memory.search.project} />
       ) : start && !railOpen ? (
         <NewSessionPart />
       ) : (
@@ -151,7 +151,6 @@ function BoardPart({ project, sessionId }: { project?: string; sessionId: string
             {name}
           </span>
         )}
-        {shown && <PageTabs project={project} current="map" />}
       </Drag>
       {shown && <DockToggle files={result?.files.length} />}
     </>
@@ -175,8 +174,8 @@ function NewSessionPart() {
   );
 }
 
-/** The project name and its page tabs, on a page with no dock (the memory). */
-function ProjectPages({ project, current }: { project?: string; current: 'map' | 'memory' }) {
+/** The project name, on a page with no dock (the memory). */
+function ProjectName({ project }: { project?: string }) {
   const projects = useProjects();
   const listed = projects.data?.projects.find((p) => p.path === project);
   const name = project && (listed?.name ?? project.split('/').pop());
@@ -187,25 +186,7 @@ function ProjectPages({ project, current }: { project?: string; current: 'map' |
           {name}
         </span>
       )}
-      {!!listed && !listed.archived && <PageTabs project={project} current={current} />}
     </Drag>
-  );
-}
-
-/** Map | Memory of one project. They navigate, so they are links (the current one aria-current), not tabs. */
-function PageTabs({ project, current }: { project?: string; current: 'map' | 'memory' }) {
-  const t = useMessages(messages);
-  const tab =
-    'rounded-md px-2 py-0.5 text-meta text-fg-muted hover:text-fg aria-[current=page]:bg-canvas-raised aria-[current=page]:font-medium aria-[current=page]:text-fg aria-[current=page]:shadow-sm';
-  return (
-    <nav aria-label={t.pages} className="ml-1 flex shrink-0 items-center gap-0.5 rounded-lg bg-hover p-0.5">
-      <Link to="/board" search={{ project }} className={tab} aria-current={current === 'map' ? 'page' : undefined}>
-        {t.pageMap}
-      </Link>
-      <Link to="/memory" search={{ project }} className={tab} aria-current={current === 'memory' ? 'page' : undefined}>
-        {t.pageMemory}
-      </Link>
-    </nav>
   );
 }
 

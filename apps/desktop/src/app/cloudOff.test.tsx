@@ -74,11 +74,13 @@ afterEach(() => {
 });
 
 describe('a session with Alpine Cloud', () => {
-  it('has 올리기 in the top bar and the 데이터 tab in the dock', async () => {
+  it("has 올리기 in the top bar and 데이터 under the dock's ⋮", async () => {
     mount('/session/work', true);
     expect(await screen.findByRole('button', { name: /^올리기/ })).toBeTruthy();
     const dock = await screen.findByRole('complementary', { name: '오른쪽 창' });
-    expect(await within(dock).findByRole('tab', { name: '데이터' })).toBeTruthy();
+    await settle();
+    fireEvent.click(within(dock).getByRole('button', { name: '더보기' }));
+    expect(await screen.findByRole('menuitem', { name: '데이터' })).toBeTruthy();
   });
 });
 
@@ -89,7 +91,9 @@ describe('a session without Alpine Cloud', () => {
     expect(await within(dock).findByRole('tab', { name: '터미널' })).toBeTruthy();
     await settle();
     expect(screen.queryByRole('button', { name: /올리기/ })).toBeNull();
-    expect(within(dock).queryByRole('tab', { name: '데이터' })).toBeNull();
+    fireEvent.click(within(dock).getByRole('button', { name: '더보기' }));
+    expect(await screen.findByRole('menuitem', { name: '크게 보기' })).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: '데이터' })).toBeNull();
   });
 });
 

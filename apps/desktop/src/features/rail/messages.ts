@@ -51,9 +51,7 @@ export const messages = defineMessages({
     toolActivity: (name: string) => `${name} 실행 중`,
     resultsLimit: '최신 결과를 최대 50개 표시해요. 검색어를 더 구체적으로 적어 보세요.',
 
-    pageMap: '지도',
-    pageMemory: '기억',
-    projectPages: (name: string) => `${name} 화면`,
+    openMemory: '기억 열기',
     label: '주 메뉴',
     newSession: '새 세션',
     agents: '에이전트',
@@ -129,9 +127,7 @@ export const messages = defineMessages({
     toolActivity: (name: string) => `Running ${name}`,
     resultsLimit: 'Showing up to 50 recent results. Try a more specific search.',
 
-    pageMap: 'Map',
-    pageMemory: 'Memory',
-    projectPages: (name: string) => `${name} pages`,
+    openMemory: 'Open memory',
     label: 'Main menu',
     newSession: 'New session',
     agents: 'Agents',

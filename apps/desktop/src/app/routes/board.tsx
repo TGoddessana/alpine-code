@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
-import { WorkspaceDock } from '@/app/WorkspaceDock';
-import { type DockTab } from '@/features/dock/Dock';
+import { SUMMARY_TAB, WorkspaceDock } from '@/app/WorkspaceDock';
 import { messages as dockMessages } from '@/features/dock/messages';
 import { showDockTab, useDockExpanded, useDockOpen } from '@/features/dock/state';
 import { ProductMap } from '@/features/product-map/ProductMap';
@@ -18,9 +17,6 @@ export const Route = createFileRoute('/board')({
   component: BoardRoute,
 });
 
-/** The dock tab that holds the map's agent session. */
-const CONVERSATION_TAB = 'conversation';
-
 function BoardRoute() {
   const { project: chosen, session } = Route.useSearch();
   const projects = useProjects();
@@ -33,23 +29,22 @@ function BoardRoute() {
   const t = useMessages(dockMessages);
   const project = projects.data?.projects.find((p) => p.path === chosen && !p.archived);
   const attachedHere = !!session && !!attached.data && attached.data.info.cwd === chosen && !attached.data.deleted;
-  // The map's agent session lives in the dock, beside its work result: one place for the conversation on every page.
-  const tabs: DockTab[] = attachedHere
-    ? [
-        {
-          id: CONVERSATION_TAB,
-          label: t.conversation,
-          bare: true,
-          content: (
-            <Session key={session} sessionId={session} compact onInspectProcesses={() => showDockTab('processes')} />
-          ),
-        },
-        resultTab,
-      ]
-    : [resultTab];
+  // The map's agent session is its summary, in the dock: one place for the conversation on every page.
+  const summary = attachedHere ? (
+    <Session key={session} sessionId={session} compact onInspectProcesses={() => showDockTab('processes')} />
+  ) : (
+    <p className="px-5 text-body text-fg-muted">{t.mapSummaryEmpty}</p>
+  );
   if (!project) return <div className="p-8 text-body text-fg-muted">{projects.isLoading ? '…' : (chosen ?? '—')}</div>;
   return (
-    <WorkspaceDock cwd={project.path} sessionId={attachedHere ? session : undefined} scope={scope} tabs={tabs}>
+    <WorkspaceDock
+      cwd={project.path}
+      sessionId={attachedHere ? session : undefined}
+      scope={scope}
+      summary={summary}
+      changes={resultTab}
+      showMap={false}
+    >
       <ProductMap
         key={project.path}
         cwd={project.path}
@@ -57,7 +52,7 @@ function BoardRoute() {
         dockOpen={dockOpen}
         hidden={expanded}
         demo={!('__TAURI_INTERNALS__' in window)}
-        onShowConversation={() => showDockTab(CONVERSATION_TAB)}
+        onShowConversation={() => showDockTab(SUMMARY_TAB)}
         onSession={(id) =>
           void navigate({ to: '/board', search: { project: project.path, session: id }, replace: true })
         }

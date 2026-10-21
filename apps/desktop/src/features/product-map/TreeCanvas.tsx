@@ -21,6 +21,8 @@ import { ANCHOR_Y, bounds, type LaidEdge, type LaidNode } from './treeLayout';
 export interface ShownNode extends LaidNode {
   opacity: number;
   leaving: boolean;
+  /** Below 1 while a new card pops into place. */
+  scale?: number;
 }
 
 interface View {
@@ -38,6 +40,9 @@ export interface TreeCanvasHandle {
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 1.6;
 const DURATION = 380;
+/** Cards that arrive together come one after another, this far apart, all within STAGGER_MAX. */
+const STAGGER = 70;
+const STAGGER_MAX = 1100;
 /** Close to the app's --motion-ease (0.22, 1, 0.36, 1). */
 const ease = (t: number) => 1 - Math.pow(1 - t, 4);
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -61,8 +66,10 @@ export const TreeCanvas = forwardRef<
     overlay?: ReactNode;
     /** More buttons for the bottom toolbar, after the zoom ones. */
     tools?: ReactNode;
+    /** While the map is being drawn: keep all of it in view as it grows, until I move or zoom it myself. */
+    follow?: boolean;
   }
->(function TreeCanvas({ nodes, edges, highlight, strand, renderNode, initialFocus, overlay, tools }, ref) {
+>(function TreeCanvas({ nodes, edges, highlight, strand, renderNode, initialFocus, overlay, tools, follow }, ref) {
   const t = useMessages(messages);
   const viewport = useRef<HTMLDivElement>(null);
   const shown = useTweenedNodes(nodes);
@@ -125,6 +132,14 @@ export const TreeCanvas = forwardRef<
   useLayoutEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
+  // Moving or zooming by hand ends following; the next drawing starts following again.
+  const touched = useRef(false);
+  useEffect(() => {
+    if (!follow) touched.current = false;
+  }, [follow]);
+  useEffect(() => {
+    if (follow && !touched.current) fitTo(nodes);
+  }, [follow, nodes, fitTo]);
   useImperativeHandle(
     ref,
     () => ({
@@ -167,6 +182,7 @@ export const TreeCanvas = forwardRef<
     const element = viewport.current;
     if (!element) return;
     const onWheel = (event: WheelEvent) => {
+      touched.current = true;
       event.preventDefault();
       if (viewAnimation.current) cancelAnimationFrame(viewAnimation.current);
       if (event.ctrlKey || event.metaKey) {
@@ -228,7 +244,8 @@ export const TreeCanvas = forwardRef<
             style={{
               width: node.w,
               height: node.h,
-              transform: `translate(${node.x}px, ${node.y}px)`,
+              transform: `translate(${node.x}px, ${node.y}px)${node.scale !== undefined && node.scale !== 1 ? ` scale(${node.scale})` : ''}`,
+              transformOrigin: 'left top',
               opacity: node.opacity,
               pointerEvents: node.leaving || node.passive ? 'none' : undefined,
             }}
@@ -254,6 +271,7 @@ export const TreeCanvas = forwardRef<
         onPointerDown={(event) => {
           if ((event.target as HTMLElement).closest('[data-node]')) return;
           if (viewAnimation.current) cancelAnimationFrame(viewAnimation.current);
+          touched.current = true;
           drag.current = { x: event.clientX, y: event.clientY, id: event.pointerId };
           event.currentTarget.setPointerCapture(event.pointerId);
           setDragging(true);
@@ -385,8 +403,9 @@ function clamp(value: number, min: number, max: number) {
 
 /**
  * Follows the laid-out nodes with motion: each frame every node moves a step toward its place. A new node starts at
- * its parent's current place, invisible; a node that left the layout goes back into its parent and fades, then is
- * dropped. A change in the middle of a motion starts from wherever things are.
+ * its parent's current place, invisible and a little small; a node that left the layout goes back into its parent and
+ * fades, then is dropped. New nodes that arrive together (a map being drawn) start one after another, left to right,
+ * so the map visibly grows. A change in the middle of a motion starts from wherever things are.
  */
 function useTweenedNodes(target: LaidNode[]): ShownNode[] {
   const [shown, setShown] = useState<ShownNode[]>(() =>
@@ -411,14 +430,20 @@ function useTweenedNodes(target: LaidNode[]): ShownNode[] {
       }
       return { x: node.x, y: node.y };
     };
+    // Only a first drawing of several cards is staggered against an existing map; the very first view just appears.
+    const arriving = now.size ? target.filter((node) => !now.has(node.id)).sort((a, b) => a.x - b.x || a.y - b.y) : [];
+    const gap = arriving.length > 1 ? Math.min(STAGGER, STAGGER_MAX / arriving.length) : 0;
+    const delayOf = new Map(arriving.map((node, index) => [node.id, index * gap]));
     const tracks = [
       ...target.map((node) => {
         const from = now.get(node.id) ?? { ...node, ...originOf(node), opacity: 0 };
+        const fresh = !now.has(node.id);
         return {
           node,
-          from: { x: from.x, y: from.y, opacity: now.has(node.id) ? from.opacity : 0 },
-          to: { x: node.x, y: node.y, opacity: 1 },
+          from: { x: from.x, y: from.y, opacity: fresh ? 0 : from.opacity, scale: fresh && now.size ? 0.86 : 1 },
+          to: { x: node.x, y: node.y, opacity: 1, scale: 1 },
           leaving: false,
+          delay: delayOf.get(node.id) ?? 0,
         };
       }),
       ...[...now.values()]
@@ -427,9 +452,10 @@ function useTweenedNodes(target: LaidNode[]): ShownNode[] {
           const parent = node.parent ? (wanted.get(node.parent) ?? now.get(node.parent)) : undefined;
           return {
             node: node as LaidNode,
-            from: { x: node.x, y: node.y, opacity: node.opacity },
-            to: { x: parent?.x ?? node.x, y: parent?.y ?? node.y, opacity: 0 },
+            from: { x: node.x, y: node.y, opacity: node.opacity, scale: 1 },
+            to: { x: parent?.x ?? node.x, y: parent?.y ?? node.y, opacity: 0, scale: 1 },
             leaving: true,
+            delay: 0,
           };
         }),
     ];
@@ -440,19 +466,26 @@ function useTweenedNodes(target: LaidNode[]): ShownNode[] {
       return;
     }
     const start = performance.now();
+    const last = Math.max(0, ...tracks.map((track) => track.delay));
     const tick = (time: number) => {
-      const p = ease(Math.min(1, (time - start) / DURATION));
+      const elapsed = time - start;
       const next = tracks
-        .filter((track) => !(track.leaving && p >= 1))
-        .map(({ node, from, to, leaving }) => ({
-          ...node,
-          x: from.x + (to.x - from.x) * p,
-          y: from.y + (to.y - from.y) * p,
-          opacity: from.opacity + (to.opacity - from.opacity) * (leaving ? Math.min(1, p * 1.6) : p),
-          leaving,
-        }));
+        .filter((track) => !(track.leaving && elapsed >= DURATION))
+        .map(({ node, from, to, leaving, delay }) => {
+          const raw = Math.min(1, Math.max(0, (elapsed - delay) / DURATION));
+          const p = ease(raw);
+          return {
+            ...node,
+            x: from.x + (to.x - from.x) * p,
+            y: from.y + (to.y - from.y) * p,
+            opacity: from.opacity + (to.opacity - from.opacity) * (leaving ? Math.min(1, p * 1.6) : p),
+            // A small overshoot, so a new card lands rather than slides in.
+            scale: from.scale + (to.scale - from.scale) * p + (from.scale < 1 ? Math.sin(raw * Math.PI) * 0.04 : 0),
+            leaving,
+          };
+        });
       setShown(next);
-      frame.current = p < 1 ? requestAnimationFrame(tick) : null;
+      frame.current = elapsed < DURATION + last ? requestAnimationFrame(tick) : null;
     };
     frame.current = requestAnimationFrame(tick);
     return () => {

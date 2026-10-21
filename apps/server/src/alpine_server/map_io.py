@@ -174,14 +174,20 @@ def local_dir(root: Path) -> Path:
     return home_dir() / "projects" / project_key(root) / "product-map"
 
 
-def image(root: Path, relative: str, budget: int) -> tuple[str, int] | None:
-    """A project-relative screenshot as a data URL plus its size, or None when unusable."""
+def image(root: Path, relative: str, budget: int, *, sketch: bool = False) -> tuple[str, int] | None:
+    """A project-relative screenshot (with `sketch`, an SVG drawing instead) as a data URL plus its size, or None
+    when unusable."""
     try:
         data = read_bytes(inside(root, relative), min(LIMIT, budget))
     except (OSError, ValueError, MethodError):
         return None  # An unavailable image never prevents viewing the map.
     mime = None
-    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+    if sketch:
+        # A drawing is only ever an SVG, so a picture that looks like a capture cannot pass as one. Shown only
+        # through <img>, where an SVG's scripts and outside links never run.
+        if data.lstrip()[:5] in (b"<svg ", b"<svg>", b"<?xml"):
+            mime = "image/svg+xml"
+    elif data.startswith(b"\x89PNG\r\n\x1a\n"):
         mime = "image/png"
     elif data.startswith(b"\xff\xd8\xff"):
         mime = "image/jpeg"

@@ -5,9 +5,10 @@ import { useEffect } from 'react';
 
 import { showDockTab } from '@/features/dock/state';
 import { WorkResult } from '@/features/work-result/WorkResult';
+import { WorkSummary } from '@/features/work-result/WorkSummary';
 import { SessionChanges as CheckpointChanges } from '@/features/work-result/SessionChanges';
 import { useMessages } from '@/shared/i18n';
-import { sessionInfo, type Script } from '@/shared/server';
+import { EXAMPLE_MAP, flowScript, mergeScripts, sessionInfo, type Script } from '@/shared/server';
 import { editDemoShell } from '@/shared/server/demoTerminal';
 
 import { WorkspaceDock } from './WorkspaceDock';
@@ -54,18 +55,17 @@ function ReviewWorkspace({
         cwd="/project"
         sessionId="review"
         scope="review-story"
-        tabs={[
-          {
-            id: 'work-result',
-            label: t.changes,
-            keepMounted: true,
-            content: checkpoints ? (
-              <CheckpointChanges sessionId="review" result={result} />
-            ) : (
-              <WorkResult result={result} />
-            ),
-          },
-        ]}
+        summary={<WorkSummary sessionId="review" onOpenChanges={() => showDockTab('work-result')} />}
+        changes={{
+          id: 'work-result',
+          label: t.changes,
+          keepMounted: true,
+          content: checkpoints ? (
+            <CheckpointChanges sessionId="review" result={result} />
+          ) : (
+            <WorkResult result={result} />
+          ),
+        }}
       >
         <div />
       </WorkspaceDock>
@@ -76,71 +76,79 @@ const meta = {
   title: 'Workspace/Changes review',
   component: ReviewWorkspace,
   parameters: {
-    server: {
-      results: {
-        'devServers/list': { servers: [] },
-        'terminals/list': { processes: [] },
-        'session/open': { info: sessionInfo({ id: 'review', cwd: '/project' }), seq: 0, items: [], active: [] },
-        'session/changes': ({ checkpointId }) => ({
-          available: true,
-          checkpoints: [
-            { id: 'first', label: '품절 메뉴의 담기 버튼 비활성화', createdAt: '2026-10-17T10:00:00Z', status: 'idle' },
-            { id: 'second', label: '품절 상태 표시 추가', createdAt: '2026-10-17T10:05:00Z', status: 'idle' },
-          ],
-          files:
-            checkpointId === 'second'
-              ? [
-                  {
-                    path: 'src/components/MenuCard.tsx',
-                    added: 1,
-                    removed: 0,
-                    diff: [
-                      '@@ -19,1 +19,2 @@',
-                      '   <AddToCart disabled={menu.stock === 0} />',
-                      '+  {menu.stock === 0 && <span>품절</span>}',
-                    ],
-                  },
-                ]
-              : checkpointId === 'first'
+    server: mergeScripts(
+      flowScript(() => EXAMPLE_MAP),
+      {
+        results: {
+          'devServers/list': { servers: [] },
+          'terminals/list': { processes: [] },
+          'session/open': { info: sessionInfo({ id: 'review', cwd: '/project' }), seq: 0, items: [], active: [] },
+          'session/changes': ({ checkpointId }) => ({
+            available: true,
+            checkpoints: [
+              {
+                id: 'first',
+                label: '품절 메뉴의 담기 버튼 비활성화',
+                createdAt: '2026-10-17T10:00:00Z',
+                status: 'idle',
+              },
+              { id: 'second', label: '품절 상태 표시 추가', createdAt: '2026-10-17T10:05:00Z', status: 'idle' },
+            ],
+            files:
+              checkpointId === 'second'
                 ? [
                     {
                       path: 'src/components/MenuCard.tsx',
                       added: 1,
-                      removed: 1,
-                      diff: ['@@ -19 +19 @@', '-  <AddToCart />', '+  <AddToCart disabled={menu.stock === 0} />'],
+                      removed: 0,
+                      diff: [
+                        '@@ -19,1 +19,2 @@',
+                        '   <AddToCart disabled={menu.stock === 0} />',
+                        '+  {menu.stock === 0 && <span>품절</span>}',
+                      ],
                     },
                   ]
-                : result.files.slice(0, 2),
-        }),
-        'files/list': ({ path = '' }) => ({
-          entries:
-            path === ''
-              ? [{ name: 'src', path: 'src', kind: 'directory' }]
-              : path === 'src'
-                ? [
-                    { name: 'components', path: 'src/components', kind: 'directory' },
-                    { name: 'data', path: 'src/data', kind: 'directory' },
-                  ]
-                : path === 'src/components'
-                  ? [{ name: 'MenuCard.tsx', path: 'src/components/MenuCard.tsx', kind: 'file' }]
-                  : path === 'src/data'
-                    ? [{ name: 'menu.ts', path: 'src/data/menu.ts', kind: 'file' }]
-                    : [],
-          nextOffset: 2,
-          hasMore: false,
-        }),
-        'files/read': ({ path, line = 1 }) => ({
-          path: `/project/${path}`,
-          relativePath: path,
-          content:
-            'export function MenuCard({ menu }) {\n  return (\n    <section>\n      <h3>{menu.name}</h3>\n      <AddToCart disabled={menu.stock === 0} />\n      {menu.stock === 0 && <span>품절</span>}\n    </section>\n  );\n}',
-          startLine: 1,
-          totalLines: 9,
-          line,
-          truncated: false,
-        }),
-      },
-    } satisfies Script,
+                : checkpointId === 'first'
+                  ? [
+                      {
+                        path: 'src/components/MenuCard.tsx',
+                        added: 1,
+                        removed: 1,
+                        diff: ['@@ -19 +19 @@', '-  <AddToCart />', '+  <AddToCart disabled={menu.stock === 0} />'],
+                      },
+                    ]
+                  : result.files.slice(0, 2),
+          }),
+          'files/list': ({ path = '' }) => ({
+            entries:
+              path === ''
+                ? [{ name: 'src', path: 'src', kind: 'directory' }]
+                : path === 'src'
+                  ? [
+                      { name: 'components', path: 'src/components', kind: 'directory' },
+                      { name: 'data', path: 'src/data', kind: 'directory' },
+                    ]
+                  : path === 'src/components'
+                    ? [{ name: 'MenuCard.tsx', path: 'src/components/MenuCard.tsx', kind: 'file' }]
+                    : path === 'src/data'
+                      ? [{ name: 'menu.ts', path: 'src/data/menu.ts', kind: 'file' }]
+                      : [],
+            nextOffset: 2,
+            hasMore: false,
+          }),
+          'files/read': ({ path, line = 1 }) => ({
+            path: `/project/${path}`,
+            relativePath: path,
+            content:
+              'export function MenuCard({ menu }) {\n  return (\n    <section>\n      <h3>{menu.name}</h3>\n      <AddToCart disabled={menu.stock === 0} />\n      {menu.stock === 0 && <span>품절</span>}\n    </section>\n  );\n}',
+            startLine: 1,
+            totalLines: 9,
+            line,
+            truncated: false,
+          }),
+        },
+      } satisfies Script,
+    ),
   },
 } satisfies Meta<typeof ReviewWorkspace>;
 export default meta;
@@ -322,6 +330,17 @@ export const SdkAgentCommands: Story = {
   play: async () => {
     await expect(await screen.findByText('타입 검사')).toBeVisible();
     await expect(screen.getByText('pnpm typecheck')).toBeVisible();
-    await expect(screen.queryByRole('tab', { name: /개발 서버|Dev servers/ })).not.toBeInTheDocument();
+    await expect(screen.getByRole('button', { name: /더보기|More/ })).toBeVisible();
+  },
+};
+
+/** The row of icons with the small map above it, on 요약. */
+export const IconRow: Story = {
+  args: { initialTab: 'summary' },
+  play: async () => {
+    await expect(await screen.findByRole('tab', { name: /^(요약|Summary)$/ })).toHaveAttribute('aria-selected', 'true');
+    for (const name of [/^(터미널|Terminal)$/, /^(변경 사항|Changes)$/, /^(미리보기|Preview)$/, /^(파일|Files)$/])
+      await expect(screen.getByRole('tab', { name })).toBeVisible();
+    await expect(await screen.findByRole('button', { name: /제품 지도 크게 보기|Open the product map/ })).toBeVisible();
   },
 };

@@ -10,6 +10,8 @@ export const messages = defineMessages({
     expand: '크게 보기',
     shrink: '작게 보기',
     conversation: '작업 내용',
+    mapSummaryEmpty: '지도에서 확인이나 수정을 시작하면 AI와 나누는 이야기가 여기 보여요.',
+    more: '더보기',
   },
   en: {
     title: 'Side panel',
@@ -20,5 +22,7 @@ export const messages = defineMessages({
     expand: 'Enlarge',
     shrink: 'Shrink',
     conversation: 'Work details',
+    mapSummaryEmpty: 'When you start a check or a change on the map, the conversation with the AI shows here.',
+    more: 'More',
   },
 });

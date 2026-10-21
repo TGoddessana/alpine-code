@@ -25,6 +25,7 @@ export function JourneyMap({
   seenAt,
   start,
   onSession,
+  drawing = false,
 }: {
   cwd: string;
   board: FlowGetResult;
@@ -32,6 +33,8 @@ export function JourneyMap({
   seenAt?: string | null;
   start: JourneyStart;
   onSession: (id: string) => void;
+  /** The AI is drawing the map: keep it all in view as cards land. */
+  drawing?: boolean;
 }) {
   const t = useMessages(flowTreeMessages);
   const edit = useEditFlow();
@@ -57,6 +60,7 @@ export function JourneyMap({
   return (
     <FlowTree
       map={map}
+      drawing={drawing}
       seenAt={seenAt ?? undefined}
       readSource={readSource}
       onCheck={(targets) => void start('verify', { nodeIds: [...new Set(targets.map((target) => target.cardId))] })}

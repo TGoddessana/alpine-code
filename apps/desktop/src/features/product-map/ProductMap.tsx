@@ -1,12 +1,13 @@
 import type { FlowNode, FlowPrepareParams, FlowPrepareResult, ProductFlow } from '@alpine/protocol';
 import { Button, LinkButton, SlidingPanel } from '@alpine/ui/primitives';
-import { GitBranchPlus, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, Play, Search } from 'lucide-react';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
 import { useMessages } from '@/shared/i18n';
 import {
   ServerError,
   useFlowNode,
+  useCancelSession,
   useNewSession,
   usePrepareFlow,
   useProductMap,
@@ -51,6 +52,7 @@ const PANEL_WIDTH = 384;
 const DAY = 86_400_000;
 const SIDE_KEY = 'alpine.product-map.side';
 const VIEW_KEY = 'alpine.product-map.view';
+const DRAWING_KEY = 'alpine.product-map.drawing';
 /** Whether the daily check has not run for a day (or ever). */
 const due = (lastRun?: string | null) => {
   const at = lastRun ? Date.parse(lastRun) : 0;
@@ -110,6 +112,25 @@ export function ProductMap({
   const send = useSendMessage();
   const schedule = useSetSchedule();
   const review = useReviewFlow();
+  const cancel = useCancelSession();
+  // The session drawing the map from scratch (or continuing it), so the canvas can show it growing. Remembered, so
+  // coming back while it still draws shows the same.
+  const drawingKey = `${DRAWING_KEY}:${cwd}`;
+  const [drawingSession, setDrawingSession] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(drawingKey);
+    } catch {
+      return null;
+    }
+  });
+  const rememberDrawing = (id: string) => {
+    setDrawingSession(id);
+    try {
+      localStorage.setItem(drawingKey, id);
+    } catch {
+      // Shown for this visit only.
+    }
+  };
   const [query, setQuery] = useState('');
   const [scopeOpen, setScopeOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -186,6 +207,25 @@ export function ProductMap({
   const totals = document && summary(document, data?.states, sessions);
   const numbered = document ? numbers(document) : new Map<string, string>();
   const hasMap = !!(document?.nodes?.length || document?.flows?.length);
+  // Only drawing can run on a project with no map yet, so a working session there is the drawing (also after a reload).
+  const drawing = active && (!hasMap || drawingSession === sessionId);
+  const drawingLine = drawing && (
+    <span role="status" className="flex min-w-0 items-center gap-2 text-meta text-fg-muted">
+      <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-interactive" />
+      <span className="truncate">
+        {hasMap ? t.drawingFound(document?.flows?.length ?? 0, document?.nodes?.length ?? 0) : t.drawingFirst}
+      </span>
+      {sessionId && (
+        <button
+          type="button"
+          onClick={() => cancel.mutate(sessionId)}
+          className="shrink-0 cursor-pointer rounded-md px-1.5 text-fg-muted hover:bg-hover hover:text-fg"
+        >
+          {t.stopDrawing}
+        </button>
+      )}
+    </span>
+  );
 
   // The conversation lives in the dock, and nothing else on the map says the agent stopped to ask: a session that
   // starts waiting for my go-ahead opens the dock on it, once per wait.
@@ -246,6 +286,7 @@ export function ProductMap({
         setSelection({ node: current.prepared.nodeId, flow: flow?.id ?? null });
       }
       lastRun.current = { session: current.session, action };
+      if (action === 'discover') rememberDrawing(current.session);
       onSession(current.session);
       onShowConversation?.();
       attempt.current = null;
@@ -442,13 +483,8 @@ export function ProductMap({
 
   return (
     <main ref={area} className="flex min-h-0 min-w-0 grow flex-col bg-canvas contain-inline-size" aria-label={t.title}>
-      {!hasMap && (
-        <header className="flex min-h-14 shrink-0 items-center border-b border-line px-5 py-2">
-          <div>
-            <h1 className="text-title font-semibold">{t.title}</h1>
-            <p className="text-meta text-fg-muted">{demo ? t.demo : cwd.split('/').pop()}</p>
-          </div>
-        </header>
+      {!hasMap && drawing && (
+        <div className="flex h-9 shrink-0 items-center gap-2 border-b border-line px-3">{drawingLine}</div>
       )}
       {confirmRebuild && (
         <div className="flex flex-wrap items-center gap-3 border-b border-line bg-canvas-sunken px-5 py-3 text-body">
@@ -572,6 +608,7 @@ export function ProductMap({
       )}
       {hasMap && data && (
         <div className="flex h-9 shrink-0 items-center justify-end gap-2 border-b border-line px-3">
+          {drawingLine && <span className="mr-auto min-w-0">{drawingLine}</span>}
           <span role="radiogroup" aria-label={tree.viewJourneys} className="flex rounded-md border border-line p-0.5">
             {(['journeys', 'cards'] as const).map((value) => (
               <button
@@ -596,6 +633,7 @@ export function ProductMap({
             sessions={sessions}
             seenAt={seenAt}
             start={(action, target) => start(action, target)}
+            drawing={drawing}
             onSession={(id) => {
               onSession(id);
               onShowConversation?.();
@@ -761,16 +799,25 @@ export function ProductMap({
             </div>
           ) : !data ? (
             <p className="p-8 text-body text-fg-muted">{t.loading}</p>
+          ) : !hasMap && (drawing || busy) ? (
+            // The canvas, still empty: the first cards land here as soon as the AI writes them.
+            <div className="flex min-w-0 grow items-center justify-center">
+              <span aria-hidden className="h-16 w-44 animate-pulse rounded-xl border border-dashed border-line" />
+            </div>
           ) : !hasMap ? (
-            <div className="flex min-w-0 grow flex-col items-center justify-center gap-4 p-8 text-center">
-              <GitBranchPlus size={42} strokeWidth={1} className="text-interactive" />
-              <h2 className="text-display font-semibold">{t.empty}</h2>
-              <p className="max-w-100 text-reading text-fg-muted">{t.emptyLead}</p>
-              <ScopeEditor cwd={cwd} board={data} readOnly={readOnly} label={t.scopeBefore} />
+            <div className="flex min-w-0 grow flex-col items-center justify-center gap-3 p-8 text-center">
+              <h2 className="text-title font-semibold">{t.empty}</h2>
+              <p className="max-w-90 text-body text-fg-muted">{t.emptyLead}</p>
               <Button variant="primary" disabled={busy || active || readOnly} onClick={() => void start('discover')}>
-                <Search size={16} />
-                {busy ? t.starting : t.discover}
+                <Play size={14} />
+                {t.discover}
               </Button>
+              <details className="group mt-1 flex flex-col items-center">
+                <summary className="cursor-pointer list-none text-meta text-interactive">{t.scopeBefore}</summary>
+                <div className="mt-3 text-left">
+                  <ScopeEditor cwd={cwd} board={data} readOnly={readOnly} label={t.scopeTitle} />
+                </div>
+              </details>
             </div>
           ) : (
             <div className="relative flex min-h-0 min-w-0 grow flex-col">

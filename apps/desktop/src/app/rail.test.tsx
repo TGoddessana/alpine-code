@@ -109,10 +109,10 @@ describe('independent project browsing', () => {
     await waitFor(() => expect(router.state.location.href).toBe('/board' + q(docs)));
   });
 
-  it('stays on the memory page when another project is picked there', async () => {
+  it("opens the picked project's map, also from the memory page", async () => {
     const { router } = mount('/memory' + q(app));
     fireEvent.click(await screen.findByRole('button', { name: 'docs-site 열기' }));
-    await waitFor(() => expect(router.state.location.href).toBe('/memory' + q(docs)));
+    await waitFor(() => expect(router.state.location.href).toBe('/board' + q(docs)));
   });
 
   it('still starts a new session in a project from its + and from the top link', async () => {

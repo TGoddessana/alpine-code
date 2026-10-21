@@ -1085,6 +1085,7 @@ export interface FeatureFile {
   sources?: string[];
   preview?: string | null;
   previewAt?: string | null;
+  sketch?: string | null;
   example?: string;
   howToTry?: string;
   /**
@@ -1996,6 +1997,9 @@ export interface FlowGetResult {
   previews?: {
     [k: string]: string;
   };
+  sketches?: {
+    [k: string]: string;
+  };
   changes?: FlowChange[];
   states?: {
     [k: string]: NodeState;
@@ -2064,6 +2068,7 @@ export interface FlowNode {
   sources?: string[];
   preview?: string | null;
   previewAt?: string | null;
+  sketch?: string | null;
   example?: string;
   howToTry?: string;
   /**

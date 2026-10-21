@@ -3268,6 +3268,17 @@
           ],
           "default": null
         },
+        "sketch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "example": {
           "default": "",
           "maxLength": 2000,
@@ -4021,6 +4032,12 @@
           },
           "type": "object"
         },
+        "sketches": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
         "changes": {
           "items": {
             "$ref": "#/$defs/FlowChange"
@@ -4167,6 +4184,17 @@
           "anyOf": [
             {
               "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sketch": {
+          "anyOf": [
+            {
               "type": "string"
             },
             {

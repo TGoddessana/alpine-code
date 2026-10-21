@@ -16,6 +16,7 @@ export {
 } from './PanelResizer';
 export { Popover } from './Popover';
 export { Tabs } from './Tabs';
+export { Tooltip, TooltipGroup } from './Tooltip';
 
 export { AutoHeight } from './AutoHeight';
 export { Collapse } from './Collapse';

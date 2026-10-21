@@ -96,6 +96,8 @@ function toCard(node: FlowNode, result: FlowGetResult, sessions: SessionInfo[]):
     sessionId: node.sessionId ?? null,
     screen: result.previews?.[node.id]
       ? { src: result.previews[node.id]!, kind: 'shot', at: node.previewAt ?? null }
-      : undefined,
+      : result.sketches?.[node.id]
+        ? { src: result.sketches[node.id]!, kind: 'sketch', at: null }
+        : undefined,
   };
 }

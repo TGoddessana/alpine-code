@@ -1,4 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { LucideIcon } from 'lucide-react';
+import type { ReactElement } from 'react';
+import { Folder, SquareTerminal } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { LocaleProvider } from '@/shared/i18n';
@@ -26,6 +29,12 @@ beforeEach(() => {
   cleanup();
 });
 afterEach(cleanup);
+
+/** 크게 보기 and 작게 보기 are under ⋮ (더보기). */
+async function fromMore(name: string) {
+  fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name }));
+}
 
 function ResetClosed() {
   const [, setOpen] = useDockOpen();
@@ -61,12 +70,36 @@ describe('dock', () => {
     expect(input.value).toBe('아직 작성 중인 내용');
   });
 
-  it('closes from its own close button', () => {
+  it('has no close button of its own: the top bar closes it', () => {
     render(<Page />);
     fireEvent.click(screen.getByRole('button', { name: /오른쪽 창 열기/ }));
     const dock = screen.getByRole('complementary');
-    fireEvent.click(dock.querySelector('button[aria-label="오른쪽 창 닫기"]')!);
-    expect(screen.queryByRole('complementary')).toBeNull();
+    expect(dock.querySelector('button[aria-label="오른쪽 창 닫기"]')).toBeNull();
+  });
+
+  it('shows icon tabs named by their label, a line after a divider, and the rarer places under ⋮', async () => {
+    const icons: {
+      id: string;
+      label: string;
+      icon?: LucideIcon;
+      divider?: boolean;
+      more?: boolean;
+      content: ReactElement;
+    }[] = [
+      { id: 'one', label: '첫째', divider: true, content: <p>첫째 내용</p> },
+      { id: 'term', label: '터미널', icon: SquareTerminal, content: <p>터미널 내용</p> },
+      { id: 'files', label: '파일', icon: Folder, content: <p>파일 내용</p> },
+      { id: 'rare', label: '드문 곳', more: true, content: <p>드문 내용</p> },
+    ];
+    render(<Page list={icons} />);
+    fireEvent.click(screen.getByRole('button', { name: /오른쪽 창 열기/ }));
+    const term = screen.getByRole('tab', { name: '터미널' });
+    expect(term.textContent).toBe('');
+    expect(screen.queryByRole('tab', { name: '드문 곳' })).toBeNull();
+    fireEvent.keyDown(screen.getByRole('tab', { name: '첫째' }), { key: 'End' });
+    expect(screen.getByRole('tabpanel').textContent).toBe('파일 내용');
+    await fromMore('드문 곳');
+    expect(screen.getByRole('tabpanel').textContent).toBe('드문 내용');
   });
 
   it('shows the tab strip with the tab I am on, so a surface is just one more entry', () => {
@@ -109,7 +142,7 @@ describe('dock', () => {
     expect(screen.getByRole('tabpanel').textContent).toBe('첫째 내용');
   });
 
-  it('takes the whole width under 크게 보기 and gives it back, keeping the page mounted', () => {
+  it('takes the whole width under 크게 보기 and gives it back, keeping the page mounted', async () => {
     render(<Page />);
     fireEvent.click(screen.getByRole('button', { name: /오른쪽 창 열기/ }));
     const page = screen.getByText('페이지');
@@ -117,51 +150,51 @@ describe('dock', () => {
     expect(dock.style.width).toBe('360px');
     expect(screen.getByRole('separator', { name: '오른쪽 창 너비' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: '크게 보기', pressed: false }));
+    await fromMore('크게 보기');
     expect(dock.style.width).toBe('');
     expect(page.parentElement!.className).toContain('hidden');
     expect(screen.queryByRole('separator')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: '작게 보기', pressed: true }));
+    await fromMore('작게 보기');
     expect(dock.style.width).toBe('360px');
     expect(page.parentElement!.className).not.toContain('hidden');
   });
 
-  it('shows the normal width on another page, and does not bring 크게 보기 back when returning', () => {
+  it('shows the normal width on another page, and does not bring 크게 보기 back when returning', async () => {
     const { rerender } = render(<Page scope="session:one" />);
     fireEvent.click(screen.getByRole('button', { name: /오른쪽 창 열기/ }));
-    fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
+    await fromMore('크게 보기');
     const page = screen.getByText('페이지');
     expect(page.parentElement!.className).toContain('hidden');
 
     rerender(<Page scope="session:two" />);
     expect(screen.getByText('페이지').parentElement!.className).not.toContain('hidden');
-    expect(screen.getByRole('button', { name: '크게 보기', pressed: false })).toBeTruthy();
+    expect(screen.getByRole('complementary').dataset.expanded).toBe('false');
 
     rerender(<Page scope="session:one" />);
     expect(screen.getByText('페이지').parentElement!.className).not.toContain('hidden');
-    expect(screen.getByRole('button', { name: '크게 보기', pressed: false })).toBeTruthy();
+    expect(screen.getByRole('complementary').dataset.expanded).toBe('false');
   });
 
-  it('starts with the normal width when the page unmounts while enlarged and is mounted again', () => {
+  it('starts with the normal width when the page unmounts while enlarged and is mounted again', async () => {
     const { unmount } = render(<Page scope="session:one" />);
     fireEvent.click(screen.getByRole('button', { name: /오른쪽 창 열기/ }));
-    fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
+    await fromMore('크게 보기');
     expect(screen.getByText('페이지').parentElement!.className).toContain('hidden');
 
     unmount();
     render(<Page scope="session:one" />);
     expect(screen.getByText('페이지').parentElement!.className).not.toContain('hidden');
-    expect(screen.getByRole('button', { name: '크게 보기', pressed: false })).toBeTruthy();
+    expect(screen.getByRole('complementary').dataset.expanded).toBe('false');
   });
 
-  it('starts with the normal width again after being closed while enlarged', () => {
+  it('starts with the normal width again after being closed while enlarged', async () => {
     render(<Page />);
     fireEvent.click(screen.getByRole('button', { name: /오른쪽 창 열기/ }));
-    fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
+    await fromMore('크게 보기');
     fireEvent.click(screen.getByRole('button', { name: '오른쪽 창 닫기', pressed: true }));
     fireEvent.click(screen.getByRole('button', { name: /오른쪽 창 열기/ }));
-    expect(screen.getByRole('button', { name: '크게 보기', pressed: false })).toBeTruthy();
+    expect(screen.getByRole('complementary').dataset.expanded).toBe('false');
   });
 });
 

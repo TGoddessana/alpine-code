@@ -363,6 +363,26 @@ def test_missing_preview_does_not_hide_map_and_external_paths_are_not_read(proj,
     assert list(result.previews) == ["ok"]
 
 
+def test_a_drawn_sketch_shows_until_a_screenshot_exists_and_only_as_svg(proj):
+    (proj / "shot.png").write_bytes(PNG)
+    (proj / "drawn.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"><rect width="4" height="4"/></svg>')
+    (proj / "photo.png").write_bytes(PNG)
+    write_map(
+        proj,
+        features=[
+            {"id": "drawn", "title": "Drawn", "sketch": "drawn.svg"},
+            {"id": "both", "title": "Both", "preview": "shot.png", "sketch": "drawn.svg"},
+            {"id": "notsvg", "title": "Not SVG", "sketch": "photo.png"},
+            {"id": "outside", "title": "Outside", "sketch": "../drawn.svg"},
+        ],
+        flows=[],
+    )
+    result = get(proj)
+    assert list(result.sketches) == ["drawn"]
+    assert result.sketches["drawn"].startswith("data:image/svg+xml;base64,")
+    assert list(result.previews) == ["both"]
+
+
 # ---- overview, schema, ignore file
 
 

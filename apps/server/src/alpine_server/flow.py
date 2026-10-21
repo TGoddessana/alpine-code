@@ -253,6 +253,11 @@ def _result(root: Path, layout: Layout) -> FlowGetResult:
         if node.preview and (loaded := image(root, node.preview, budget)):
             previews[node.id], size = loaded
             budget -= size
+    sketches: dict[str, str] = {}
+    for node in document.nodes:
+        if node.sketch and node.id not in previews and (loaded := image(root, node.sketch, budget, sketch=True)):
+            sketches[node.id], size = loaded
+            budget -= size
     changes = map_state.history(root, layout, extra, write=writable)
     result = FlowGetResult(
         revision=_revision(root, layout),
@@ -260,6 +265,7 @@ def _result(root: Path, layout: Layout) -> FlowGetResult:
         exists=True,
         read_only=layout.read_only,
         previews=previews,
+        sketches=sketches,
         changes=changes,
         states=states,
         provenance=_shown_provenance(labels, cards, witness, layout),
@@ -861,7 +867,10 @@ instead of writing it as a promise. Preserve existing condition ids.
 Card kinds: screen, api, sdk, process, data. Write each card's `example` in plain language first (what a user sees
 or gets: for a screen, its visible texts), then the technical calls (URLs, requests, functions) as a second part.
 For screens, capture a real screenshot if a tool allows and store its project-relative path in `preview`, with
-`previewAt` set to the capture time (ISO 8601 UTC); never draw a fake screenshot or use an external URL.
+`previewAt` set to the capture time (ISO 8601 UTC); never use an external URL. When no tool can capture a screen,
+you may draw it from the code as a plain SVG wireframe (boxes, lines and the screen's visible texts; no photos, no
+realistic styling) saved under .alpine-code/map/sketches/ and store its project-relative path in `sketch`; the app
+labels it as drawn. Never put a drawing in `preview`, and capture a real screenshot once a tool allows.
 When trying a card needs something a person would not know (a test account, keys, seed data, a command, a running
 server), write it in `howToTry` in plain words.
 Phase: built means implemented, NOT verified; new branches start planned; use building while actually working.

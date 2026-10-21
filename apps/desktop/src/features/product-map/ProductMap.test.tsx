@@ -299,12 +299,12 @@ describe('living product map', () => {
       },
     });
     expect(await screen.findByRole('alert')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: '만들어진 기능 찾기' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '지도 그리기' })).toBeNull();
     expect(request.mock.calls.some(([method]) => method === 'flow/prepare')).toBe(false);
   });
   it('has an empty discovery state instead of invented features', async () => {
     mount({ results: { 'flow/get': { document: { flows: [], nodes: [], edges: [] }, revision: 'missing' } } });
-    expect(await screen.findByRole('button', { name: '만들어진 기능 찾기' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '지도 그리기' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /장바구니/ })).toBeNull();
   });
   it('can collapse a whole flow without losing the shared node in another flow', async () => {
@@ -596,7 +596,7 @@ describe('living product map', () => {
   });
   it('hides the new-flow button until a map exists', async () => {
     mount({ results: { 'flow/get': { document: { flows: [], nodes: [], edges: [] }, revision: 'missing' } } });
-    await screen.findByRole('button', { name: '만들어진 기능 찾기' });
+    await screen.findByRole('button', { name: '지도 그리기' });
     expect(screen.queryByRole('button', { name: '새 흐름' })).toBeNull();
     expect(screen.queryByRole('button', { name: '지도 메뉴' })).toBeNull();
   });
@@ -1447,14 +1447,14 @@ describe('discovery and map settings', () => {
     expect(within(strip).getByText(/되돌릴 수 없어요/)).toBeTruthy();
     fireEvent.click(within(strip).getByRole('button', { name: '삭제' }));
     await waitFor(() => expect(request.mock.calls.find(([method]) => method === 'flow/delete')?.[1]).toEqual({ cwd }));
-    expect(await screen.findByRole('button', { name: '만들어진 기능 찾기' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '지도 그리기' })).toBeTruthy();
   });
 
   it('shows the scope before the map is made', async () => {
     const { request } = mount({
       results: { 'flow/get': { document: { flows: [], nodes: [], edges: [] }, revision: 'missing', include: [] } },
     });
-    expect(await screen.findByText('지도로 만들 폴더')).toBeTruthy();
+    fireEvent.click(await screen.findByText('살펴볼 폴더 고르기'));
     expect(screen.getByText('프로젝트 전체')).toBeTruthy();
     const field = screen.getByLabelText('폴더 경로');
     fireEvent.change(field, { target: { value: 'apps/web' } });

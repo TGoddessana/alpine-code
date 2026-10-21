@@ -1688,6 +1688,9 @@ class FeatureFile(Message):
     """Optional project-relative PNG/JPEG/WebP screenshot. Never an external URL."""
     preview_at: str | None = Field(default=None, max_length=40)
     """ISO 8601 UTC time the preview screenshot was taken."""
+    sketch: str | None = None
+    """Optional project-relative SVG the agent drew from the code while no screenshot exists: lines and the screen's
+    visible texts only. The app always labels it as drawn, and `preview` wins once there is one."""
     example: str = Field(default="", max_length=2000)
     how_to_try: str = Field(default="", max_length=1000)
     """What a person needs to try this card themselves (a test account, keys, seed data, a command, a running
@@ -1977,6 +1980,8 @@ class FlowGetResult(Message):
     read_only: bool = False
     """The map was written by a newer Alpine; this one shows it without writing."""
     previews: dict[str, str] = Field(default_factory=dict)
+    sketches: dict[str, str] = Field(default_factory=dict)
+    """Card id → the agent's drawn sketch as a data URL, for cards without a screenshot."""
     changes: list[FlowChange] = Field(default_factory=list)
     """Recent changes, newest first, at most 200."""
     states: dict[str, NodeState] = Field(default_factory=dict)

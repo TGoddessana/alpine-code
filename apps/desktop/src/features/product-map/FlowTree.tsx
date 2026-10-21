@@ -91,6 +91,8 @@ export interface FlowTreeProps {
   changesOnly?: boolean;
   /** When the person last looked at the map (ISO); later changes count as new. Unknown: only rechecks and breaks. */
   seenAt?: string;
+  /** The AI is drawing the map: the canvas keeps all of it in view as it grows. */
+  drawing?: boolean;
 }
 
 /** What the side panel shows: a node's details, a promise of a step, or a form for what a "+" adds. */
@@ -311,6 +313,7 @@ export function FlowTree(props: FlowTreeProps) {
         highlight={highlight}
         strand={strand}
         initialFocus={initialFocus}
+        follow={props.drawing}
         renderNode={(node) => (
           <NodeView
             node={node}

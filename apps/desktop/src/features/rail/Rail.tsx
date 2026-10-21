@@ -2,20 +2,7 @@ import type { CloneInfo, ProjectInfo, SessionInfo } from '@alpine/protocol';
 import { Collapse, ContextMenu, Menu, PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
 import { Link, useMatch, useNavigate } from '@tanstack/react-router';
 import clsx from 'clsx';
-import {
-  Archive,
-  BookMarked,
-  Bot,
-  ChevronRight,
-  Ellipsis,
-  Map,
-  Pin,
-  Plus,
-  Search,
-  Settings,
-  SquarePen,
-  X,
-} from 'lucide-react';
+import { Archive, Bot, ChevronRight, Ellipsis, Pin, Plus, Search, Settings, SquarePen, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { ProgressBar, ProjectAddDialog, projectAddMessages } from '@/shared/components/project-add';
@@ -421,6 +408,7 @@ function ProjectGroup({
         <>
           <Menu.Item onClick={onPin}>{pinned ? t.unpin : t.pin}</Menu.Item>
           <Menu.Item render={<Link to="/" search={{ project: project.path }} />}>{t.newSession}</Menu.Item>
+          <Menu.Item render={<Link to="/memory" search={{ project: project.path }} />}>{t.openMemory}</Menu.Item>
         </>
       )}
       <Menu.Item onClick={() => void revealInFinder(project.path)}>{t.revealInFinder}</Menu.Item>
@@ -512,28 +500,6 @@ function ProjectGroup({
       )}
       <Collapse open={open}>
         <div className="ml-3.5 flex flex-col gap-0.5 border-l border-line pl-2">
-          {current && !filtered && (
-            <nav aria-label={t.projectPages(project.name)} className="mb-1 flex gap-1">
-              <Link
-                to="/board"
-                search={{ project: project.path }}
-                className={item}
-                activeProps={{ className: 'bg-selected font-medium' }}
-              >
-                <Map size={14} aria-hidden="true" />
-                {t.pageMap}
-              </Link>
-              <Link
-                to="/memory"
-                search={{ project: project.path }}
-                className={item}
-                activeProps={{ className: 'bg-selected font-medium' }}
-              >
-                <BookMarked size={14} aria-hidden="true" />
-                {t.pageMemory}
-              </Link>
-            </nav>
-          )}
           {listed.map((session) => (
             <SessionRow key={session.id} session={session} onDelete={onDeleteSession} onArchive={onArchiveSession} />
           ))}
@@ -552,11 +518,10 @@ function ProjectGroup({
   );
 }
 
-/** A click on a project's name: its map, or (on the memory page) its memory. */
+/** A click on a project's name opens its map. */
 function useGoToProject() {
   const navigate = useNavigate();
-  const memory = useMatch({ from: '/memory', shouldThrow: false });
-  return (path: string) => void navigate({ to: memory ? '/memory' : '/board', search: { project: path } });
+  return (path: string) => void navigate({ to: '/board', search: { project: path } });
 }
 
 function CloneRow({ clone, current }: { clone: CloneInfo; current: boolean }) {

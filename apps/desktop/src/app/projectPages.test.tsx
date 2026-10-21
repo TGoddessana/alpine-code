@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LocaleProvider } from '@/shared/i18n';
@@ -59,65 +59,26 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe('project pages in the rail', () => {
-  it('lists 지도 and 기억 under the project, linking to its pages, the current one marked', async () => {
+describe('project pages', () => {
+  it('has no page links under the project or in the top bar: the project name opens its map', async () => {
     mount('/memory' + q(cwd));
-    const pages = await screen.findByRole('navigation', { name: 'alpine-code 화면' });
-    const map = within(pages).getByRole('link', { name: '지도' });
-    const memory = within(pages).getByRole('link', { name: '기억' });
-    expect(map.getAttribute('href')).toBe('/board' + q(cwd));
+    const name = await screen.findByRole('button', { name: 'alpine-code 열기' });
+    expect(screen.queryByRole('link', { name: '지도' })).toBeNull();
+    expect(screen.queryByRole('link', { name: '기억' })).toBeNull();
+    fireEvent.click(name);
+    expect(await screen.findByRole('main', { name: '제품 지도' })).toBeTruthy();
+  });
+
+  it('opens the memory from the project menu', async () => {
+    mount('/board' + q(cwd));
+    fireEvent.click(await screen.findByRole('button', { name: 'alpine-code 메뉴' }));
+    const memory = await screen.findByRole('menuitem', { name: '기억 열기' });
     expect(memory.getAttribute('href')).toBe('/memory' + q(cwd));
-    await waitFor(() => expect(memory.getAttribute('aria-current')).toBe('page'));
-    expect(map.getAttribute('aria-current')).toBeNull();
   });
 
-  it('marks 지도 on the board', async () => {
-    mount('/board' + q(cwd));
-    const pages = await screen.findByRole('navigation', { name: 'alpine-code 화면' });
-    await waitFor(() =>
-      expect(within(pages).getByRole('link', { name: '지도' }).getAttribute('aria-current')).toBe('page'),
-    );
-  });
-
-  it('no longer offers 기억 열기 in the project menu', async () => {
-    mount('/board' + q(cwd));
-    const trigger = await screen.findByRole('button', { name: 'alpine-code 메뉴' });
-    fireEvent.click(trigger);
-    expect(await screen.findByRole('menuitem', { name: '새 세션' })).toBeTruthy();
-    expect(screen.queryByRole('menuitem', { name: '기억 열기' })).toBeNull();
-  });
-});
-
-describe('page tabs in the top bar', () => {
-  const bar = () => screen.findByRole('navigation', { name: '프로젝트 화면' });
-
-  it('on the board select 지도 and link to the memory', async () => {
-    mount('/board' + q(cwd));
-    const tabs = await bar();
-    expect(within(tabs).getByRole('link', { name: '지도' }).getAttribute('aria-current')).toBe('page');
-    expect(within(tabs).getByRole('link', { name: '기억' }).getAttribute('href')).toBe('/memory' + q(cwd));
-  });
-
-  it('on the memory select 기억, link back to the map, and show no dock button', async () => {
+  it('shows the memory without a dock button', async () => {
     mount('/memory' + q(cwd));
-    const tabs = await bar();
-    expect(within(tabs).getByRole('link', { name: '기억' }).getAttribute('aria-current')).toBe('page');
-    expect(within(tabs).getByRole('link', { name: '지도' }).getAttribute('href')).toBe('/board' + q(cwd));
+    expect(await screen.findByText('alpine-code', { selector: 'span[title]' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /오른쪽 창/ })).toBeNull();
-  });
-
-  it('are hidden for an unknown project', async () => {
-    mount('/memory' + q('/Users/me/gone'));
-    expect(await screen.findByText('gone')).toBeTruthy();
-    expect(screen.queryByRole('navigation', { name: '프로젝트 화면' })).toBeNull();
-  });
-
-  it('are hidden for an archived project', async () => {
-    mount(
-      '/board' + q(cwd),
-      PROJECTS.map((p) => (p.path === cwd ? { ...p, archived: true } : p)),
-    );
-    expect(await screen.findByText(cwd)).toBeTruthy();
-    expect(screen.queryByRole('navigation', { name: '프로젝트 화면' })).toBeNull();
   });
 });

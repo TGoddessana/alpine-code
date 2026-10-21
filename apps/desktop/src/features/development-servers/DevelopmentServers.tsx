@@ -28,7 +28,8 @@ export function DevelopmentServers({
   const [command, setCommand] = useState('pnpm dev');
   const [port, setPort] = useState('5173');
   const [selected, setSelected] = useState<string | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
+  // This is the dock's 미리보기, so a running server shows its screen first.
+  const [showPreview, setShowPreview] = useState(true);
   const current = servers.data?.servers.find((s) => s.id === selected) ?? servers.data?.servers.at(-1);
   const logs = useDevelopmentServerLogs(current?.id ?? null);
   const conflict = actions.start.data?.conflict;

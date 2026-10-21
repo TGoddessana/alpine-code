@@ -1,10 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { WorkspaceDock } from '@/app/WorkspaceDock';
+import { CHANGES_TAB, SUMMARY_TAB, WorkspaceDock } from '@/app/WorkspaceDock';
 import { showDockTab } from '@/features/dock/state';
 import { RecordItems } from '@/features/session/RecordItems';
 import { Session } from '@/features/session/Session';
-import { TASKFORCE_TAB, useTaskForceTab } from '@/features/taskforce/useTaskForceTab';
+import { useTaskForceTab } from '@/features/taskforce/useTaskForceTab';
+import { WorkSummary } from '@/features/work-result/WorkSummary';
 import { useWorkResultTab } from '@/features/work-result/useWorkResultTab';
 import { useSession, type Item } from '@/shared/server';
 
@@ -32,13 +33,21 @@ function SessionRoute() {
       cwd={cwd}
       sessionId={sessionId}
       scope={`session:${sessionId}`}
-      tabs={taskForceTab ? [resultTab, taskForceTab] : [resultTab]}
+      // A TF's agents are the summary of a TF session; otherwise what the work touched.
+      summary={
+        taskForceTab ? (
+          taskForceTab.content
+        ) : (
+          <WorkSummary sessionId={sessionId} onOpenChanges={() => showDockTab(CHANGES_TAB)} />
+        )
+      }
+      changes={resultTab}
     >
       <Session
         key={sessionId}
         sessionId={sessionId}
         onInspectProcesses={() => showDockTab('processes')}
-        onShowTaskForce={() => showDockTab(TASKFORCE_TAB)}
+        onShowTaskForce={() => showDockTab(SUMMARY_TAB)}
       />
     </WorkspaceDock>
   );

@@ -1,6 +1,6 @@
-import { PanelResizer, usePanelWidth } from '@alpine/ui/primitives';
+import { Menu, PanelResizer, Tooltip, TooltipGroup, usePanelWidth } from '@alpine/ui/primitives';
 import clsx from 'clsx';
-import { Maximize2, Minimize2, PanelRight, X } from 'lucide-react';
+import { EllipsisVertical, Maximize2, Minimize2, PanelRight, type LucideIcon } from 'lucide-react';
 import { useLayoutEffect, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { useFormat, useMessages } from '@/shared/i18n';
@@ -11,6 +11,12 @@ import { endExpanded, resetExpanded, useDockExpanded, useDockOpen, useDockTab } 
 export interface DockTab {
   id: string;
   label: string;
+  /** Shown instead of the label in the row of icons; the label becomes its tooltip and accessible name. */
+  icon?: LucideIcon;
+  /** Listed under ⋮ (더보기) instead of in the row: places I open now and then. */
+  more?: boolean;
+  /** A thin line after this tab, setting it apart from the ones that follow. */
+  divider?: boolean;
   content: ReactNode;
   /** The content scrolls and pads itself (a conversation with its own composer). */
   bare?: boolean;
@@ -25,7 +31,18 @@ export interface DockTab {
  * `scope` names the page (`session:<id>`, `board:<project>`). "크게 보기" belongs to one scope: when it changes, the
  * new page starts at the normal width.
  */
-export function DockLayout({ scope, tabs, children }: { scope: string; tabs: DockTab[]; children: ReactNode }) {
+export function DockLayout({
+  scope,
+  tabs,
+  top,
+  children,
+}: {
+  scope: string;
+  tabs: DockTab[];
+  /** Stays above every tab (the small map), so it is in view whatever the dock shows. */
+  top?: ReactNode;
+  children: ReactNode;
+}) {
   const [open] = useDockOpen();
   const [expanded] = useDockExpanded(scope);
   useLayoutEffect(() => {
@@ -42,49 +59,62 @@ export function DockLayout({ scope, tabs, children }: { scope: string; tabs: Doc
       >
         {children}
       </div>
-      <Dock scope={scope} tabs={tabs} open={open} />
+      <Dock scope={scope} tabs={tabs} open={open} top={top} />
     </div>
   );
 }
 
 /**
- * One dock per window, scoped to the project: a strip of tabs over the tab I am on. Today it has one tab (the work
- * result); a surface (web, terminal, phone) later is one more entry in `tabs`. Its width is only ever changed by
- * dragging its edge, and it is remembered.
+ * One dock per window, scoped to the project: a row of icon tabs over the tab I am on, the rarer places and "크게
+ * 보기" under ⋮. `top` stays above the tabs. Its width is only ever changed by dragging its edge, and it is remembered.
+ * The top bar's button closes it, so it has no close button of its own.
  */
-export function Dock({ scope = '', tabs, open = true }: { scope?: string; tabs: DockTab[]; open?: boolean }) {
+export function Dock({
+  scope = '',
+  tabs,
+  open = true,
+  top,
+}: {
+  scope?: string;
+  tabs: DockTab[];
+  open?: boolean;
+  top?: ReactNode;
+}) {
   const t = useMessages(messages);
-  const [, setOpen] = useDockOpen();
   const [expanded, setExpanded] = useDockExpanded(scope);
   const width = usePanelWidth({ storageKey: 'alpine.work-result.width', initial: 360, min: 280, max: 900 });
   const [chosen, choose] = useDockTab();
   const [visited, setVisited] = useState(open);
   if (open && !visited) setVisited(true);
   const active = tabs.find((tab) => tab.id === chosen) ?? tabs[0];
+  const row = tabs.filter((tab) => !tab.more);
+  const more = tabs.filter((tab) => tab.more);
+  // With a ⋮ place shown, the row still takes the keyboard at its first tab.
+  const focusable = active && row.includes(active) ? active : row[0];
 
   // Arrows wrap around; Home and End jump to the first and last tab, as the WAI-ARIA tabs pattern asks.
   const onKeyDown = (event: KeyboardEvent) => {
-    if (!active) return;
-    const index = tabs.indexOf(active);
+    if (!active || !row.length) return;
+    const index = Math.max(0, row.indexOf(active));
     let target: number;
     switch (event.key) {
       case 'ArrowRight':
-        target = (index + 1) % tabs.length;
+        target = (index + 1) % row.length;
         break;
       case 'ArrowLeft':
-        target = (index - 1 + tabs.length) % tabs.length;
+        target = (index - 1 + row.length) % row.length;
         break;
       case 'Home':
         target = 0;
         break;
       case 'End':
-        target = tabs.length - 1;
+        target = row.length - 1;
         break;
       default:
         return;
     }
     event.preventDefault();
-    const next = tabs[target];
+    const next = row[target];
     if (next) {
       choose(next.id);
       document.getElementById(`dock-tab-${next.id}`)?.focus();
@@ -105,60 +135,82 @@ export function Dock({ scope = '', tabs, open = true }: { scope?: string; tabs: 
       {open && !expanded && <PanelResizer panel={width} edge="left" label={t.resize} />}
       {visited && (
         <div className="motion-dock-body flex min-h-0 grow flex-col">
-          <header className="flex min-h-14 shrink-0 items-center gap-2 pr-3 pl-3">
-            <div
-              role="tablist"
-              aria-label={t.title}
-              onKeyDown={onKeyDown}
-              className="flex min-w-0 grow items-center gap-1 overflow-x-auto"
-            >
-              {tabs.map((tab) => {
-                const selected = tab.id === active?.id;
-                return (
-                  <button
-                    key={tab.id}
-                    id={`dock-tab-${tab.id}`}
-                    type="button"
-                    title={tab.label}
-                    role="tab"
-                    aria-selected={selected}
-                    // Only the selected tab's panel is rendered, so only it has something to point at.
-                    aria-controls={selected ? `dock-panel-${tab.id}` : undefined}
-                    tabIndex={selected ? 0 : -1}
-                    onClick={() => choose(tab.id)}
+          <header className="flex min-h-12 shrink-0 items-center gap-1 px-2">
+            <TooltipGroup delay={300}>
+              <div
+                role="tablist"
+                aria-label={t.title}
+                onKeyDown={onKeyDown}
+                className="flex min-w-0 items-center gap-0.5"
+              >
+                {row.map((tab) => {
+                  const selected = tab.id === active?.id;
+                  const Icon = tab.icon;
+                  const button = (
+                    <button
+                      id={`dock-tab-${tab.id}`}
+                      type="button"
+                      role="tab"
+                      aria-label={Icon ? tab.label : undefined}
+                      aria-selected={selected}
+                      // Only the selected tab's panel is rendered, so only it has something to point at.
+                      aria-controls={selected ? `dock-panel-${tab.id}` : undefined}
+                      tabIndex={tab === focusable ? 0 : -1}
+                      onClick={() => choose(tab.id)}
+                      className={clsx(
+                        'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-lead whitespace-nowrap',
+                        Icon ? 'w-8' : 'px-2.5',
+                        selected ? 'bg-hover text-fg' : 'text-fg-muted hover:bg-hover hover:text-fg',
+                      )}
+                    >
+                      {Icon ? <Icon size={17} strokeWidth={1.6} aria-hidden="true" /> : tab.label}
+                    </button>
+                  );
+                  return (
+                    <span key={tab.id} className="flex items-center">
+                      {Icon ? <Tooltip label={tab.label}>{button}</Tooltip> : button}
+                      {tab.divider && <span aria-hidden className="mx-1.5 h-4.5 w-px bg-line" />}
+                    </span>
+                  );
+                })}
+              </div>
+              <Menu.Root>
+                <Tooltip label={t.more}>
+                  <Menu.Trigger
+                    aria-label={t.more}
                     className={clsx(
-                      'shrink-0 cursor-pointer rounded-lg px-2.5 py-1 text-lead whitespace-nowrap',
-                      selected ? 'bg-hover text-fg' : 'text-fg-muted hover:bg-hover hover:text-fg',
+                      'inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-hover hover:text-fg',
+                      active?.more ? 'bg-hover text-fg' : 'text-fg-muted',
                     )}
                   >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              type="button"
-              aria-pressed={expanded}
-              aria-label={expanded ? t.shrink : t.expand}
-              title={expanded ? t.shrink : t.expand}
-              onClick={() => setExpanded(!expanded)}
-              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted hover:bg-hover hover:text-fg aria-pressed:bg-hover aria-pressed:text-fg"
-            >
-              {expanded ? (
-                <Minimize2 size={16} strokeWidth={1.5} aria-hidden="true" />
-              ) : (
-                <Maximize2 size={16} strokeWidth={1.5} aria-hidden="true" />
-              )}
-            </button>
-            <button
-              type="button"
-              aria-label={t.close}
-              onClick={() => setOpen(false)}
-              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted hover:bg-hover hover:text-fg"
-            >
-              <X size={16} strokeWidth={1.5} aria-hidden="true" />
-            </button>
+                    <EllipsisVertical size={17} strokeWidth={1.6} aria-hidden="true" />
+                  </Menu.Trigger>
+                </Tooltip>
+                <Menu.Popup align="end">
+                  {more.map((tab) => (
+                    <Menu.Item
+                      key={tab.id}
+                      onClick={() => choose(tab.id)}
+                      className={clsx(tab.id === active?.id && 'bg-selected')}
+                    >
+                      {tab.icon && <tab.icon size={15} strokeWidth={1.6} aria-hidden="true" />}
+                      {tab.label}
+                    </Menu.Item>
+                  ))}
+                  {more.length > 0 && <Menu.Separator />}
+                  <Menu.Item onClick={() => setExpanded(!expanded)}>
+                    {expanded ? (
+                      <Minimize2 size={15} strokeWidth={1.6} aria-hidden="true" />
+                    ) : (
+                      <Maximize2 size={15} strokeWidth={1.6} aria-hidden="true" />
+                    )}
+                    {expanded ? t.shrink : t.expand}
+                  </Menu.Item>
+                </Menu.Popup>
+              </Menu.Root>
+            </TooltipGroup>
           </header>
+          {top}
           {tabs
             .filter((tab) => tab.id === active?.id || tab.keepMounted)
             .map((tab) => (

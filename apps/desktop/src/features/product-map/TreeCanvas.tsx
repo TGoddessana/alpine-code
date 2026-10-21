@@ -6,6 +6,7 @@ import {
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -71,6 +72,26 @@ export const TreeCanvas = forwardRef<
     viewRef.current = view;
   }, [view]);
   const viewAnimation = useRef<number | null>(null);
+
+  // Wheel and drag can fire several times a frame; fold them into one view change per frame.
+  const pendingView = useRef<View | null>(null);
+  const viewFrame = useRef<number | null>(null);
+  const moveView = useCallback((change: (current: View) => View) => {
+    pendingView.current = change(pendingView.current ?? viewRef.current);
+    if (viewFrame.current) return;
+    viewFrame.current = requestAnimationFrame(() => {
+      viewFrame.current = null;
+      const next = pendingView.current;
+      pendingView.current = null;
+      if (next) setView(next);
+    });
+  }, []);
+  useEffect(
+    () => () => {
+      if (viewFrame.current) cancelAnimationFrame(viewFrame.current);
+    },
+    [],
+  );
 
   const animateView = useCallback((to: View) => {
     if (viewAnimation.current) cancelAnimationFrame(viewAnimation.current);
@@ -148,18 +169,19 @@ export const TreeCanvas = forwardRef<
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       if (viewAnimation.current) cancelAnimationFrame(viewAnimation.current);
-      const current = viewRef.current;
       if (event.ctrlKey || event.metaKey) {
         const rect = element.getBoundingClientRect();
         const px = event.clientX - rect.left;
         const py = event.clientY - rect.top;
-        const k = clamp(current.k * Math.exp(-event.deltaY * 0.008), MIN_ZOOM, MAX_ZOOM);
-        setView({ k, x: px - ((px - current.x) * k) / current.k, y: py - ((py - current.y) * k) / current.k });
-      } else setView({ ...current, x: current.x - event.deltaX, y: current.y - event.deltaY });
+        moveView((current) => {
+          const k = clamp(current.k * Math.exp(-event.deltaY * 0.008), MIN_ZOOM, MAX_ZOOM);
+          return { k, x: px - ((px - current.x) * k) / current.k, y: py - ((py - current.y) * k) / current.k };
+        });
+      } else moveView((current) => ({ ...current, x: current.x - event.deltaX, y: current.y - event.deltaY }));
     };
     element.addEventListener('wheel', onWheel, { passive: false });
     return () => element.removeEventListener('wheel', onWheel);
-  }, []);
+  }, [moveView]);
 
   const drag = useRef<{ x: number; y: number; id: number } | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -174,7 +196,54 @@ export const TreeCanvas = forwardRef<
     animateView({ k: next, x: cx - ((cx - x) * next) / k, y: cy - ((cy - y) * next) / k });
   };
 
-  const byId = new Map(shown.map((node) => [node.id, node]));
+  // Moving or zooming only changes the transform around this; the cards and lines are drawn again only when they change.
+  const content = useMemo(() => {
+    const byId = new Map(shown.map((node) => [node.id, node]));
+    const quiet = (id: string) => strand && !strand.has(id);
+    return (
+      <>
+        <svg className="pointer-events-none absolute top-0 left-0 overflow-visible" width={1} height={1} aria-hidden>
+          {edges.map((edge) => {
+            const from = byId.get(edge.from);
+            const to = byId.get(edge.to);
+            if (!from || !to) return null;
+            return (
+              <Edge
+                key={edge.id}
+                parent={from}
+                child={to}
+                merge={edge.merge}
+                label={edge.label}
+                on={highlight.has(edge.to) && highlight.has(edge.from)}
+                opacity={Math.min(from.opacity, to.opacity) * (quiet(edge.to) || quiet(edge.from) ? 0.25 : 1)}
+              />
+            );
+          })}
+        </svg>
+        {shown.map((node) => (
+          <div
+            key={node.id}
+            data-node
+            className="absolute top-0 left-0"
+            style={{
+              width: node.w,
+              height: node.h,
+              transform: `translate(${node.x}px, ${node.y}px)`,
+              opacity: node.opacity,
+              pointerEvents: node.leaving || node.passive ? 'none' : undefined,
+            }}
+          >
+            <div
+              className="size-full transition-opacity duration-(--motion-normal)"
+              style={{ opacity: strand && !strand.has(node.id) ? 0.35 : 1 }}
+            >
+              {renderNode(node)}
+            </div>
+          </div>
+        ))}
+      </>
+    );
+  }, [shown, edges, highlight, strand, renderNode]);
 
   return (
     <div className="relative min-w-0 grow overflow-hidden">
@@ -195,7 +264,7 @@ export const TreeCanvas = forwardRef<
           const dx = event.clientX - start.x;
           const dy = event.clientY - start.y;
           drag.current = { ...start, x: event.clientX, y: event.clientY };
-          setView((current) => ({ ...current, x: current.x + dx, y: current.y + dy }));
+          moveView((current) => ({ ...current, x: current.x + dx, y: current.y + dy }));
         }}
         onPointerUp={() => {
           drag.current = null;
@@ -210,46 +279,7 @@ export const TreeCanvas = forwardRef<
           className="absolute top-0 left-0 origin-top-left"
           style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}
         >
-          <svg className="pointer-events-none absolute top-0 left-0 overflow-visible" width={1} height={1} aria-hidden>
-            {edges.map((edge) => {
-              const from = byId.get(edge.from);
-              const to = byId.get(edge.to);
-              if (!from || !to) return null;
-              const quiet = (id: string) => strand && !strand.has(id);
-              return (
-                <Edge
-                  key={edge.id}
-                  parent={from}
-                  child={to}
-                  merge={edge.merge}
-                  label={edge.label}
-                  on={highlight.has(edge.to) && highlight.has(edge.from)}
-                  opacity={Math.min(from.opacity, to.opacity) * (quiet(edge.to) || quiet(edge.from) ? 0.25 : 1)}
-                />
-              );
-            })}
-          </svg>
-          {shown.map((node) => (
-            <div
-              key={node.id}
-              data-node
-              className="absolute top-0 left-0"
-              style={{
-                width: node.w,
-                height: node.h,
-                transform: `translate(${node.x}px, ${node.y}px)`,
-                opacity: node.opacity,
-                pointerEvents: node.leaving || node.passive ? 'none' : undefined,
-              }}
-            >
-              <div
-                className="size-full transition-opacity duration-(--motion-normal)"
-                style={{ opacity: strand && !strand.has(node.id) ? 0.35 : 1 }}
-              >
-                {renderNode(node)}
-              </div>
-            </div>
-          ))}
+          {content}
         </div>
       </div>
       <div className="absolute bottom-4 left-4 flex items-center gap-0.5 rounded-lg border border-line bg-canvas-raised p-0.5 whitespace-nowrap shadow-overlay">

@@ -1,8 +1,9 @@
-import { Button, LinkButton } from '@alpine/ui/primitives';
+import { Button, Dialog, LinkButton } from '@alpine/ui/primitives';
 import clsx from 'clsx';
 import {
   AppWindow,
   ArrowRight,
+  Camera,
   ChevronsDownUp,
   ChevronsUpDown,
   Circle,
@@ -14,25 +15,31 @@ import {
   Database,
   DoorOpen,
   FileCode,
+  ImageOff,
   LoaderCircle,
   Package,
+  PanelRight,
+  PenLine,
   Plus,
   RotateCcw,
   Undo2,
   Webhook,
   Workflow,
+  X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { useFormat, useMessages } from '@/shared/i18n';
 
 import {
+  hasScreenArea,
   isJourneyLink,
   journeyTally,
   personCards,
   personTally,
   promisesWith,
   tally,
+  type CardScreen,
   type Journey,
   type Person,
   type PromiseStatus,
@@ -42,6 +49,7 @@ import {
   type TreePromise,
 } from './flowTreeModel';
 import { flowTreeMessages as messages } from './flowTreeMessages';
+import type { SourceText } from './treeParts';
 import { TreeCanvas, type ShownNode, type TreeCanvasHandle } from './TreeCanvas';
 import {
   Avatar,
@@ -54,7 +62,7 @@ import {
   useText,
   type PromiseTarget,
 } from './treeParts';
-import { CHECKLIST_ROWS, layoutTree, stepId, type LaidNode } from './treeLayout';
+import { CHECKLIST_ROWS, layoutTree, SCREEN_H, stepId, type LaidNode } from './treeLayout';
 
 export type { PromiseTarget } from './treeParts';
 
@@ -70,6 +78,8 @@ export interface FlowTreeProps {
   onAddPerson: (name: string) => void;
   /** A person's own call on a card (how much it matters, when, a one-line note). */
   onDecide?: (cardId: string, field: 'priority' | 'scope' | 'decision', value: string | null) => void;
+  /** Reads a source file of the project, so a card's code can be read where it is explained. */
+  readSource?: (path: string) => Promise<SourceText>;
   /** Opens the conversation last started on a card. */
   onOpenSession?: (sessionId: string) => void;
   /** Puts journeys under who walks them (a person's name, or empty to ungroup); the AI may change it again later. */
@@ -115,6 +125,7 @@ const focusNodeId = (focus: Focus | null): string | null => {
  * promises below it as leaves. The panel on the right says what to do next and explains whatever is picked.
  */
 export function FlowTree(props: FlowTreeProps) {
+  const t = useMessages(messages);
   const { map } = props;
   const first = map.people.find((person) => person.id === props.initialPerson) ?? map.people[0];
   const [openSteps, setOpenSteps] = useState<Set<string>>(() => {
@@ -127,8 +138,11 @@ export function FlowTree(props: FlowTreeProps) {
     const journey = first?.journeys[0];
     return new Set(journey?.steps[0] ? [stepId(journey.id, journey.steps[0])] : []);
   });
-  const [focus, setFocus] = useState<Focus | null>(first ? { kind: 'person', personId: first.id } : null);
+  // Nothing is open at first: details open over the map, so the map shows first.
+  const [focus, setFocus] = useState<Focus | null>(null);
   const [hover, setHover] = useState<string | null>(null);
+  // The map takes the whole width; the product's summary slides in beside it when asked for.
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [notice, setNotice] = useState(0);
   const [changesOnly, setChangesOnly] = useState(props.changesOnly ?? false);
   const canvas = useRef<TreeCanvasHandle>(null);
@@ -189,9 +203,9 @@ export function FlowTree(props: FlowTreeProps) {
               (node) =>
                 node.id === `start:${first.id}` ||
                 (node.journeyId !== undefined &&
-                  (node.journeyId === first.journeys[0]?.id || node.journeyId === first.journeys[1]?.id) &&
-                  // Long journeys run on to the right; the first view shows where they begin.
-                  node.index < 4),
+                  node.journeyId === first.journeys[0]?.id &&
+                  // Long journeys run on to the right; the first view shows where they begin, large enough to read.
+                  node.index < 3),
             )
             .map((node) => node.id)
         : undefined,
@@ -285,6 +299,9 @@ export function FlowTree(props: FlowTreeProps) {
       setFocus((current) => (current && current.kind !== 'addPerson' ? { ...current, personId: moved.id } : current));
   }, [focus, person, map]);
 
+  const focusScreen =
+    focus && (focus.kind === 'step' || focus.kind === 'promise') ? map.cards[focus.cardId]?.screen : undefined;
+
   return (
     <div className="flex h-full min-h-0 w-full bg-canvas text-body text-fg">
       <TreeCanvas
@@ -305,12 +322,24 @@ export function FlowTree(props: FlowTreeProps) {
           />
         )}
         tools={
-          <ExpandTools
-            changesOnly={changesOnly}
-            onChangesOnly={() => setChangesOnly((on) => !on)}
-            onOpen={() => setOpenSteps(new Set(allSteps()))}
-            onClose={() => setOpenSteps(new Set())}
-          />
+          <>
+            <ExpandTools
+              changesOnly={changesOnly}
+              onChangesOnly={() => setChangesOnly((on) => !on)}
+              onOpen={() => setOpenSteps(new Set(allSteps()))}
+              onClose={() => setOpenSteps(new Set())}
+            />
+            <span className="mx-0.5 h-4 border-l border-line-subtle" aria-hidden />
+            <button
+              type="button"
+              aria-pressed={summaryOpen}
+              onClick={() => setSummaryOpen((on) => !on)}
+              className="flex h-7 cursor-pointer items-center gap-1 rounded-md px-1.5 text-meta whitespace-nowrap text-fg-muted transition-colors hover:bg-hover hover:text-fg aria-pressed:bg-selected aria-pressed:text-fg"
+            >
+              <PanelRight size={13} aria-hidden />
+              {t.summary}
+            </button>
+          </>
         }
         overlay={
           <>
@@ -327,24 +356,61 @@ export function FlowTree(props: FlowTreeProps) {
           </>
         }
       />
-      <aside className="flex w-88 shrink-0 flex-col overflow-y-auto border-l border-line bg-canvas-sunken">
-        <Panel
-          key={focusId ?? 'product'}
-          map={map}
-          focus={focus}
-          person={person}
-          props={props}
-          onShow={show}
-          onFocus={(next) => {
-            setFocus(next);
-            if (next.kind === 'promise')
-              setOpenSteps((current) => new Set(current).add(stepId(next.journeyId, next.cardId)));
-            reveal(focusNodeId(next));
-          }}
-          onRemove={removePromise}
-          onDone={setFocus}
-        />
-      </aside>
+      {summaryOpen && (
+        <aside className="flex w-88 shrink-0 flex-col overflow-y-auto border-l border-line bg-canvas-sunken">
+          <Panel
+            focus={null}
+            map={map}
+            person={person}
+            props={props}
+            onShow={show}
+            onFocus={(next) => {
+              setFocus(next);
+              if (next.kind === 'promise')
+                setOpenSteps((current) => new Set(current).add(stepId(next.journeyId, next.cardId)));
+              reveal(focusNodeId(next));
+            }}
+            onRemove={removePromise}
+            onDone={setFocus}
+          />
+        </aside>
+      )}
+      {/* A card's details open over the map; the side keeps the product's summary. */}
+      <Dialog.Root open={focus !== null} onOpenChange={(open) => !open && setFocus(null)}>
+        <Dialog.Popup
+          className={clsx(
+            'relative max-h-[85vh] gap-0 p-0',
+            focusScreen ? 'w-[min(1180px,94vw)]! flex-row overflow-hidden' : 'overflow-y-auto',
+          )}
+        >
+          <Dialog.Close
+            aria-label={t.close}
+            title={t.close}
+            className="absolute top-3 right-3 z-10 flex size-7 cursor-pointer items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg"
+          >
+            <X size={14} aria-hidden />
+          </Dialog.Close>
+          {focusScreen && <ScreenView screen={focusScreen} />}
+          <div className={focusScreen ? 'w-112 shrink-0 overflow-y-auto border-l border-line' : undefined}>
+            <Panel
+              key={focusId ?? 'product'}
+              focus={focus}
+              map={map}
+              person={person}
+              props={props}
+              onShow={show}
+              onFocus={(next) => {
+                setFocus(next);
+                if (next.kind === 'promise')
+                  setOpenSteps((current) => new Set(current).add(stepId(next.journeyId, next.cardId)));
+                reveal(focusNodeId(next));
+              }}
+              onRemove={removePromise}
+              onDone={setFocus}
+            />
+          </div>
+        </Dialog.Popup>
+      </Dialog.Root>
     </div>
   );
 }
@@ -623,6 +689,7 @@ function StepCard({
       </CardLabel>
       <span className="mt-1.5 shrink-0 truncate font-medium">{card.title}</span>
       {card.description && <span className="shrink-0 truncate text-meta text-fg-muted">{card.description}</span>}
+      {hasScreenArea(card) && <ScreenThumb screen={card.screen} />}
       <ul className="mt-2 flex shrink-0 flex-col">
         {shown.map((promise) => (
           <CheckRow key={promise.id} promise={promise} />
@@ -651,6 +718,62 @@ function StepCard({
         </span>
       </span>
     </>
+  );
+}
+
+/** The card's screen, large, beside its details: what a person sees at this step. */
+function ScreenView({ screen }: { screen: CardScreen }) {
+  const t = useMessages(messages);
+  const format = useFormat();
+  return (
+    <div className="flex min-w-0 grow flex-col gap-2 bg-canvas-sunken p-5">
+      <span className="flex items-center gap-1.5 text-meta text-fg-muted">
+        {screen.kind === 'sketch' ? <PenLine size={12} aria-hidden /> : <Camera size={12} aria-hidden />}
+        {screen.kind === 'sketch' ? t.screenSketch : t.screenShot}
+        {screen.at && <span className="text-fg-faint">· {format.date(new Date(screen.at))}</span>}
+      </span>
+      <img
+        src={screen.src}
+        alt=""
+        className={clsx(
+          'min-h-0 w-full grow rounded-lg border bg-canvas object-contain object-top',
+          screen.kind === 'sketch' ? 'border-dashed border-line' : 'border-line-subtle',
+        )}
+      />
+      {screen.kind === 'sketch' && <span className="text-meta text-fg-faint">{t.screenSketchNote}</span>}
+    </div>
+  );
+}
+
+/** The card's screen at a glance: a real capture, a sketch marked as one, or room left for one. */
+function ScreenThumb({ screen }: { screen?: CardScreen }) {
+  const t = useMessages(messages);
+  const format = useFormat();
+  if (!screen)
+    return (
+      <span
+        className="mt-2 flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-dashed border-line bg-canvas text-meta text-fg-faint"
+        style={{ height: SCREEN_H - 10 }}
+      >
+        <ImageOff size={13} aria-hidden />
+        {t.noScreen}
+      </span>
+    );
+  return (
+    <span
+      className={clsx(
+        'relative mt-2 block shrink-0 overflow-hidden rounded-md border bg-canvas',
+        screen.kind === 'sketch' ? 'border-dashed border-line' : 'border-line-subtle',
+      )}
+      style={{ height: SCREEN_H - 10 }}
+    >
+      <img src={screen.src} alt="" draggable={false} className="size-full object-cover object-top" />
+      <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded-sm bg-canvas-raised/90 px-1.5 py-0.5 text-meta text-fg-muted shadow-overlay">
+        {screen.kind === 'sketch' ? <PenLine size={11} aria-hidden /> : <Camera size={11} aria-hidden />}
+        {screen.kind === 'sketch' ? t.screenSketch : t.screenShot}
+        {screen.at && <span className="text-fg-faint">· {format.date(new Date(screen.at))}</span>}
+      </span>
+    </span>
   );
 }
 
@@ -888,6 +1011,7 @@ function Panel({
           onCheck={props.onCheck}
           onFix={props.onFix}
           onRemove={onRemove}
+          readSource={props.readSource}
           footer={
             focus.kind === 'step' && (
               <>

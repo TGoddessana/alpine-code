@@ -1,4 +1,4 @@
-// Generated from the product map of postgres-ultracode (history snapshot, 2026-10-18) for the flow-tree design.
+// Generated from the product map of a PostgreSQL checkout (history snapshot, 2026-10-18) for the flow-tree design.
 // Cards, promises and check notes are the map's own; who uses them and their journeys were grouped by hand.
 // A promise counts as passed or blocked from the map's check records, in order; the rest are not checked yet.
 /* eslint-disable */

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" font-family="-apple-system,Pretendard,sans-serif">
+<rect width="1280" height="800" fill="#f6f7f9"/>
+<rect x="0" y="0" width="1280" height="64" rx="0" fill="#eef0f3" stroke="#eef0f3" stroke-width="2"/>
+<rect x="900" y="12" width="340" height="40" rx="20" fill="#3d5a80" stroke="#3d5a80" stroke-width="2"/>
+<text x="940" y="40" font-size="18" fill="#fff" font-weight="600">새 버전 0.1.7 받는 중… 62%</text>
+<rect x="80" y="120" width="1120" height="600" rx="14" fill="#fff" stroke="#c9ced6" stroke-width="2"/>
+<rect x="120" y="170" width="700" height="14" rx="7" fill="#dfe3e9"/>
+<rect x="120" y="230" width="520" height="14" rx="7" fill="#dfe3e9"/>
+<rect x="120" y="290" width="340" height="14" rx="7" fill="#dfe3e9"/>
+<rect x="120" y="350" width="700" height="14" rx="7" fill="#dfe3e9"/>
+<rect x="120" y="410" width="520" height="14" rx="7" fill="#dfe3e9"/>
+<rect x="120" y="470" width="340" height="14" rx="7" fill="#dfe3e9"/>
+<rect x="120" y="530" width="700" height="14" rx="7" fill="#dfe3e9"/>
+<rect x="120" y="590" width="520" height="14" rx="7" fill="#dfe3e9"/>
+<rect x="840" y="360" width="400" height="140" rx="12" fill="#fff" stroke="#3d5a80" stroke-width="2"/>
+<text x="870" y="410" font-size="22" fill="#3a4250" font-weight="600">다시 시작하면 업데이트돼요</text>
+<rect x="870" y="430" width="200" height="52" rx="10" fill="#3d5a80" stroke="#3d5a80" stroke-width="2"/>
+<text x="898.0" y="464" font-size="20" fill="#fff" font-weight="600">지금 다시 시작</text>
+</svg>

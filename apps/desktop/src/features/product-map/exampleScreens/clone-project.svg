@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" font-family="-apple-system,Pretendard,sans-serif">
+<rect width="1280" height="800" fill="#f6f7f9"/>
+<rect x="340" y="150" width="600" height="500" rx="16" fill="#fff" stroke="#c9ced6" stroke-width="2"/>
+<text x="380" y="215" font-size="30" fill="#3a4250" font-weight="700">저장소 가져오기</text>
+<rect x="380" y="240" width="360" height="14" rx="7" fill="#dfe3e9"/>
+<text x="380" y="310" font-size="20" fill="#6b7380" font-weight="400">주소</text>
+<rect x="380" y="325" width="520" height="56" rx="10" fill="#fff" stroke="#c9ced6" stroke-width="2"/>
+<text x="400" y="362" font-size="20" fill="#9aa1ab" font-weight="400">https://github.com/…</text>
+<text x="380" y="425" font-size="20" fill="#6b7380" font-weight="400">받을 폴더</text>
+<rect x="380" y="440" width="520" height="56" rx="10" fill="#fff" stroke="#c9ced6" stroke-width="2"/>
+<text x="400" y="477" font-size="20" fill="#9aa1ab" font-weight="400">~/Developments</text>
+<rect x="760" y="570" width="140" height="52" rx="10" fill="#3d5a80" stroke="#3d5a80" stroke-width="2"/>
+<text x="794.0" y="604" font-size="20" fill="#fff" font-weight="600">가져오기</text>
+<rect x="600" y="570" width="140" height="52" rx="10" fill="#fff" stroke="#c9ced6" stroke-width="2"/>
+<text x="652.0" y="604" font-size="20" fill="#3a4250" font-weight="600">취소</text>
+</svg>

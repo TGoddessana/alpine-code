@@ -1631,6 +1631,14 @@ describe('flows that call another flow (decision 19)', () => {
 describe('person-first view', () => {
   beforeEach(() => localStorage.removeItem('alpine.product-map.view'));
 
+  /** The map opens alone; the summary beside it lists the people, and picking one opens them over the map. */
+  async function openFirstPerson() {
+    fireEvent.click(await screen.findByRole('button', { name: '요약' }));
+    const summary = screen.getByRole('complementary');
+    fireEvent.click(within(summary).getAllByRole('button')[0]!);
+    return screen.findByRole('dialog');
+  }
+
   it('opens by person, and switching to the card map is remembered', async () => {
     mount();
     const byPerson = await screen.findByRole('radio', { name: '사람별 흐름' });
@@ -1642,7 +1650,7 @@ describe('person-first view', () => {
 
   it('asking the AI to check sends one verify for the unchecked steps and opens its session', async () => {
     const { request, onSession } = mount();
-    const panel = await screen.findByRole('complementary');
+    const panel = await openFirstPerson();
     fireEvent.click(await within(panel).findByRole('button', { name: 'AI에게 확인 맡기기' }));
     await waitFor(() => expect(lastPrepare(request)).toMatchObject({ action: 'verify', cwd }));
     expect((lastPrepare(request) as { nodeIds: string[] }).nodeIds.length).toBeGreaterThan(0);
@@ -1651,7 +1659,7 @@ describe('person-first view', () => {
 
   it('grouping journeys under who walks them writes their actor, and the band takes that name', async () => {
     const { request } = mount();
-    const panel = await screen.findByRole('complementary');
+    const panel = await openFirstPerson();
     fireEvent.click(await within(panel).findByRole('button', { name: '이 여정들 묶기' }));
     fireEvent.change(within(panel).getByLabelText(/누가 걷는지/), { target: { value: '회원' } });
     fireEvent.click(within(panel).getByRole('button', { name: '추가' }));
@@ -1662,6 +1670,6 @@ describe('person-first view', () => {
         ),
       ).toBe(true),
     );
-    expect(await screen.findByRole('heading', { name: '회원' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: '회원', hidden: true })).toBeTruthy();
   });
 });

@@ -2,9 +2,39 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useRef, useState } from 'react';
 
 import { FlowTree, type PromiseTarget } from './FlowTree';
+import { withScreens } from './alpineScreens';
 import { ALPINE_TREE } from './alpineTreeExample';
 import { POSTGRES_TREE } from './flowTreeExample';
 import { updatePromises, type TreeMap, type TreePromise } from './flowTreeModel';
+
+// The repository's own files, read as text only when a card's code is opened: the story's stand-in for `files/read`.
+const repoFiles = import.meta.glob<string>(
+  [
+    '../../../../../{apps,packages}/**/*.{ts,tsx,py,css}',
+    '!**/node_modules/**',
+    '!**/.venv/**',
+    '!**/dist/**',
+    '!**/exampleScreens/**',
+  ],
+  { query: '?raw', import: 'default' },
+);
+// Vite keys them by the shortest way from this file; key them by their path in the repository instead.
+const HERE = ['apps', 'desktop', 'src', 'features', 'product-map'];
+const byRepoPath = new Map(
+  Object.entries(repoFiles).map(([key, load]) => {
+    const parts = [...HERE];
+    for (const part of key.split('/'))
+      if (part === '..') parts.pop();
+      else if (part !== '.') parts.push(part);
+    return [parts.join('/'), load] as const;
+  }),
+);
+async function readSource(path: string) {
+  const load = byRepoPath.get(path);
+  if (!load) throw new Error(`not in the repository: ${path}`);
+  const lines = (await load()).split('\n');
+  return { content: lines.slice(0, 400).join('\n'), totalLines: lines.length, truncated: lines.length > 400 };
+}
 
 /** A stand-in for the server: checks take a moment each and settle one by one, like an agent trying them in turn. */
 function Harness({
@@ -48,6 +78,7 @@ function Harness({
       initialPerson={initialPerson}
       allOpen={allOpen}
       changesOnly={changesOnly}
+      readSource={readSource}
       onCheck={(targets) =>
         settle(targets, (promise) => {
           const roll = hash(promise.id) % 17;
@@ -181,7 +212,7 @@ const MIXED: TreeMap = updatePromises(POSTGRES_TREE, (cardId, promise) => {
 const meta = {
   title: 'Features/Product map/Flow tree',
   component: Harness,
-  args: { start: ALPINE_TREE },
+  args: { start: withScreens(ALPINE_TREE) },
   decorators: [
     (Story) => (
       <div className="flex h-screen w-full">

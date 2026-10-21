@@ -1,8 +1,8 @@
 import type { FlowGetResult, FlowNode, SessionInfo } from '@alpine/protocol';
-import { useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useMessages } from '@/shared/i18n';
-import { useEditFlow, useSetActor, useSetFlow } from '@/shared/server';
+import { useEditFlow, useServer, useSetActor, useSetFlow } from '@/shared/server';
 
 import { FlowTree } from './FlowTree';
 import { toTreeMap } from './flowTreeData';
@@ -37,6 +37,11 @@ export function JourneyMap({
   const edit = useEditFlow();
   const decide = useSetFlow();
   const setActor = useSetActor();
+  const server = useServer();
+  const readSource = useCallback(
+    (path: string) => server.request('files/read', { cwd, path, startLine: 1, limit: 400 }),
+    [server, cwd],
+  );
   const removed = useRef<{ cardId: string; text: string } | null>(null);
   const project = cwd.split('/').pop() ?? cwd;
   const map = useMemo(
@@ -53,6 +58,7 @@ export function JourneyMap({
     <FlowTree
       map={map}
       seenAt={seenAt ?? undefined}
+      readSource={readSource}
       onCheck={(targets) => void start('verify', { nodeIds: [...new Set(targets.map((target) => target.cardId))] })}
       onFix={(targets) => {
         const cardId = targets[0]?.cardId;

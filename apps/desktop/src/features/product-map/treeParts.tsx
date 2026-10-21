@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
+import { useHighlighted } from '@/shared/components/markdown';
 import { useFormat, useLocale, useMessages } from '@/shared/i18n';
 
 import {
@@ -202,6 +203,7 @@ export function Detail({
   onFix,
   onRemove,
   footer,
+  readSource,
 }: {
   map: TreeMap;
   person: Person;
@@ -212,6 +214,8 @@ export function Detail({
   onRemove: (target: PromiseTarget) => void;
   /** Below a step's promises: where a new one is added. */
   footer?: ReactNode;
+  /** With it, each of the card's files opens in place to show its code. */
+  readSource?: (path: string) => Promise<SourceText>;
 }) {
   const t = useMessages(messages);
   const text = useText();
@@ -406,11 +410,15 @@ export function Detail({
         <section className="flex flex-col gap-1">
           <h3 className="text-meta text-fg-muted">{t.sources}</h3>
           <ul className="flex flex-col gap-0.5">
-            {card.sources.map((source) => (
-              <li key={source} className="truncate font-mono text-meta text-fg-muted" title={source}>
-                {source}
-              </li>
-            ))}
+            {card.sources.map((source) =>
+              readSource ? (
+                <SourceRow key={source} path={source} read={readSource} />
+              ) : (
+                <li key={source} className="truncate font-mono text-meta text-fg-muted" title={source}>
+                  {source}
+                </li>
+              ),
+            )}
           </ul>
         </section>
       )}
@@ -476,5 +484,102 @@ function CheckList({
         ))}
       </ul>
     </div>
+  );
+}
+
+/** A source file as read for a card: the start of it, and whether more follows. */
+export interface SourceText {
+  content: string;
+  totalLines: number;
+  truncated: boolean;
+}
+
+const languages: Record<string, string> = {
+  ts: 'typescript',
+  tsx: 'tsx',
+  js: 'javascript',
+  jsx: 'jsx',
+  py: 'python',
+  rs: 'rust',
+  md: 'markdown',
+  yml: 'yaml',
+  sh: 'bash',
+};
+
+/** One of the card's files: its path, and when opened, its code right below, coloured, scrolling on its own. */
+function SourceRow({ path, read }: { path: string; read: (path: string) => Promise<SourceText> }) {
+  const t = useMessages(messages);
+  const [open, setOpen] = useState(false);
+  const [file, setFile] = useState<SourceText | 'failed' | null>(null);
+  useEffect(() => {
+    if (!open || file) return;
+    let live = true;
+    read(path).then(
+      (text) => live && setFile(text),
+      () => live && setFile('failed'),
+    );
+    return () => {
+      live = false;
+    };
+  }, [open, file, path, read]);
+  const loaded = file && file !== 'failed' ? file : null;
+  const extension = path.split('.').pop() ?? '';
+  const tokens = useHighlighted(loaded?.content ?? '', languages[extension] ?? extension, !loaded);
+  const lines = loaded ? loaded.content.replace(/\n$/, '').split('\n') : [];
+  const name = path.split('/').pop() ?? path;
+  const folder = path.slice(0, path.length - name.length);
+  return (
+    <li className="flex flex-col">
+      <button
+        type="button"
+        aria-expanded={open}
+        title={path}
+        onClick={() => setOpen((on) => !on)}
+        className="flex min-w-0 cursor-pointer items-center gap-1 rounded-sm py-0.5 text-left font-mono text-meta text-fg-muted transition-colors hover:text-fg aria-expanded:text-fg"
+      >
+        <ChevronRight
+          size={12}
+          aria-hidden
+          className={clsx('shrink-0 transition-transform duration-(--motion-fast)', open && 'rotate-90')}
+        />
+        <span className="truncate">
+          <span className="text-fg-faint">{folder}</span>
+          {name}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-1 mb-2 overflow-hidden rounded-md border border-line-subtle bg-canvas">
+          {file === null && <p className="px-3 py-2 text-meta text-fg-muted">{t.sourceLoading}</p>}
+          {file === 'failed' && <p className="px-3 py-2 text-meta text-fg-muted">{t.sourceFailed}</p>}
+          {loaded && (
+            <>
+              <pre className="max-h-96 overflow-auto py-2 font-mono text-meta">
+                {lines.map((line, index) => (
+                  <div key={index} className="flex min-w-fit pr-3">
+                    <span className="mr-3 w-9 shrink-0 text-right text-fg-faint tabular-nums select-none">
+                      {index + 1}
+                    </span>
+                    <code>
+                      {tokens?.[index]
+                        ? tokens[index].map((token, tokenIndex) => (
+                            <span key={tokenIndex} style={{ color: token.htmlStyle?.color ?? token.color }}>
+                              {token.content}
+                            </span>
+                          ))
+                        : line || ' '}
+                    </code>
+                  </div>
+                ))}
+              </pre>
+              {loaded.truncated && (
+                <p className="border-t border-line-subtle px-3 py-1.5 text-meta text-fg-muted">
+                  {t.sourceMore(lines.length, loaded.totalLines)}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </li>
   );
 }

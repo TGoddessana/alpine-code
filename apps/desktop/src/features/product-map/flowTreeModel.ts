@@ -71,7 +71,20 @@ export interface TreeCard {
   decision?: string;
   /** The conversation last started on this card. */
   sessionId?: string | null;
+  /** What it looks like: a capture of the running app, or until one is taken, a sketch the AI drew from the code. */
+  screen?: CardScreen;
 }
+
+export interface CardScreen {
+  /** An image the page can show (a data or asset URL). */
+  src: string;
+  kind: 'shot' | 'sketch';
+  /** When it was captured or drawn. */
+  at?: string | null;
+}
+
+/** A card that shows something to a person, or already has a picture of it, gets room for its screen. */
+export const hasScreenArea = (card: TreeCard) => card.kind === 'screen' || Boolean(card.screen);
 
 export interface Localized {
   ko: string;

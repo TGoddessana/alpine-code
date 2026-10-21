@@ -1,4 +1,12 @@
-import { isJourneyLink, tally, worst, type Journey, type PromiseStatus, type TreeMap } from './flowTreeModel';
+import {
+  hasScreenArea,
+  isJourneyLink,
+  tally,
+  worst,
+  type Journey,
+  type PromiseStatus,
+  type TreeMap,
+} from './flowTreeModel';
 
 /**
  * The person-first map as a quiet flow diagram. Each person gets a band across the canvas. Inside it, the person's
@@ -53,9 +61,13 @@ export const CHECKLIST_ROWS = 4;
 const CHECK_ROW = 20;
 const CARD_H = 132 + CHECKLIST_ROWS * CHECK_ROW;
 const LINK_H = 72;
+/** The "back to …" line under a step's checklist when its journey loops back from it. */
+const LOOP_H = 22;
 const START_W = 216;
 const JOURNEY_W = 264;
-const STEP_W = 288;
+const STEP_W = 336;
+/** The screen on a step card: 16:10 across the card, with the gap under it. */
+export const SCREEN_H = Math.round((STEP_W - 28) * 0.625) + 10;
 /** Between the lines of one journey: room for a branch's condition above its first card. */
 const LANE_GAP = 34;
 const JOURNEY_GAP = 28;
@@ -66,8 +78,8 @@ const START_REACH = 48;
 const STEP_REACH = 48;
 
 /** A step card is as tall as its checklist: four promises while closed, all of them once opened. */
-export function stepHeight(promises: number, open: boolean) {
-  return open ? CARD_H + Math.max(0, promises - CHECKLIST_ROWS) * CHECK_ROW : CARD_H;
+export function stepHeight(promises: number, open: boolean, screen = false) {
+  return (open ? CARD_H + Math.max(0, promises - CHECKLIST_ROWS) * CHECK_ROW : CARD_H) + (screen ? SCREEN_H : 0);
 }
 
 interface Place {
@@ -183,7 +195,9 @@ export function layoutTree(map: TreeMap, openSteps: Set<string>): { nodes: LaidN
       const heightOf = (step: string) => {
         if (isJourneyLink(step)) return LINK_H;
         const card = map.cards[step];
-        return card ? stepHeight(card.promises.length, openSteps.has(idOf(step))) : CARD_H;
+        if (!card) return CARD_H;
+        const height = stepHeight(card.promises.length, openSteps.has(idOf(step)), hasScreenArea(card));
+        return loops.has(step) ? height + LOOP_H : height;
       };
       // Each lane is as tall as its tallest card; the journey's lines stack under one another.
       const laneHeights = Array.from({ length: Math.max(1, lanes) }, () => 0);

@@ -86,6 +86,12 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+/** Details open over the map: pressing a person's way in opens their summary. */
+function openPerson(entry = /첫 화면에서 수업을 골라요/) {
+  fireEvent.click(screen.getByRole('button', { name: entry }));
+  return screen.getByRole('dialog');
+}
+
 describe('flow tree model', () => {
   it('counts every status from the promises, worst first', () => {
     const counts = tally(MAP.cards.pay!.promises);
@@ -101,9 +107,10 @@ describe('flow tree model', () => {
 });
 
 describe('FlowTree', () => {
-  it('starts with the first person: the entry, the summary, and the broken promise first', () => {
+  it('opens on the map alone; a person opens over it with the summary and the broken promise first', () => {
     mount();
-    const panel = screen.getByRole('complementary');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const panel = openPerson();
     expect(within(panel).getByRole('heading', { name: '손님' })).toBeTruthy();
     expect(within(panel).getByText('첫 화면에서 수업을 골라요')).toBeTruthy();
     expect(within(panel).getByText('약속 4개 중 2개 통과')).toBeTruthy();
@@ -129,21 +136,24 @@ describe('FlowTree', () => {
     expect(rows[0]!.textContent).toContain('카드가 거절되면');
     expect(pay.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(pay);
-    expect(screen.getAllByRole('button', { name: /결제하기/ })[0]!.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getAllByRole('button', { name: /결제하기/, hidden: true })[0]!.getAttribute('aria-expanded')).toBe(
+      'true',
+    );
   });
 
   it('asks to fix the broken promises and to check the unchecked ones', () => {
     const props = mount();
-    fireEvent.click(screen.getByRole('button', { name: 'AI에게 고쳐 달라고 하기' }));
+    const panel = openPerson();
+    fireEvent.click(within(panel).getByRole('button', { name: 'AI에게 고쳐 달라고 하기' }));
     expect(props.onFix).toHaveBeenCalledWith([{ cardId: 'pay', promiseId: 'c' }]);
-    fireEvent.click(screen.getByRole('button', { name: 'AI에게 확인 맡기기' }));
+    fireEvent.click(within(panel).getByRole('button', { name: 'AI에게 확인 맡기기' }));
     expect(props.onCheck).toHaveBeenCalledWith([{ cardId: 'pick', promiseId: 'b' }]);
   });
 
   it('"보기" opens the step of the broken promise and explains it in the panel', async () => {
     mount();
-    fireEvent.click(screen.getByRole('button', { name: '보기' }));
-    const panel = screen.getByRole('complementary');
+    fireEvent.click(within(openPerson()).getByRole('button', { name: '보기' }));
+    const panel = screen.getByRole('dialog');
     expect(await within(panel).findByText('카드가 거절되면')).toBeTruthy();
     expect(within(panel).getByText('약속과 달라요')).toBeTruthy();
   });
@@ -151,7 +161,7 @@ describe('FlowTree', () => {
   it('picking a journey card explains it, and a shared step says where else it appears', async () => {
     mount();
     fireEvent.click(screen.getByRole('button', { name: /수업 열기/ }));
-    const panel = screen.getByRole('complementary');
+    const panel = screen.getByRole('dialog');
     expect(within(panel).getByRole('heading', { name: '수업 열기' })).toBeTruthy();
     fireEvent.click(within(panel).getByRole('button', { name: /결제하기/ }));
     expect(await within(panel).findByText('다른 여정에도 나와요')).toBeTruthy();
@@ -161,7 +171,7 @@ describe('FlowTree', () => {
   it("adds a promise from a step's panel with the two fields", async () => {
     const props = mount();
     fireEvent.click(screen.getByRole('button', { name: /수업 고르기/ }));
-    const panel = screen.getByRole('complementary');
+    const panel = screen.getByRole('dialog');
     fireEvent.click(await within(panel).findByRole('button', { name: '약속 추가' }));
     fireEvent.change(within(panel).getByLabelText(/이럴 때/), { target: { value: '자리가 없으면' } });
     fireEvent.change(within(panel).getByLabelText(/이렇게 돼야 해요/), { target: { value: '대기 신청을 받아요' } });
@@ -188,7 +198,7 @@ describe('FlowTree', () => {
       },
     };
     const props = mount({ map });
-    const panel = screen.getByRole('complementary');
+    const panel = openPerson();
     expect(within(panel).getByText('코드가 바뀌어 다시 확인할 약속이 1개 있어요')).toBeTruthy();
     fireEvent.click(within(panel).getByRole('button', { name: '다시 확인 맡기기' }));
     expect(props.onCheck).toHaveBeenCalledWith([{ cardId: 'pick', promiseId: 'a' }]);

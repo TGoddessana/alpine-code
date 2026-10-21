@@ -167,15 +167,22 @@ export function ProductMap({
   const hasMap = !!(document?.nodes?.length || document?.flows?.length);
   const locked = busy || anyActive || readOnly;
   const project = cwd.split('/').pop() ?? cwd;
+  // Only which sessions work changes the cards; their other updates (many a second while one runs) must not redraw
+  // the whole map.
+  const workingKey = (sessions ?? [])
+    .filter((s) => s.status === 'running' || s.status === 'waiting')
+    .map((s) => s.id)
+    .join(' ');
+  const working = useMemo(() => new Set(workingKey.split(' ').filter(Boolean)), [workingKey]);
   const treeMap = useMemo(
     () =>
       data
-        ? toTreeMap(data, sessions ?? [], project, {
+        ? toTreeMap(data, working, project, {
             unnamed: { ko: tree.unnamed, en: tree.unnamed },
             unnamedRole: { ko: tree.unnamedRole, en: tree.unnamedRole },
           })
         : null,
-    [data, sessions, project, tree.unnamed, tree.unnamedRole],
+    [data, working, project, tree.unnamed, tree.unnamedRole],
   );
 
   const landed = !!flight?.toFirst && !!treeMap?.people.length;

@@ -2,7 +2,7 @@ import { ChevronDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { useFormat, useMessages } from '@/shared/i18n';
-import { useProductMap, useSessions } from '@/shared/server';
+import { useProductMap } from '@/shared/server';
 
 import { toTreeMap } from './flowTreeData';
 import { flowTreeMessages } from './flowTreeMessages';
@@ -22,7 +22,6 @@ export function MiniMap({ cwd, onOpen }: { cwd: string; onOpen: () => void }) {
   const words = useMessages(flowTreeMessages);
   const format = useFormat();
   const board = useProductMap(cwd);
-  const sessions = useSessions().data;
   const [folded, setFolded] = useState(() => {
     try {
       return localStorage.getItem(FOLDED_KEY) === 'true';
@@ -42,7 +41,8 @@ export function MiniMap({ cwd, onOpen }: { cwd: string; onOpen: () => void }) {
     if (!board.data) return null;
     const document = mapOf(board.data);
     if (!document.nodes?.length && !document.flows?.length) return { empty: true as const };
-    const map = toTreeMap(board.data, sessions ?? [], cwd.split('/').pop() ?? cwd, {
+    // The small map draws no "being checked" state, so no session ever redraws it.
+    const map = toTreeMap(board.data, new Set(), cwd.split('/').pop() ?? cwd, {
       unnamed: { ko: words.unnamed, en: words.unnamed },
       unnamedRole: { ko: words.unnamedRole, en: words.unnamedRole },
     });
@@ -59,7 +59,7 @@ export function MiniMap({ cwd, onOpen }: { cwd: string; onOpen: () => void }) {
       flows: document.flows?.length ?? 0,
       cards: document.nodes?.length ?? 0,
     };
-  }, [board.data, sessions, cwd, words.unnamed, words.unnamedRole]);
+  }, [board.data, cwd, words.unnamed, words.unnamedRole]);
 
   if (!drawn) return null;
   if (drawn.empty) {

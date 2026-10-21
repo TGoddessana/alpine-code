@@ -1,4 +1,4 @@
-import type { FlowGetResult, FlowNode, ProductFlow, SessionInfo } from '@alpine/protocol';
+import type { FlowGetResult, FlowNode, ProductFlow } from '@alpine/protocol';
 
 import type { Journey, Person, PromiseStatus, TreeCard, TreeMap, TreePromise } from './flowTreeModel';
 
@@ -10,13 +10,14 @@ import type { Journey, Person, PromiseStatus, TreeCard, TreeMap, TreePromise } f
  */
 export function toTreeMap(
   result: FlowGetResult,
-  sessions: SessionInfo[],
+  /** Ids of the sessions working now (running or waiting): their cards show as being checked. */
+  working: ReadonlySet<string>,
   product: string,
   words: { unnamed: Person['name']; unnamedRole: Person['role'] },
 ): TreeMap {
   const document = result.document ?? {};
   const cards: Record<string, TreeCard> = {};
-  for (const node of document.nodes ?? []) cards[node.id] = toCard(node, result, sessions);
+  for (const node of document.nodes ?? []) cards[node.id] = toCard(node, result, working);
 
   const groups = new Map<string, ProductFlow[]>();
   for (const flow of document.flows ?? []) {
@@ -57,15 +58,14 @@ function toJourney(flow: ProductFlow): Journey {
   };
 }
 
-function toCard(node: FlowNode, result: FlowGetResult, sessions: SessionInfo[]): TreeCard {
+function toCard(node: FlowNode, result: FlowGetResult, working: ReadonlySet<string>): TreeCard {
   const state = result.states?.[node.id];
-  const session = sessions.find((candidate) => candidate.id === node.sessionId);
-  const working = session?.status === 'running' || session?.status === 'waiting';
+  const checking = !!node.sessionId && working.has(node.sessionId);
   const promises: TreePromise[] = (node.conditions ?? []).map((condition) => {
     const promise = state?.promises?.[condition.id];
     const check = [...(node.checks ?? [])].reverse().find((item) => item.conditionId === condition.id);
     const status: PromiseStatus =
-      working && promise?.status !== 'passed' ? 'checking' : (promise?.status ?? 'unconfirmed');
+      checking && promise?.status !== 'passed' ? 'checking' : (promise?.status ?? 'unconfirmed');
     return {
       id: condition.id,
       when: '',

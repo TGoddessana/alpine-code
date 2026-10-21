@@ -27,7 +27,7 @@ import {
   Workflow,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { useFormat, useMessages } from '@/shared/i18n';
 
@@ -331,6 +331,17 @@ export function FlowTree(props: FlowTreeProps) {
     }
   }
 
+  // The cards get the same two handlers on every draw, so pointing at one card redraws the lit lines, not every card.
+  const pressLatest = useRef(press);
+  useLayoutEffect(() => {
+    pressLatest.current = press;
+  });
+  const pressNode = useCallback((node: LaidNode) => pressLatest.current(node), []);
+  const hoverNode = useCallback(
+    (id: string, on: boolean) => setHover((current) => (on ? id : current === id ? null : current)),
+    [],
+  );
+
   const person =
     focus && focus.kind !== 'addPerson' ? map.people.find((candidate) => candidate.id === focus.personId) : undefined;
 
@@ -367,8 +378,8 @@ export function FlowTree(props: FlowTreeProps) {
             map={map}
             open={openSteps.has(node.id)}
             picked={node.id === focusId}
-            onHover={(on) => setHover(on ? node.id : null)}
-            onPress={() => press(node)}
+            onHover={hoverNode}
+            onPress={pressNode}
           />
         )}
         tools={
@@ -488,21 +499,23 @@ const pickedRing = 'ring-2 ring-interactive ring-offset-2 ring-offset-canvas';
  * white card whose checklist says how each promise stands. Every card reads on its own: what it is, one line of what
  * it does, and what is known to hold.
  */
-function NodeView({
+const NodeView = memo(function NodeView({
   node,
   map,
   open,
   picked,
-  onHover,
-  onPress,
+  onHover: hover,
+  onPress: press,
 }: {
   node: ShownNode;
   map: TreeMap;
   open: boolean;
   picked: boolean;
-  onHover: (on: boolean) => void;
-  onPress: () => void;
+  onHover: (id: string, on: boolean) => void;
+  onPress: (node: LaidNode) => void;
 }) {
+  const onPress = () => press(node);
+  const onHover = (on: boolean) => hover(node.id, on);
   const t = useMessages(messages);
   const person = node.personId ? map.people.find((candidate) => candidate.id === node.personId) : undefined;
   const shell = (className: string, children: ReactNode) => (
@@ -511,7 +524,8 @@ function NodeView({
       aria-pressed={picked}
       aria-expanded={node.kind === 'step' ? open : undefined}
       onClick={onPress}
-      onMouseEnter={() => onHover(true)}
+      // Passing over cards while dragging the map is not pointing at them; lighting each one would stall the drag.
+      onMouseEnter={(event) => event.buttons === 0 && onHover(true)}
       onMouseLeave={() => onHover(false)}
       className={clsx(nodeButton, className, picked && pickedRing)}
     >
@@ -581,7 +595,7 @@ function NodeView({
         </>,
       );
   }
-}
+});
 
 /** The small first line of every card: what kind of card it is, and its loudest status on the right. */
 function CardLabel({ children, end, inverted }: { children: ReactNode; end?: ReactNode; inverted?: boolean }) {

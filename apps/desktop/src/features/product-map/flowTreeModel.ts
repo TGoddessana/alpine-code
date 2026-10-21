@@ -44,6 +44,8 @@ export interface TreePromise {
   history?: { at: string; result: string }[];
   /** For `recheck`: the files that changed since the check. */
   changedFiles?: string[];
+  /** A rule the AI guessed that failed: the person is asked whether it is a rule at all, not to fix it. */
+  question?: boolean;
   /** The person's call (set only by a person): how much it matters, and whether it is for now. */
   priority?: 'must' | 'should' | 'later';
 }

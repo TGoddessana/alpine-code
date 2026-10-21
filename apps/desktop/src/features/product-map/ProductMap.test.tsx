@@ -16,45 +16,59 @@ import {
 
 import { messages } from './messages';
 import { ProductMap } from './ProductMap';
-import { bookingBoard, boardScript, ORDER_FLOW, seeded, withBoard } from './testBoard';
+import { bookingBoard, boardScript, ORDER_FLOW, SDK_FLOW, seeded, withBoard } from './testBoard';
 
 const cwd = '/project';
-/** The payment feature sits in two flows, so it is on the canvas twice. */
-const payment = async () => (await screen.findAllByRole('button', { name: /^5 결제 실패/ }))[0]!;
-const dimmed = (button: HTMLElement) => button.className.includes('opacity-35');
-
-/** Opens the filter menu and toggles one entry in it, then closes the menu with Esc. */
-async function toggleFilter(name: RegExp | string) {
-  const trigger = screen.getByRole('button', { name: /^필터/ });
-  if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger);
-  fireEvent.click(await screen.findByRole('button', { name }));
+/** The map's top row is there once the map has loaded. */
+const loaded = () => screen.findByRole('button', { name: '지도 메뉴' });
+/** The step cards with this title (a step shared by two journeys has a card in each). */
+const stepCards = (title: string) =>
+  screen
+    .getAllByRole('button', { hidden: true })
+    .filter(
+      (button) =>
+        button.hasAttribute('aria-expanded') &&
+        button.closest('[data-node]') &&
+        within(button).queryAllByText(title, { exact: true }).length > 0,
+    );
+/** The first step card with this title, once the map has drawn it. */
+async function stepCard(title: string) {
+  await waitFor(() => expect(stepCards(title).length).toBeGreaterThan(0));
+  return stepCards(title)[0]!;
 }
-/** The summary sentence, shown once the map has loaded. */
-const loaded = () => screen.findByText(/^약속 \d+개 중 \d+개를 지키고 있어요$/);
+/** Whether the map quiets this card (a search or a status lights the others). */
+const dimmed = (card: HTMLElement) =>
+  (card.closest('[data-node]')!.firstElementChild as HTMLElement).style.opacity === '0.35';
+/** Opens a step's panel from its card on the canvas. */
+async function openStep(title: string) {
+  fireEvent.click(await stepCard(title));
+  return screen.findByRole('dialog');
+}
+/** In an open step's panel, opens the promise whose sentence starts with `text`. */
+function openPromise(panel: HTMLElement, text: string) {
+  fireEvent.click(within(panel).getByRole('button', { name: (name) => name.startsWith(text) }));
+  return screen.getByRole('dialog');
+}
+/** Opens a step, then one of its promises. */
+async function promiseView(title: string, text: string) {
+  return openPromise(await openStep(title), text);
+}
+/** From a promise back to its step, through the breadcrumb. */
+function backToStep(panel: HTMLElement, title: string) {
+  fireEvent.click(within(panel).getByRole('button', { name: title }));
+  return screen.getByRole('dialog');
+}
 /** Opens the map's "⋯" menu and returns its item with this name. */
 async function menuItem(name: RegExp | string, role: 'menuitem' | 'menuitemcheckbox' = 'menuitem') {
   fireEvent.click(await screen.findByRole('button', { name: '지도 메뉴' }));
   return screen.findByRole(role, { name });
 }
-/** The side panel's flow list, which also carries what needs a look and the code changes not on the map. */
-const flowList = () => screen.getByRole('region', { name: '흐름' });
-/** A row of that list by its title (the accessible name also holds the number, counts and 보기). */
-const flowRow = (title: string) => within(flowList()).getByRole('button', { name: new RegExp(title) });
-/** The "봐야 할 것 N" count on a flow row, or 0 when it has none. */
-const lookCount = (row: HTMLElement) => Number(/봐야 할 것 (\d+)/.exec(row.textContent!)?.[1] ?? 0);
-/** The code changes row at the end of the flow list. */
-const coverageRow = () => within(flowList()).getByRole('button', { name: /^지도에 아직 없는 코드 변경/ });
-/** Every card on the canvas. */
-const cards = () => screen.getAllByRole('button').filter((b) => b.hasAttribute('data-node'));
-/** The reason tag per tagged card, as `nodeId: tag`. */
-const reasonTags = () => [
-  ...new Set(
-    cards().flatMap((b) => {
-      const tag = b.querySelector('[data-reason]');
-      return tag ? [`${b.getAttribute('data-node')}: ${tag.textContent}`] : [];
-    }),
-  ),
-];
+/** The row under the top one that lists what wants a look, or null when nothing does. */
+const notices = () => screen.queryByRole('list', { name: '지도에서 볼 것' });
+/** Every step card on the canvas. */
+const allSteps = () =>
+  screen.getAllByRole('button').filter((b) => b.hasAttribute('aria-expanded') && b.closest('[data-node]'));
+
 function mount(script: Script = {}, onSession = vi.fn(), onShowConversation = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const base = mergeScripts(
@@ -84,8 +98,7 @@ function mount(script: Script = {}, onSession = vi.fn(), onShowConversation = vi
   return { ...result, request, onSession, onShowConversation, client };
 }
 beforeEach(() => {
-  // These tests are about the card map; the person-first view has its own block at the end.
-  localStorage.setItem('alpine.product-map.view', 'cards');
+  Element.prototype.scrollIntoView = vi.fn();
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -105,19 +118,31 @@ const lastPrepare = (request: { mock: { calls: unknown[][] } }) =>
   request.mock.calls.filter(([method]) => method === 'flow/prepare').at(-1)?.[1];
 
 describe('living product map', () => {
-  it('branches from the selected existing feature and opens the real session', async () => {
+  it('asks the AI about a card in words and opens the real session', async () => {
     const { request, onSession } = mount();
-    fireEvent.click(await screen.findByRole('button', { name: /장바구니/ }));
-    fireEvent.click(screen.getByRole('button', { name: '이어지는 기능 추가' }));
-    fireEvent.change(screen.getByLabelText(/기능 다음에/), { target: { value: '선물 주문' } });
-    fireEvent.click(screen.getByRole('button', { name: '작업 시작' }));
+    const panel = await openStep('장바구니');
+    const send = within(panel).getByRole('button', { name: '보내기' }) as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    fireEvent.change(within(panel).getByLabelText('AI에게 부탁하기'), {
+      target: { value: '선물 포장 단계를 추가해 줘' },
+    });
+    fireEvent.click(send);
     await waitFor(() => expect(onSession).toHaveBeenCalledWith('new-session'));
-    const prepare = request.mock.calls.find(([method]) => method === 'flow/prepare');
-    expect(prepare?.[1]).toMatchObject({ action: 'extend', nodeId: 'cart', flowId: 'order', request: '선물 주문' });
-    expect(await screen.findByRole('button', { name: /^6 선물 주문 약속 없음/ })).toBeTruthy();
+    expect(lastPrepare(request)).toMatchObject({
+      action: 'change',
+      nodeId: 'cart',
+      flowId: null,
+      request: '선물 포장 단계를 추가해 줘',
+    });
     expect(request.mock.calls.find(([method]) => method === 'session/send')?.[1]).toMatchObject({
       sessionId: 'new-session',
     });
+    // Once the AI has it, the box is empty for the next request.
+    await waitFor(() =>
+      expect((within(screen.getByRole('dialog')).getByLabelText('AI에게 부탁하기') as HTMLTextAreaElement).value).toBe(
+        '',
+      ),
+    );
   });
   it('retries a failed send without creating a second session or branch', async () => {
     let attempts = 0;
@@ -129,102 +154,58 @@ describe('living product map', () => {
         },
       },
     });
-    fireEvent.click(await screen.findByRole('button', { name: /장바구니/ }));
-    fireEvent.click(screen.getByRole('button', { name: '이어지는 기능 추가' }));
-    fireEvent.change(screen.getByLabelText(/기능 다음에/), { target: { value: '선물 주문' } });
-    fireEvent.click(screen.getByRole('button', { name: '작업 시작' }));
-    expect(await screen.findByRole('alert')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    const panel = await openStep('장바구니');
+    fireEvent.change(within(panel).getByLabelText('AI에게 부탁하기'), { target: { value: '선물 주문' } });
+    fireEvent.click(within(panel).getByRole('button', { name: '보내기' }));
+    expect(await screen.findByRole('alert', { hidden: true })).toBeTruthy();
+    // What was typed stays until the AI has it.
+    expect((within(panel).getByLabelText('AI에게 부탁하기') as HTMLTextAreaElement).value).toBe('선물 주문');
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도', hidden: true }));
     await waitFor(() => expect(onSession).toHaveBeenCalled());
     expect(request.mock.calls.filter(([method]) => method === 'session/new')).toHaveLength(1);
     expect(request.mock.calls.filter(([method]) => method === 'flow/prepare')).toHaveLength(1);
   });
-  it('distinguishes a recorded check from current verification and shows shared usage', async () => {
+  it("shows a step's promises, where else it is used, and a failed promise's plain record", async () => {
     mount();
-    fireEvent.click(await payment());
-    const inspector = screen.getByRole('complementary', { name: '결제' });
-    const flows = within(inspector).getByRole('region', { name: '사용 흐름' });
-    expect(within(flows).getByText('상품을 고르고 주문하기')).toBeTruthy();
-    expect(within(flows).getByText('다른 서비스에서 주문 만들기')).toBeTruthy();
-    expect(within(inspector).getByText('약속 4개 중 3개 통과')).toBeTruthy();
-    expect(within(inspector).getByText('10% 쿠폰을 적용하면 할인된 금액으로 결제한다.')).toBeTruthy();
-    expect(within(inspector).getByText('쿠폰을 적용하면 결제 금액이 갱신되지 않아요.')).toBeTruthy();
+    const panel = await openStep('결제');
+    expect(within(panel).getByText('약속 4개 중 3개 통과')).toBeTruthy();
+    expect(within(panel).getByText(ORDER_FLOW.title)).toBeTruthy();
+    const elsewhere = within(panel).getByText('다른 여정에도 나와요').parentElement!;
+    expect(within(elsewhere).getByText(SDK_FLOW.title)).toBeTruthy();
+    const coupon = openPromise(panel, '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
+    expect(within(coupon).getByText('10% 쿠폰을 적용하면 할인된 금액으로 결제한다.')).toBeTruthy();
+    expect(within(coupon).getByText('쿠폰을 적용하면 결제 금액이 갱신되지 않아요.')).toBeTruthy();
   });
-  it('keeps developer details behind a collapsed technical section', async () => {
-    mount();
-    fireEvent.click(await payment());
-    const inspector = screen.getByRole('complementary', { name: '결제' });
-    const technical = within(inspector).getByText('기술 정보').closest('details')!;
-    expect(technical.open).toBe(false);
-    expect(technical.textContent).toContain('payment');
-    expect(technical.textContent).toContain('POST /payments');
-    const heading = within(inspector).getByRole('heading', { name: '결제', level: 2 });
-    expect(heading.parentElement!.parentElement!.textContent).toBe('5결제');
-  });
-  it('offers exactly one primary next action per status', async () => {
-    mount();
-    const primary = async (name: RegExp, label: string, others: string[]) => {
-      fireEvent.click((await screen.findAllByRole('button', { name }))[0]!);
-      const inspector = screen.getByRole('complementary');
-      expect(within(inspector).getAllByRole('button', { name: label })).toHaveLength(1);
-      for (const other of others) expect(within(inspector).queryByRole('button', { name: other })).toBeNull();
-    };
-    await primary(/^5 결제 실패/, '이 문제 고쳐 달라고 요청', ['다시 확인', '확인 요청', '약속 정리 요청']);
-    await primary(/회원 주문 재확인 필요/, '다시 확인', ['이 문제 고쳐 달라고 요청', '확인 요청', '동작 확인']);
-    await primary(/장바구니 아직 확인 안 함/, '확인 요청', ['이 문제 고쳐 달라고 요청', '다시 확인', '동작 확인']);
-    await primary(/주문 요청 약속 없음/, '약속 정리 요청', ['이 문제 고쳐 달라고 요청', '확인 요청']);
-    fireEvent.click(screen.getByRole('button', { name: /상품 찾기 통과/ }));
-    const passed = screen.getByRole('complementary', { name: '상품 찾기' });
-    for (const name of ['이 문제 고쳐 달라고 요청', '다시 확인', '확인 요청', '약속 정리 요청'])
-      expect(within(passed).queryByRole('button', { name })).toBeNull();
-    expect(within(passed).getByRole('button', { name: '동작 확인' })).toBeTruthy();
-  });
-  it('requests a re-check from the primary action', async () => {
+  it('requests a re-check of the open card', async () => {
     const { request } = mount();
-    fireEvent.click(await screen.findByRole('button', { name: /회원 주문 재확인 필요/ }));
-    fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: '다시 확인' }));
-    await waitFor(() =>
-      expect(request.mock.calls.find(([method]) => method === 'flow/prepare')?.[1]).toMatchObject({
-        action: 'verify',
-        nodeId: 'member',
-      }),
-    );
+    const panel = await openStep('회원 주문');
+    fireEvent.click(within(panel).getByRole('button', { name: '다시 확인' }));
+    await waitFor(() => expect(lastPrepare(request)).toMatchObject({ action: 'verify', nodeId: 'member' }));
   });
-  it('prefills the change form with the issue and the failed promise', async () => {
+  it('asks the AI to fix a failed promise from the promise itself', async () => {
     const { request } = mount();
-    fireEvent.click(await payment());
-    const inspector = screen.getByRole('complementary', { name: '결제' });
-    const box = within(inspector).getByText('해결되지 않은 문제').parentElement!;
-    // The issue appears once, inside its box, together with the fix button.
-    expect(within(inspector).getAllByText('쿠폰을 적용하면 결제 금액이 갱신되지 않아요.')).toHaveLength(1);
-    fireEvent.click(within(box).getByRole('button', { name: '이 문제 고쳐 달라고 요청' }));
-    const value = (screen.getByLabelText('어떻게 바꿀까요?') as HTMLTextAreaElement).value;
-    expect(value).toContain('쿠폰을 적용하면 결제 금액이 갱신되지 않아요.');
-    expect(value).toContain('10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
-    fireEvent.click(screen.getByRole('button', { name: '작업 시작' }));
+    const coupon = await promiseView('결제', '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
+    fireEvent.click(within(coupon).getByRole('button', { name: '고쳐 달라고 하기' }));
     await waitFor(() =>
-      expect(request.mock.calls.find(([method]) => method === 'flow/prepare')?.[1]).toMatchObject({
+      expect(lastPrepare(request)).toMatchObject({
         action: 'change',
         nodeId: 'payment',
+        request: expect.stringContaining('10% 쿠폰을 적용하면 할인된 금액으로 결제한다.'),
       }),
     );
   });
-  it('explains promises in place and shows plain evidence before the technical record', async () => {
+  it('shows plain evidence before the folded technical record', async () => {
     mount();
-    fireEvent.click(await screen.findByRole('button', { name: /^1 상품 찾기/ }));
-    const inspector = screen.getByRole('complementary', { name: '상품 찾기' });
-    expect(within(inspector).queryByText(/반드시 지켜야 할 동작/)).toBeNull();
-    fireEvent.click(within(inspector).getByRole('button', { name: '약속이란?' }));
-    expect(within(inspector).getByText(/반드시 지켜야 할 동작/)).toBeTruthy();
-    const record = within(inspector).getAllByText('기술 기록')[0]!.closest('details')!;
+    const list = await promiseView('상품 찾기', '판매 중인 상품만 가격과 함께 보인다.');
+    expect(within(list).getByText('예제 실행 기록')).toBeTruthy();
+    const record = within(list).getByText('기술 기록').closest('details')!;
     expect(record.open).toBe(false);
-    expect(record.textContent).toContain('pnpm test');
+    expect(record.textContent).toContain('pnpm test list');
   });
   it('saves planning decisions through flow/set without a revision', async () => {
     const { request } = mount();
-    fireEvent.click(await screen.findByRole('button', { name: /^1 상품 찾기/ }));
-    const inspector = screen.getByRole('complementary', { name: '상품 찾기' });
-    fireEvent.click(within(inspector).getByRole('button', { name: '필수' }));
+    const panel = await openStep('상품 찾기');
+    fireEvent.click(within(panel).getByRole('radio', { name: '필수' }));
     await waitFor(() =>
       expect(request.mock.calls.find(([method]) => method === 'flow/set')?.[1]).toMatchObject({
         cwd,
@@ -234,44 +215,15 @@ describe('living product map', () => {
       }),
     );
     expect(request.mock.calls.find(([method]) => method === 'flow/set')?.[1]).not.toHaveProperty('revision');
-    const memo = within(inspector).getByLabelText('결정 메모');
-    fireEvent.change(memo, { target: { value: '출시 전에 필요' } });
-    fireEvent.keyDown(memo, { key: 'Enter' });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('radio', { name: '이번에' }));
     await waitFor(() =>
       expect(request.mock.calls.filter(([method]) => method === 'flow/set').at(-1)?.[1]).toMatchObject({
-        field: 'decision',
-        value: '출시 전에 필요',
+        field: 'scope',
+        value: 'now',
       }),
     );
     // Tags are the AI's to write: there is no field to pick a group by hand.
-    expect(within(inspector).queryByLabelText('영역')).toBeNull();
-  });
-  it('shows a small inline error when saving a plan field fails', async () => {
-    mount({
-      results: {
-        'flow/set': () => {
-          throw new Error('disk full');
-        },
-      },
-    });
-    fireEvent.click(await screen.findByRole('button', { name: /^1 상품 찾기/ }));
-    fireEvent.click(screen.getByRole('button', { name: '이번에' }));
-    expect((await screen.findByText(/저장하지 못했어요/)).getAttribute('role')).toBe('alert');
-  });
-  it('totals each feature once and dims, never removes, the cards a status filter does not match', async () => {
-    mount();
-    expect(await loaded()).toBeTruthy();
-    // A shared feature is drawn in each flow it belongs to, but counted once.
-    expect(screen.getAllByRole('button', { name: /^5 결제/ })).toHaveLength(2);
-    await toggleFilter(/^재확인 필요 1/);
-    expect(dimmed(screen.getByRole('button', { name: /^3 회원 주문 재확인 필요/ }))).toBe(false);
-    const cart = screen.getByRole('button', { name: /장바구니/ });
-    expect(dimmed(cart)).toBe(true);
-    // Dimmed cards stay focusable buttons.
-    cart.focus();
-    expect(globalThis.document.activeElement).toBe(cart);
-    fireEvent.click(screen.getByRole('button', { name: '모두 지우기' }));
-    expect(dimmed(screen.getByRole('button', { name: /장바구니/ }))).toBe(false);
+    expect(within(screen.getByRole('dialog')).queryByLabelText('영역')).toBeNull();
   });
   it('asks before rebuilding an existing map', async () => {
     const { request } = mount();
@@ -283,12 +235,6 @@ describe('living product map', () => {
         action: 'discover',
       }),
     );
-  });
-  it('asks for promises from a feature that has none', async () => {
-    mount();
-    fireEvent.click(await screen.findByRole('button', { name: /^6 주문 요청/ }));
-    fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: '약속 정리 요청' }));
-    expect((screen.getByLabelText(/약속 정리/) as HTMLTextAreaElement).value).toMatch(/주문 요청의 요구사항/);
   });
   it('keeps an unreadable document from triggering discovery writes', async () => {
     const { request } = mount({
@@ -307,142 +253,148 @@ describe('living product map', () => {
     expect(await screen.findByRole('button', { name: '지도 그리기' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /장바구니/ })).toBeNull();
   });
-  it('can collapse a whole flow without losing the shared node in another flow', async () => {
-    mount();
-    expect(await screen.findByText(ORDER_FLOW.description)).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: /^5 결제 실패/ })).toHaveLength(2);
-    fireEvent.click(screen.getByRole('button', { name: ORDER_FLOW.title }));
-    expect(screen.queryByRole('button', { name: /장바구니/ })).toBeNull();
-    expect(screen.getAllByRole('button', { name: /^5 결제 실패/ })).toHaveLength(1);
-  });
-
-  it('shows the map as one flow canvas with no view tabs', async () => {
+  it('opens on the person view, with one card per journey and no view switch', async () => {
     mount();
     await loaded();
-    expect(flowList()).toBeTruthy();
     expect(screen.queryByRole('tab')).toBeNull();
-    expect(screen.getAllByRole('region', { name: ORDER_FLOW.title })).toHaveLength(1);
+    expect(screen.queryByRole('radio', { name: '카드 지도' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: '사람별 흐름' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: new RegExp(ORDER_FLOW.title) })).toHaveLength(1);
+    // A step on two journeys has a card on each.
+    expect(await screen.findAllByText('결제', { exact: true })).toHaveLength(2);
+    expect(stepCards('결제')).toHaveLength(2);
+    expect(localStorage.getItem('alpine.product-map.view')).toBeNull();
   });
-  it('shows the AI tags on a card, two at most, and never an empty-area tag', async () => {
-    mount(
-      withBoard((board) => {
-        board.document!.nodes!.find((n) => n.id === 'cart')!.tags = ['상품 탐색', '수량', '할인'];
-        board.document!.nodes!.find((n) => n.id === 'guest')!.tags = undefined;
-      }),
-    );
-    const cart = await screen.findByRole('button', { name: '2 장바구니 아직 확인 안 함 상품 탐색 수량 할인' });
-    expect(within(cart).getByText('상품 탐색')).toBeTruthy();
-    expect(within(cart).getByText('수량')).toBeTruthy();
-    expect(within(cart).queryByText('할인')).toBeNull();
-    const browse = screen.getByRole('button', { name: /^1 상품 찾기/ });
-    expect(within(browse).getByText('상품 탐색')).toBeTruthy();
-    // A card with no tags is simply untagged.
-    const guest = screen.getByRole('button', { name: /^4 비회원 주문/ });
-    expect(screen.queryByText('영역 없음')).toBeNull();
-    expect(guest.getAttribute('aria-label')).toBe('4 비회원 주문 약속 없음');
-    // The panel shows every tag, with no field to pick an area.
-    fireEvent.click(cart);
-    const inspector = screen.getByRole('complementary', { name: '장바구니' });
-    for (const tag of ['상품 탐색', '수량', '할인']) expect(within(inspector).getByText(tag)).toBeTruthy();
-    expect(within(inspector).queryByLabelText('영역')).toBeNull();
-  });
-  it('puts a screen picture on screen cards, a quiet note when there is none, and a description otherwise', async () => {
+  it('puts a screen picture on screen cards, a quiet note when there is none, and nothing on other cards', async () => {
     mount(
       withBoard((board) => {
         board.previews = { browse: 'data:image/png;base64,AAAA' };
         board.document!.nodes!.find((n) => n.id === 'browse')!.previewAt = new Date().toISOString();
       }),
     );
-    const card = await screen.findByRole('button', { name: /^1 상품 찾기/ });
+    const card = await stepCard('상품 찾기');
     expect(card.querySelector('img')!.getAttribute('src')).toBe('data:image/png;base64,AAAA');
-    expect(within(card).getByTitle('캡처 오늘')).toBeTruthy();
-    expect(screen.getAllByText('주문 금액을 결제합니다.').length).toBeGreaterThan(0);
-    const screens = screen.getAllByRole('button').filter((b) => b.querySelector('svg[aria-label="화면"]'));
-    for (const other of screens.filter((b) => b !== card))
-      expect(within(other).getByText('화면 사진 없음')).toBeTruthy();
+    expect(within(card).getByText('실제 화면')).toBeTruthy();
+    for (const title of ['장바구니', '비회원 주문'])
+      expect(within(await stepCard(title)).getByText('아직 화면이 없어요')).toBeTruthy();
+    expect(within(await stepCard('결제')).queryByText('아직 화면이 없어요')).toBeNull();
   });
-  it('dims what the search does not match, counts results and cycles them with Enter', async () => {
+  it('closes the step panel with Esc', async () => {
+    mount();
+    await openStep('상품 찾기');
+    fireEvent.keyDown(globalThis.document.activeElement ?? globalThis.document.body, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+  it('hides the new-flow button until a map exists', async () => {
+    mount({ results: { 'flow/get': { document: { flows: [], nodes: [], edges: [] }, revision: 'missing' } } });
+    await screen.findByRole('button', { name: '지도 그리기' });
+    expect(screen.queryByRole('button', { name: '새 흐름' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '지도 메뉴' })).toBeNull();
+  });
+});
+
+describe('the top row', () => {
+  it('lights what the search matches, counts results and clears with Escape', async () => {
     mount();
     await loaded();
     const box = screen.getByPlaceholderText('기능, 태그, 약속 검색') as HTMLInputElement;
     fireEvent.keyDown(globalThis.document.body, { key: '/' });
     expect(globalThis.document.activeElement).toBe(box);
+    expect(allSteps().some(dimmed)).toBe(false);
     fireEvent.change(box, { target: { value: '장바구니' } });
-    expect(dimmed(screen.getByRole('button', { name: /^2 장바구니/ }))).toBe(false);
-    expect(dimmed(screen.getByRole('button', { name: /상품 찾기/ }))).toBe(true);
+    expect(dimmed(await stepCard('장바구니'))).toBe(false);
+    // The steps that lead to a hit stay clear, so its journey still reads; the rest quiets down.
+    expect(dimmed(await stepCard('상품 찾기'))).toBe(false);
+    expect(dimmed(await stepCard('주문 요청'))).toBe(true);
     expect(screen.getByText('1개 찾음')).toBeTruthy();
-    // A flow without a match stays on the canvas and says so quietly.
-    expect(screen.getAllByText('일치 없음').length).toBeGreaterThan(0);
+    // One hit: no "다음".
+    expect(screen.queryByRole('button', { name: '다음 검색 결과' })).toBeNull();
     fireEvent.keyDown(box, { key: 'Escape' });
     expect(box.value).toBe('');
-    expect(dimmed(screen.getByRole('button', { name: /상품 찾기/ }))).toBe(false);
-    expect(screen.queryByText('일치 없음')).toBeNull();
+    expect(allSteps().some(dimmed)).toBe(false);
+    expect(screen.queryByText(/개 찾음$/)).toBeNull();
   });
-  it('cycles through several matches with Enter and the next button', async () => {
+  it('opens the next hit with Enter and "다음"', async () => {
     mount();
     await loaded();
-    const scrolled: string[] = [];
-    Element.prototype.scrollIntoView = function (this: Element) {
-      scrolled.push(this.getAttribute('data-node') ?? '');
-    };
     const box = screen.getByPlaceholderText('기능, 태그, 약속 검색');
     fireEvent.change(box, { target: { value: '주문' } });
     const count = Number(/\d+/.exec(screen.getByText(/개 찾음$/).textContent!)![0]);
     expect(count).toBeGreaterThan(1);
+    const title = () => within(screen.getByRole('dialog')).getByRole('heading', { level: 2 }).textContent;
     fireEvent.keyDown(box, { key: 'Enter' });
-    await waitFor(() => expect(scrolled.filter(Boolean)).toHaveLength(1));
-    fireEvent.click(screen.getByRole('button', { name: '다음 검색 결과' }));
-    await waitFor(() => expect(scrolled.filter(Boolean).length).toBeGreaterThanOrEqual(2));
-    expect(new Set(scrolled.slice(-2)).size).toBe(2);
+    await screen.findByRole('dialog');
+    const first = title();
+    expect(first).toBe('장바구니');
+    fireEvent.click(screen.getByRole('button', { name: '다음 검색 결과', hidden: true }));
+    await waitFor(() => expect(title()).not.toBe(first));
+    expect(title()).toBe('회원 주문');
   });
-  it('marks what needs a look on each flow row; a row toggles dimming and reason tags on its cards', async () => {
+  it('checks every card the search found, tags included, in one run', async () => {
+    const { request } = mount();
+    await loaded();
+    expect(screen.queryByRole('group', { name: '태그' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '찾은 기능 모두 확인' })).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText('기능, 태그, 약속 검색'), { target: { value: '주문' } });
+    for (const title of ['회원 주문', '비회원 주문']) expect(dimmed(await stepCard(title))).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: '찾은 기능 모두 확인' }));
+    await waitFor(() =>
+      expect(lastPrepare(request)).toMatchObject({
+        action: 'verify',
+        nodeId: null,
+        flowId: null,
+        nodeIds: expect.arrayContaining(['member', 'guest']),
+        request: '검색어 "주문"에 맞는 기능이 모두 제대로 동작하는지 확인해 주세요.',
+      }),
+    );
+    // Each feature once, however many journeys it is on.
+    const ids = (lastPrepare(request) as { nodeIds: string[] }).nodeIds;
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(request.mock.calls.filter(([method]) => method === 'flow/prepare')).toHaveLength(1);
+  });
+  it('finds cards by their tags in the search', async () => {
     mount();
     await loaded();
-    const row = flowRow(ORDER_FLOW.title);
-    const count = lookCount(row);
-    expect(count).toBeGreaterThan(0);
-    expect(row.getAttribute('aria-pressed')).toBe('false');
-    expect(cards().some(dimmed)).toBe(false);
-    expect(document.querySelector('[data-reason]')).toBeNull();
-    fireEvent.click(row);
-    expect(row.getAttribute('aria-pressed')).toBe('true');
-    expect(row.textContent).toContain('그만 보기');
-    // Every card outside the flow is dimmed; its cards that need a look carry a short reason.
-    const tagged = cards().filter((b) => b.querySelector('[data-reason]'));
-    expect(new Set(tagged.map((b) => b.getAttribute('data-node'))).size).toBe(count);
-    expect(tagged.every((b) => ORDER_FLOW.nodeIds.includes(b.getAttribute('data-node')!))).toBe(true);
-    expect(tagged.every((b) => !dimmed(b))).toBe(true);
-    expect(cards().some(dimmed)).toBe(true);
-    expect(reasonTags()).toContain('payment: 실패');
-    // It is a focus beside 필터, not a filter tag.
-    expect(screen.queryByRole('list', { name: '적용된 필터' })).toBeNull();
-    fireEvent.click(row);
-    expect(row.getAttribute('aria-pressed')).toBe('false');
-    expect(cards().some(dimmed)).toBe(false);
-    expect(document.querySelector('[data-reason]')).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText('기능, 태그, 약속 검색'), { target: { value: '연동' } });
+    expect(screen.getByText('2개 찾음')).toBeTruthy();
+    expect(dimmed(await stepCard('주문 요청'))).toBe(false);
+    expect(dimmed(await stepCard('주문 결과 받기'))).toBe(false);
+    expect(dimmed(await stepCard('장바구니'))).toBe(true);
   });
-  it('marks no flow as needing a look when nothing does, and says no promise is checked yet', async () => {
+  it('a status chip lights its cards and lets go when pressed again; one at a time', async () => {
+    mount();
+    await loaded();
+    const again = screen.getByRole('button', { name: '다시 확인 1' });
+    const failed = screen.getByRole('button', { name: '실패 1' });
+    expect(screen.getByRole('button', { name: '바뀐 것 2' })).toBeTruthy();
+    expect(again.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(again);
+    expect(again.getAttribute('aria-pressed')).toBe('true');
+    expect(dimmed(await stepCard('회원 주문'))).toBe(false);
+    const quiet = await stepCard('주문 요청');
+    expect(dimmed(quiet)).toBe(true);
+    // Quieted cards stay focusable buttons.
+    quiet.focus();
+    expect(globalThis.document.activeElement).toBe(quiet);
+    fireEvent.click(failed);
+    expect(failed.getAttribute('aria-pressed')).toBe('true');
+    expect(again.getAttribute('aria-pressed')).toBe('false');
+    expect(stepCards('결제').every((card) => !dimmed(card))).toBe(true);
+    expect(dimmed(await stepCard('주문 결과 받기'))).toBe(true);
+    fireEvent.click(failed);
+    expect(failed.getAttribute('aria-pressed')).toBe('false');
+    expect(allSteps().some(dimmed)).toBe(false);
+  });
+  it('shows no status chip for a status nothing has', async () => {
     mount(
       withBoard((board) => {
         board.states = {};
-        board.document!.nodes = board.document!.nodes!.map((n) => ({
-          ...n,
-          phase: 'planned',
-          conditions: [],
-          checks: [],
-        }));
       }),
     );
-    expect(await screen.findByText('기능 7개 · 아직 확인한 약속이 없어요')).toBeTruthy();
-    expect(within(flowList()).queryByText(/봐야 할 것/)).toBeNull();
-  });
-  it('uses plain wording for features that appear in several flows', async () => {
-    mount();
-    await payment();
-    expect(screen.getAllByText('2곳에 나옴').length).toBeGreaterThan(0);
-    fireEvent.click(await payment());
-    expect(await screen.findByText('이 기능은 흐름 2곳에 나와요')).toBeTruthy();
-    expect(screen.getByRole('button', { name: '다른 곳 보기' })).toBeTruthy();
+    await loaded();
+    expect(screen.queryByRole('button', { name: /^실패 \d/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^다시 확인 \d/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^바뀐 것 \d/ })).toBeNull();
   });
   it('counts changes since the last visit and opens them in a side panel', async () => {
     localStorage.setItem(`alpine:product-map:seen:${cwd}`, '2026-10-01T00:00:00Z');
@@ -474,80 +426,10 @@ describe('living product map', () => {
     expect(Date.parse(localStorage.getItem(`alpine:product-map:seen:${cwd}`)!)).toBeGreaterThan(
       Date.parse('2026-10-11'),
     );
+    // A change opens its card in the map.
     fireEvent.click(within(panel).getByRole('button', { name: /결제/ }));
-    expect(screen.getByRole('complementary', { name: '결제' })).toBeTruthy();
-    localStorage.clear();
-  });
-  it('checks a whole flow from the flow canvas', async () => {
-    const { request } = mount();
-    fireEvent.click((await screen.findAllByRole('button', { name: '이 흐름 전체 확인' }))[0]!);
-    const flow = ORDER_FLOW;
-    await waitFor(() =>
-      expect(request.mock.calls.find(([method]) => method === 'flow/prepare')?.[1]).toMatchObject({
-        action: 'verify',
-        nodeId: null,
-        flowId: flow.id,
-        request: `${flow.title} 흐름 전체가 제대로 동작하는지 확인해줘.`,
-      }),
-    );
-  });
-  it('filters from one menu, shows each filter as a removable tag and clears them all', async () => {
-    mount();
-    await loaded();
-    const trigger = screen.getByRole('button', { name: '필터' });
-    expect(trigger.getAttribute('aria-haspopup')).toBeTruthy();
-    expect(trigger.getAttribute('aria-expanded')).toBe('false');
-    // Nothing is filtered, so no tags and no clear-all.
-    expect(screen.queryByRole('list', { name: '적용된 필터' })).toBeNull();
-    fireEvent.click(trigger);
-    const failed = await screen.findByRole('button', { name: /^실패 1/ });
-    expect(trigger.getAttribute('aria-expanded')).toBe('true');
-    expect(failed.getAttribute('title')).toMatch(/약속/);
-    fireEvent.click(failed);
-    expect(failed.getAttribute('aria-pressed')).toBe('true');
-    fireEvent.click(screen.getByRole('button', { name: '필수만' }));
-    fireEvent.click(screen.getByRole('button', { name: '이번에 할 것' }));
-    expect(screen.getByRole('button', { name: '필터 3' })).toBeTruthy();
-    const tags = screen.getByRole('list', { name: '적용된 필터' });
-    for (const label of ['실패', '필수만', '이번에 할 것'])
-      expect(within(tags).getByRole('button', { name: `${label} 필터 지우기` })).toBeTruthy();
-    expect(dimmed(screen.getByRole('button', { name: /장바구니/ }))).toBe(true);
-    // A tag removes only its own filter.
-    fireEvent.click(within(tags).getByRole('button', { name: '필수만 필터 지우기' }));
-    expect(screen.getByRole('button', { name: '필터 2' })).toBeTruthy();
-    expect(within(tags).queryByRole('button', { name: '필수만 필터 지우기' })).toBeNull();
-    fireEvent.click(within(tags).getByRole('button', { name: '모두 지우기' }));
-    expect(screen.getByRole('button', { name: '필터' })).toBeTruthy();
-    expect(screen.queryByRole('list', { name: '적용된 필터' })).toBeNull();
-    expect(dimmed(screen.getByRole('button', { name: /장바구니/ }))).toBe(false);
-  });
-  it('picks one status at a time in the filter menu', async () => {
-    mount();
-    await loaded();
-    await toggleFilter(/^실패 1/);
-    await toggleFilter(/^재확인 필요 1/);
-    const tags = screen.getByRole('list', { name: '적용된 필터' });
-    expect(within(tags).getAllByRole('listitem')).toHaveLength(2);
-    expect(within(tags).getByRole('button', { name: '재확인 필요 필터 지우기' })).toBeTruthy();
-    expect(within(tags).queryByRole('button', { name: '실패 필터 지우기' })).toBeNull();
-  });
-  it('summarises promises in one line, with no bar', async () => {
-    mount();
-    await loaded();
-    const line = screen.getByText(/^약속 \d+개 중 \d+개를 지키고 있어요$/);
-    expect(within(line.parentElement!).queryByRole('img')).toBeNull();
-  });
-  it('closes the detail panel with Esc unless an input is focused', async () => {
-    mount();
-    fireEvent.click(await screen.findByRole('button', { name: /^1 상품 찾기/ }));
-    expect(screen.getByRole('complementary', { name: '상품 찾기' })).toBeTruthy();
-    const memo = within(screen.getByRole('complementary')).getByLabelText('결정 메모');
-    memo.focus();
-    fireEvent.keyDown(memo, { key: 'Escape' });
-    expect(screen.getByRole('complementary', { name: '상품 찾기' })).toBeTruthy();
-    memo.blur();
-    fireEvent.keyDown(globalThis.document.body, { key: 'Escape' });
-    expect(screen.queryByRole('complementary')).toBeNull();
+    const step = await screen.findByRole('dialog');
+    expect(within(step).getByRole('heading', { name: '결제', level: 2 })).toBeTruthy();
   });
   it('shows progress changes in plain words', async () => {
     mount(
@@ -561,104 +443,84 @@ describe('living product map', () => {
     );
     fireEvent.click(await menuItem(/^바뀐 기록/));
     const panel = await screen.findByRole('complementary', { name: '최근 변경' });
-    expect(within(panel).getByText('예정 → 구현됨')).toBeTruthy();
     expect(within(panel).queryByText(/planned/)).toBeNull();
     expect(within(panel).getByText(/결제 · 안 고치기로 함/)).toBeTruthy();
     expect(within(panel).getByText(/회원 주문 · 다시 돌려 봄 · 같은 결과/)).toBeTruthy();
   });
-  it('has no tag row; checks every card the search found, tags included, in one run', async () => {
-    const { request } = mount();
-    await loaded();
-    expect(screen.queryByRole('group', { name: '태그' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '찾은 기능 모두 확인' })).toBeNull();
-    fireEvent.change(screen.getByPlaceholderText('기능, 태그, 약속 검색'), { target: { value: '주문' } });
-    const cards = (id: string) => [...globalThis.document.querySelectorAll<HTMLElement>(`[data-node="${id}"]`)];
-    for (const id of ['member', 'guest']) for (const card of cards(id)) expect(dimmed(card)).toBe(false);
-    fireEvent.click(screen.getByRole('button', { name: '찾은 기능 모두 확인' }));
-    await waitFor(() =>
-      expect(lastPrepare(request)).toMatchObject({
-        action: 'verify',
-        nodeId: null,
-        flowId: null,
-        nodeIds: expect.arrayContaining(['member', 'guest']),
-        request: '검색어 "주문"에 맞는 기능이 모두 제대로 동작하는지 확인해 주세요.',
+  it('words a stage change ("planned -> built") plainly', async () => {
+    mount(
+      withBoard((board) => {
+        board.changes = [
+          { at: '2026-10-10T03:00:00Z', nodeId: 'cart', title: '장바구니', kind: 'phase', detail: 'planned -> built' },
+        ];
       }),
     );
+    fireEvent.click(await menuItem(/^바뀐 기록/));
+    const panel = await screen.findByRole('complementary', { name: '최근 변경' });
+    expect(within(panel).getByText('예정 → 구현됨')).toBeTruthy();
   });
-  it('finds cards by their tags in the search', async () => {
+  it('shows the notice row only when something wants a look', async () => {
     mount();
     await loaded();
-    fireEvent.change(screen.getByPlaceholderText('기능, 태그, 약속 검색'), { target: { value: '연동' } });
-    expect(screen.getByText('2개 찾음')).toBeTruthy();
-    expect(dimmed(screen.getByRole('button', { name: /^6 주문 요청/ }))).toBe(false);
-    expect(dimmed(screen.getByRole('button', { name: /^7 주문 결과 받기/ }))).toBe(false);
-    expect(dimmed(screen.getByRole('button', { name: /^2 장바구니/ }))).toBe(true);
-  });
-  it('hides the new-flow button until a map exists', async () => {
-    mount({ results: { 'flow/get': { document: { flows: [], nodes: [], edges: [] }, revision: 'missing' } } });
-    await screen.findByRole('button', { name: '지도 그리기' });
-    expect(screen.queryByRole('button', { name: '새 흐름' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '지도 메뉴' })).toBeNull();
+    expect(notices()).toBeNull();
+    cleanup();
+    mount(
+      withBoard((board) => {
+        board.coverage = { git: false, uncoveredCount: 3 };
+      }),
+    );
+    await loaded();
+    // Code changes without git are not counted.
+    expect(notices()).toBeNull();
+    expect(screen.queryByText('지도에 아직 없는 코드 변경')).toBeNull();
+    cleanup();
+    mount(
+      withBoard((board) => {
+        board.coverage = { git: true, uncovered: ['src/a.ts'], uncoveredCount: 1 };
+        board.removedCards = [{ id: 'refund', title: '환불 받기' }];
+      }),
+    );
+    await loaded();
+    const row = notices()!;
+    expect(within(row).getByRole('button', { name: /^지도에 아직 없는 코드 변경/ })).toBeTruthy();
+    expect(within(row).getByRole('button', { name: /^AI가 지운 카드 1개/ })).toBeTruthy();
+    expect(within(row).queryByText(/고친 약속/)).toBeNull();
+    expect(within(row).queryByText('아직 그리지 않은 것')).toBeNull();
   });
 });
 
-const promiseCalls = (request: { mock: { calls: unknown[][] } }) =>
-  request.mock.calls.filter(([method]) => method === 'flow/promise').map(([, params]) => params);
-const openCard = async (name: RegExp) => {
-  fireEvent.click((await screen.findAllByRole('button', { name }))[0]!);
-  return screen.getByRole('complementary');
-};
-/** Opens the promise row whose text matches, so its body is readable. */
-const openPromise = (inspector: HTMLElement, text: string | RegExp) => {
-  const row = within(inspector).getByText(text).closest('details')!;
-  row.open = true;
-  return row;
-};
-
 describe('map upkeep', () => {
-  it('shows a rule the AI guessed and failed as a question, not as a failure', async () => {
-    const { request } = mount(
-      seeded((board) => {
-        const guest = board.document!.nodes!.find((n) => n.id === 'guest')!;
-        guest.conditions = [{ id: 'phone', expectation: '연락처는 숫자만 받는다.' }];
-        guest.checks = [
-          {
-            id: 'c1',
-            conditionId: 'phone',
-            expectation: '연락처는 숫자만 받는다.',
-            summary: '하이픈 입력',
-            command: 'test',
-            output: '',
-            result: 'failed',
-          },
-        ];
-        board.states!.guest = {
-          status: 'question',
-          passed: 0,
-          total: 1,
-          promises: { phone: { status: 'failed', issue: 'question', origin: 'inferred' } },
-        };
-      }),
-    );
-    const card = await screen.findByRole('button', { name: /비회원 주문 확인 필요한 규칙/ });
-    expect(card.className).toMatch(/border-attention/);
-    // On its flow, it is tagged as a rule to confirm, apart from the failed feature.
-    fireEvent.click(flowRow(ORDER_FLOW.title));
-    expect(reasonTags()).toEqual(expect.arrayContaining(['guest: 규칙인지 확인', 'payment: 실패']));
-    fireEvent.click(flowRow(ORDER_FLOW.title));
-    fireEvent.click(card);
-    const inspector = screen.getByRole('complementary', { name: '비회원 주문' });
-    expect(
-      within(inspector).getAllByText('AI가 짐작해서 적은 규칙이 지켜지지 않았어요. 맞는 규칙인지 알려 주세요.'),
-    ).toHaveLength(1);
-    expect(within(inspector).queryByRole('button', { name: '이 문제 고쳐 달라고 요청' })).toBeNull();
-    openPromise(inspector, '연락처는 숫자만 받는다.');
-    fireEvent.click(within(inspector).getByRole('button', { name: '아니에요' }));
-    expect((screen.getByLabelText('어떻게 바꿀까요?') as HTMLTextAreaElement).value).toContain(
-      '"연락처는 숫자만 받는다." 규칙은 맞지 않아요',
-    );
-    fireEvent.click(screen.getByRole('button', { name: '취소' }));
-    fireEvent.click(within(inspector).getByRole('button', { name: '맞아요' }));
+  const promiseCalls = (request: { mock: { calls: unknown[][] } }) =>
+    request.mock.calls.filter(([method]) => method === 'flow/promise').map(([, params]) => params);
+  const guessed = () =>
+    seeded((board) => {
+      const guest = board.document!.nodes!.find((n) => n.id === 'guest')!;
+      guest.conditions = [{ id: 'phone', expectation: '연락처는 숫자만 받는다.' }];
+      guest.checks = [
+        {
+          id: 'c1',
+          conditionId: 'phone',
+          expectation: '연락처는 숫자만 받는다.',
+          summary: '하이픈 입력',
+          command: 'test',
+          output: '',
+          result: 'failed',
+        },
+      ];
+      board.states!.guest = {
+        status: 'question',
+        passed: 0,
+        total: 1,
+        promises: { phone: { status: 'failed', issue: 'question', origin: 'inferred' } },
+      };
+    });
+
+  it('shows a rule the AI guessed and failed as a question, and confirming it makes it an open problem', async () => {
+    const { request } = mount(guessed());
+    const phone = await promiseView('비회원 주문', '연락처는 숫자만 받는다.');
+    expect(within(phone).getAllByText('이게 맞는 규칙인가요?').length).toBeGreaterThan(0);
+    expect(within(phone).queryByRole('button', { name: 'AI에게 고쳐 달라기' })).toBeNull();
+    fireEvent.click(within(phone).getByRole('button', { name: '맞아요' }));
     await waitFor(() =>
       expect(promiseCalls(request)).toContainEqual({
         cwd,
@@ -668,16 +530,29 @@ describe('map upkeep', () => {
       }),
     );
     // Confirmed, it is an open problem like any other.
-    expect(await screen.findByRole('button', { name: /비회원 주문 실패/ })).toBeTruthy();
+    expect(await within(screen.getByRole('dialog')).findByText(/^열림/)).toBeTruthy();
+  });
+
+  it('"이건 규칙이 아니에요" asks the AI to fix or remove the rule right away', async () => {
+    const { request, onSession } = mount(guessed());
+    const phone = await promiseView('비회원 주문', '연락처는 숫자만 받는다.');
+    fireEvent.click(within(phone).getByRole('button', { name: '아니에요' }));
+    await waitFor(() => expect(onSession).toHaveBeenCalledWith('new-session'));
+    expect(lastPrepare(request)).toMatchObject({
+      action: 'change',
+      nodeId: 'guest',
+      request: expect.stringContaining('"연락처는 숫자만 받는다." 규칙은 맞지 않아요'),
+    });
+    expect(screen.queryByLabelText('어떻게 바꿀까요?')).toBeNull();
+    expect(promiseCalls(request)).toHaveLength(0);
   });
 
   it('shows each issue state with its date and the actions that fit it', async () => {
     const { request } = mount();
-    const inspector = await openCard(/^5 결제 실패/);
-    const row = openPromise(inspector, '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
-    expect(within(row).getByText(/^열림 · \d+월 \d+일부터$/)).toBeTruthy();
-    expect(within(row).getAllByText('확정').length).toBeGreaterThan(0);
-    fireEvent.click(within(row).getByRole('button', { name: '나중에 보기' }));
+    const coupon = await promiseView('결제', '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
+    expect(within(coupon).getByText(/^열림 · \d+월 \d+일부터$/)).toBeTruthy();
+    expect(within(coupon).getAllByText('확정').length).toBeGreaterThan(0);
+    fireEvent.click(within(coupon).getByRole('button', { name: '나중에 보기' }));
     await waitFor(() =>
       expect(promiseCalls(request)).toContainEqual({
         cwd,
@@ -686,7 +561,7 @@ describe('map upkeep', () => {
         action: 'later',
       }),
     );
-    const later = openPromise(screen.getByRole('complementary'), '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
+    const later = screen.getByRole('dialog');
     expect(await within(later).findByText(/^나중에 보기 · /)).toBeTruthy();
     fireEvent.click(within(later).getByRole('button', { name: '다시 열기' }));
     await waitFor(() => expect(promiseCalls(request).at(-1)).toMatchObject({ action: 'reopen' }));
@@ -694,12 +569,11 @@ describe('map upkeep', () => {
 
   it('asks for a one-line reason before marking a problem as will-not-fix', async () => {
     const { request } = mount();
-    const inspector = await openCard(/^5 결제 실패/);
-    const row = openPromise(inspector, '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
-    fireEvent.click(within(row).getByRole('button', { name: '안 고침' }));
-    const save = within(row).getByRole('button', { name: '저장' }) as HTMLButtonElement;
+    const coupon = await promiseView('결제', '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
+    fireEvent.click(within(coupon).getByRole('button', { name: '안 고침' }));
+    const save = within(coupon).getByRole('button', { name: '저장' }) as HTMLButtonElement;
     expect(save.disabled).toBe(true);
-    fireEvent.change(within(row).getByLabelText('안 고치는 이유를 한 줄로 적어 주세요'), {
+    fireEvent.change(within(coupon).getByLabelText('안 고치는 이유를 한 줄로 적어 주세요'), {
       target: { value: '쿠폰은 곧 없앨 예정' },
     });
     fireEvent.click(save);
@@ -726,8 +600,8 @@ describe('map upkeep', () => {
         if (issue === 'resolved') coupon.status = 'passed';
       }),
     );
-    const inspector = await openCard(/^5 결제/);
-    expect(within(inspector).getByText(text)).toBeTruthy();
+    const coupon = await promiseView('결제', '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
+    expect(within(coupon).getByText(text)).toBeTruthy();
   });
 
   it('offers a recheck when the files of an open issue changed', async () => {
@@ -739,20 +613,18 @@ describe('map upkeep', () => {
         board.states!.payment!.changed = true;
       }),
     );
-    const inspector = await openCard(/^5 결제/);
-    const row = openPromise(inspector, '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
-    expect(within(row).getByText('고쳐졌을 수도')).toBeTruthy();
-    expect(within(row).getByText('관련 파일이 바뀌었어요. 다시 확인할까요?')).toBeTruthy();
-    fireEvent.click(within(row).getByRole('button', { name: '다시 확인' }));
+    const coupon = await promiseView('결제', '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
+    expect(within(coupon).getByText('고쳐졌을 수도')).toBeTruthy();
+    expect(within(coupon).getByText('관련 파일이 바뀌었어요. 다시 확인할까요?')).toBeTruthy();
+    fireEvent.click(within(coupon).getByRole('button', { name: '다시 확인' }));
     await waitFor(() => expect(lastPrepare(request)).toMatchObject({ action: 'verify', nodeId: 'payment' }));
   });
 
   it('lets the user confirm a rule the AI guessed, and take the confirmation back', async () => {
     const { request } = mount();
-    const inspector = await openCard(/^2 장바구니/);
-    const row = openPromise(inspector, '비어 있으면 주문하기를 누를 수 없다.');
-    expect(within(row).getByText('AI 추정')).toBeTruthy();
-    fireEvent.click(within(row).getByRole('button', { name: '맞아요' }));
+    const empty = await promiseView('장바구니', '비어 있으면 주문하기를 누를 수 없다.');
+    expect(within(empty).getByText('AI 추정')).toBeTruthy();
+    fireEvent.click(within(empty).getByRole('button', { name: '맞아요' }));
     await waitFor(() =>
       expect(promiseCalls(request)).toContainEqual({
         cwd,
@@ -761,7 +633,10 @@ describe('map upkeep', () => {
         action: 'confirm',
       }),
     );
-    expect(await within(inspector).findByRole('button', { name: '확정 취소' })).toBeTruthy();
+    fireEvent.click(await within(screen.getByRole('dialog')).findByRole('button', { name: '확정 취소' }));
+    await waitFor(() =>
+      expect(promiseCalls(request).at(-1)).toMatchObject({ conditionId: 'empty', action: 'unconfirm' }),
+    );
   });
 
   it('says where each record came from: Alpine, first seen, another computer, changed since, no match', async () => {
@@ -772,18 +647,18 @@ describe('map upkeep', () => {
         board.states!.payment!.promises!.retry!.stamp = { at: '2026-10-02T03:00:00Z', witness: 'other' };
       }),
     );
-    const payment = await openCard(/^5 결제/);
-    const lines = within(payment)
-      .getAllByTestId('stamp')
-      .map((line) => line.textContent);
-    expect(lines.some((line) => /Alpine이 기록$/.test(line!))).toBe(true);
-    expect(lines.some((line) => /다른 컴퓨터 기록 · 여기선 대조할 수 없어요$/.test(line!))).toBe(true);
-    expect(lines.some((line) => /기록과 다름$/.test(line!))).toBe(true);
-    expect(within(payment).getByText('확인 뒤 파일이 바뀌어 확실하지 않음')).toBeTruthy();
+    const stamp = (panel: HTMLElement) => within(panel).getByTestId('stamp').textContent;
+    let panel = await promiseView('결제', '쿠폰이 없으면 주문 금액 그대로 결제한다.');
+    expect(stamp(panel)).toMatch(/Alpine이 기록$/);
+    panel = openPromise(backToStep(panel, '결제'), '결제를 다시 요청해도 중복 청구하지 않는다.');
+    expect(stamp(panel)).toMatch(/다른 컴퓨터 기록 · 여기선 대조할 수 없어요$/);
+    panel = openPromise(backToStep(panel, '결제'), '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
+    expect(stamp(panel)).toMatch(/기록과 다름$/);
+    expect(within(panel).getByText('확인 뒤 파일이 바뀌어 확실하지 않음')).toBeTruthy();
     cleanup();
     mount();
-    const cart = await openCard(/^2 장바구니/);
-    expect(within(cart).getAllByTestId('stamp')[0]!.textContent).toMatch(/^Alpine이 처음 본 시각 · /);
+    const total = await promiseView('장바구니', '수량을 바꾸면 합계가 바로 바뀐다.');
+    expect(stamp(total)).toMatch(/^Alpine이 처음 본 시각 · /);
   });
 
   it('marks observation labels that come from another computer', async () => {
@@ -796,9 +671,9 @@ describe('map upkeep', () => {
         board.provenance = { 'payment/coupon': [{ label: 'verified', elsewhere: true }] };
       }),
     );
-    const payment = await openCard(/^5 결제/);
-    expect(within(payment).getByText('다른 컴퓨터에서 확인한 기록 · 여기선 대조할 수 없어요')).toBeTruthy();
-    expect(payment.querySelector('[data-provenance="verified"]')).toBeNull();
+    const coupon = await promiseView('결제', '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
+    expect(within(coupon).getByText('다른 컴퓨터에서 확인한 기록 · 여기선 대조할 수 없어요')).toBeTruthy();
+    expect(coupon.querySelector('[data-provenance="verified"]')).toBeNull();
   });
 
   it('says a check that only read code was judged from reading, not from running', async () => {
@@ -818,29 +693,21 @@ describe('map upkeep', () => {
         board.provenance = { 'payment/coupon': [{ label: 'read', matched: 'c1' }] };
       }),
     );
-    const payment = await openCard(/^5 결제/);
-    const row = openPromise(payment, '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
-    expect(within(row).getByText('AI가 코드를 읽고 판단함')).toBeTruthy();
-    expect(within(row).getAllByText('코드를 읽고 판단한 결과예요 · 실행해 보진 않았어요').length).toBeGreaterThan(0);
-    expect(row.querySelector('[data-provenance="verified"]')).toBeNull();
+    const coupon = await promiseView('결제', '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
+    expect(within(coupon).getByText('AI가 코드를 읽고 판단함')).toBeTruthy();
+    expect(within(coupon).getAllByText('코드를 읽고 판단한 결과예요 · 실행해 보진 않았어요').length).toBeGreaterThan(0);
+    expect(coupon.querySelector('[data-provenance="verified"]')).toBeNull();
   });
 
   it('asks before re-running a command by itself, and shows what a re-run found', async () => {
     const { request } = mount(
       seeded((board) => {
         board.states!.member!.promises!.address!.replay = { key: 'k1', approved: false };
-        board.states!.browse!.promises!['sold-out']!.replay = {
-          approved: true,
-          at: '2026-10-03T03:00:00Z',
-          same: false,
-          output: '1 failed',
-        };
-        board.states!.browse!.promises!.list!.replay = { approved: true, running: true };
       }),
     );
-    const member = await openCard(/회원 주문 재확인 필요/);
-    const ask = within(member).getByRole('button', { name: '자동으로 다시 돌려도 돼요' });
-    expect(within(member).getByText('pnpm test order -- address', { exact: false }).closest('details')!.open).toBe(
+    const address = await promiseView('회원 주문', '저장된 기본 배송지가 미리 채워진다.');
+    const ask = within(address).getByRole('button', { name: '자동으로 다시 돌려도 돼요' });
+    expect(within(address).getByText('pnpm test order -- address', { exact: false }).closest('details')!.open).toBe(
       false,
     );
     fireEvent.click(ask);
@@ -853,7 +720,9 @@ describe('map upkeep', () => {
         key: 'k1',
       }),
     );
-    expect(await within(member).findByRole('button', { name: '자동 다시 돌리기 끄기' })).toBeTruthy();
+    expect(
+      await within(screen.getByRole('dialog')).findByRole('button', { name: '자동 다시 돌리기 끄기' }),
+    ).toBeTruthy();
     cleanup();
     mount(
       withBoard((board) => {
@@ -865,8 +734,9 @@ describe('map upkeep', () => {
         board.states!.browse!.promises!.list!.replay = { approved: true, running: true };
       }),
     );
-    const browse = await openCard(/^1 상품 찾기/);
+    let browse = await promiseView('상품 찾기', '품절 상품은 담을 수 없다고 표시한다.');
     expect(within(browse).getByText(/^다시 돌려 봄 · 같은 결과 · \d+월 \d+일$/)).toBeTruthy();
+    browse = openPromise(backToStep(browse, '상품 찾기'), '판매 중인 상품만 가격과 함께 보인다.');
     expect(within(browse).getByText('다시 돌리는 중')).toBeTruthy();
     cleanup();
     mount(
@@ -875,10 +745,11 @@ describe('map upkeep', () => {
           approved: true,
           at: '2026-10-03T03:00:00Z',
           same: false,
+          output: '1 failed',
         };
       }),
     );
-    const differs = await openCard(/^1 상품 찾기/);
+    const differs = await promiseView('상품 찾기', '품절 상품은 담을 수 없다고 표시한다.');
     expect(within(differs).getByText(/^다시 돌려 보니 결과가 달라요/)).toBeTruthy();
   });
 
@@ -891,11 +762,11 @@ describe('map upkeep', () => {
         address.decidedElsewhere = true;
       }),
     );
-    const member = await openCard(/회원 주문 재확인 필요/);
-    expect(within(member).getByText('AI가 내가 정한 걸 바꿨어요')).toBeTruthy();
-    expect(within(member).getByText('내가 쓴 문장: 배송지는 회원 정보에서 불러온다')).toBeTruthy();
-    expect(within(member).getByText('다른 컴퓨터에서 정함')).toBeTruthy();
-    fireEvent.click(within(member).getByRole('button', { name: '되돌리기' }));
+    const address = await promiseView('회원 주문', '저장된 기본 배송지가 미리 채워진다.');
+    expect(within(address).getByText('AI가 내가 정한 걸 바꿨어요')).toBeTruthy();
+    expect(within(address).getByText('내가 쓴 문장: 배송지는 회원 정보에서 불러온다')).toBeTruthy();
+    expect(within(address).getByText('다른 컴퓨터에서 정함')).toBeTruthy();
+    fireEvent.click(within(address).getByRole('button', { name: '되돌리기' }));
     await waitFor(() =>
       expect(request).toHaveBeenCalledWith('flow/review', {
         cwd: expect.any(String),
@@ -915,9 +786,9 @@ describe('map upkeep', () => {
         },
       },
     });
-    const again = await openCard(/회원 주문 재확인 필요/);
-    fireEvent.click(within(again).getByRole('button', { name: '자동으로 다시 돌려도 돼요' }));
-    expect((await within(again).findByRole('alert')).textContent).toBe(
+    const address = await promiseView('회원 주문', '저장된 기본 배송지가 미리 채워진다.');
+    fireEvent.click(within(address).getByRole('button', { name: '자동으로 다시 돌려도 돼요' }));
+    expect((await within(address).findByRole('alert')).textContent).toBe(
       '다시 돌리는 명령이 바뀌었어요. 바뀐 명령을 확인해 주세요.',
     );
     expect(request.mock.calls.filter(([method]) => method === 'flow/get').length).toBeGreaterThan(1);
@@ -925,26 +796,10 @@ describe('map upkeep', () => {
 
   it('lists the changed files of a stale promise under the technical record', async () => {
     mount();
-    const member = await openCard(/회원 주문 재확인 필요/);
-    const record = within(member).getAllByText('기술 기록')[0]!.closest('details')!;
+    const address = await promiseView('회원 주문', '저장된 기본 배송지가 미리 채워진다.');
+    const record = within(address).getByText('기술 기록').closest('details')!;
     expect(record.open).toBe(false);
     expect(record.textContent).toContain('src/order.ts');
-  });
-
-  it('puts "changed" and "missing files" badges on the card', async () => {
-    mount(
-      withBoard((board) => {
-        board.states!.cart!.missing = ['src/Cart.tsx'];
-      }),
-    );
-    const member = await screen.findByRole('button', { name: /회원 주문 재확인 필요/ });
-    expect(within(member).getByText('바뀜 · 확인 필요')).toBeTruthy();
-    const cart = screen.getByRole('button', { name: /장바구니/ });
-    expect(within(cart).getByText('찾을 수 없는 파일')).toBeTruthy();
-    expect(within(cart).queryByText('바뀜 · 확인 필요')).toBeNull();
-    fireEvent.click(cart);
-    const technical = within(screen.getByRole('complementary')).getByText('기술 정보').closest('details')!;
-    expect(technical.textContent).toContain('src/Cart.tsx');
   });
 
   it('shows changes the map does not cover, and updates the map from them', async () => {
@@ -960,9 +815,7 @@ describe('map upkeep', () => {
       }),
     );
     await loaded();
-    // It is the last row of the flow list.
-    const row = coverageRow();
-    expect(within(flowList()).getAllByRole('button').at(-1)).toBe(row);
+    const row = within(notices()!).getByRole('button', { name: /^지도에 아직 없는 코드 변경/ });
     expect(row.textContent).toContain('5');
     // The changes not counted are folded inside its popover, not on the map.
     expect(screen.queryByText('범위 밖 변경 2개')).toBeNull();
@@ -987,9 +840,12 @@ describe('map upkeep', () => {
       }),
     );
     await loaded();
-    // A row of its own below the code changes, counting the parts.
-    const row = within(flowList()).getByRole('button', { name: /^아직 그리지 않은 것/ });
-    expect(within(flowList()).getAllByRole('button').at(-1)).toBe(row);
+    // An entry of its own after the code changes, counting the parts.
+    const buttons = within(notices()!).getAllByRole('button');
+    const row = within(notices()!).getByRole('button', { name: /^아직 그리지 않은 것/ });
+    expect(buttons.indexOf(row)).toBeGreaterThan(
+      buttons.indexOf(within(notices()!).getByRole('button', { name: /^지도에 아직 없는 코드 변경/ })),
+    );
     expect(row.textContent).toContain('2');
     fireEvent.click(row);
     expect(await screen.findByText('운영자 콘솔에서 회원 정지하기')).toBeTruthy();
@@ -1004,20 +860,6 @@ describe('map upkeep', () => {
     );
   });
 
-  it('shows no row for code changes without git, or when all is covered', async () => {
-    mount(
-      withBoard((board) => {
-        board.coverage = { git: false, uncoveredCount: 3 };
-      }),
-    );
-    await loaded();
-    expect(screen.queryByText('지도에 아직 없는 코드 변경')).toBeNull();
-    cleanup();
-    mount();
-    await loaded();
-    expect(screen.queryByText('지도에 아직 없는 코드 변경')).toBeNull();
-  });
-
   it('checks every card that needs a look from the map menu, in look-first order', async () => {
     const { request } = mount(
       withBoard((board) => {
@@ -1027,7 +869,6 @@ describe('map upkeep', () => {
         board.document!.nodes!.find((n) => n.id === 'cart')!.priority = 'must';
       }),
     );
-    await loaded();
     fireEvent.click(await menuItem('바뀐 기능 2개 다시 확인'));
     await waitFor(() =>
       expect(lastPrepare(request)).toMatchObject({
@@ -1046,7 +887,6 @@ describe('map upkeep', () => {
         board.states!.member = { status: 'passed', passed: 1, total: 1 };
       }),
     );
-    await loaded();
     // The menu is open (another item is there), but the batch recheck is not.
     expect(await menuItem('지도 범위 바꾸기')).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: /다시 확인$/ })).toBeNull();
@@ -1074,13 +914,6 @@ describe('map upkeep', () => {
         };
       }),
     );
-    await loaded();
-    // On the flow, a rule that broke again is tagged as such, not as a plain failure.
-    fireEvent.click(flowRow(ORDER_FLOW.title));
-    expect(reasonTags()).toEqual(
-      expect.arrayContaining(['browse: 다시 깨짐', 'payment: 실패', 'cart: 실패', 'member: 재확인 필요']),
-    );
-    // The batch recheck takes them in the look-first order.
     fireEvent.click(await menuItem('바뀐 기능 4개 다시 확인'));
     await waitFor(() =>
       expect(lastPrepare(request)).toMatchObject({ nodeIds: ['browse', 'payment', 'cart', 'member'] }),
@@ -1098,7 +931,6 @@ describe('map upkeep', () => {
       await screen.findByText('이 지도는 새 버전 Alpine으로 만들어졌어요. 업데이트하면 고칠 수 있어요'),
     ).toBeTruthy();
     expect((await menuItem('기능 더 찾기')).getAttribute('aria-disabled')).toBe('true');
-    expect(screen.getByRole('menuitem', { name: '새 흐름' }).getAttribute('aria-disabled')).toBe('true');
     expect(screen.getByRole('menuitemcheckbox', { name: '매일 자동으로 확인' }).getAttribute('aria-disabled')).toBe(
       'true',
     );
@@ -1108,15 +940,19 @@ describe('map upkeep', () => {
     );
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-    fireEvent.click(coverageRow());
+    fireEvent.click(within(notices()!).getByRole('button', { name: /^지도에 아직 없는 코드 변경/ }));
     expect(((await screen.findByRole('button', { name: '지도 맞추기' })) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.keyDown(globalThis.document.body, { key: 'Escape' });
-    const inspector = await openCard(/^5 결제/);
-    for (const name of ['수정 요청', '동작 확인', '이어지는 기능 추가', '필수'])
-      expect((within(inspector).getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true);
-    const row = openPromise(inspector, '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
-    expect((within(row).getByRole('button', { name: '나중에 보기' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((within(inspector).getByLabelText('결정 메모') as HTMLInputElement).disabled).toBe(true);
+    await waitFor(() => expect(screen.queryByRole('button', { name: '지도 맞추기' })).toBeNull());
+    const panel = await openStep('결제');
+    expect((within(panel).getByRole('button', { name: '다시 확인' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(within(panel).getByLabelText('AI에게 부탁하기'), { target: { value: '고쳐 줘' } });
+    expect((within(panel).getByRole('button', { name: '보내기' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(panel).queryByRole('button', { name: '이름 고치기' })).toBeNull();
+    expect(within(panel).queryByRole('button', { name: '적기' })).toBeNull();
+    const coupon = openPromise(panel, '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
+    expect((within(coupon).getByRole('button', { name: '나중에 보기' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(coupon).queryByRole('button', { name: '문장 고치기' })).toBeNull();
     expect(request.mock.calls.some(([method]) => method === 'flow/prepare' || method === 'flow/promise')).toBe(false);
   });
 
@@ -1132,7 +968,7 @@ describe('map upkeep', () => {
     const summary = await screen.findByText('지도 파일 2개를 읽지 못했어요');
     expect(summary.closest('details')!.open).toBe(false);
     expect(within(summary.closest('details')!).getByText(/gift\.json/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: /^1 상품 찾기/ })).toBeTruthy();
+    expect(await stepCard('상품 찾기')).toBeTruthy();
   });
 
   it('asks only for what changed: an unchanged answer keeps the map on screen', async () => {
@@ -1145,22 +981,21 @@ describe('map upkeep', () => {
     expect(gets.at(-1)![1]).toMatchObject({ cwd, since: 'etag-0' });
     const answer = await request.mock.results.filter((_, i) => request.mock.calls[i]![0] === 'flow/get').at(-1)!.value;
     expect(answer.unchanged).toBe(true);
-    expect(screen.getByText(/^약속 \d+개 중 \d+개를 지키고 있어요$/)).toBeTruthy();
+    expect(stepCards('상품 찾기')).toHaveLength(1);
     expect(client.getQueryData<{ document: unknown }>(['product-map', cwd])?.document).toBeTruthy();
   });
 
-  it('loads check pictures when a card opens and not before', async () => {
+  it('loads check pictures when a promise opens and not before', async () => {
     const { request } = mount({
       results: { 'flow/node': { checkScreenshots: { coupon: 'data:image/png;base64,AAAA' }, observationImages: {} } },
     });
-    await loaded();
+    const panel = await openStep('결제');
     expect(request.mock.calls.some(([method]) => method === 'flow/node')).toBe(false);
-    const inspector = await openCard(/^5 결제/);
+    const coupon = openPromise(panel, '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
     await waitFor(() =>
       expect(request.mock.calls.find(([method]) => method === 'flow/node')?.[1]).toEqual({ cwd, nodeId: 'payment' }),
     );
-    openPromise(inspector, '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
-    await waitFor(() => expect(inspector.querySelector('img[src="data:image/png;base64,AAAA"]')).toBeTruthy());
+    await waitFor(() => expect(coupon.querySelector('img[src="data:image/png;base64,AAAA"]')).toBeTruthy());
   });
 
   it('puts each map setting where it matters, with no settings window', async () => {
@@ -1171,10 +1006,11 @@ describe('map upkeep', () => {
     const { request } = mount(boardScript(board));
     await loaded();
     // The AI's exclusions sit under the changes they hide, not in the settings.
-    fireEvent.click(coverageRow());
+    fireEvent.click(within(notices()!).getByRole('button', { name: /^지도에 아직 없는 코드 변경/ }));
     const excluded = (await screen.findByText('제외된 변경 4개')).closest('details')!;
     expect(within(excluded).getByText('fixtures/**')).toBeTruthy();
     fireEvent.keyDown(globalThis.document.body, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByText('제외된 변경 4개')).toBeNull());
     expect(screen.queryByRole('button', { name: '지도 설정' })).toBeNull();
     // The scope is one item of the map menu; it opens the editor under the header.
     expect(screen.queryByRole('region', { name: '지도 범위' })).toBeNull();
@@ -1264,6 +1100,7 @@ describe('map upkeep', () => {
       ),
     );
     await loaded();
+    await new Promise((resolve) => setTimeout(resolve, 20));
     expect(request.mock.calls.some(([method]) => method === 'flow/schedule')).toBe(false);
   });
 
@@ -1275,14 +1112,13 @@ describe('map upkeep', () => {
         },
       },
     });
-    const inspector = await openCard(/^5 결제 실패/);
-    const row = openPromise(inspector, '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
-    fireEvent.click(within(row).getByRole('button', { name: '안 고침' }));
-    const field = within(row).getByLabelText('안 고치는 이유를 한 줄로 적어 주세요') as HTMLInputElement;
+    const coupon = await promiseView('결제', '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
+    fireEvent.click(within(coupon).getByRole('button', { name: '안 고침' }));
+    const field = within(coupon).getByLabelText('안 고치는 이유를 한 줄로 적어 주세요') as HTMLInputElement;
     fireEvent.change(field, { target: { value: '곧 없앰' } });
-    fireEvent.click(within(row).getByRole('button', { name: '저장' }));
-    expect((await within(inspector).findAllByRole('alert')).length).toBeGreaterThan(0);
-    expect((within(row).getByLabelText('안 고치는 이유를 한 줄로 적어 주세요') as HTMLInputElement).value).toBe(
+    fireEvent.click(within(coupon).getByRole('button', { name: '저장' }));
+    expect((await within(coupon).findAllByRole('alert')).length).toBeGreaterThan(0);
+    expect((within(coupon).getByLabelText('안 고치는 이유를 한 줄로 적어 주세요') as HTMLInputElement).value).toBe(
       '곧 없앰',
     );
   });
@@ -1297,10 +1133,11 @@ describe('map upkeep', () => {
         }),
       },
     });
-    const payment = await openCard(/^5 결제/);
+    const payment = await promiseView('결제', '10% 쿠폰을 적용하면 할인된 금액으로 결제한다.');
     await waitFor(() => expect(payment.querySelector('img[src="data:image/png;base64,PAY"]')).toBeTruthy());
-    fireEvent.click((await screen.findAllByRole('button', { name: /^1 상품 찾기/ }))[0]!);
-    const browse = screen.getByRole('complementary', { name: '상품 찾기' });
+    fireEvent.keyDown(globalThis.document.activeElement ?? globalThis.document.body, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const browse = await promiseView('상품 찾기', '판매 중인 상품만 가격과 함께 보인다.');
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(browse.querySelector('img[src="data:image/png;base64,PAY"]')).toBeNull();
   });
@@ -1321,22 +1158,25 @@ describe('map upkeep', () => {
 });
 
 describe('check records', () => {
-  const open = async (name: RegExp, title: string) => {
+  const open = async (title: string, promise: string) => {
     mount(flowScript(STUDIO_MAP));
-    fireEvent.click((await screen.findAllByRole('button', { name }))[0]!);
-    return screen.getByRole('complementary', { name: title });
+    return promiseView(title, promise);
   };
   it('labels each observation with where Alpine got it', async () => {
-    const inspector = await open(/^\d+ 카드 결제 승인/, '카드 결제 승인');
-    expect(within(inspector).getAllByText('Alpine이 확인함').length).toBeGreaterThan(0);
-    expect(within(inspector).getAllByText('해본 것', { selector: 'h4' }).length).toBeGreaterThan(0);
-    expect(within(inspector).getAllByText('관찰', { selector: 'h4' }).length).toBeGreaterThan(0);
-    expect(within(inspector).getAllByText('판단', { selector: 'h4' }).length).toBeGreaterThan(0);
-    expect(within(inspector).getByText('AI 설명')).toBeTruthy();
+    const approve = await open('카드 결제 승인', '카드 승인이 끝나면 이용권이 바로 발급된다.');
+    expect(within(approve).getAllByText('Alpine이 확인함').length).toBeGreaterThan(0);
+    expect(within(approve).getAllByText('해본 것', { selector: 'h4' }).length).toBeGreaterThan(0);
+    expect(within(approve).getAllByText('관찰', { selector: 'h4' }).length).toBeGreaterThan(0);
+    expect(within(approve).getAllByText('판단', { selector: 'h4' }).length).toBeGreaterThan(0);
+    const amount = openPromise(
+      backToStep(approve, '카드 결제 승인'),
+      '화면에 보인 금액과 실제 승인 금액이 다르면 승인하지 않는다.',
+    );
+    expect(within(amount).getByText('AI 설명')).toBeTruthy();
   });
   it('puts the badge on the quoted excerpt and styles the AI words as the AI', async () => {
-    const inspector = await open(/^\d+ 결제 결과 받기/, '결제 결과 받기');
-    const excerpt = within(inspector).getByText(/webhook body status: CANCELED/);
+    const recheck = await open('결제 결과 받기', '결제 알림을 받으면 orderId로 결제를 다시 조회해');
+    const excerpt = within(recheck).getByText(/webhook body status: CANCELED/);
     expect(excerpt.textContent).toContain('stored status: DONE');
     const item = excerpt.closest('li')!;
     const badge = item.querySelector('[data-provenance="verified"]')!;
@@ -1347,13 +1187,6 @@ describe('check records', () => {
     expect(words.textContent).toContain('AI 설명:');
     expect(words.contains(badge)).toBe(false);
   });
-  it('hints at thin or contradicted evidence in the collapsed promise row', async () => {
-    const inspector = await open(/^\d+ 카드 결제 승인/, '카드 결제 승인');
-    const hints = within(inspector).getAllByTestId('evidence-hint');
-    expect(hints.some((hint) => hint.textContent === '근거 확인 안 됨기록과 다름 1')).toBe(true);
-    expect(hints.every((hint) => hint.closest('summary'))).toBe(true);
-    expect(within(inspector).getByText(/^약속 3개 중 \d개 통과$/)).toBeTruthy();
-  });
   it('words the session and Alpine-record mismatch reasons plainly', () => {
     const t = messages.ko;
     expect(t.reasonOutsideSession).toBe('이 작업 중에 만든 파일이 아니에요.');
@@ -1362,85 +1195,71 @@ describe('check records', () => {
     expect(messages.en.reasonAlpineRecord).toBeTruthy();
   });
   it('shows a mismatch with its reason and marks a check with no confirmed evidence', async () => {
-    const inspector = await open(/^\d+ 카드 결제 승인/, '카드 결제 승인');
-    expect(within(inspector).getAllByText('기록과 다름')).toHaveLength(1);
-    expect(within(inspector).getByText('기록에서 이 내용을 찾지 못했어요.')).toBeTruthy();
+    const amount = await open('카드 결제 승인', '화면에 보인 금액과 실제 승인 금액이 다르면 승인하지 않는다.');
+    expect(within(amount).getAllByText('기록과 다름')).toHaveLength(1);
+    expect(within(amount).getByText('기록에서 이 내용을 찾지 못했어요.')).toBeTruthy();
     // The amount check (only a mismatch and an agent note) and the older decline check rest on nothing confirmed.
-    // The result is still shown as passed.
-    expect(within(inspector).getAllByText('근거 확인 안 됨')).toHaveLength(4);
-    expect(within(inspector).getByText(/^약속 3개 중 \d개 통과$/)).toBeTruthy();
+    // The amount result is still shown as passed.
+    expect(within(amount).getAllByText('근거 확인 안 됨').length).toBeGreaterThan(0);
+    const verdict = within(amount).getByText('판단', { selector: 'h4' }).parentElement!;
+    expect(within(verdict).getByText('통과')).toBeTruthy();
+    const decline = openPromise(
+      backToStep(amount, '카드 결제 승인'),
+      '한도 초과로 거절되면 이용권은 발급되지 않고 다른 카드를 권한다.',
+    );
+    expect(within(decline).getAllByText('근거 확인 안 됨').length).toBeGreaterThan(0);
   });
   it('keeps what could not be checked outside the technical record', async () => {
-    const inspector = await open(/^\d+ 이용권 환불/, '이용권 환불');
-    const limit = within(inspector).getByText('약관의 정확한 계산식은 확인하지 못했어요. 기대값은 예시 계산이에요.');
+    const partial = await open('이용권 환불', '일부 사용한 이용권은');
+    const limit = within(partial).getByText('약관의 정확한 계산식은 확인하지 못했어요. 기대값은 예시 계산이에요.');
     expect(limit.closest('details')!.querySelector('summary')!.textContent).not.toContain('기술 기록');
-    const expected = within(inspector).getByText('180,000원 (사용분 90,000원과 위약금 30,000원을 뺀 금액)');
+    const expected = within(partial).getByText('180,000원 (사용분 90,000원과 위약금 30,000원을 뺀 금액)');
     expect(expected.closest('dl')!.textContent).toContain('210,000원');
-    const record = within(inspector).getAllByText('기술 기록')[0]!.closest('details')!;
+    const record = within(partial).getByText('기술 기록').closest('details')!;
     expect(record.open).toBe(false);
-    expect(record.textContent).toContain('call_f1');
-    expect(within(inspector).getAllByText(/로컬 개발 서버 · 토스 테스트 결제/).length).toBeGreaterThan(0);
+    expect(record.textContent).toContain('call_f2');
+    expect(within(partial).getAllByText(/로컬 개발 서버 · 토스 테스트 결제/).length).toBeGreaterThan(0);
   });
   it('renders captured screens inline and says so when the picture is not here', async () => {
-    const schedule = await open(/^\d+ 주간 시간표/, '주간 시간표');
+    const full = await open('주간 시간표', '정원이 찬 수업은 대기 신청 버튼으로 바뀐다.');
     expect(
-      (await within(schedule).findByAltText('마감된 수업 줄에 [예약] 대신 [대기 신청]이 보여요.')).getAttribute('src'),
+      (await within(full).findByAltText('마감된 수업 줄에 [예약] 대신 [대기 신청]이 보여요.')).getAttribute('src'),
     ).toMatch(/^data:image\/svg\+xml/);
-    expect(within(schedule).getAllByText('Alpine이 직접 찍음').length).toBeGreaterThan(0);
+    expect(within(full).getAllByText('Alpine이 직접 찍음').length).toBeGreaterThan(0);
     cleanup();
-    const signup = await open(/^\d+ 카카오로 가입/, '카카오로 가입');
-    expect(await within(signup).findByText('다른 컴퓨터에서 찍은 화면이라 여기엔 없어요.')).toBeTruthy();
+    const kakao = await open('카카오로 가입', '카카오로 처음 로그인하면 회원이 만들어지고 시간표로 이동한다.');
+    expect(await within(kakao).findByText('다른 컴퓨터에서 찍은 화면이라 여기엔 없어요.')).toBeTruthy();
   });
   it('keeps the two-tier view for older checks and labels them as unconfirmed evidence', async () => {
-    const inspector = await open(/^\d+ 휴대폰 인증/, '휴대폰 인증');
-    expect(within(inspector).queryByText('관찰', { selector: 'h4' })).toBeNull();
-    expect(within(inspector).getAllByText('근거 확인 안 됨').length).toBeGreaterThan(0);
-    expect(
-      within(inspector).getByText('맞는 인증번호로 확인을 요청하자 휴대폰 번호가 확인됨으로 바뀌었어요.'),
-    ).toBeTruthy();
-    expect(within(inspector).getAllByText('기술 기록')[0]!.closest('details')!.textContent).toContain(
-      'pnpm test phone',
-    );
+    const code = await open('휴대폰 인증', '인증번호를 맞게 입력하면 휴대폰 번호가 확인된다.');
+    expect(within(code).queryByText('관찰', { selector: 'h4' })).toBeNull();
+    expect(within(code).getAllByText('근거 확인 안 됨').length).toBeGreaterThan(0);
+    expect(within(code).getByText('맞는 인증번호로 확인을 요청하자 휴대폰 번호가 확인됨으로 바뀌었어요.')).toBeTruthy();
+    expect(within(code).getByText('기술 기록').closest('details')!.textContent).toContain('pnpm test phone');
   });
   it('shows the corrected webhook promises', async () => {
-    const inspector = await open(/^\d+ 결제 결과 받기/, '결제 결과 받기');
+    mount(flowScript(STUDIO_MAP));
+    const hook = await openStep('결제 결과 받기');
     expect(
-      within(inspector).getByText('결제 알림을 받으면 orderId로 결제를 다시 조회해 확인된 상태만 반영한다.'),
+      within(hook).getByText('결제 알림을 받으면 orderId로 결제를 다시 조회해 확인된 상태만 반영한다.'),
     ).toBeTruthy();
-    expect(within(inspector).getByText('결제 알림에 10초 안에 응답한다.')).toBeTruthy();
-    expect(within(inspector).queryByText(/서명/)).toBeNull();
+    expect(within(hook).getByText('결제 알림에 10초 안에 응답한다.')).toBeTruthy();
+    expect(within(hook).queryByText(/서명/)).toBeNull();
   });
 });
 
 describe('discovery and map settings', () => {
-  it('marks sources the AI never opened on the card and in its details', async () => {
-    mount(
-      withBoard((board) => {
-        board.document!.nodes!.find((n) => n.id === 'cart')!.sources = ['src/Cart.tsx', 'src/cartStore.ts'];
-        board.states!.cart!.unread = ['src/cartStore.ts'];
-      }),
-    );
-    const cart = await screen.findByRole('button', { name: /장바구니/ });
-    expect(within(cart).getByText('안 열어 본 근거')).toBeTruthy();
-    fireEvent.click(cart);
-    const inspector = screen.getByRole('complementary');
-    expect(within(inspector).getByText(/열어 보지 않은 근거 파일이 1개/)).toBeTruthy();
-    const technical = within(inspector).getByText('기술 정보').closest('details')!;
-    expect(within(technical).getByText(/src\/cartStore.ts/).textContent).toContain('열어 보지 않음');
-    expect(within(technical).getByText('src/Cart.tsx').textContent).not.toContain('열어 보지 않음');
-  });
-
   it('shows the started work in the dock, with no status strip or conversation panel on the map', async () => {
     const { onShowConversation, onSession } = mount();
-    fireEvent.click((await screen.findAllByRole('button', { name: '이 흐름 전체 확인' }))[0]!);
+    const panel = await openStep('회원 주문');
+    fireEvent.click(within(panel).getByRole('button', { name: '다시 확인' }));
     await waitFor(() => expect(onSession).toHaveBeenCalledWith('new-session'));
     expect(onShowConversation).toHaveBeenCalled();
-    expect(screen.queryByRole('button', { name: '작업 내용' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '작업 내용', hidden: true })).toBeNull();
     expect(screen.queryByText(/에이전트 작업이 끝났어요/)).toBeNull();
   });
   it('deletes the map from its settings after one confirmation', async () => {
     const { request } = mount();
-    await loaded();
     fireEvent.click(await menuItem('지도 삭제'));
     expect(request.mock.calls.some(([method]) => method === 'flow/delete')).toBe(false);
     const strip = await screen.findByRole('region', { name: '지도 삭제' });
@@ -1471,10 +1290,9 @@ describe('discovery and map settings', () => {
 describe("the user's own sentences (decision 16)", () => {
   it('rewrites a promise in place; it becomes theirs and waits for one check run', async () => {
     const { request } = mount();
-    const member = await openCard(/회원 주문 재확인 필요/);
-    const row = within(member).getByText('저장된 기본 배송지가 미리 채워진다.').closest('li')!;
-    fireEvent.click(within(row).getByRole('button', { name: '문장 고치기' }));
-    const field = within(member).getByRole('textbox', { name: '문장 고치기' });
+    const address = await promiseView('회원 주문', '저장된 기본 배송지가 미리 채워진다.');
+    fireEvent.click(within(address).getByRole('button', { name: '문장 고치기' }));
+    const field = within(address).getByRole('textbox', { name: '문장 고치기' });
     fireEvent.change(field, { target: { value: '배송지는 매번 새로 입력한다.' } });
     fireEvent.keyDown(field, { key: 'Enter' });
     await waitFor(() =>
@@ -1486,49 +1304,54 @@ describe("the user's own sentences (decision 16)", () => {
         value: '배송지는 매번 새로 입력한다.',
       }),
     );
-    const mine = (await within(member).findByText('배송지는 매번 새로 입력한다.')).closest('li')!;
+    const mine = screen.getByRole('dialog');
+    expect(await within(mine).findByText('배송지는 매번 새로 입력한다.')).toBeTruthy();
     expect(within(mine).getByText('내가 정함')).toBeTruthy();
-    expect(within(mine).getByText('지금 코드가 이렇게 하는지 아직 몰라요')).toBeTruthy();
     expect(within(mine).getByRole('button', { name: 'AI에게 확인 맡기기' })).toBeTruthy();
-    // Nothing ran on save; the side panel gathers edited promises into one check.
+    // Nothing ran on save; the notice row gathers edited promises into one check.
     expect(request.mock.calls.some(([method]) => method === 'flow/prepare')).toBe(false);
-    const edited = screen.getByText('고친 약속 1개').closest('p')!;
+    fireEvent.keyDown(globalThis.document.activeElement ?? globalThis.document.body, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const edited = within(notices()!).getByText('고친 약속 1개').closest('li')!;
     fireEvent.click(within(edited).getByRole('button', { name: '확인하기' }));
     await waitFor(() => expect(lastPrepare(request)).toMatchObject({ action: 'verify', nodeIds: ['member'] }));
   });
 
-  it("adds a promise in the user's words and cancels an edit with Escape", async () => {
+  it("adds a promise in the user's words, and cancels an add", async () => {
     const { request } = mount();
-    const member = await openCard(/회원 주문 재확인 필요/);
-    fireEvent.click(within(member).getByRole('button', { name: '약속 추가' }));
-    const field = within(member).getByRole('textbox', { name: '약속 추가' });
-    fireEvent.keyDown(field, { key: 'Escape' });
-    expect(within(member).queryByRole('textbox', { name: '약속 추가' })).toBeNull();
-    fireEvent.click(within(member).getByRole('button', { name: '약속 추가' }));
-    const again = within(member).getByRole('textbox', { name: '약속 추가' });
-    fireEvent.change(again, { target: { value: '비회원도 주문 내역을 조회할 수 있다.' } });
-    fireEvent.keyDown(again, { key: 'Enter' });
+    const panel = await openStep('회원 주문');
+    fireEvent.click(within(panel).getByRole('button', { name: '약속 추가' }));
+    fireEvent.change(within(panel).getByLabelText(/^이럴 때/), { target: { value: '버릴 문장' } });
+    fireEvent.click(within(panel).getByRole('button', { name: '취소' }));
+    expect(within(panel).queryByLabelText(/^이럴 때/)).toBeNull();
+    fireEvent.click(within(panel).getByRole('button', { name: '약속 추가' }));
+    fireEvent.change(within(panel).getByLabelText(/^이럴 때/), { target: { value: '비회원이면' } });
+    fireEvent.change(within(panel).getByLabelText(/^이렇게 돼야 해요/), {
+      target: { value: '주문 내역을 조회할 수 있다.' },
+    });
+    fireEvent.click(within(panel).getByRole('button', { name: '추가' }));
     await waitFor(() =>
       expect(request).toHaveBeenCalledWith('flow/edit', {
         cwd,
         nodeId: 'member',
         field: 'promise',
         conditionId: null,
-        value: '비회원도 주문 내역을 조회할 수 있다.',
+        value: '비회원이면, 주문 내역을 조회할 수 있다.',
       }),
     );
   });
 
   it('writes the title and "직접 해 보려면" in place', async () => {
     const { request } = mount();
-    const member = await openCard(/회원 주문 재확인 필요/);
-    fireEvent.click(within(member).getByRole('button', { name: '적기' }));
-    const field = within(member).getByRole('textbox', { name: '직접 해 보려면' });
+    const panel = await openStep('회원 주문');
+    fireEvent.click(within(panel).getByRole('button', { name: '적기' }));
+    const field = within(panel).getByRole('textbox', { name: '직접 해 보려면' });
     fireEvent.change(field, { target: { value: '테스트 회원 계정으로 로그인' } });
     fireEvent.keyDown(field, { key: 'Enter' });
-    expect(await within(member).findByText('테스트 회원 계정으로 로그인')).toBeTruthy();
-    fireEvent.click(within(member).getByRole('button', { name: '이름 고치기' }));
-    const title = within(member).getByRole('textbox', { name: '이름 고치기' });
+    expect(await within(screen.getByRole('dialog')).findByText('테스트 회원 계정으로 로그인')).toBeTruthy();
+    const step = screen.getByRole('dialog');
+    fireEvent.click(within(step).getByRole('button', { name: '이름 고치기' }));
+    const title = within(step).getByRole('textbox', { name: '이름 고치기' });
     fireEvent.change(title, { target: { value: '회원으로 주문하기' } });
     fireEvent.keyDown(title, { key: 'Enter' });
     await waitFor(() =>
@@ -1537,23 +1360,6 @@ describe("the user's own sentences (decision 16)", () => {
         nodeId: 'member',
         field: 'title',
         value: '회원으로 주문하기',
-      }),
-    );
-  });
-
-  it('asks for structure changes in words, as a "지도에서 고치기" run', async () => {
-    const { request } = mount();
-    const member = await openCard(/회원 주문 재확인 필요/);
-    fireEvent.click(within(member).getByRole('button', { name: '지도에서 고치기' }));
-    fireEvent.change(within(member).getByLabelText(/나누거나 합치거나/), {
-      target: { value: '회원 주문이랑 배송지 저장은 따로 봐야 해' },
-    });
-    fireEvent.click(within(member).getByRole('button', { name: '작업 시작' }));
-    await waitFor(() =>
-      expect(lastPrepare(request)).toMatchObject({
-        action: 'reshape',
-        nodeId: 'member',
-        request: '회원 주문이랑 배송지 저장은 따로 봐야 해',
       }),
     );
   });
@@ -1584,6 +1390,8 @@ describe("the user's own sentences (decision 16)", () => {
         board.removedCards = [{ id: 'refund', title: '환불 받기' }];
       }),
     );
+    await loaded();
+    fireEvent.click(within(notices()!).getByRole('button', { name: /^AI가 지운 카드 1개/ }));
     const list = await screen.findByRole('region', { name: 'AI가 지운, 내가 정한 카드' });
     expect(within(list).getByText('환불 받기')).toBeTruthy();
     fireEvent.click(within(list).getByRole('button', { name: '되돌리기' }));
@@ -1597,7 +1405,28 @@ describe("the user's own sentences (decision 16)", () => {
     );
   });
 
-  it('says a promise without any check was written from the code', async () => {
+  it('lists promises of mine the AI removed in the step panel, to keep or put back', async () => {
+    const { request } = mount(
+      withBoard((board) => {
+        board.states!.member!.removedPromises = [{ id: 'gift', text: '선물 포장을 고를 수 있다.' }];
+      }),
+    );
+    const panel = await openStep('회원 주문');
+    expect(within(panel).getByText('AI가 내가 정한 약속을 지웠어요')).toBeTruthy();
+    expect(within(panel).getByText('내가 쓴 문장: 선물 포장을 고를 수 있다.')).toBeTruthy();
+    fireEvent.click(within(panel).getByRole('button', { name: '되돌리기' }));
+    await waitFor(() =>
+      expect(request).toHaveBeenCalledWith('flow/review', {
+        cwd,
+        target: 'promise',
+        action: 'restore',
+        nodeId: 'member',
+        conditionId: 'gift',
+      }),
+    );
+  });
+
+  it('says a promise without any check was guessed from the code and not checked yet', async () => {
     mount(
       withBoard((board) => {
         const node = board.document!.nodes!.find((n) => n.id === 'member')!;
@@ -1605,32 +1434,31 @@ describe("the user's own sentences (decision 16)", () => {
         board.states!.member!.promises!.address = { status: 'unconfirmed', origin: 'inferred' };
       }),
     );
-    const member = await openCard(/^\d+ 회원 주문/);
-    expect(within(member).getByText('코드만 보고 쓴 약속 · 확인 전')).toBeTruthy();
+    const address = await promiseView('회원 주문', '저장된 기본 배송지가 미리 채워진다.');
+    expect(within(address).getByText('AI 추정')).toBeTruthy();
+    expect(within(address).getByText('아직 확인한 적이 없어요.')).toBeTruthy();
   });
 });
 
 describe('flows that call another flow (decision 19)', () => {
-  it('draws the called flow as one box that leads to that flow', async () => {
+  it('draws the called flow as one card that leads to that flow', async () => {
     let calledTitle = '';
-    let cards = 0;
     mount(
       withBoard((board) => {
         const [first, second] = board.document!.flows!;
         calledTitle = second!.title;
-        cards = second!.nodeIds!.length;
         first!.nodeIds = [`flow:${second!.id}`, ...first!.nodeIds!];
       }),
     );
-    const box = await screen.findByRole('button', { name: `${calledTitle} 흐름으로 이동` });
-    expect(within(box).getByText(`카드 ${cards}장 · 눌러서 보기`)).toBeTruthy();
-    fireEvent.click(box);
+    await loaded();
+    const link = screen.getByRole('button', { name: new RegExp(`^이 여정을 거쳐요${calledTitle}`) });
+    fireEvent.click(link);
+    const panel = await screen.findByRole('dialog');
+    expect(within(panel).getByRole('heading', { name: calledTitle })).toBeTruthy();
   });
 });
 
 describe('person-first view', () => {
-  beforeEach(() => localStorage.removeItem('alpine.product-map.view'));
-
   /** The map opens alone; the summary beside it lists the people, and picking one opens them over the map. */
   async function openFirstPerson() {
     fireEvent.click(await screen.findByRole('button', { name: '요약' }));
@@ -1638,15 +1466,6 @@ describe('person-first view', () => {
     fireEvent.click(within(summary).getAllByRole('button')[0]!);
     return screen.findByRole('dialog');
   }
-
-  it('opens by person, and switching to the card map is remembered', async () => {
-    mount();
-    const byPerson = await screen.findByRole('radio', { name: '사람별 흐름' });
-    expect(byPerson.getAttribute('aria-checked')).toBe('true');
-    fireEvent.click(screen.getByRole('radio', { name: '카드 지도' }));
-    expect(localStorage.getItem('alpine.product-map.view')).toBe('cards');
-    expect(await loaded()).toBeTruthy();
-  });
 
   it('asking the AI to check sends one verify for the unchecked steps and opens its session', async () => {
     const { request, onSession } = mount();

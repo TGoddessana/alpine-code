@@ -78,6 +78,7 @@ function toCard(node: FlowNode, result: FlowGetResult, sessions: SessionInfo[]):
       limits: check?.limits ?? [],
       environment: check?.environment ?? '',
       changedFiles: promise?.changed ?? [],
+      question: promise?.issue === 'question',
     };
   });
   return {

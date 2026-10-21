@@ -1,3 +1,4 @@
+import type { TaskForceItem } from '@alpine/protocol';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -63,6 +64,41 @@ describe('drawing the map in place', () => {
     fireEvent.click(screen.getByRole('button', { name: '멈추기' }));
     await waitFor(() =>
       expect(request.mock.calls.find(([method]) => method === 'session/cancel')?.[1]).toEqual({ sessionId: 'draw' }),
+    );
+  });
+
+  it('keeps showing the drawing while the TF it started works, and stopping stops the TF too', async () => {
+    localStorage.setItem(`alpine.product-map.drawing:${cwd}`, 'draw');
+    const team: TaskForceItem = {
+      id: 'tf1',
+      kind: 'taskforce',
+      title: '지도 그리기',
+      steps: [{ title: '부분별로 그리기', count: 3, model: 'm' }],
+      minutes: 10,
+      status: 'running',
+      members: [],
+      step: '부분별로 그리기',
+      log: null,
+      needed: null,
+      error: null,
+      startedAt: null,
+    };
+    const { request } = wrap(
+      {
+        results: {
+          'session/open': { info: sessionInfo({ id: 'draw', cwd, status: 'idle' }), seq: 0, items: [team], active: [] },
+          'taskforce/stop': {},
+        },
+      },
+      <ProductMap cwd={cwd} sessionId="draw" onSession={vi.fn()} />,
+    );
+    expect(await screen.findByText(/지도를 그리는 중/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '멈추기' }));
+    await waitFor(() =>
+      expect(request.mock.calls.find(([method]) => method === 'taskforce/stop')?.[1]).toEqual({
+        sessionId: 'draw',
+        runId: 'tf1',
+      }),
     );
   });
 

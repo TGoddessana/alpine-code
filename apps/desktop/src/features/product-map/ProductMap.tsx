@@ -1,12 +1,13 @@
-import type { FlowNode, FlowPrepareParams, FlowPrepareResult, ProductFlow } from '@alpine/protocol';
-import { Button, LinkButton, SlidingPanel } from '@alpine/ui/primitives';
-import { PanelLeftClose, PanelLeftOpen, Play, Search } from 'lucide-react';
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import type { FlowNode, FlowPrepareParams, FlowPrepareResult } from '@alpine/protocol';
+import { Button, LinkButton, Popover, SlidingPanel } from '@alpine/ui/primitives';
+import clsx from 'clsx';
+import { ChevronRight, CircleX, Play, RotateCcw, Search, Sparkles } from 'lucide-react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import { latestTaskForce } from '@/shared/components/taskforce';
 import { useMessages } from '@/shared/i18n';
 import {
   ServerError,
-  useFlowNode,
   useCancelSession,
   useNewSession,
   usePrepareFlow,
@@ -16,26 +17,25 @@ import {
   useSession,
   useSessions,
   useSetSchedule,
+  useTaskForceAction,
 } from '@/shared/server';
 
+import { CardAsk, HowToTry, PromiseMore, Title } from './CardExtras';
 import { Changes, newChanges, useLastSeen } from './Changes';
+import { REMOVED } from './Conditions';
 import { Coverage } from './Coverage';
-import { FilterMenu, ActiveFilters, type Filters } from './FilterMenu';
-import { focusItems, recheckIds, useFocusReasons } from './Focus';
-import { FlowCanvas } from './FlowCanvas';
-import { FlowList } from './FlowList';
-import { Inspector } from './Inspector';
-import { JourneyMap } from './JourneyMap';
+import { noticeRow, recheckIds } from './Focus';
+import { changedCards } from './FlowTree';
+import { toTreeMap } from './flowTreeData';
 import { flowTreeMessages } from './flowTreeMessages';
+import { JourneyMap } from './JourneyMap';
 import { DeleteMap, MapMenu, ScopeEditor } from './MapSettings';
-import { promiseCounts, Summary } from './Summary';
 import { Unmapped } from './Unmapped';
 import { messages } from './messages';
-import { isWorking, mapOf, matchingIds, numbers, searchOrder, summary, verification } from './model';
+import { mapOf, matchingIds, searchOrder } from './model';
 
 type Action = FlowPrepareParams['action'];
-type Form = 'flow' | 'extend' | 'change' | 'define' | 'reshape';
-/** Overrides for a start that is not about the selected feature, e.g. checking a whole flow or a card's feature. */
+/** Overrides for a start that is not about one card, e.g. checking several cards or a whole flow. */
 interface Target {
   node?: FlowNode | null;
   flowId?: string | null;
@@ -43,29 +43,24 @@ interface Target {
   nodeIds?: string[];
   request?: string;
 }
-/**
- * The map is only readable above about this width (a list row with its status and a screen card need it), so a side
- * panel (384px) stays a column only while the map keeps this much beside it.
- */
+/** The changes list lies over the dock rather than squeezing the map below this width. */
 const MIN_MAP_WIDTH = 560;
 const PANEL_WIDTH = 384;
 const DAY = 86_400_000;
-const SIDE_KEY = 'alpine.product-map.side';
-const VIEW_KEY = 'alpine.product-map.view';
 const DRAWING_KEY = 'alpine.product-map.drawing';
 /** Whether the daily check has not run for a day (or ever). */
 const due = (lastRun?: string | null) => {
   const at = lastRun ? Date.parse(lastRun) : 0;
   return Number.isNaN(at) || Date.now() - at >= DAY;
 };
-const formAction: Record<Form, Action> = {
-  flow: 'extend',
-  extend: 'extend',
-  change: 'change',
-  define: 'change',
-  reshape: 'reshape',
-};
+type Lens = 'failed' | 'recheck' | 'changed' | null;
 
+/**
+ * A project's map: the people who use the product and the journeys they walk. One row above it searches the cards,
+ * lights what broke, needs a recheck or changed, opens the change history and holds the map's menu; a second row
+ * appears only when something wants a look (code not on the map, parts not drawn yet, promises I rewrote, cards the
+ * AI removed). Asking the AI about a card happens in the card itself.
+ */
 export function ProductMap({
   cwd,
   sessionId = null,
@@ -81,7 +76,7 @@ export function ProductMap({
   /** Shows the attached session's conversation (the page keeps it in the dock). */
   onShowConversation?: () => void;
   demo?: boolean;
-  /** Whether the right dock sits beside the map; when it does and the window is narrow, side panels overlay it. */
+  /** Whether the right dock sits beside the map; when it does and the window is narrow, the changes list overlays it. */
   dockOpen?: boolean;
   /** The map is covered by the dock enlarged ("크게 보기"): its keys (`/`, Escape) must not act on it. */
   hidden?: boolean;
@@ -89,23 +84,7 @@ export function ProductMap({
   const t = useMessages(messages);
   const tree = useMessages(flowTreeMessages);
   const board = useProductMap(cwd);
-  // Person by person (the journeys each one walks) or the card map; remembered.
-  const [view, setView] = useState<'journeys' | 'cards'>(() => {
-    try {
-      return localStorage.getItem(VIEW_KEY) === 'cards' ? 'cards' : 'journeys';
-    } catch {
-      return 'journeys';
-    }
-  });
-  const chooseView = (next: 'journeys' | 'cards') => {
-    setView(next);
-    try {
-      localStorage.setItem(VIEW_KEY, next);
-    } catch {
-      // Private windows may refuse storage; the view still changes for this visit.
-    }
-  };
-  const sessions = useSessions().data ?? [];
+  const sessions = useSessions().data;
   const live = useSession(sessionId);
   const create = useNewSession();
   const prepare = usePrepareFlow();
@@ -113,6 +92,7 @@ export function ProductMap({
   const schedule = useSetSchedule();
   const review = useReviewFlow();
   const cancel = useCancelSession();
+  const teamAction = useTaskForceAction();
   // The session drawing the map from scratch (or continuing it), so the canvas can show it growing. Remembered, so
   // coming back while it still draws shows the same.
   const drawingKey = `${DRAWING_KEY}:${cwd}`;
@@ -132,43 +112,19 @@ export function ProductMap({
     }
   };
   const [query, setQuery] = useState('');
-  const [scopeOpen, setScopeOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  // The left panel (summary, what to look at, search) folds away so the flows get the whole screen; remembered.
-  const [sideOpen, setSideOpen] = useState(() => {
-    try {
-      return localStorage.getItem(SIDE_KEY) !== 'closed';
-    } catch {
-      return true;
-    }
-  });
-  const toggleSide = (open: boolean) => {
-    setSideOpen(open);
-    try {
-      localStorage.setItem(SIDE_KEY, open ? 'open' : 'closed');
-    } catch {
-      // Private windows may refuse storage; the panel still toggles for this visit.
-    }
-  };
-  // Search results are cycled with Enter / "다음"; `reveal` tells the canvas which card to centre.
-  const [reveal, setReveal] = useState<{ node: string; flow: string; seq: number } | null>(null);
+  const [lens, setLens] = useState<Lens>(null);
+  const [reveal, setReveal] = useState<{ cardId: string; seq: number } | null>(null);
   const hit = useRef(-1);
   const search = useRef<HTMLInputElement>(null);
-  // A flow picked from the flow list: the canvas scrolls to it and dims every card outside it. One focus at a time.
-  const [focusFlow, setFocusFlow] = useState<string | null>(null);
-  const [revealFlow, setRevealFlow] = useState<{ flow: string; seq: number } | null>(null);
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [changesOpen, setChangesOpen] = useState(false);
   const [seenAt, markSeen] = useLastSeen(cwd);
   const [viewedSince, setViewedSince] = useState(seenAt);
-  const [nudge, setNudge] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>({ status: null, must: false, now: false });
-  const [selection, setSelection] = useState<{ node: string; flow: string | null } | null>(null);
-  const [form, setForm] = useState<Form | null>(null);
-  const [text, setText] = useState('');
-  const [panel, setPanel] = useState<'feature' | 'changes'>('feature');
   const [confirmRebuild, setConfirmRebuild] = useState(false);
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
-  // The width of the map's own area (this page without the dock), to decide whether a side panel overlays the dock.
+  // The width of the map's own area (this page without the dock), to decide whether the changes list overlays the dock.
   const area = useRef<HTMLElement>(null);
   const [areaWidth, setAreaWidth] = useState(Infinity);
   useEffect(() => {
@@ -178,22 +134,16 @@ export function ProductMap({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  // The action behind the live session: only runs that change the product suggest a re-check afterwards.
-  const lastRun = useRef<{ session: string; action: Action } | null>(null);
   const [error, setError] = useState<{ text: string; detail?: string } | null>(null);
   const [retry, setRetry] = useState<{ action: Action; target?: Target } | null>(null);
   // A failed send retries exactly the prepared prompt and branch, rather than creating duplicate work.
   const attempt = useRef<{ key: string; session: string; prepared?: FlowPrepareResult } | null>(null);
   const data = board.data;
   const document = data && mapOf(data);
-  const node = document?.nodes?.find((n) => n.id === selection?.node);
-  const memberOf = document?.flows?.filter((f) => f.nodeIds?.includes(node?.id ?? '')) ?? [];
-  const flowId = selection?.flow && selection.flow !== '__unassigned' ? selection.flow : (memberOf[0]?.id ?? null);
-  const selectedSession = sessions.find((s) => s.id === node?.sessionId);
-  const nodeRunning = selectedSession?.status === 'running' || selectedSession?.status === 'waiting';
   const active = live.data?.info.status === 'running' || live.data?.info.status === 'waiting';
   // Any session of this project that is working, not only the one shown.
-  const anyActive = active || sessions.some((s) => s.cwd === cwd && (s.status === 'running' || s.status === 'waiting'));
+  const anyActive =
+    active || (sessions ?? []).some((s) => s.cwd === cwd && (s.status === 'running' || s.status === 'waiting'));
   const reasons: Record<string, string> = {
     flow_conflict: t.conflict,
     map_read_only: t.readOnlyBanner,
@@ -203,12 +153,25 @@ export function ProductMap({
     flow_busy: t.busyEdit,
   };
   const readOnly = !!data?.readOnly;
-  const nodeImages = useFlowNode(cwd, node?.id ?? null, data?.revision);
-  const totals = document && summary(document, data?.states, sessions);
-  const numbered = document ? numbers(document) : new Map<string, string>();
   const hasMap = !!(document?.nodes?.length || document?.flows?.length);
+  const locked = busy || anyActive || readOnly;
+  const project = cwd.split('/').pop() ?? cwd;
+  const treeMap = useMemo(
+    () =>
+      data
+        ? toTreeMap(data, sessions ?? [], project, {
+            unnamed: { ko: tree.unnamed, en: tree.unnamed },
+            unnamedRole: { ko: tree.unnamedRole, en: tree.unnamedRole },
+          })
+        : null,
+    [data, sessions, project, tree.unnamed, tree.unnamedRole],
+  );
+
+  // A TF the drawing session started keeps drawing while the session itself waits for it.
+  const team = live.data ? latestTaskForce(live.data.items) : null;
+  const teamWorking = team?.status === 'running' || team?.status === 'over' || team?.status === 'stopping';
   // Only drawing can run on a project with no map yet, so a working session there is the drawing (also after a reload).
-  const drawing = active && (!hasMap || drawingSession === sessionId);
+  const drawing = (active || teamWorking) && (!hasMap || drawingSession === sessionId);
   const drawingLine = drawing && (
     <span role="status" className="flex min-w-0 items-center gap-2 text-meta text-fg-muted">
       <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-interactive" />
@@ -218,7 +181,11 @@ export function ProductMap({
       {sessionId && (
         <button
           type="button"
-          onClick={() => cancel.mutate(sessionId)}
+          onClick={() => {
+            // Stopping the drawing stops its TF too, not only the session that asked for it.
+            if (team && teamWorking) teamAction.mutate({ action: 'stop', sessionId, runId: team.id });
+            cancel.mutate(sessionId);
+          }}
           className="shrink-0 cursor-pointer rounded-md px-1.5 text-fg-muted hover:bg-hover hover:text-fg"
         >
           {t.stopDrawing}
@@ -237,7 +204,20 @@ export function ProductMap({
     asked.current = status === 'waiting';
   }, [status]);
 
-  const flowsOf = (id: string) => document?.flows?.filter((f) => f.nodeIds?.includes(id)) ?? [];
+  const nodeOf = (id: string) => document?.nodes?.find((n) => n.id === id) ?? null;
+  // What a promise's own answers need: the map, whether it may be written, and how to ask the AI about it.
+  const promiseProps = (node: FlowNode) => ({
+    cwd,
+    board: data!,
+    node,
+    readOnly,
+    editLocked: anyActive,
+    onRecheck: () => void start('verify', { node }),
+    onNotARule: (conditionId: string) => {
+      const rule = node.conditions?.find((c) => c.id === conditionId)?.expectation ?? '';
+      void start('change', { node, request: t.notRuleRequest(node.title, rule) });
+    },
+  });
   const unseen = newChanges(data?.changes, seenAt).length;
 
   const start = async (action: Action, target?: Target) => {
@@ -248,18 +228,8 @@ export function ProductMap({
     setError(null);
     setRetry({ action, target });
     setConfirmRebuild(false);
-    const subject = target && 'node' in target ? (target.node ?? null) : (node ?? null);
-    const subjectFlow = target && 'flowId' in target ? (target.flowId ?? null) : flowId;
-    const key = JSON.stringify([
-      cwd,
-      action,
-      selection,
-      text,
-      target?.node?.id,
-      target?.flowId,
-      target?.nodeIds,
-      target?.request,
-    ]);
+    const subject = target?.node ?? null;
+    const key = JSON.stringify([cwd, action, subject?.id, target?.flowId, target?.nodeIds, target?.request]);
     try {
       if (attempt.current?.key !== key) {
         const info = await create.mutateAsync({ cwd });
@@ -272,26 +242,18 @@ export function ProductMap({
           revision: data.revision,
           action,
           request:
-            (target?.request ?? (target ? '' : text)) ||
-            (action === 'discover' ? t.discoveryRequest : t.checkRequest(subject?.title ?? '')),
+            target?.request || (action === 'discover' ? t.discoveryRequest : t.checkRequest(subject?.title ?? '')),
           nodeId: action === 'discover' ? null : (subject?.id ?? null),
-          flowId: action === 'discover' ? null : subjectFlow,
+          flowId: action === 'discover' ? null : (target?.flowId ?? null),
           ...(target?.nodeIds ? { nodeIds: target.nodeIds.slice(0, 500) } : {}),
           sessionId: current.session,
         });
       }
       await send.mutateAsync({ sessionId: current.session, text: current.prepared.prompt });
-      if (current.prepared.nodeId) {
-        const flow = mapOf(current.prepared.board).flows?.find((f) => f.nodeIds?.includes(current.prepared!.nodeId!));
-        setSelection({ node: current.prepared.nodeId, flow: flow?.id ?? null });
-      }
-      lastRun.current = { session: current.session, action };
       if (action === 'discover') rememberDrawing(current.session);
       onSession(current.session);
       onShowConversation?.();
       attempt.current = null;
-      setForm(null);
-      setText('');
       setRetry(null);
       return true;
     } catch (error) {
@@ -306,29 +268,11 @@ export function ProductMap({
       setBusy(false);
     }
   };
-  const reset = () => {
-    setForm(null);
-    setText('');
-    setError(null);
-    setRetry(null);
-  };
-  const select = (node: FlowNode, flow?: ProductFlow) => {
-    if (busy) return;
-    setSelection({ node: node.id, flow: flow?.id ?? null });
-    setPanel('feature');
-    reset();
-  };
-  const close = () => {
-    setSelection(null);
-    reset();
-  };
-  const result = node && verification(node, data?.states?.[node.id]);
 
-  const verifyFlow = (flow: ProductFlow) =>
-    void start('verify', { node: null, flowId: flow.id, request: t.flowVerifyRequest(flow.title) });
-  const syncMap = () => void start('sync', { node: null, flowId: null, request: t.syncRequest });
-  const continueMap = () => void start('discover', { node: null, flowId: null, request: t.continueRequest });
+  const syncMap = () => void start('sync', { request: t.syncRequest });
+  const continueMap = () => void start('discover', { request: t.continueRequest });
   const recheck = useMemo(() => (data ? recheckIds(data) : []), [data]);
+  const recheckAll = () => void start('verify', { nodeIds: recheck, request: t.recheckAllRequest });
   // Promises the user rewrote that nothing has checked since: one run checks them all (decision 16).
   const edited = useMemo(() => {
     const found: { nodeId: string; count: number }[] = [];
@@ -342,113 +286,54 @@ export function ProductMap({
   }, [data]);
   const editedCount = edited.reduce((sum, item) => sum + item.count, 0);
   const checkEdited = () =>
-    void start('verify', {
-      node: null,
-      flowId: null,
-      nodeIds: edited.map((item) => item.nodeId),
-      request: t.editedVerifyRequest,
-    });
-  const recheckAll = () =>
-    void start('verify', { node: null, flowId: null, nodeIds: recheck, request: t.recheckAllRequest });
-  const notARule = (target: FlowNode, conditionId: string) => {
-    const rule = target.conditions?.find((c) => c.id === conditionId)?.expectation ?? '';
-    setText(t.notRuleRequest(target.title, rule));
-    setForm('change');
-  };
-  const openChanges = () => {
-    if (panel === 'changes') return setPanel('feature');
-    setViewedSince(seenAt);
-    markSeen();
-    close();
-    setPanel('changes');
-  };
+    void start('verify', { nodeIds: edited.map((item) => item.nodeId), request: t.editedVerifyRequest });
 
-  // A finished session that touched features suggests re-checking the flows they sit in.
-  const wasActive = useRef(false);
-  useEffect(() => {
-    const action = lastRun.current?.session === sessionId ? lastRun.current.action : null;
-    if (wasActive.current && !active && sessionId && (action === 'change' || action === 'extend')) setNudge(sessionId);
-    wasActive.current = active;
-  }, [active, sessionId]);
-  const touched = nudge ? (document?.nodes ?? []).filter((n) => n.sessionId === nudge).map((n) => n.id) : [];
-  const nudgeFlows = (document?.flows ?? []).filter((f) => f.nodeIds?.some((id) => touched.includes(id)));
+  // Cards by what their promises say (one broke, or one needs a look again), and what changed since I last looked.
+  const lenses = useMemo(() => {
+    const failed = new Set<string>();
+    const again = new Set<string>();
+    for (const card of Object.values(treeMap?.cards ?? {})) {
+      if (card.promises.some((p) => p.status === 'failed')) failed.add(card.id);
+      if (card.promises.some((p) => p.status === 'recheck')) again.add(card.id);
+    }
+    return {
+      failed,
+      recheck: again,
+      changed: treeMap ? changedCards(treeMap, seenAt ?? undefined) : new Set<string>(),
+    };
+  }, [treeMap, seenAt]);
 
-  // Search and filters dim cards on the canvas; they never remove them, because a missing step would break its flow.
-  const matched = useMemo(
-    () =>
-      data
-        ? matchingIds(mapOf(data), data.states, {
-            query,
-            status: filters.status,
-            mustOnly: filters.must,
-            nowOnly: filters.now,
-            tag: null,
-          })
-        : null,
-    [data, query, filters],
-  );
+  // Search lights the cards whose words, tags or promises match; it never hides any, because a missing step would
+  // break its journey. Enter (or "다음") brings the next one into view.
+  const matched = useMemo(() => (data ? matchingIds(mapOf(data), query) : null), [data, query]);
   const hits = useMemo(() => (data && matched ? searchOrder(mapOf(data), matched) : []), [data, matched]);
-  // Whatever the search found (words, tags or promises) can be checked in one run.
-  const verifyFound = () =>
-    void start('verify', {
-      node: null,
-      flowId: null,
-      nodeIds: [...new Set(hits.map((h) => h.nodeId))],
-      request: t.verifyFoundRequest(query.trim()),
-    });
-  // What needs a look is shown per flow ("봐야 할 것 N" on its row) and, once a flow is picked, as a reason tag on
-  // each of its cards that needs one.
-  const allLooks = useMemo(() => (data ? focusItems(data) : []), [data]);
-  const focusMembers = useMemo(
-    () => (data && focusFlow ? (mapOf(data).flows?.find((f) => f.id === focusFlow)?.nodeIds ?? []) : null),
-    [data, focusFlow],
-  );
-  const reasonOf = useFocusReasons();
-  const lookTags = useMemo(
-    () =>
-      data && focusMembers
-        ? new Map(
-            allLooks
-              .filter(({ nodeId }) => focusMembers.includes(nodeId))
-              .map(({ kind, nodeId }) => [nodeId, reasonOf(data, kind, nodeId)]),
-          )
-        : null,
-    [data, allLooks, focusMembers, reasonOf],
-  );
-  // A picked flow dims every card outside it, together with search and filters (a card must pass both).
-  const shown = useMemo(
-    () =>
-      focusMembers
-        ? matched
-          ? new Set(focusMembers.filter((id) => matched.has(id)))
-          : new Set(focusMembers)
-        : matched,
-    [matched, focusMembers],
-  );
-  const toggleFlow = (flowId: string) => {
-    const next = focusFlow === flowId ? null : flowId;
-    setFocusFlow(next);
-    setReveal(null);
-    if (next) setRevealFlow({ flow: next, seq: Date.now() });
-  };
   const nextHit = () => {
     if (!hits.length) return;
     hit.current = (hit.current + 1) % hits.length;
-    const target = hits[hit.current]!;
-    setReveal({ node: target.nodeId, flow: target.flowId, seq: Date.now() + hit.current });
+    setReveal({ cardId: hits[hit.current]!.nodeId, seq: Date.now() });
+  };
+  const verifyFound = () =>
+    void start('verify', {
+      nodeIds: [...new Set(hits.map((h) => h.nodeId))],
+      request: t.verifyFoundRequest(query.trim()),
+    });
+  const lit = matched ?? (lens ? lenses[lens] : null);
+  const pick = (next: Lens) => setLens(lens === next ? null : next);
+
+  const openChanges = () => {
+    if (changesOpen) return setChangesOpen(false);
+    setViewedSince(seenAt);
+    markSeen();
+    setChangesOpen(true);
   };
 
-  const closePanel = () => {
-    if (panel === 'changes') setPanel('feature');
-    close();
-  };
   // The optional daily check starts one batch while the map is open, and notes that it ran only when it started.
   const scheduled = useRef<string | null>(null);
   useEffect(() => {
     const plan = data?.schedule;
     if (!data || !plan?.enabled || data.readOnly || busy || anyActive || board.isError) return;
-    // Only a map just fetched from the server says when the check last ran, and an open draft is never interrupted.
-    if (!board.isFetchedAfterMount || board.isFetching || form || text) return;
+    // Only a map just fetched from the server says when the check last ran.
+    if (!board.isFetchedAfterMount || board.isFetching) return;
     if (scheduled.current === cwd || !due(plan.lastRun)) return;
     const ids = recheckIds(data).slice(0, plan.limit ?? 20);
     if (!ids.length) return;
@@ -456,9 +341,7 @@ export function ProductMap({
     scheduled.current = cwd;
     schedule.mutate(
       { cwd, enabled: true, limit: plan.limit ?? 20, ran: true },
-      {
-        onSuccess: () => void start('verify', { node: null, flowId: null, nodeIds: ids, request: t.scheduledRequest }),
-      },
+      { onSuccess: () => void start('verify', { nodeIds: ids, request: t.scheduledRequest }) },
     );
   });
   useEffect(() => {
@@ -469,22 +352,154 @@ export function ProductMap({
       if (event.key === '/' && !editable(globalThis.document.activeElement) && search.current) {
         event.preventDefault();
         search.current.focus();
-      } else if (event.key === 'Escape' && !editable(globalThis.document.activeElement) && !busy) {
-        if (panel === 'changes' || node || form) closePanel();
+      } else if (event.key === 'Escape' && !editable(globalThis.document.activeElement) && changesOpen) {
+        setChangesOpen(false);
       }
     };
     globalThis.addEventListener('keydown', onKey);
     return () => globalThis.removeEventListener('keydown', onKey);
   });
 
-  // With the dock beside it, the map keeps MIN_MAP_WIDTH and the panel is laid over the dock rather than squeezing the
-  // map into a third column. Measured on the map's own area, so it follows the window and the dock's width alike.
+  // With the dock beside it, the map keeps MIN_MAP_WIDTH and the changes list is laid over the dock instead.
   const overlay = dockOpen && areaWidth < MIN_MAP_WIDTH + PANEL_WIDTH;
+  const uncovered = data?.coverage?.git ? (data.coverage.uncoveredCount ?? 0) : 0;
+  const notices =
+    !!data && hasMap && (uncovered > 0 || !!data.unmapped?.length || editedCount > 0 || !!data.removedCards?.length);
 
   return (
     <main ref={area} className="flex min-h-0 min-w-0 grow flex-col bg-canvas contain-inline-size" aria-label={t.title}>
       {!hasMap && drawing && (
         <div className="flex h-9 shrink-0 items-center gap-2 border-b border-line px-3">{drawingLine}</div>
+      )}
+      {hasMap && data && (
+        <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-1.5">
+          <label className="relative flex w-60 min-w-40 items-center">
+            <span className="sr-only">{t.searchLabel}</span>
+            <Search size={13} className="pointer-events-none absolute left-2.5 text-fg-faint" />
+            <input
+              ref={search}
+              type="search"
+              value={query}
+              placeholder={t.searchPlaceholder}
+              onChange={(event) => {
+                hit.current = -1;
+                setQuery(event.target.value);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.stopPropagation();
+                  hit.current = -1;
+                  setQuery('');
+                } else if (event.key === 'Enter' && query.trim()) {
+                  event.preventDefault();
+                  nextHit();
+                }
+              }}
+              className="h-8 w-full min-w-0 rounded-lg border border-line bg-canvas-raised pr-2 pl-8 text-body"
+            />
+          </label>
+          {query.trim() && (
+            <span className="flex items-center gap-2 text-meta text-fg-muted">
+              <span className="tabular-nums">{t.found(hits.length)}</span>
+              {hits.length > 1 && (
+                <LinkButton aria-label={t.nextMatch} onClick={nextHit}>
+                  {t.nextMatchShort}
+                </LinkButton>
+              )}
+              {hits.length > 0 && (
+                <LinkButton disabled={locked} onClick={verifyFound}>
+                  {t.verifyFound}
+                </LinkButton>
+              )}
+            </span>
+          )}
+          {drawingLine && <span className="min-w-0">{drawingLine}</span>}
+          <span className="grow" />
+          {lenses.failed.size > 0 && (
+            <Chip pressed={lens === 'failed'} tone="danger" onClick={() => pick('failed')}>
+              <CircleX size={13} aria-hidden />
+              {t.lensFailed(lenses.failed.size)}
+            </Chip>
+          )}
+          {lenses.recheck.size > 0 && (
+            <Chip pressed={lens === 'recheck'} tone="attention" onClick={() => pick('recheck')}>
+              <RotateCcw size={13} aria-hidden />
+              {t.lensRecheck(lenses.recheck.size)}
+            </Chip>
+          )}
+          {lenses.changed.size > 0 && (
+            <Chip pressed={lens === 'changed'} onClick={() => pick('changed')}>
+              <Sparkles size={13} aria-hidden />
+              {t.lensChanged(lenses.changed.size)}
+            </Chip>
+          )}
+          <MapMenu
+            cwd={cwd}
+            board={data}
+            readOnly={readOnly}
+            unseen={unseen}
+            canStart={!(busy || active || board.isError || readOnly)}
+            onChanges={data.changes?.length ? openChanges : undefined}
+            onRediscover={() => setConfirmRebuild(true)}
+            onScope={() => setScopeOpen(true)}
+            onDelete={() => setDeleting(true)}
+            recheck={recheck.length}
+            onRecheck={recheckAll}
+          />
+        </div>
+      )}
+      {notices && data && (
+        <ul
+          aria-label={t.noticesLabel}
+          className="flex shrink-0 flex-wrap items-center gap-1 border-b border-line bg-canvas-sunken px-2 py-1"
+        >
+          {uncovered > 0 && data.coverage && (
+            <Coverage coverage={data.coverage} exclude={data.exclude ?? []} disabled={locked} onSync={syncMap} />
+          )}
+          <Unmapped parts={data.unmapped ?? []} disabled={locked} onContinue={continueMap} />
+          {editedCount > 0 && (
+            <li data-edited className="flex min-h-7 items-center gap-2 px-2 text-body">
+              {t.editedPromises(editedCount)}
+              <LinkButton disabled={locked} onClick={checkEdited}>
+                {t.editedCheck}
+              </LinkButton>
+            </li>
+          )}
+          {!!data.removedCards?.length && (
+            <li>
+              <Popover.Root>
+                <Popover.Trigger className={noticeRow}>
+                  {t.removedCardsShort(data.removedCards.length)}
+                  <ChevronRight size={13} aria-hidden className="text-fg-muted" />
+                </Popover.Trigger>
+                <Popover.Popup align="start" className="w-96 gap-2 p-3">
+                  <section aria-label={t.removedCards} className="flex flex-col gap-1.5">
+                    <h2 className="text-meta text-attention">{t.removedCards}</h2>
+                    <ul className="flex flex-col gap-1.5">
+                      {data.removedCards.map((card) => (
+                        <li key={card.id} className="flex flex-wrap items-center gap-x-2 text-body">
+                          <span className="min-w-0 grow">{card.title}</span>
+                          <LinkButton
+                            disabled={review.isPending || anyActive || readOnly}
+                            onClick={() => review.mutate({ cwd, target: 'card', action: 'accept', nodeId: card.id })}
+                          >
+                            {t.acceptChange}
+                          </LinkButton>
+                          <LinkButton
+                            disabled={review.isPending || anyActive || readOnly}
+                            onClick={() => review.mutate({ cwd, target: 'card', action: 'restore', nodeId: card.id })}
+                          >
+                            {t.restoreMine}
+                          </LinkButton>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </Popover.Popup>
+              </Popover.Root>
+            </li>
+          )}
+        </ul>
       )}
       {confirmRebuild && (
         <div className="flex flex-wrap items-center gap-3 border-b border-line bg-canvas-sunken px-5 py-3 text-body">
@@ -524,22 +539,6 @@ export function ProductMap({
             ))}
           </ul>
         </details>
-      )}
-      {nudge && nudgeFlows.length > 0 && !active && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-line bg-canvas-sunken px-5 py-2 text-body">
-          <span className="min-w-0 grow">{t.nudge(nudgeFlows.length)}</span>
-          <Button
-            variant="primary"
-            disabled={busy}
-            onClick={() => {
-              setNudge(null);
-              verifyFlow(nudgeFlows[0]!);
-            }}
-          >
-            {t.nudgeAction(nudgeFlows[0]!.title)}
-          </Button>
-          <Button onClick={() => setNudge(null)}>{t.nudgeDismiss}</Button>
-        </div>
       )}
       {data?.review && (
         <div
@@ -606,307 +605,131 @@ export function ProductMap({
           {t.loadFailed}
         </p>
       )}
-      {hasMap && data && (
-        <div className="flex h-9 shrink-0 items-center justify-end gap-2 border-b border-line px-3">
-          {drawingLine && <span className="mr-auto min-w-0">{drawingLine}</span>}
-          <span role="radiogroup" aria-label={tree.viewJourneys} className="flex rounded-md border border-line p-0.5">
-            {(['journeys', 'cards'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={view === value}
-                onClick={() => chooseView(value)}
-                className="cursor-pointer rounded-sm px-2 py-0.5 text-meta text-fg-muted transition-colors hover:text-fg aria-checked:bg-selected aria-checked:text-fg"
-              >
-                {value === 'journeys' ? tree.viewJourneys : tree.viewCards}
-              </button>
-            ))}
-          </span>
-        </div>
-      )}
-      {hasMap && data && view === 'journeys' ? (
-        <div className="flex min-h-0 min-w-0 grow">
-          <JourneyMap
-            cwd={cwd}
-            board={data}
-            sessions={sessions}
-            seenAt={seenAt}
-            start={(action, target) => start(action, target)}
-            drawing={drawing}
-            onSession={(id) => {
-              onSession(id);
-              onShowConversation?.();
-            }}
-          />
-        </div>
-      ) : (
-        <div className="flex min-h-0 min-w-0 grow">
-          {hasMap && totals && document && data && (
-            <SlidingPanel open={sideOpen} width={288}>
-              <section
-                aria-label={t.mapPanel}
-                className="flex w-72 shrink-0 flex-col gap-5 overflow-y-auto border-r border-line px-4 pt-3 pb-4"
-              >
-                <div className="flex items-start gap-1">
-                  <div className="mr-auto min-w-0">
-                    <h1 className="text-title font-semibold">{t.title}</h1>
-                    <p className="truncate text-meta text-fg-muted">{demo ? t.demo : cwd.split('/').pop()}</p>
-                  </div>
-                  <MapMenu
-                    cwd={cwd}
-                    board={data}
-                    readOnly={readOnly}
-                    unseen={unseen}
-                    canStart={!(busy || active || board.isError || readOnly)}
-                    onChanges={data.changes?.length ? openChanges : undefined}
-                    onRediscover={() => setConfirmRebuild(true)}
-                    onAdd={() => {
-                      close();
-                      setPanel('feature');
-                      setForm('flow');
-                    }}
-                    onScope={() => setScopeOpen(true)}
-                    onDelete={() => setDeleting(true)}
-                    recheck={recheck.length}
-                    onRecheck={recheckAll}
-                  />
-                  <button
-                    type="button"
-                    aria-label={t.hidePanel}
-                    onClick={() => toggleSide(false)}
-                    className="flex size-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted hover:bg-hover"
-                  >
-                    <PanelLeftClose size={17} aria-hidden />
-                  </button>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center gap-1">
-                    <label className="relative flex min-w-0 grow items-center">
-                      <span className="sr-only">{t.searchLabel}</span>
-                      <Search size={13} className="pointer-events-none absolute left-2 text-fg-faint" />
-                      <input
-                        ref={search}
-                        type="search"
-                        value={query}
-                        placeholder={t.searchPlaceholder}
-                        onChange={(event) => {
-                          hit.current = -1;
-                          setReveal(null);
-                          setQuery(event.target.value);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Escape') {
-                            event.stopPropagation();
-                            hit.current = -1;
-                            setReveal(null);
-                            setQuery('');
-                          } else if (event.key === 'Enter' && query.trim()) {
-                            event.preventDefault();
-                            nextHit();
-                          }
-                        }}
-                        className="w-full min-w-0 rounded-md border border-line bg-canvas py-1 pr-2 pl-7 text-body"
-                      />
-                    </label>
-                    <FilterMenu filters={filters} counts={totals.counts} onChange={setFilters} />
-                  </div>
-                  {query.trim() && (
-                    <span className="flex items-center gap-1.5 px-2 text-meta text-fg-muted">
-                      <span className="tabular-nums">{t.found(hits.length)}</span>
-                      {hits.length > 1 && (
-                        <LinkButton aria-label={t.nextMatch} onClick={nextHit}>
-                          {t.nextMatchShort}
-                        </LinkButton>
-                      )}
-                      {hits.length > 0 && (
-                        <LinkButton disabled={busy || anyActive || readOnly} onClick={verifyFound} className="ml-auto">
-                          {t.verifyFound}
-                        </LinkButton>
-                      )}
-                    </span>
-                  )}
-                  <ActiveFilters filters={filters} onChange={setFilters} />
-                </div>
-                <Summary counts={promiseCounts(document, data?.states)} features={totals.features} />
-                {editedCount > 0 && (
-                  <p data-edited className="flex items-center gap-2 text-body">
-                    <span className="min-w-0 grow">{t.editedPromises(editedCount)}</span>
-                    <LinkButton disabled={busy || anyActive || readOnly} onClick={checkEdited}>
-                      {t.editedCheck}
-                    </LinkButton>
-                  </p>
-                )}
-                {!!data.removedCards?.length && (
-                  <section aria-label={t.removedCards} className="flex flex-col gap-1.5">
-                    <h2 className="text-meta font-semibold text-attention">{t.removedCards}</h2>
-                    <ul className="flex flex-col gap-1.5">
-                      {data.removedCards.map((card) => (
-                        <li key={card.id} className="flex flex-wrap items-center gap-x-2 text-body">
-                          <span className="min-w-0 grow">{card.title}</span>
-                          <LinkButton
-                            disabled={review.isPending || anyActive || readOnly}
-                            onClick={() => review.mutate({ cwd, target: 'card', action: 'accept', nodeId: card.id })}
-                          >
-                            {t.acceptChange}
-                          </LinkButton>
-                          <LinkButton
-                            disabled={review.isPending || anyActive || readOnly}
-                            onClick={() => review.mutate({ cwd, target: 'card', action: 'restore', nodeId: card.id })}
-                          >
-                            {t.restoreMine}
-                          </LinkButton>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                )}
-                <FlowList
-                  flows={document.flows ?? []}
-                  looks={allLooks}
-                  active={focusFlow}
-                  onToggle={toggleFlow}
-                  extra={
-                    // Only rows that render: an element that draws nothing would still keep the list's border.
-                    ((!!data?.coverage?.git && !!data.coverage.uncoveredCount) || !!data?.unmapped?.length) && (
-                      <>
-                        {!!data?.coverage?.git && !!data.coverage.uncoveredCount && (
-                          <Coverage
-                            coverage={data.coverage}
-                            exclude={data.exclude ?? []}
-                            disabled={busy || active || readOnly}
-                            onSync={syncMap}
-                          />
-                        )}
-                        <Unmapped
-                          parts={data?.unmapped ?? []}
-                          disabled={busy || active || readOnly}
-                          onContinue={continueMap}
-                        />
-                      </>
-                    )
-                  }
-                />
-              </section>
-            </SlidingPanel>
-          )}
-          {board.isError && !data ? (
-            <div className="flex grow flex-col items-center justify-center gap-3 p-8">
-              <p role="alert" className="text-body text-danger">
-                {t.loadFailed}
-              </p>
-              <Button onClick={() => void board.refetch()}>{t.retry}</Button>
-            </div>
-          ) : !data ? (
-            <p className="p-8 text-body text-fg-muted">{t.loading}</p>
-          ) : !hasMap && (drawing || busy) ? (
-            // The canvas, still empty: the first cards land here as soon as the AI writes them.
-            <div className="flex min-w-0 grow items-center justify-center">
-              <span aria-hidden className="h-16 w-44 animate-pulse rounded-xl border border-dashed border-line" />
-            </div>
-          ) : !hasMap ? (
-            <div className="flex min-w-0 grow flex-col items-center justify-center gap-3 p-8 text-center">
-              <h2 className="text-title font-semibold">{t.empty}</h2>
-              <p className="max-w-90 text-body text-fg-muted">{t.emptyLead}</p>
-              <Button variant="primary" disabled={busy || active || readOnly} onClick={() => void start('discover')}>
-                <Play size={14} />
-                {t.discover}
-              </Button>
-              <details className="group mt-1 flex flex-col items-center">
-                <summary className="cursor-pointer list-none text-meta text-interactive">{t.scopeBefore}</summary>
-                <div className="mt-3 text-left">
-                  <ScopeEditor cwd={cwd} board={data} readOnly={readOnly} label={t.scopeTitle} />
-                </div>
-              </details>
-            </div>
-          ) : (
-            <div className="relative flex min-h-0 min-w-0 grow flex-col">
-              {!sideOpen && (
-                <button
-                  type="button"
-                  aria-label={t.showPanel}
-                  onClick={() => toggleSide(true)}
-                  className="absolute top-3 left-3 z-10 flex size-8 cursor-pointer items-center justify-center rounded-lg border border-line bg-canvas-raised text-fg-muted shadow-overlay hover:bg-hover"
-                >
-                  <PanelLeftOpen size={17} aria-hidden />
-                </button>
-              )}
-              <FlowCanvas
-                board={data}
-                sessions={sessions}
-                selected={node?.id ?? null}
-                selectedFlow={selection?.flow ?? null}
-                numbered={numbered}
-                matched={shown}
-                tags={lookTags}
-                reveal={reveal}
-                revealFlow={revealFlow}
-                onSelect={select}
-                onVerifyFlow={readOnly ? undefined : verifyFlow}
-                verifyDisabled={busy || anyActive}
-              />
-            </div>
-          )}
-          <div
-            data-overlay={overlay || undefined}
-            className={overlay ? 'absolute inset-y-0 right-0 z-20 flex bg-canvas shadow-overlay' : 'contents'}
-          >
-            <SlidingPanel open={!!data && (panel === 'changes' || !!node || form === 'flow')} width={384}>
-              {panel === 'changes' && data && (
-                <Changes
-                  board={data}
-                  since={viewedSince}
-                  onSelect={(id) => {
-                    const target = document?.nodes?.find((n) => n.id === id);
-                    if (target) select(target, flowsOf(id)[0]);
-                  }}
-                  onClose={() => setPanel('feature')}
-                />
-              )}
-              {panel === 'changes'
-                ? null
-                : (node || form === 'flow') &&
-                  data && (
-                    <Inspector
-                      cwd={cwd}
-                      board={data}
-                      node={node}
-                      number={node ? numbered.get(node.id) : undefined}
-                      status={result?.status}
-                      working={!!node && isWorking(node, sessions)}
-                      flows={memberOf}
-                      form={form}
-                      text={text}
-                      busy={busy}
-                      running={nodeRunning}
-                      hasSession={!!node?.sessionId}
-                      readOnly={readOnly}
-                      editLocked={anyActive}
-                      images={nodeImages.data}
-                      onText={(value) => {
-                        setText(value);
-                        setError(null);
-                      }}
-                      onForm={setForm}
-                      onSubmit={() => form && void start(formAction[form])}
-                      onCancelForm={() => (node ? reset() : close())}
-                      onStart={(action) => void start(action)}
-                      onConversation={() => {
-                        if (node?.sessionId) onSession(node.sessionId);
-                        onShowConversation?.();
-                      }}
-                      onOpenFlow={(flow) => {
-                        if (!node) return;
-                        setSelection({ node: node.id, flow: flow.id });
-                      }}
-                      onNotARule={notARule}
-                      onClose={close}
-                    />
-                  )}
-            </SlidingPanel>
+      <div className="relative flex min-h-0 min-w-0 grow">
+        {board.isError && !data ? (
+          <div className="flex grow flex-col items-center justify-center gap-3 p-8">
+            <p role="alert" className="text-body text-danger">
+              {t.loadFailed}
+            </p>
+            <Button onClick={() => void board.refetch()}>{t.retry}</Button>
           </div>
+        ) : !data ? (
+          <p className="p-8 text-body text-fg-muted">{t.loading}</p>
+        ) : !hasMap && (drawing || busy) ? (
+          // The canvas, still empty: the first cards land here as soon as the AI writes them.
+          <div className="flex min-w-0 grow items-center justify-center">
+            <span aria-hidden className="h-16 w-44 animate-pulse rounded-xl border border-dashed border-line" />
+          </div>
+        ) : !hasMap ? (
+          <div className="flex min-w-0 grow flex-col items-center justify-center gap-3 p-8 text-center">
+            <h2 className="text-title font-semibold">{t.empty}</h2>
+            <p className="max-w-90 text-body text-fg-muted">{demo ? t.demo : t.emptyLead}</p>
+            <Button variant="primary" disabled={busy || active || readOnly} onClick={() => void start('discover')}>
+              <Play size={14} />
+              {t.discover}
+            </Button>
+            <details className="group mt-1 flex flex-col items-center">
+              <summary className="cursor-pointer list-none text-meta text-interactive">{t.scopeBefore}</summary>
+              <div className="mt-3 text-left">
+                <ScopeEditor cwd={cwd} board={data} readOnly={readOnly} label={t.scopeTitle} />
+              </div>
+            </details>
+          </div>
+        ) : (
+          treeMap && (
+            <JourneyMap
+              cwd={cwd}
+              map={treeMap}
+              board={data}
+              seenAt={seenAt}
+              start={(action, target) => start(action, target)}
+              drawing={drawing}
+              lit={lit}
+              reveal={reveal}
+              stepParts={(cardId) => {
+                const node = nodeOf(cardId);
+                if (!node) return {};
+                const mine = data.states?.[cardId];
+                const canEdit = !readOnly && !anyActive;
+                return {
+                  title: <Title key={cardId} cwd={cwd} node={node} mine={mine?.overridden?.title} canEdit={canEdit} />,
+                  howToTry: (
+                    <HowToTry
+                      key={`try-${cardId}`}
+                      cwd={cwd}
+                      node={node}
+                      mine={mine?.overridden?.howToTry}
+                      canEdit={canEdit}
+                    />
+                  ),
+                  extras: (
+                    <>
+                      {!!mine?.removedPromises?.length && <PromiseMore {...promiseProps(node)} only={REMOVED} />}
+                      <CardAsk
+                        key={cardId}
+                        locked={locked}
+                        onAsk={(request) => start('change', { node, request })}
+                        onRecheck={() => void start('verify', { node })}
+                      />
+                    </>
+                  ),
+                };
+              }}
+              promiseExtras={(cardId, promiseId) => {
+                const node = nodeOf(cardId);
+                return node && <PromiseMore key={promiseId} {...promiseProps(node)} only={promiseId} />;
+              }}
+              onSession={(id) => {
+                onSession(id);
+                onShowConversation?.();
+              }}
+            />
+          )
+        )}
+        <div
+          data-overlay={overlay || undefined}
+          className={overlay ? 'absolute inset-y-0 right-0 z-20 flex bg-canvas shadow-overlay' : 'contents'}
+        >
+          <SlidingPanel open={!!data && changesOpen} width={PANEL_WIDTH}>
+            {changesOpen && data && (
+              <Changes
+                board={data}
+                since={viewedSince}
+                onSelect={(id) => setReveal({ cardId: id, seq: Date.now() })}
+                onClose={() => setChangesOpen(false)}
+              />
+            )}
+          </SlidingPanel>
         </div>
-      )}
+      </div>
     </main>
+  );
+}
+
+/** A status above the map that lights its cards; pressed again, it lets go. */
+function Chip({
+  pressed,
+  tone,
+  onClick,
+  children,
+}: {
+  pressed: boolean;
+  tone?: 'danger' | 'attention';
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={clsx(
+        'inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-meta transition-colors',
+        pressed ? 'border-interactive bg-selected text-fg' : 'border-line bg-canvas-raised hover:bg-hover',
+        !pressed && (tone === 'danger' ? 'text-danger' : tone === 'attention' ? 'text-attention' : 'text-fg-muted'),
+      )}
+    >
+      {children}
+    </button>
   );
 }

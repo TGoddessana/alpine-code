@@ -203,6 +203,9 @@ export function Detail({
   onFix,
   onRemove,
   footer,
+  promiseFooter,
+  titleSlot,
+  howToTrySlot,
   readSource,
 }: {
   map: TreeMap;
@@ -214,6 +217,11 @@ export function Detail({
   onRemove: (target: PromiseTarget) => void;
   /** Below a step's promises: where a new one is added. */
   footer?: ReactNode;
+  /** Below a promise's last check. */
+  promiseFooter?: ReactNode;
+  /** In place of the step's plain title and "직접 해 보려면" (where the page lets them be rewritten). */
+  titleSlot?: ReactNode;
+  howToTrySlot?: ReactNode;
   /** With it, each of the card's files opens in place to show its code. */
   readSource?: (path: string) => Promise<SourceText>;
 }) {
@@ -302,45 +310,49 @@ export function Detail({
         ) : (
           <p className="text-reading">{promise.then}</p>
         )}
-        <section className="flex flex-col gap-1.5 rounded-lg border border-line bg-canvas-raised p-3">
-          <h3 className="text-meta text-fg-muted">{t.lastCheck}</h3>
-          {promise.status === 'checking' ? (
-            <p className="flex items-center gap-2">
-              <LoaderCircle size={14} aria-hidden className="motion-spin text-interactive" />
-              {t.checkingNote}
-            </p>
-          ) : promise.status === 'planned' ? (
-            <p>{t.plannedNote}</p>
-          ) : promise.note ? (
-            <>
-              <p className={clsx(promise.status === 'failed' && 'text-danger')}>{promise.note}</p>
-              <CheckList title={t.changedFiles} items={promise.changedFiles} tone="attention" mono />
-              <CheckList title={t.tried} items={promise.steps} />
-              <CheckList title={t.saw} items={promise.seen} />
-              <CheckList title={t.couldNot} items={promise.limits} tone="attention" />
-              {promise.history && promise.history.length > 1 && (
-                <CheckList
-                  title={t.historyTitle}
-                  items={promise.history
-                    .slice(-5)
-                    .reverse()
-                    .map((entry) => `${format.date(new Date(entry.at))} · ${t.resultWord(entry.result)}`)}
-                />
-              )}
-              {(promise.environment || promise.checkedAt) && (
-                <p className="text-meta text-fg-faint">
-                  {[promise.environment, promise.checkedAt && t.checkedOn(format.date(new Date(promise.checkedAt)))]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="text-fg-muted">{t.notChecked}</p>
-          )}
-        </section>
+        {/* The page's own record of the promise (promiseFooter) says all this and more. */}
+        {!promiseFooter && (
+          <section className="flex flex-col gap-1.5 rounded-lg border border-line bg-canvas-raised p-3">
+            <h3 className="text-meta text-fg-muted">{t.lastCheck}</h3>
+            {promise.status === 'checking' ? (
+              <p className="flex items-center gap-2">
+                <LoaderCircle size={14} aria-hidden className="motion-spin text-interactive" />
+                {t.checkingNote}
+              </p>
+            ) : promise.status === 'planned' ? (
+              <p>{t.plannedNote}</p>
+            ) : promise.note ? (
+              <>
+                <p className={clsx(promise.status === 'failed' && 'text-danger')}>{promise.note}</p>
+                <CheckList title={t.changedFiles} items={promise.changedFiles} tone="attention" mono />
+                <CheckList title={t.tried} items={promise.steps} />
+                <CheckList title={t.saw} items={promise.seen} />
+                <CheckList title={t.couldNot} items={promise.limits} tone="attention" />
+                {promise.history && promise.history.length > 1 && (
+                  <CheckList
+                    title={t.historyTitle}
+                    items={promise.history
+                      .slice(-5)
+                      .reverse()
+                      .map((entry) => `${format.date(new Date(entry.at))} · ${t.resultWord(entry.result)}`)}
+                  />
+                )}
+                {(promise.environment || promise.checkedAt) && (
+                  <p className="text-meta text-fg-faint">
+                    {[promise.environment, promise.checkedAt && t.checkedOn(format.date(new Date(promise.checkedAt)))]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-fg-muted">{t.notChecked}</p>
+            )}
+          </section>
+        )}
+        {promiseFooter}
         <div className="flex flex-wrap items-center gap-2">
-          {promise.status === 'failed' && (
+          {promise.status === 'failed' && !promise.question && (
             <Button variant="primary" onClick={() => onFix([target])}>
               {t.fix}
             </Button>
@@ -369,16 +381,17 @@ export function Detail({
     <div className="motion-step flex flex-col gap-5 p-5">
       <div className="flex flex-col gap-1">
         {crumbs}
-        <h2 className="text-title">{card.title}</h2>
+        {titleSlot ?? <h2 className="text-title">{card.title}</h2>}
         <span className="text-meta text-fg-muted tabular-nums">{t.promiseSummary(counts.passed, counts.total)}</span>
       </div>
       {card.description && <p className="text-reading">{card.description}</p>}
-      {card.howToTry && (
-        <section className="flex flex-col gap-1 rounded-lg border border-line bg-canvas-raised p-3">
-          <h3 className="text-meta text-fg-muted">{t.howToTry}</h3>
-          <p>{card.howToTry}</p>
-        </section>
-      )}
+      {howToTrySlot ??
+        (card.howToTry && (
+          <section className="flex flex-col gap-1 rounded-lg border border-line bg-canvas-raised p-3">
+            <h3 className="text-meta text-fg-muted">{t.howToTry}</h3>
+            <p>{card.howToTry}</p>
+          </section>
+        ))}
       <section className="flex flex-col gap-1">
         <h3 className="text-meta text-fg-muted">{t.stepPromisesTitle}</h3>
         <ul className="flex flex-col">

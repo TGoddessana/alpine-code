@@ -63,7 +63,8 @@ export function Changes({
   const t = useMessages(messages);
   const changes = board.changes ?? [];
   // Progress words come from the server as raw states ("planned -> built"); show them in the user's language.
-  const phaseWord = (value: string) => (t as unknown as Record<string, unknown>)[value.trim()];
+  const phases: Record<string, string> = { planned: t.planned, building: t.building, built: t.built };
+  const phaseWord = (value: string) => phases[value.trim()];
   const detailOf = (change: FlowChange) => {
     if (change.kind !== 'phase' && change.kind !== 'added' && change.kind !== 'removed') return change.detail ?? '';
     const words = (change.detail ?? '').split('->').map((part) => phaseWord(part));

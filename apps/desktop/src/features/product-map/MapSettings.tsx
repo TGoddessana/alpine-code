@@ -99,7 +99,6 @@ export function MapMenu({
   canStart,
   onChanges,
   onRediscover,
-  onAdd,
   onScope,
   onDelete,
   recheck,
@@ -113,7 +112,6 @@ export function MapMenu({
   canStart: boolean;
   onChanges?: () => void;
   onRediscover: () => void;
-  onAdd: () => void;
   onScope: () => void;
   onDelete: () => void;
   /** How many features changed since their check; they can all be checked again from here. */
@@ -136,9 +134,6 @@ export function MapMenu({
         {onChanges && <Menu.Item onClick={onChanges}>{t.menuChanges(unseen)}</Menu.Item>}
         <Menu.Item disabled={!canStart} onClick={onRediscover}>
           {t.rediscover}
-        </Menu.Item>
-        <Menu.Item disabled={readOnly} onClick={onAdd}>
-          {t.add}
         </Menu.Item>
         {recheck > 0 && (
           <Menu.Item disabled={!canStart} onClick={onRecheck}>

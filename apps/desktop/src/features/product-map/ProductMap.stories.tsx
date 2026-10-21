@@ -29,12 +29,6 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const ExistingProduct: Story = {};
-/** Person by person, the view a project opens on. */
-export const Journeys: Story = {
-  beforeEach: () => {
-    localStorage.setItem('alpine.product-map.view', 'journeys');
-  },
-};
 /** A realistic booking service: tagged features, six flows, shared features, loops, and every status. */
 export const RealisticService: Story = {
   parameters: { server: mergeScripts(setUpScript(), flowScript(STUDIO_MAP)) },
@@ -115,7 +109,6 @@ export const DrawingStarts: Story = {
 export const Drawing: Story = {
   args: { sessionId: 'draw' },
   beforeEach: () => {
-    localStorage.setItem('alpine.product-map.view', 'journeys');
     localStorage.setItem('alpine.product-map.drawing:/Users/me/alpine-code', 'draw');
   },
   parameters: { server: mergeScripts(setUpScript(), flowScript(), growing(), drawingSession) },

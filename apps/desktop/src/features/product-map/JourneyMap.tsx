@@ -1,12 +1,12 @@
-import type { FlowGetResult, FlowNode, SessionInfo } from '@alpine/protocol';
-import { useCallback, useMemo, useRef } from 'react';
+import type { FlowGetResult, FlowNode } from '@alpine/protocol';
+import { useCallback, useRef, type ReactNode } from 'react';
 
 import { useMessages } from '@/shared/i18n';
 import { useEditFlow, useServer, useSetActor, useSetFlow } from '@/shared/server';
 
-import { FlowTree } from './FlowTree';
-import { toTreeMap } from './flowTreeData';
+import { FlowTree, type StepParts } from './FlowTree';
 import { flowTreeMessages } from './flowTreeMessages';
+import type { TreeMap } from './flowTreeModel';
 
 export type JourneyStart = (
   action: 'verify' | 'change' | 'extend' | 'reshape',
@@ -20,21 +20,32 @@ export type JourneyStart = (
  */
 export function JourneyMap({
   cwd,
+  map,
   board,
-  sessions,
   seenAt,
   start,
   onSession,
   drawing = false,
+  lit = null,
+  reveal = null,
+  stepParts,
+  promiseExtras,
 }: {
   cwd: string;
+  /** `board` read person first (`toTreeMap`). */
+  map: TreeMap;
   board: FlowGetResult;
-  sessions: SessionInfo[];
   seenAt?: string | null;
   start: JourneyStart;
   onSession: (id: string) => void;
   /** The AI is drawing the map: keep it all in view as cards land. */
   drawing?: boolean;
+  /** Cards the page lights (search, a status); the rest quiets down. */
+  lit?: Set<string> | null;
+  /** A card the page asks to show. */
+  reveal?: { cardId: string; seq: number } | null;
+  stepParts?: (cardId: string) => StepParts;
+  promiseExtras?: (cardId: string, promiseId: string) => ReactNode;
 }) {
   const t = useMessages(flowTreeMessages);
   const edit = useEditFlow();
@@ -46,21 +57,17 @@ export function JourneyMap({
     [server, cwd],
   );
   const removed = useRef<{ cardId: string; text: string } | null>(null);
-  const project = cwd.split('/').pop() ?? cwd;
-  const map = useMemo(
-    () =>
-      toTreeMap(board, sessions, project, {
-        unnamed: { ko: t.unnamed, en: t.unnamed },
-        unnamedRole: { ko: t.unnamedRole, en: t.unnamedRole },
-      }),
-    [board, sessions, project, t.unnamed, t.unnamedRole],
-  );
+  const readOnly = !!board.readOnly;
   const nodeOf = (id: string) => board.document?.nodes?.find((node) => node.id === id) ?? null;
 
   return (
     <FlowTree
       map={map}
       drawing={drawing}
+      lit={lit}
+      reveal={reveal}
+      stepParts={stepParts}
+      promiseExtras={promiseExtras}
       seenAt={seenAt ?? undefined}
       readSource={readSource}
       onCheck={(targets) => void start('verify', { nodeIds: [...new Set(targets.map((target) => target.cardId))] })}
@@ -76,15 +83,18 @@ export function JourneyMap({
         void start('change', { node: nodeOf(card.id), request: t.fixRequest(card.title, broken) });
       }}
       onAddPromise={(cardId, when, then) =>
+        !readOnly &&
         edit.mutate({
           cwd,
           nodeId: cardId,
           field: 'promise',
           conditionId: null,
-          value: when ? `${when}, ${then}` : then,
+          // Either part may be left empty; only both together read "when, then".
+          value: when.trim() && then.trim() ? `${when.trim()}, ${then.trim()}` : when.trim() || then.trim(),
         })
       }
       onRemovePromise={({ cardId, promiseId }) => {
+        if (readOnly) return;
         const text = map.cards[cardId]?.promises.find((promise) => promise.id === promiseId)?.then ?? '';
         removed.current = { cardId, text };
         edit.mutate({ cwd, nodeId: cardId, field: 'promise', conditionId: promiseId, value: '' });
@@ -101,7 +111,8 @@ export function JourneyMap({
         void start('extend', { flowId: journeyId, request: t.findStepsRequest(journey?.title.ko ?? journeyId) });
       }}
       onAddPerson={(name) => void start('reshape', { request: t.addPersonRequest(name) })}
-      onDecide={(cardId, field, value) => decide.mutate({ cwd, nodeId: cardId, field, value })}
+      // A map from a newer Alpine is read only: no decisions to write (the decision chips are not shown).
+      onDecide={readOnly ? undefined : (cardId, field, value) => decide.mutate({ cwd, nodeId: cardId, field, value })}
       onOpenSession={onSession}
       onSetActor={(flowIds, actor) =>
         flowIds.length && setActor.mutate({ cwd, flowIds: flowIds as [string, ...string[]], actor })

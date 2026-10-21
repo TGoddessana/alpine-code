@@ -66,6 +66,12 @@ import { CHECKLIST_ROWS, layoutTree, SCREEN_H, stepId, type LaidNode } from './t
 
 export type { PromiseTarget } from './treeParts';
 
+export interface StepParts {
+  title?: ReactNode;
+  howToTry?: ReactNode;
+  extras?: ReactNode;
+}
+
 export interface FlowTreeProps {
   map: TreeMap;
   onCheck: (targets: PromiseTarget[]) => void;
@@ -93,6 +99,20 @@ export interface FlowTreeProps {
   seenAt?: string;
   /** The AI is drawing the map: the canvas keeps all of it in view as it grows. */
   drawing?: boolean;
+  /**
+   * Cards the page wants seen (a search, or a status picked above the map): they and the way to them stay clear and
+   * the rest quiets down. Given at all (even null), the page owns this, so the canvas has no "changes only" button.
+   */
+  lit?: Set<string> | null;
+  /** Bring this card into view and open it; a new `seq` asks again. */
+  reveal?: { cardId: string; seq: number } | null;
+  /**
+   * The page's own parts of an open step: its title and "직접 해 보려면" rewritable in place, and more after its
+   * promises (asking the AI about it, promises of mine the AI removed).
+   */
+  stepParts?: (cardId: string) => StepParts;
+  /** More for an open promise, after its last check (what the check saw: pictures, output, who confirmed it). */
+  promiseExtras?: (cardId: string, promiseId: string) => ReactNode;
 }
 
 /** What the side panel shows: a node's details, a promise of a step, or a form for what a "+" adds. */
@@ -169,12 +189,14 @@ export function FlowTree(props: FlowTreeProps) {
   const changed = useMemo(() => changedCards(map, props.seenAt), [map, props.seenAt]);
 
   // Picking a journey, a step or a promise keeps its row clear and quiets the rest, so one strand can be followed.
-  // "Changes only" keeps what changed clear instead, with the cards that lead to it.
+  // "Changes only" (or what the page lights) keeps those cards clear instead, with the cards that lead to them.
+  const owned = props.lit !== undefined;
+  const wanted = owned ? props.lit : changesOnly ? changed : null;
   const strand = useMemo(() => {
-    if (changesOnly) {
+    if (wanted) {
       const lit = new Set<string>();
       for (const node of nodes) {
-        if (!node.cardId || !changed.has(node.cardId)) continue;
+        if (!node.cardId || !wanted.has(node.cardId)) continue;
         let id: string | null = node.id;
         while (id) {
           lit.add(id);
@@ -195,7 +217,7 @@ export function FlowTree(props: FlowTreeProps) {
         )
         .map((node) => node.id),
     );
-  }, [focus, nodes, changesOnly, changed, byId]);
+  }, [focus, nodes, wanted, byId]);
 
   const initialFocus = useMemo(
     () =>
@@ -223,6 +245,31 @@ export function FlowTree(props: FlowTreeProps) {
   }, [notice]);
 
   const reveal = (id: string | null) => id && setTimeout(() => canvas.current?.reveal(id), 420);
+
+  // The page asks for a card (a search hit): open its first step, pick it, then bring it into view.
+  const asked = props.reveal;
+  const stepOf = (cardId: string) => {
+    for (const person of map.people)
+      for (const journey of person.journeys) if (journey.steps.includes(cardId)) return { person, journey };
+    return null;
+  };
+  const [answered, setAnswered] = useState<number | null>(null);
+  if (asked && asked.seq !== answered) {
+    setAnswered(asked.seq);
+    const where = stepOf(asked.cardId);
+    if (where) {
+      setOpenSteps((current) => new Set(current).add(stepId(where.journey.id, asked.cardId)));
+      setFocus({ kind: 'step', personId: where.person.id, journeyId: where.journey.id, cardId: asked.cardId });
+    }
+  }
+  useEffect(() => {
+    const where = asked && stepOf(asked.cardId);
+    if (!asked || !where) return;
+    const timer = setTimeout(() => canvas.current?.reveal(stepId(where.journey.id, asked.cardId)), 420);
+    return () => clearTimeout(timer);
+    // Only a new request moves the view; the map changing under it does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asked]);
 
   /** Opens the step of a promise, picks the promise and brings it into view once it has grown in. */
   const show = (target: PromiseTarget, personId: string) => {
@@ -328,7 +375,7 @@ export function FlowTree(props: FlowTreeProps) {
           <>
             <ExpandTools
               changesOnly={changesOnly}
-              onChangesOnly={() => setChangesOnly((on) => !on)}
+              onChangesOnly={owned ? undefined : () => setChangesOnly((on) => !on)}
               onOpen={() => setOpenSteps(new Set(allSteps()))}
               onClose={() => setOpenSteps(new Set())}
             />
@@ -379,12 +426,24 @@ export function FlowTree(props: FlowTreeProps) {
         </aside>
       )}
       {/* A card's details open over the map; the side keeps the product's summary. */}
-      <Dialog.Root open={focus !== null} onOpenChange={(open) => !open && setFocus(null)}>
+      <Dialog.Root
+        open={focus !== null}
+        onOpenChange={(open, details) => {
+          // Escape in a field I am writing cancels that field, not the whole card.
+          const active = globalThis.document.activeElement;
+          if (
+            !open &&
+            details.reason === 'escape-key' &&
+            active?.matches('input, textarea, [contenteditable="true"]')
+          ) {
+            details.cancel();
+            return;
+          }
+          if (!open) setFocus(null);
+        }}
+      >
         <Dialog.Popup
-          className={clsx(
-            'relative max-h-[85vh] gap-0 p-0',
-            focusScreen ? 'w-[min(1180px,94vw)]! flex-row overflow-hidden' : 'overflow-y-auto',
-          )}
+          className={clsx('relative max-h-[85vh] gap-0 overflow-y-auto p-0', focusScreen && 'w-[min(760px,94vw)]!')}
         >
           <Dialog.Close
             aria-label={t.close}
@@ -393,8 +452,8 @@ export function FlowTree(props: FlowTreeProps) {
           >
             <X size={14} aria-hidden />
           </Dialog.Close>
-          {focusScreen && <ScreenView screen={focusScreen} />}
-          <div className={focusScreen ? 'w-112 shrink-0 overflow-y-auto border-l border-line' : undefined}>
+          {focusScreen && <ScreenView key={focusScreen.src} screen={focusScreen} />}
+          <div>
             <Panel
               key={focusId ?? 'product'}
               focus={focus}
@@ -724,25 +783,40 @@ function StepCard({
   );
 }
 
-/** The card's screen, large, beside its details: what a person sees at this step. */
+/**
+ * The card's screen above its details: what a person sees at this step. Wide desktop captures and tall phone ones both
+ * keep their shape; a tall one stops at a part of the window so the details stay in reach, and pressing it shows it
+ * whole.
+ */
 function ScreenView({ screen }: { screen: CardScreen }) {
   const t = useMessages(messages);
   const format = useFormat();
+  const [whole, setWhole] = useState(false);
   return (
-    <div className="flex min-w-0 grow flex-col gap-2 bg-canvas-sunken p-5">
-      <span className="flex items-center gap-1.5 text-meta text-fg-muted">
+    <div className="flex flex-col gap-2 border-b border-line bg-canvas-sunken px-5 pt-5 pb-4">
+      <span className="flex items-center gap-1.5 pr-8 text-meta text-fg-muted">
         {screen.kind === 'sketch' ? <PenLine size={12} aria-hidden /> : <Camera size={12} aria-hidden />}
         {screen.kind === 'sketch' ? t.screenSketch : t.screenShot}
         {screen.at && <span className="text-fg-faint">· {format.date(new Date(screen.at))}</span>}
       </span>
-      <img
-        src={screen.src}
-        alt=""
-        className={clsx(
-          'min-h-0 w-full grow rounded-lg border bg-canvas object-contain object-top',
-          screen.kind === 'sketch' ? 'border-dashed border-line' : 'border-line-subtle',
-        )}
-      />
+      <button
+        type="button"
+        aria-pressed={whole}
+        aria-label={whole ? t.screenFit : t.screenWhole}
+        title={whole ? t.screenFit : t.screenWhole}
+        onClick={() => setWhole((on) => !on)}
+        className={clsx('flex justify-center', whole ? 'cursor-zoom-out' : 'cursor-zoom-in')}
+      >
+        <img
+          src={screen.src}
+          alt=""
+          className={clsx(
+            'max-w-full rounded-lg border bg-canvas object-contain',
+            !whole && 'max-h-[40vh]',
+            screen.kind === 'sketch' ? 'border-dashed border-line' : 'border-line-subtle',
+          )}
+        />
+      </button>
       {screen.kind === 'sketch' && <span className="text-meta text-fg-faint">{t.screenSketchNote}</span>}
     </div>
   );
@@ -878,7 +952,8 @@ function ExpandTools({
   onClose,
 }: {
   changesOnly: boolean;
-  onChangesOnly: () => void;
+  /** Absent when the page above the map offers the same. */
+  onChangesOnly?: () => void;
   onOpen: () => void;
   onClose: () => void;
 }) {
@@ -886,15 +961,17 @@ function ExpandTools({
   return (
     <>
       <span className="mx-0.5 h-4 border-l border-line-subtle" aria-hidden />
-      <button
-        type="button"
-        aria-pressed={changesOnly}
-        onClick={onChangesOnly}
-        className="flex h-7 cursor-pointer items-center gap-1 rounded-md px-1.5 text-meta whitespace-nowrap text-fg-muted transition-colors hover:bg-hover hover:text-fg aria-pressed:bg-selected aria-pressed:text-fg"
-      >
-        <RotateCcw size={13} aria-hidden />
-        {t.changesOnly}
-      </button>
+      {onChangesOnly && (
+        <button
+          type="button"
+          aria-pressed={changesOnly}
+          onClick={onChangesOnly}
+          className="flex h-7 cursor-pointer items-center gap-1 rounded-md px-1.5 text-meta whitespace-nowrap text-fg-muted transition-colors hover:bg-hover hover:text-fg aria-pressed:bg-selected aria-pressed:text-fg"
+        >
+          <RotateCcw size={13} aria-hidden />
+          {t.changesOnly}
+        </button>
+      )}
       <button
         type="button"
         onClick={onOpen}
@@ -987,7 +1064,8 @@ function Panel({
         </PanelForm>
       );
     case 'step':
-    case 'promise':
+    case 'promise': {
+      const parts = focus.kind === 'step' ? props.stepParts?.(focus.cardId) : undefined;
       return (
         <Detail
           map={map}
@@ -1015,6 +1093,9 @@ function Panel({
           onFix={props.onFix}
           onRemove={onRemove}
           readSource={props.readSource}
+          promiseFooter={focus.kind === 'promise' && props.promiseExtras?.(focus.cardId, focus.promiseId)}
+          titleSlot={parts?.title}
+          howToTrySlot={parts?.howToTry}
           footer={
             focus.kind === 'step' && (
               <>
@@ -1031,11 +1112,13 @@ function Panel({
                     {t.openSession}
                   </LinkButton>
                 )}
+                {parts?.extras}
               </>
             )
           }
         />
       );
+    }
   }
 }
 
@@ -1347,7 +1430,8 @@ function JourneyPanel({
 
 /** Cards someone maintaining the product should look at: code moved under a passed promise, a promise broke, or the
  * map changed the card since they last looked. */
-function changedCards(map: TreeMap, seenAt?: string) {
+/** Cards that broke, need a recheck, or the map changed since `seenAt`. */
+export function changedCards(map: TreeMap, seenAt?: string) {
   const changed = new Set<string>();
   for (const card of Object.values(map.cards))
     if (card.promises.some((promise) => promise.status === 'recheck' || promise.status === 'failed'))

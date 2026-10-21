@@ -1,11 +1,8 @@
 import type { FlowGetResult } from '@alpine/protocol';
 
-import { useMessages } from '@/shared/i18n';
+import { mapOf, verification } from './model';
 
-import { messages } from './messages';
-import { conditionResults, mapOf, PROBLEM_ISSUES, verification } from './model';
-
-export type FocusKind = 'regressed' | 'failed' | 'question' | 'recheck' | 'must' | 'noPromises';
+type FocusKind = 'regressed' | 'failed' | 'question' | 'recheck' | 'must' | 'noPromises';
 
 /**
  * The features that most need a look, in the order to take them: broke again, failed must-haves, failed, rules to
@@ -42,36 +39,6 @@ export function recheckIds(board: FlowGetResult) {
   return ids.sort((a, b) => place(a) - place(b));
 }
 
-/** Short tag and full reason per listed feature, for the card tag (a failing feature's full reason says what is wrong). */
-export function useFocusReasons() {
-  const t = useMessages(messages);
-  const short: Record<FocusKind, string> = {
-    regressed: t.focusRegressedShort,
-    failed: t.focusFailedShort,
-    question: t.focusQuestionShort,
-    recheck: t.focusRecheckShort,
-    must: t.focusMustShort,
-    noPromises: t.focusNoPromisesShort,
-  };
-  const full: Record<FocusKind, string> = {
-    regressed: t.focusRegressed,
-    failed: t.focusFailed,
-    question: t.focusQuestion,
-    recheck: t.focusRecheck,
-    must: t.focusMust,
-    noPromises: t.focusNoPromises,
-  };
-  return (board: FlowGetResult, kind: FocusKind, nodeId: string) => {
-    const node = mapOf(board).nodes?.find((n) => n.id === nodeId);
-    const failed =
-      node && conditionResults(node, board.states?.[node.id]).find((r) => PROBLEM_ISSUES.includes(r.promise?.issue));
-    return {
-      short: short[kind],
-      full: kind === 'failed' ? failed?.condition.expectation || full.failed : full[kind],
-    };
-  };
-}
-
-/** One row of the panel's lists (flows, code changes): what, how many, 보기. */
-export const lookRow =
-  'flex min-h-8 w-full cursor-pointer items-center gap-3 border-t border-line-subtle px-2 text-left text-body hover:bg-hover';
+/** A row of the notice line above the map that opens more about itself. */
+export const noticeRow =
+  'flex min-h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-left text-body hover:bg-hover data-popup-open:bg-selected';

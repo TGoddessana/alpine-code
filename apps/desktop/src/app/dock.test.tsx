@@ -17,6 +17,7 @@ import {
   sessionInfo,
   sessionScript,
   setUpScript,
+  STUDIO_MAP,
 } from '@/shared/server';
 
 import { routeTree } from './routeTree.gen';
@@ -256,9 +257,7 @@ describe('right dock on the routes', () => {
   it.each([
     [700, true],
     [1400, false],
-  ])('with the map area %ipx wide, an open feature panel overlays the dock: %s', async (width, overlaid) => {
-    // The feature panel belongs to the card map.
-    localStorage.setItem('alpine.product-map.view', 'cards');
+  ])('with the map area %ipx wide, the open change history overlays the dock: %s', async (width, overlaid) => {
     vi.stubGlobal(
       'ResizeObserver',
       class {
@@ -270,9 +269,14 @@ describe('right dock on the routes', () => {
       },
     );
     setDock(true);
-    mount(board());
-    fireEvent.click(await screen.findByRole('button', { name: /장바구니/ }));
-    const panel = await screen.findByRole('complementary', { name: /장바구니/ });
+    // A map with a change history, which opens beside the map from its menu.
+    mount(
+      board(),
+      flowScript(() => STUDIO_MAP),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: '지도 메뉴' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^바뀐 기록/ }));
+    const panel = await screen.findByRole('complementary', { name: '최근 변경' });
     expect(panel.closest('[data-overlay]') !== null).toBe(overlaid);
     expect(screen.getByRole('complementary', { name: '오른쪽 창' })).toBeTruthy();
   });

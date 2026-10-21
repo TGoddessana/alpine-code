@@ -841,6 +841,13 @@ promises you can tell (from tests you run or read, documents, or trying the prod
 leave the rest without one; Alpine shows those as written from the code only.
 If the scope above is the whole project and it holds parts that are not the product
 (a marketing site, documentation, infrastructure), say which folders the user may want to leave out of the scope.
+Draw the map as a TF (the user chose this for map drawing): read only enough first (README, entry points, the
+existing map and `unmapped`) to split the product into parts that can be mapped apart (doors, kinds of users, product
+areas), then propose a TF with the task_force tool right away: agents that each map one part into card and flow
+files, followed by agents that review and join the parts (shared doors reused rather than drawn twice, flows calling
+each other, `unmapped` kept true). Give every agent these same rules and the part it owns, so two agents never write
+the same file. Do not draw the map yourself before the TF; when its result comes, fix what it left inconsistent.
+If the user chooses to go without it, or the task_force tool is not offered, draw the map yourself.
 """
 
 _CARDS = """\

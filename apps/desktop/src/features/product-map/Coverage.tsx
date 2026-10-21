@@ -1,11 +1,10 @@
 import type { MapCoverage } from '@alpine/protocol';
 import { Button, Popover } from '@alpine/ui/primitives';
-import clsx from 'clsx';
 import { ChevronRight } from 'lucide-react';
 
 import { useMessages } from '@/shared/i18n';
 
-import { lookRow } from './Focus';
+import { noticeRow } from './Focus';
 import { messages } from './messages';
 
 function Folded({ label, lead, items = [] }: { label: string; lead: string; items?: string[] }) {
@@ -47,8 +46,8 @@ export function Coverage({
   return (
     <li>
       <Popover.Root>
-        <Popover.Trigger className={clsx(lookRow, 'data-popup-open:bg-selected')}>
-          <span className="min-w-0 grow truncate">{t.lookUncovered}</span>
+        <Popover.Trigger className={noticeRow}>
+          <span className="min-w-0 truncate">{t.lookUncovered}</span>
           <span className="shrink-0 text-meta tabular-nums">{uncovered}</span>
           <ChevronRight size={13} aria-hidden className="shrink-0 text-fg-muted" />
         </Popover.Trigger>

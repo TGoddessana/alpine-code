@@ -23,6 +23,9 @@ import { conditionResults, type PromiseStatus } from './model';
 import { isReadOnly, isUnverified, mismatchCount, ObservationList, SourceDetails } from './Observations';
 import { VerificationIcon } from './status';
 
+/** `only` value that shows just the promises the AI removed. */
+export const REMOVED = '__removed__';
+
 const icon = {
   passed: 'passed',
   failed: 'failed',
@@ -500,6 +503,7 @@ export function Conditions({
   onRecheck,
   onNotARule,
   onFix,
+  only,
 }: {
   cwd: string;
   node: FlowNode;
@@ -520,6 +524,11 @@ export function Conditions({
   onNotARule: (conditionId: string) => void;
   /** Ask the agent to make the product keep this card's failing promises. */
   onFix?: () => void;
+  /**
+   * One promise, opened (its check, issue, rule and wording answers), with no heading or list around it; or
+   * 'removed': only the promises of mine the AI removed, to keep or put back. The person view shows a card's list itself.
+   */
+  only?: string;
 }) {
   const t = useMessages(messages);
   const act = usePromiseAction();
@@ -528,7 +537,9 @@ export function Conditions({
   const [help, setHelp] = useState(false);
   // The promise being rewritten, or "new" while one is added.
   const [editing, setEditing] = useState<string | null>(null);
-  const results = conditionResults(node, state);
+  const all = conditionResults(node, state);
+  const removedOnly = only === REMOVED;
+  const results = only ? all.filter((item) => item.condition.id === only) : all;
   const labels: Record<PromiseStatus, string> = {
     passed: t.passed,
     failed: t.failed,
@@ -562,32 +573,34 @@ export function Conditions({
   const canEdit = !readOnly && !editLocked;
   return (
     <section aria-label={t.promises}>
-      <h3 className="flex items-center justify-between gap-2 text-lead font-semibold">
-        <span className="flex items-center gap-1.5">
-          {t.promises}
-          <button
-            type="button"
-            aria-label={t.promisesHelpLabel}
-            aria-expanded={help}
-            aria-controls={`promises-help-${node.id}`}
-            onClick={() => setHelp((v) => !v)}
-            className="cursor-pointer text-fg-faint hover:text-fg-muted"
-          >
-            <CircleHelp size={14} />
-          </button>
-        </span>
-        {!!results.length && (
-          <span className="text-meta font-normal text-fg-muted tabular-nums">
-            {t.promiseTotal(results.filter((item) => item.status === 'passed').length, results.length)}
+      {!only && (
+        <h3 className="flex items-center justify-between gap-2 text-lead font-semibold">
+          <span className="flex items-center gap-1.5">
+            {t.promises}
+            <button
+              type="button"
+              aria-label={t.promisesHelpLabel}
+              aria-expanded={help}
+              aria-controls={`promises-help-${node.id}`}
+              onClick={() => setHelp((v) => !v)}
+              className="cursor-pointer text-fg-faint hover:text-fg-muted"
+            >
+              <CircleHelp size={14} />
+            </button>
           </span>
-        )}
-      </h3>
+          {!!results.length && (
+            <span className="text-meta font-normal text-fg-muted tabular-nums">
+              {t.promiseTotal(results.filter((item) => item.status === 'passed').length, results.length)}
+            </span>
+          )}
+        </h3>
+      )}
       {help && (
         <p id={`promises-help-${node.id}`} className="mt-1 text-meta text-fg-muted">
           {t.promisesHelp}
         </p>
       )}
-      {!results.length && !state?.removedPromises?.length && editing !== 'new' && (
+      {!only && !results.length && !state?.removedPromises?.length && editing !== 'new' && (
         <div className="mt-2 rounded-lg border border-dashed border-line p-3">
           <p className="text-body">{t.noPromises}</p>
           <p className="mt-1 text-meta text-fg-muted">{t.noPromisesLead}</p>
@@ -604,8 +617,8 @@ export function Conditions({
                 : t.editFailed}
         </p>
       )}
-      <ul className="mt-2 flex flex-col gap-2">
-        {results.map(({ condition, check, status, promise }) => {
+      <ul className={clsx('flex flex-col gap-2', !only && 'mt-2')}>
+        {(removedOnly ? [] : results).map(({ condition, check, status, promise }) => {
           const key = `${node.id}/${condition.id}`;
           const problem = promise?.issue ?? '';
           const origin = promise?.origin ?? 'inferred';
@@ -642,14 +655,24 @@ export function Conditions({
           return (
             <li key={condition.id}>
               <details
+                open={only ? true : undefined}
                 className={clsx('rounded-lg border p-3', problem === 'question' ? 'border-attention' : 'border-line')}
               >
-                <summary className="flex cursor-pointer gap-2 text-body">
-                  <span className="mt-0.5">
-                    <VerificationIcon status={problem === 'question' ? 'question' : icon[status]} />
-                  </span>
+                <summary
+                  className={clsx('flex gap-2 text-body', only ? 'list-none' : 'cursor-pointer')}
+                  // Opened alone it stays open: there is nothing to fold it into.
+                  onClick={only ? (event) => event.preventDefault() : undefined}
+                >
+                  {/* Opened alone, the person view already shows the sentence, its status and its record above. */}
+                  {!only && (
+                    <span className="mt-0.5">
+                      <VerificationIcon status={problem === 'question' ? 'question' : icon[status]} />
+                    </span>
+                  )}
                   <span className="flex min-w-0 grow flex-col gap-0.5">
-                    <span className={clsx(origin === 'inferred' && 'text-fg-muted')}>{condition.expectation}</span>
+                    {!only && (
+                      <span className={clsx(origin === 'inferred' && 'text-fg-muted')}>{condition.expectation}</span>
+                    )}
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span
                         className={
@@ -660,7 +683,7 @@ export function Conditions({
                               : 'text-meta text-fg-muted'
                         }
                       >
-                        {line}
+                        {!only && line}
                       </span>
                       <OriginBadge origin={origin} written={written} />
                       {promise && <IssueBadge promise={promise} />}
@@ -675,7 +698,7 @@ export function Conditions({
                         </Button>
                       )}
                     </span>
-                    <EvidenceHint check={check} provenance={provenance?.[key]} />
+                    {!only && <EvidenceHint check={check} provenance={provenance?.[key]} />}
                   </span>
                   {canEdit && (
                     <button
@@ -762,16 +785,17 @@ export function Conditions({
             </li>
           );
         })}
-        {state?.removedPromises?.map((gone) => (
-          <li key={`removed-${gone.id}`}>
-            <Guard
-              title={t.aiRemovedPromise}
-              mine={gone.text}
-              disabled={readOnly || busy || !canEdit}
-              onAnswer={(action) => answer(gone.id, action)}
-            />
-          </li>
-        ))}
+        {(!only || removedOnly) &&
+          state?.removedPromises?.map((gone) => (
+            <li key={`removed-${gone.id}`}>
+              <Guard
+                title={t.aiRemovedPromise}
+                mine={gone.text}
+                disabled={readOnly || busy || !canEdit}
+                onAnswer={(action) => answer(gone.id, action)}
+              />
+            </li>
+          ))}
         {editing === 'new' && (
           <li className="rounded-lg border border-line p-3">
             <Editable
@@ -788,7 +812,7 @@ export function Conditions({
           </li>
         )}
       </ul>
-      {canEdit && editing !== 'new' && (
+      {!only && canEdit && editing !== 'new' && (
         <button
           type="button"
           disabled={busy}

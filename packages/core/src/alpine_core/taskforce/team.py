@@ -711,12 +711,11 @@ class TaskForce:
         raise ValueError(f"No agent named {name!r}. The user's agents: {known}")
 
     def _model(self, wanted: str | None, config: AgentConfig | None) -> str:
-        """The model by name; one without a connection takes the session model's connection."""
+        """The model by name (see ``resolve_model``); without one, the agent's model, else the session's."""
         session = self._session
-        name = wanted or (config.model if config is not None else None) or session._settings.model or ""
-        if wanted and "/" not in wanted and "/" in (session._settings.model or ""):
-            name = session._settings.model.split("/", 1)[0] + "/" + wanted  # type: ignore[union-attr]
-        return name
+        if wanted:
+            return resolve_model(wanted, session._settings)
+        return (config.model if config is not None else None) or session._settings.model or ""
 
     def _tools_for(self, config: AgentConfig | None, narrowed: tuple[str, ...] | None) -> list[Any]:
         session = self._session
@@ -941,6 +940,18 @@ _MODE_WORDS = {
     Mode.AUTO: "알아서 하기: a reviewer model blocks what looks risky, the user is not asked",
     Mode.YOLO: "묻지 않고 다 하기: nothing is asked",
 }
+
+
+def resolve_model(wanted: str, settings: Settings) -> str:
+    """``<connection>/<model>`` for a model the lead named. A bare model name goes to the connection that lists it
+    (a lead on a ChatGPT sign-in asking for Haiku means the Anthropic connection), else to the session model's."""
+    if "/" in wanted:
+        return wanted
+    for connection in settings.connections.values():
+        if wanted in (picker.listed(connection) or []):
+            return f"{connection.name}/{wanted}"
+    session_model = settings.model or ""
+    return f"{session_model.split('/', 1)[0]}/{wanted}" if "/" in session_model else wanted
 
 
 def _models_facts(session: Session) -> str:

@@ -205,3 +205,12 @@ describe('asking the map', () => {
     expect(onShow).toHaveBeenCalled();
   });
 });
+
+it('keeps the map menu, with deleting the map, before its first card', async () => {
+  wrap(
+    { results: { 'flow/get': { document: { flows: [], nodes: [], edges: [] }, revision: 'r', exists: true } } },
+    <ProductMap cwd={cwd} onSession={vi.fn()} />,
+  );
+  fireEvent.click(await screen.findByRole('button', { name: '지도 메뉴' }));
+  expect(await screen.findByRole('menuitem', { name: '지도 삭제' })).toBeTruthy();
+});

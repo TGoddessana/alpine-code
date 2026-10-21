@@ -441,10 +441,31 @@ export function ProductMap({
   const notices =
     !!data && hasMap && (uncovered > 0 || !!data.unmapped?.length || editedCount > 0 || !!data.removedCards?.length);
 
+  const mapMenu = data && (
+    <MapMenu
+      cwd={cwd}
+      board={data}
+      readOnly={readOnly}
+      unseen={unseen}
+      canStart={!(busy || active || board.isError || readOnly)}
+      onChanges={data.changes?.length ? openChanges : undefined}
+      onRediscover={() => setConfirmRebuild(true)}
+      onScope={() => setScopeOpen(true)}
+      onDelete={() => setDeleting(true)}
+      recheck={recheck.length}
+      onRecheck={recheckAll}
+    />
+  );
+
   return (
     <main ref={area} className="flex min-h-0 min-w-0 grow flex-col bg-canvas contain-inline-size" aria-label={t.title}>
-      {!hasMap && drawing && (
-        <div className="flex h-9 shrink-0 items-center gap-2 border-b border-line px-3">{drawingLine}</div>
+      {/* Before the first card the map may already exist (being drawn, or stopped early): its menu (scope, delete)
+          is here too, so a map is never out of reach. */}
+      {!hasMap && data && (drawing || data.exists) && (
+        <div className="flex min-h-11 shrink-0 items-center gap-2 border-b border-line px-3 py-1.5">
+          <span className="min-w-0 grow">{drawingLine}</span>
+          {mapMenu}
+        </div>
       )}
       {hasMap && data && (
         <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-1.5">
@@ -508,19 +529,7 @@ export function ProductMap({
               {t.lensChanged(lenses.changed.size)}
             </Chip>
           )}
-          <MapMenu
-            cwd={cwd}
-            board={data}
-            readOnly={readOnly}
-            unseen={unseen}
-            canStart={!(busy || active || board.isError || readOnly)}
-            onChanges={data.changes?.length ? openChanges : undefined}
-            onRediscover={() => setConfirmRebuild(true)}
-            onScope={() => setScopeOpen(true)}
-            onDelete={() => setDeleting(true)}
-            recheck={recheck.length}
-            onRecheck={recheckAll}
-          />
+          {mapMenu}
         </div>
       )}
       {notices && data && (
@@ -585,7 +594,7 @@ export function ProductMap({
           <Button onClick={() => setConfirmRebuild(false)}>{t.cancel}</Button>
         </div>
       )}
-      {scopeOpen && hasMap && data && (
+      {scopeOpen && data && (
         <div className="flex items-start gap-3 border-b border-line bg-canvas-sunken px-5 py-3">
           <div className="min-w-0 grow">
             <ScopeEditor cwd={cwd} board={data} readOnly={readOnly} label={t.scopeTitle} />

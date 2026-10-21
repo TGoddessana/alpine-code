@@ -48,6 +48,12 @@ def test_info_keeps_its_agent_and_what_was_applied():
     assert SessionInfo.from_dict(data) == info
 
 
+def test_info_keeps_what_the_conversation_is_for():
+    info = make_info(purpose="map")
+    assert SessionInfo.from_dict(json.loads(json.dumps(info.to_dict()))).purpose == "map"
+    assert SessionInfo.from_dict({"id": "x"}).purpose is None
+
+
 def test_info_from_dict_reads_the_old_profile_key_as_the_agent():
     info = SessionInfo.from_dict({"id": "x", "profile": "p1"})
     assert (info.agent, info.agent_applied) == ("p1", None)

@@ -36,7 +36,8 @@ export function Rail({ open = true }: { open?: boolean }) {
   const added = useMessages(projectAddMessages);
   const projects = useProjects();
   const sessionsQuery = useSessions();
-  const sessions = sessionsQuery.data ?? [];
+  // A project's map conversation is asked from the map itself, never from this list.
+  const sessions = (sessionsQuery.data ?? []).filter((session) => session.purpose !== 'map');
   const current = useCurrentProject();
   const sessionMatch = useMatch({ from: '/session/$sessionId', shouldThrow: false });
   const currentId = sessionMatch?.params.sessionId;

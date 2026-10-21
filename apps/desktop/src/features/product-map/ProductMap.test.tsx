@@ -1249,12 +1249,13 @@ describe('check records', () => {
 });
 
 describe('discovery and map settings', () => {
-  it('shows the started work in the dock, with no status strip or conversation panel on the map', async () => {
-    const { onShowConversation, onSession } = mount();
+  it('starts work in the project map conversation without opening the dock', async () => {
+    const { onShowConversation, onSession, request } = mount();
     const panel = await openStep('회원 주문');
     fireEvent.click(within(panel).getByRole('button', { name: '다시 확인' }));
     await waitFor(() => expect(onSession).toHaveBeenCalledWith('new-session'));
-    expect(onShowConversation).toHaveBeenCalled();
+    expect(request.mock.calls.find(([method]) => method === 'session/new')?.[1]).toMatchObject({ purpose: 'map' });
+    expect(onShowConversation).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: '작업 내용', hidden: true })).toBeNull();
     expect(screen.queryByText(/에이전트 작업이 끝났어요/)).toBeNull();
   });

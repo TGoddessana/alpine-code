@@ -1,8 +1,8 @@
 import type { FlowNode, FlowPrepareParams, FlowPrepareResult } from '@alpine/protocol';
 import { Button, LinkButton, Popover, SlidingPanel } from '@alpine/ui/primitives';
 import clsx from 'clsx';
-import { ChevronRight, CircleX, Play, RotateCcw, Search, Sparkles } from 'lucide-react';
-import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ChevronRight, CircleX, RotateCcw, Search, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { latestTaskForce } from '@/shared/components/taskforce';
 import { useMessages } from '@/shared/i18n';
@@ -29,6 +29,7 @@ import { changedCards } from './FlowTree';
 import { toTreeMap } from './flowTreeData';
 import { flowTreeMessages } from './flowTreeMessages';
 import { JourneyMap } from './JourneyMap';
+import { AskFlight, MapAsk, MapReplies } from './MapAsk';
 import { DeleteMap, MapMenu, ScopeEditor } from './MapSettings';
 import { Unmapped } from './Unmapped';
 import { messages } from './messages';
@@ -103,10 +104,11 @@ export function ProductMap({
       return null;
     }
   });
-  const rememberDrawing = (id: string) => {
+  const rememberDrawing = (id: string | null) => {
     setDrawingSession(id);
     try {
-      localStorage.setItem(drawingKey, id);
+      if (id === null) localStorage.removeItem(drawingKey);
+      else localStorage.setItem(drawingKey, id);
     } catch {
       // Shown for this visit only.
     }
@@ -123,6 +125,10 @@ export function ProductMap({
   const [viewedSince, setViewedSince] = useState(seenAt);
   const [confirmRebuild, setConfirmRebuild] = useState(false);
   const [busy, setBusy] = useState(false);
+  // What I just asked the map, flying from its input to where the map begins.
+  const [flight, setFlight] = useState<{ text: string; from: DOMRect | null; toFirst: boolean; at: number } | null>(
+    null,
+  );
   const lock = useRef(false);
   // The width of the map's own area (this page without the dock), to decide whether the changes list overlays the dock.
   const area = useRef<HTMLElement>(null);
@@ -167,6 +173,22 @@ export function ProductMap({
     [data, sessions, project, tree.unnamed, tree.unnamedRole],
   );
 
+  const landed = !!flight?.toFirst && !!treeMap?.people.length;
+  useEffect(() => {
+    if (!flight || (flight.toFirst && !landed)) return;
+    // The stand-in fades as the first real card lands, then goes; a bubble into an existing map just goes.
+    const timer = setTimeout(() => setFlight(null), 900);
+    return () => clearTimeout(timer);
+  }, [flight, landed]);
+  const flights = useRef(0);
+  const askMap = async (text: string, from: DOMRect | null) => {
+    const shown = { text: text || t.drawBubble, from, toFirst: !hasMap, at: ++flights.current };
+    setFlight(shown);
+    const started = await start('discover', { request: text || t.discoveryRequest });
+    if (!started) setFlight((current) => (current?.at === shown.at ? null : current));
+    return started;
+  };
+
   // A TF the drawing session started keeps drawing while the session itself waits for it.
   const team = live.data ? latestTaskForce(live.data.items) : null;
   const teamWorking = team?.status === 'running' || team?.status === 'over' || team?.status === 'stopping';
@@ -194,17 +216,9 @@ export function ProductMap({
     </span>
   );
 
-  // The conversation lives in the dock, and nothing else on the map says the agent stopped to ask: a session that
-  // starts waiting for my go-ahead opens the dock on it, once per wait.
-  const status = live.data?.info.status;
-  const asked = useRef(false);
-  const showAsk = useEffectEvent(() => onShowConversation?.());
-  useEffect(() => {
-    if (status === 'waiting' && !asked.current) showAsk();
-    asked.current = status === 'waiting';
-  }, [status]);
-
   const nodeOf = (id: string) => document?.nodes?.find((n) => n.id === id) ?? null;
+  // The project's map conversation (newest first in the list), kept going across every request to the map.
+  const mapConversation = (sessions ?? []).find((s) => s.cwd === cwd && s.purpose === 'map' && !s.archived)?.id ?? null;
   // What a promise's own answers need: the map, whether it may be written, and how to ask the AI about it.
   const promiseProps = (node: FlowNode) => ({
     cwd,
@@ -232,8 +246,9 @@ export function ProductMap({
     const key = JSON.stringify([cwd, action, subject?.id, target?.flowId, target?.nodeIds, target?.request]);
     try {
       if (attempt.current?.key !== key) {
-        const info = await create.mutateAsync({ cwd });
-        attempt.current = { key, session: info.id };
+        // All map work goes on in the project's one map conversation, made the first time.
+        const conversation = mapConversation ?? (await create.mutateAsync({ cwd, purpose: 'map' })).id;
+        attempt.current = { key, session: conversation };
       }
       const current = attempt.current;
       if (!current.prepared) {
@@ -250,9 +265,9 @@ export function ProductMap({
         });
       }
       await send.mutateAsync({ sessionId: current.session, text: current.prepared.prompt });
-      if (action === 'discover') rememberDrawing(current.session);
+      // The drawing line belongs to drawing runs only; the same conversation also does other map work.
+      rememberDrawing(action === 'discover' ? current.session : null);
       onSession(current.session);
-      onShowConversation?.();
       attempt.current = null;
       setRetry(null);
       return true;
@@ -615,6 +630,9 @@ export function ProductMap({
           </div>
         ) : !data ? (
           <p className="p-8 text-body text-fg-muted">{t.loading}</p>
+        ) : !hasMap && (drawing || busy) && flight ? (
+          // The stand-in card holds the first place until the first journey lands.
+          <div className="min-w-0 grow" />
         ) : !hasMap && (drawing || busy) ? (
           // The canvas, still empty: the first cards land here as soon as the AI writes them.
           <div className="flex min-w-0 grow items-center justify-center">
@@ -624,10 +642,6 @@ export function ProductMap({
           <div className="flex min-w-0 grow flex-col items-center justify-center gap-3 p-8 text-center">
             <h2 className="text-title font-semibold">{t.empty}</h2>
             <p className="max-w-90 text-body text-fg-muted">{demo ? t.demo : t.emptyLead}</p>
-            <Button variant="primary" disabled={busy || active || readOnly} onClick={() => void start('discover')}>
-              <Play size={14} />
-              {t.discover}
-            </Button>
             <details className="group mt-1 flex flex-col items-center">
               <summary className="cursor-pointer list-none text-meta text-interactive">{t.scopeBefore}</summary>
               <div className="mt-3 text-left">
@@ -686,6 +700,16 @@ export function ProductMap({
             />
           )
         )}
+        {flight && <AskFlight key={flight.at} {...flight} landed={landed} />}
+        {sessionId && live.data && !readOnly && (
+          <MapReplies
+            sessionId={sessionId}
+            items={live.data.items}
+            waiting={live.data.info.status === 'waiting'}
+            onOpen={() => onShowConversation?.()}
+          />
+        )}
+        {data && !readOnly && !board.isError && <MapAsk empty={!hasMap} disabled={busy || anyActive} onSend={askMap} />}
         <div
           data-overlay={overlay || undefined}
           className={overlay ? 'absolute inset-y-0 right-0 z-20 flex bg-canvas shadow-overlay' : 'contents'}

@@ -1,6 +1,6 @@
 import type { TaskForceItem } from '@alpine/protocol';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -60,8 +60,9 @@ describe('drawing the map in place', () => {
       <ProductMap cwd={cwd} sessionId="draw" onSession={vi.fn()} />,
     );
     expect(await screen.findByText(/코드를 살펴보는 중이에요/)).toBeTruthy();
-    expect(screen.queryByRole('button', { name: '지도 그리기' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '멈추기' }));
+    // While it draws, the map's input waits.
+    expect((screen.getByRole('button', { name: '지도 그리기' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(screen.getByRole('status')).getByRole('button', { name: '멈추기' }));
     await waitFor(() =>
       expect(request.mock.calls.find(([method]) => method === 'session/cancel')?.[1]).toEqual({ sessionId: 'draw' }),
     );
@@ -93,7 +94,7 @@ describe('drawing the map in place', () => {
       <ProductMap cwd={cwd} sessionId="draw" onSession={vi.fn()} />,
     );
     expect(await screen.findByText(/지도를 그리는 중/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: '멈추기' }));
+    fireEvent.click(within(screen.getByRole('status')).getByRole('button', { name: '멈추기' }));
     await waitFor(() =>
       expect(request.mock.calls.find(([method]) => method === 'taskforce/stop')?.[1]).toEqual({
         sessionId: 'draw',
@@ -126,5 +127,81 @@ describe('small map', () => {
     expect(await screen.findByText('아직 지도가 없어요')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '지도 그리기' }));
     expect(onOpen).toHaveBeenCalled();
+  });
+});
+
+describe('asking the map', () => {
+  it('draws from the map input in a new map conversation, and the words wait as the first card', async () => {
+    const { request } = wrap(
+      {
+        results: {
+          ...empty,
+          'session/new': { info: sessionInfo({ id: 'map-talk', cwd, purpose: 'map' }) },
+          'session/send': {},
+          'flow/prepare': { board: empty['flow/get'], prompt: 'p', nodeId: null },
+        },
+      },
+      <ProductMap cwd={cwd} onSession={vi.fn()} />,
+    );
+    const input = await screen.findByRole('textbox', { name: '지도에 부탁하기' });
+    fireEvent.change(input, { target: { value: '손님 쪽부터 그려 줘' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() =>
+      expect(request.mock.calls.find(([method]) => method === 'flow/prepare')?.[1]).toMatchObject({
+        action: 'discover',
+        request: '손님 쪽부터 그려 줘',
+      }),
+    );
+    expect(request.mock.calls.find(([method]) => method === 'session/new')?.[1]).toMatchObject({ purpose: 'map' });
+    expect(await screen.findByText('지도를 그리기 시작했어요')).toBeTruthy();
+  });
+
+  it('keeps going in the project map conversation instead of making another', async () => {
+    const { request } = wrap(
+      {
+        results: {
+          'session/list': { sessions: [sessionInfo({ id: 'map-talk', cwd, purpose: 'map' })] },
+          'session/send': {},
+        },
+      },
+      <ProductMap cwd={cwd} onSession={vi.fn()} />,
+    );
+    const input = await screen.findByRole('textbox', { name: '지도에 부탁하기' });
+    fireEvent.change(input, { target: { value: '운영자 쪽도 그려 줘' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() =>
+      expect(request.mock.calls.find(([method]) => method === 'session/send')?.[1]).toMatchObject({
+        sessionId: 'map-talk',
+      }),
+    );
+    expect(request.mock.calls.some(([method]) => method === 'session/new')).toBe(false);
+  });
+
+  it('shows the latest answer above the input, and opens the conversation on request', async () => {
+    const onShow = vi.fn();
+    wrap(
+      {
+        results: {
+          'session/open': {
+            info: sessionInfo({ id: 'map-talk', cwd, purpose: 'map' }),
+            seq: 0,
+            items: [
+              { id: 'u', kind: 'user_message', text: '그려 줘' },
+              {
+                id: 'a',
+                kind: 'agent_message',
+                text: '카드 9장을 그렸어요. 결제는 키가 없어 확인 못 했어요.',
+                agent: null,
+              },
+            ],
+            active: [],
+          },
+        },
+      },
+      <ProductMap cwd={cwd} sessionId="map-talk" onSession={vi.fn()} onShowConversation={onShow} />,
+    );
+    expect(await screen.findByText(/카드 9장을 그렸어요/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '대화 보기' }));
+    expect(onShow).toHaveBeenCalled();
   });
 });

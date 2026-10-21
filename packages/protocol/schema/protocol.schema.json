@@ -7931,6 +7931,18 @@
           "default": false,
           "type": "boolean"
         },
+        "purpose": {
+          "anyOf": [
+            {
+              "const": "map",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "summary": {
           "default": "",
           "type": "string"
@@ -8112,6 +8124,18 @@
         "agent": {
           "anyOf": [
             {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "purpose": {
+          "anyOf": [
+            {
+              "const": "map",
               "type": "string"
             },
             {

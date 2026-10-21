@@ -847,6 +847,8 @@ class SessionInfo(Message):
     """The first user message, shortened."""
     pinned: bool = False
     archived: bool = False
+    purpose: Literal["map"] | None = None
+    """``map``: the project's map conversation, asked from the map itself and kept off the list of conversations."""
     summary: str = ""
     """Short excerpt of the latest answer; empty for conversations saved before this field existed."""
     cwd: str
@@ -1225,6 +1227,8 @@ class SessionNewParams(Message):
     mode: Mode | None = None
     agent: str | None = None
     """An agent id; the project's last agent, else the default agent, when omitted."""
+    purpose: Literal["map"] | None = None
+    """``map`` makes the project's map conversation (see ``SessionInfo.purpose``)."""
 
 
 class SessionNewResult(Message):

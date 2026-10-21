@@ -101,6 +101,15 @@ describe('independent project browsing', () => {
     expect(router.state.location.pathname).toBe('/session/cart');
   });
 
+  it("keeps a project's map conversation off the list", async () => {
+    mount('/session/cart', [
+      ...infos(),
+      sessionInfo({ id: 'map-talk', cwd: app, title: '지도 그려 줘', purpose: 'map' }),
+    ]);
+    expect(await within(await rail()).findByRole('link', { name: /장바구니 고치기/ })).toBeTruthy();
+    expect(within(await rail()).queryByRole('link', { name: /지도 그려 줘/ })).toBeNull();
+  });
+
   it('opens the map of a project when its name is clicked, not a conversation or a new one', async () => {
     const { router } = mount('/session/readme');
     fireEvent.click(await screen.findByRole('button', { name: 'alpine-code 열기' }));

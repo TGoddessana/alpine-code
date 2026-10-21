@@ -234,6 +234,7 @@ class SessionManager:
                 memories=self.memories,
                 skills=skills(),
                 taskforce=True,
+                purpose=params.purpose,
             )
         except ConfigError as e:
             raise MethodError(APP_ERROR, str(e), "invalid_config") from e

@@ -111,6 +111,8 @@ class SessionInfo:
 
     pinned: bool = False
     archived: bool = False
+    purpose: str | None = None
+    """``"map"`` for a project's map conversation, which the app keeps off the list of conversations."""
     summary: str = ""
     """A short excerpt of the latest answer, for finding and resuming work."""
 
@@ -127,6 +129,7 @@ class SessionInfo:
             "title": self.title,
             "pinned": self.pinned,
             "archived": self.archived,
+            "purpose": self.purpose,
             "summary": self.summary,
             "cwd": self.cwd,
             "model": self.model,
@@ -161,6 +164,7 @@ class SessionInfo:
             title=data.get("title", ""),
             pinned=data.get("pinned", False),
             archived=data.get("archived", False),
+            purpose=data.get("purpose"),
             summary=data.get("summary", ""),
             cwd=data.get("cwd", ""),
             model=data.get("model", ""),

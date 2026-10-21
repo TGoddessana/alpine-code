@@ -7,7 +7,7 @@ import { ProductMap } from '@/features/product-map/ProductMap';
 import { Session } from '@/features/session/Session';
 import { useWorkResultTab } from '@/features/work-result/useWorkResultTab';
 import { useMessages } from '@/shared/i18n';
-import { useProjects, useSession } from '@/shared/server';
+import { useProjects, useSession, useSessions } from '@/shared/server';
 
 export const Route = createFileRoute('/board')({
   validateSearch: (search: Record<string, unknown>): { project?: string; session?: string } => ({
@@ -18,8 +18,12 @@ export const Route = createFileRoute('/board')({
 });
 
 function BoardRoute() {
-  const { project: chosen, session } = Route.useSearch();
+  const { project: chosen, session: asked } = Route.useSearch();
   const projects = useProjects();
+  // Without one in the address, the map shows its project's own conversation (map work all goes on in one).
+  const sessions = useSessions().data;
+  const session =
+    asked ?? sessions?.find((s) => s.cwd === chosen && s.purpose === 'map' && !s.archived)?.id ?? undefined;
   const navigate = useNavigate();
   const attached = useSession(session ?? null);
   const [dockOpen] = useDockOpen();

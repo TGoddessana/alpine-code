@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState } from 'react';
 
 import {
   EXAMPLE_MAP,
@@ -112,4 +113,91 @@ export const Drawing: Story = {
     localStorage.setItem('alpine.product-map.drawing:/Users/me/alpine-code', 'draw');
   },
   parameters: { server: mergeScripts(setUpScript(), flowScript(), growing(), drawingSession) },
+};
+
+/**
+ * How a TF really writes a map: several agents at once, so cards of different journeys arrive mixed, a few per read,
+ * and a journey's flow file only once a couple of its cards exist. Nothing is written until the map is asked.
+ */
+function writtenByTeam(map = STUDIO_MAP): { script: Script; started: () => void } {
+  const flows = map.flows ?? [];
+  const queues = flows.map((flow) => (flow.nodeIds ?? []).filter((id) => !id.startsWith('flow:')));
+  // Agents take turns: one card from each part in rotation, with each read holding two to six of them.
+  const order: string[] = [];
+  for (let round = 0; queues.some((queue) => round < queue.length); round++)
+    queues.forEach((queue, index) => {
+      const id = queue[(round + index) % Math.max(1, queue.length)];
+      if (round < queue.length && id && !order.includes(id)) order.push(id);
+    });
+  for (const queue of queues) for (const id of queue) if (!order.includes(id)) order.push(id);
+  const bursts = [3, 5, 2, 6, 4, 3, 5, 2, 6, 4];
+  const steps: Script[] = [];
+  for (let taken = 0, read = 0; taken < order.length; read++) {
+    taken = Math.min(order.length, taken + bursts[read % bursts.length]!);
+    const ids = new Set(order.slice(0, taken));
+    steps.push(
+      flowScript({
+        ...map,
+        // A flow file is written once two of its cards exist, holding only the cards written so far.
+        flows: flows
+          .map((flow) => ({ ...flow, nodeIds: flow.nodeIds?.filter((id) => ids.has(id) || id.startsWith('flow:')) }))
+          .filter((flow) => (flow.nodeIds ?? []).filter((id) => !id.startsWith('flow:')).length >= 2),
+        nodes: map.nodes?.filter((node) => ids.has(node.id)),
+        edges: map.edges?.filter((edge) => ids.has(edge.source) && ids.has(edge.target)),
+      }),
+    );
+  }
+  const empty = flowScript({ nodes: [], flows: [], edges: [] });
+  let started = false;
+  let read = 0;
+  const get = (script: Script) => script.results!['flow/get'] as (p: unknown, c: unknown) => object;
+  return {
+    started: () => (started = true),
+    script: {
+      results: {
+        'flow/get': (params, context) => {
+          if (!started) return { ...get(empty)({ ...params, since: null }, context), etag: 'empty', revision: 'empty' };
+          const step = Math.min(read++, steps.length - 1);
+          return { ...get(steps[step]!)({ ...params, since: null }, context), etag: `team-${step}`, revision: 'empty' };
+        },
+      },
+    },
+  };
+}
+
+/** The page with the session it starts, as the board route keeps it. */
+function AskedMap(props: Parameters<typeof ProductMap>[0]) {
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  return <ProductMap {...props} sessionId={sessionId} onSession={setSessionId} />;
+}
+
+const team = writtenByTeam();
+/**
+ * Ask an empty map: the words fly to where the map begins and wait there as its first card; then journeys and steps
+ * join one by one in reading order although the agents write them mixed and in bursts. Type or just press send.
+ */
+export const AskToDraw: Story = {
+  render: (args) => <AskedMap {...args} />,
+  parameters: {
+    server: mergeScripts(setUpScript(), flowScript({ nodes: [], flows: [], edges: [] }), team.script, {
+      results: {
+        'session/new': { info: sessionInfo({ id: 'draw', cwd: '/Users/me/alpine-code' }) },
+        'session/send': {},
+        'flow/prepare': () => {
+          team.started();
+          return {
+            board: { revision: 'empty', document: { nodes: [], flows: [], edges: [] } },
+            prompt: '…',
+            nodeId: null,
+          };
+        },
+        'session/open': {
+          info: sessionInfo({ id: 'draw', cwd: '/Users/me/alpine-code', status: 'running' }),
+          seq: 0,
+          items: [],
+          active: [],
+        },
+      },
+    }),
+  },
 };

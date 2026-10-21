@@ -148,6 +148,7 @@ class Session:
         memories: Memories | None = None,
         skills: SkillLibrary | None = None,
         taskforce: bool = False,
+        purpose: str | None = None,
         _saved: _Saved | None = None,
     ) -> None:
         if mode is not None:
@@ -203,6 +204,8 @@ class Session:
         self._closed = False
         self._id = ""
         self._pinned = self._archived = False
+        # What the conversation is for ("map": a project's map conversation); kept across clearing.
+        self._purpose = purpose
         self._summary = ""
         self._title = NEW_TITLE
         self._status: SessionStatus = "idle"
@@ -712,6 +715,7 @@ class Session:
             title=self._title,
             pinned=self._pinned,
             archived=self._archived,
+            purpose=self._purpose,
             summary=self._summary,
             cwd=str(self.workspace.root),
             model=self.model_name,
@@ -1004,6 +1008,7 @@ class Session:
         info = saved.info
         self._id, self._title = info.id, info.title
         self._pinned, self._archived, self._summary = info.pinned, info.archived, info.summary
+        self._purpose = info.purpose
         self._created, self._updated = info.created_at, info.updated_at
         self._imported_from = info.imported_from
         self._state = saved.state

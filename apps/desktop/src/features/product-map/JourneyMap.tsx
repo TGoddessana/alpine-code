@@ -6,6 +6,7 @@ import { useEditFlow, useServer, useSetActor, useSetFlow } from '@/shared/server
 
 import { FlowTree, type StepParts } from './FlowTree';
 import { flowTreeMessages } from './flowTreeMessages';
+import { usePacedMap } from './pacedMap';
 import type { TreeMap } from './flowTreeModel';
 
 export type JourneyStart = (
@@ -20,7 +21,7 @@ export type JourneyStart = (
  */
 export function JourneyMap({
   cwd,
-  map,
+  map: written,
   board,
   seenAt,
   start,
@@ -58,6 +59,8 @@ export function JourneyMap({
   );
   const removed = useRef<{ cardId: string; text: string } | null>(null);
   const readOnly = !!board.readOnly;
+  // While the AI draws, journeys and steps join one after another in reading order, not in the bursts they are written.
+  const map = usePacedMap(written, drawing);
   const nodeOf = (id: string) => board.document?.nodes?.find((node) => node.id === id) ?? null;
 
   return (

@@ -1,0 +1,209 @@
+import type { AgentMessageItem } from '@alpine/protocol';
+import { ArrowUp, X } from 'lucide-react';
+import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+
+import { latestTaskForce, TaskForceCard } from '@/shared/components/taskforce';
+import { useMessages } from '@/shared/i18n';
+import type { Item } from '@/shared/server';
+
+import { messages } from './messages';
+
+const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+/**
+ * The map's own input, floating at the bottom of the canvas: what I ask the map (draw it, add a side of the product,
+ * regroup) goes from here. With no map yet an empty message just draws it.
+ */
+export function MapAsk({
+  empty,
+  disabled,
+  onSend,
+  box,
+}: {
+  /** No map yet: the placeholder invites drawing one, and sending with no words draws it. */
+  empty: boolean;
+  disabled: boolean;
+  /** Resolves true once the AI has the request; the words fly off as a bubble then. */
+  onSend: (text: string, from: DOMRect | null) => Promise<boolean>;
+  box?: RefObject<HTMLFormElement | null>;
+}) {
+  const t = useMessages(messages);
+  const [text, setText] = useState('');
+  const own = useRef<HTMLFormElement>(null);
+  const form = box ?? own;
+  const canSend = !disabled && (empty || !!text.trim());
+  const send = async () => {
+    if (!canSend) return;
+    const words = text.trim();
+    if (await onSend(words, form.current?.getBoundingClientRect() ?? null)) setText('');
+  };
+  return (
+    <form
+      ref={form}
+      aria-label={t.mapAskLabel}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void send();
+      }}
+      className="absolute bottom-4 left-1/2 z-10 flex w-[min(560px,calc(100%-32px))] -translate-x-1/2 items-end gap-2 rounded-2xl border border-line bg-canvas-raised py-2 pr-2 pl-4 shadow-overlay"
+    >
+      <textarea
+        value={text}
+        rows={1}
+        aria-label={t.mapAskLabel}
+        placeholder={empty ? t.mapAskFirst : t.mapAskMore}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            void send();
+          }
+        }}
+        className="max-h-32 min-h-8 grow resize-none bg-transparent py-1.5 text-reading outline-none"
+      />
+      <button
+        type="submit"
+        disabled={!canSend}
+        aria-label={empty && !text.trim() ? t.discover : t.askSend}
+        title={empty && !text.trim() ? t.discover : t.askSend}
+        className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-interactive text-on-fill disabled:cursor-default disabled:opacity-40"
+      >
+        <ArrowUp size={16} aria-hidden />
+      </button>
+    </form>
+  );
+}
+
+/**
+ * What I just asked, flying from the input to where the map begins and becoming its first card: a dark start card
+ * holding my words until the first real journey lands there. On a map that already exists it flies to the middle
+ * and is taken in.
+ */
+export function AskFlight({
+  text,
+  from,
+  toFirst,
+  landed,
+}: {
+  text: string;
+  /** Where the input was, in the window. */
+  from: DOMRect | null;
+  /** The map is empty: the bubble becomes the first card; otherwise it fades into the map. */
+  toFirst: boolean;
+  /** The first real card is on the map: the stand-in gives way. */
+  landed: boolean;
+}) {
+  const t = useMessages(messages);
+  const card = useRef<HTMLDivElement>(null);
+  const [morphed, setMorphed] = useState(false);
+  useLayoutEffect(() => {
+    const el = card.current;
+    const area = el?.offsetParent?.getBoundingClientRect();
+    if (!el || !area || !from || reducedMotion()) {
+      setMorphed(true);
+      return;
+    }
+    const end = el.getBoundingClientRect();
+    const dx = from.left + from.width / 2 - (end.left + end.width / 2);
+    const dy = from.top + from.height / 2 - (end.top + end.height / 2);
+    const flight = el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(0.9)`, opacity: 0 },
+        { transform: `translate(${dx}px, ${dy - 24}px) scale(1)`, opacity: 1, offset: 0.15 },
+        toFirst
+          ? { transform: 'translate(0, 0) scale(1)', opacity: 1 }
+          : { transform: 'translate(0, 0) scale(0.6)', opacity: 0 },
+      ],
+      { duration: 700, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' },
+    );
+    flight.onfinish = () => setMorphed(true);
+    return () => flight.cancel();
+  }, [from, toFirst]);
+  if (!toFirst && morphed) return null;
+  return (
+    <div
+      ref={card}
+      aria-hidden
+      className="pointer-events-none absolute z-10 transition-[opacity,border-radius,background-color,color,padding,width] duration-(--motion-normal)"
+      style={
+        toFirst ? { left: 48, top: '38%', opacity: landed ? 0 : 1 } : { left: '50%', top: '45%', marginLeft: -110 }
+      }
+    >
+      {morphed && toFirst ? (
+        <div className="flex w-54 flex-col gap-2 rounded-xl bg-fg px-4 py-3 text-canvas-raised shadow-overlay">
+          <span className="flex items-center gap-1.5 text-meta opacity-70">
+            <span className="size-1.5 animate-pulse rounded-full bg-canvas-raised" />
+            {t.flightStart}
+          </span>
+          <span className="line-clamp-3 text-body">{text}</span>
+        </div>
+      ) : (
+        <div className="max-w-80 rounded-2xl bg-hover px-3.5 py-2 text-reading text-fg">{text}</div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Above the map's input, what the map's conversation says back: the TF card while one is proposed or working, else
+ * a word that the AI waits for me, else its latest answer. The whole conversation opens beside the map on request.
+ */
+export function MapReplies({
+  sessionId,
+  items,
+  waiting,
+  onOpen,
+}: {
+  sessionId: string;
+  items: readonly Item[];
+  /** The AI stopped to ask something (an approval or a question) that the conversation shows. */
+  waiting: boolean;
+  onOpen: () => void;
+}) {
+  const t = useMessages(messages);
+  const [hidden, setHidden] = useState<string | null>(null);
+  const team = latestTaskForce(items);
+  const lastAsk = items.findLastIndex((item) => item.kind === 'user_message');
+  const answer = items.slice(lastAsk + 1).findLast((item) => item.kind === 'agent_message') as
+    AgentMessageItem | undefined;
+  const teamShown = !!team && items.indexOf(team) > lastAsk && team.status !== 'declined' && team.status !== 'done';
+  const open = (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="shrink-0 cursor-pointer text-meta text-interactive hover:underline"
+    >
+      {t.openConversation}
+    </button>
+  );
+  let body: ReactNode = null;
+  if (teamShown) body = <TaskForceCard sessionId={sessionId} item={team} onShowAgents={onOpen} />;
+  else if (waiting)
+    body = (
+      <p className="flex items-center gap-3 rounded-xl border border-attention bg-canvas-raised px-4 py-2.5 text-body">
+        <span className="min-w-0 grow text-attention">{t.waitingForMe}</span>
+        {open}
+      </p>
+    );
+  else if (answer && answer.id !== hidden && answer.text.trim())
+    body = (
+      <div className="flex items-start gap-3 rounded-xl border border-line bg-canvas-raised px-4 py-2.5 shadow-overlay">
+        <p className="line-clamp-3 min-w-0 grow text-body text-fg-muted">{answer.text}</p>
+        {open}
+        <button
+          type="button"
+          aria-label={t.close}
+          onClick={() => setHidden(answer.id)}
+          className="shrink-0 cursor-pointer text-fg-faint hover:text-fg"
+        >
+          <X size={14} aria-hidden />
+        </button>
+      </div>
+    );
+  if (!body) return null;
+  return (
+    <div className="absolute bottom-20 left-1/2 z-10 flex max-h-[45%] w-[min(560px,calc(100%-32px))] -translate-x-1/2 flex-col overflow-y-auto">
+      {body}
+    </div>
+  );
+}

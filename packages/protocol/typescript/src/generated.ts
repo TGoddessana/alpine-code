@@ -2623,6 +2623,7 @@ export interface SessionInfo {
   title: string;
   pinned?: boolean;
   archived?: boolean;
+  purpose?: 'map' | null;
   summary?: string;
   cwd: string;
   model: string;
@@ -3779,6 +3780,7 @@ export interface SessionNewParams {
   model?: string | null;
   mode?: ('default' | 'accept_edits' | 'auto' | 'yolo') | null;
   agent?: string | null;
+  purpose?: 'map' | null;
 }
 /**
  * This interface was referenced by `AlpineProtocol`'s JSON-Schema

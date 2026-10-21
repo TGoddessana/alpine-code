@@ -1,6 +1,6 @@
 import type { AgentMessageItem } from '@alpine/protocol';
 import { ArrowUp, X } from 'lucide-react';
-import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 
 import { latestTaskForce, TaskForceCard } from '@/shared/components/taskforce';
 import { useMessages } from '@/shared/i18n';
@@ -18,19 +18,19 @@ export function MapAsk({
   empty,
   disabled,
   onSend,
-  box,
+  agent,
 }: {
   /** No map yet: the placeholder invites drawing one, and sending with no words draws it. */
   empty: boolean;
   disabled: boolean;
   /** Resolves true once the AI has the request; the words fly off as a bubble then. */
   onSend: (text: string, from: DOMRect | null) => Promise<boolean>;
-  box?: RefObject<HTMLFormElement | null>;
+  /** Who does the map's work (an agent chip), under the words as in every input. */
+  agent?: ReactNode;
 }) {
   const t = useMessages(messages);
   const [text, setText] = useState('');
-  const own = useRef<HTMLFormElement>(null);
-  const form = box ?? own;
+  const form = useRef<HTMLFormElement>(null);
   const canSend = !disabled && (empty || !!text.trim());
   const send = async () => {
     if (!canSend) return;
@@ -45,7 +45,7 @@ export function MapAsk({
         event.preventDefault();
         void send();
       }}
-      className="absolute bottom-4 left-1/2 z-10 flex w-[min(560px,calc(100%-32px))] -translate-x-1/2 items-end gap-2 rounded-2xl border border-line bg-canvas-raised py-2 pr-2 pl-4 shadow-overlay"
+      className="absolute bottom-4 left-1/2 z-10 flex w-[min(560px,calc(100%-32px))] -translate-x-1/2 flex-col gap-1 rounded-2xl border border-line bg-canvas-raised p-2 pl-4 shadow-overlay"
     >
       <textarea
         value={text}
@@ -59,17 +59,20 @@ export function MapAsk({
             void send();
           }
         }}
-        className="max-h-32 min-h-8 grow resize-none bg-transparent py-1.5 text-reading outline-none"
+        className="max-h-32 min-h-8 resize-none bg-transparent py-1.5 text-reading outline-none"
       />
-      <button
-        type="submit"
-        disabled={!canSend}
-        aria-label={empty && !text.trim() ? t.discover : t.askSend}
-        title={empty && !text.trim() ? t.discover : t.askSend}
-        className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-interactive text-on-fill disabled:cursor-default disabled:opacity-40"
-      >
-        <ArrowUp size={16} aria-hidden />
-      </button>
+      <div className="flex items-center gap-2">
+        <span className="-ml-2 min-w-0 grow">{agent}</span>
+        <button
+          type="submit"
+          disabled={!canSend}
+          aria-label={empty && !text.trim() ? t.discover : t.askSend}
+          title={empty && !text.trim() ? t.discover : t.askSend}
+          className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-interactive text-on-fill disabled:cursor-default disabled:opacity-40"
+        >
+          <ArrowUp size={16} aria-hidden />
+        </button>
+      </div>
     </form>
   );
 }

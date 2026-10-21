@@ -35,7 +35,8 @@ function BoardRoute() {
   const attachedHere = !!session && !!attached.data && attached.data.info.cwd === chosen && !attached.data.deleted;
   // The map's agent session is its summary, in the dock: one place for the conversation on every page.
   const summary = attachedHere ? (
-    <Session key={session} sessionId={session} compact onInspectProcesses={() => showDockTab('processes')} />
+    // The map has its own input for this conversation; here it only reads.
+    <Session key={session} sessionId={session} compact readOnly onInspectProcesses={() => showDockTab('processes')} />
   ) : (
     <p className="px-5 text-body text-fg-muted">{t.mapSummaryEmpty}</p>
   );

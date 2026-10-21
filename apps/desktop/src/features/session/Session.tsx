@@ -34,16 +34,19 @@ const FOLLOW_PX = 80;
  */
 /**
  * `compact`: shown in the dock beside another page (the product map), so it fits the dock's width instead of keeping
- * the width of a page of its own.
+ * the width of a page of its own. `readOnly`: the page has its own input for this conversation (the map's), so this
+ * shows the conversation without a second one.
  */
 export function Session({
   sessionId,
   compact = false,
+  readOnly = false,
   onInspectProcesses,
   onShowTaskForce,
 }: {
   sessionId: string;
   compact?: boolean;
+  readOnly?: boolean;
   onInspectProcesses?: () => void;
   /** Opens the dock on the session's TF. */
   onShowTaskForce?: () => void;
@@ -135,45 +138,47 @@ export function Session({
           {running && <ProgressLine info={info} />}
         </div>
       </div>
-      <div className={clsx('mx-auto flex w-full max-w-175 flex-col gap-2 pt-3 pb-6', compact ? 'px-4' : 'px-6')}>
-        {setAgent.isError && (
-          <p role="alert" className="px-1 text-meta text-fg-muted">
-            {agentFailed}
-          </p>
-        )}
-        <Composer
-          running={running}
-          slash={slash}
-          answer={
-            approval
-              ? {
-                  placeholder: t.answerPlaceholder,
-                  onSend: (text) =>
-                    answer.mutateAsync({ sessionId, requestId: approval.id, decision: 'deny', feedback: text }),
-                }
-              : undefined
-          }
-          agent={
-            <AgentChip
-              context="session"
-              agentId={info.agent ?? 'default'}
-              model={info.model}
-              disabled={running || setAgent.isPending}
-              onChange={(agent) => setAgent.mutate({ sessionId, agent })}
-            />
-          }
-          bar={<ContextMeter info={info} />}
-          onSend={(text) => {
-            following.current = true;
-            return send.mutateAsync({ sessionId, text });
-          }}
-          onStop={() => {
-            onInspectProcesses?.();
-            cancel.mutate(sessionId);
-          }}
-          mode={{ value: info.mode, onChange: (mode) => setMode.mutate({ sessionId, mode }) }}
-        />
-      </div>
+      {!readOnly && (
+        <div className={clsx('mx-auto flex w-full max-w-175 flex-col gap-2 pt-3 pb-6', compact ? 'px-4' : 'px-6')}>
+          {setAgent.isError && (
+            <p role="alert" className="px-1 text-meta text-fg-muted">
+              {agentFailed}
+            </p>
+          )}
+          <Composer
+            running={running}
+            slash={slash}
+            answer={
+              approval
+                ? {
+                    placeholder: t.answerPlaceholder,
+                    onSend: (text) =>
+                      answer.mutateAsync({ sessionId, requestId: approval.id, decision: 'deny', feedback: text }),
+                  }
+                : undefined
+            }
+            agent={
+              <AgentChip
+                context="session"
+                agentId={info.agent ?? 'default'}
+                model={info.model}
+                disabled={running || setAgent.isPending}
+                onChange={(agent) => setAgent.mutate({ sessionId, agent })}
+              />
+            }
+            bar={<ContextMeter info={info} />}
+            onSend={(text) => {
+              following.current = true;
+              return send.mutateAsync({ sessionId, text });
+            }}
+            onStop={() => {
+              onInspectProcesses?.();
+              cancel.mutate(sessionId);
+            }}
+            mode={{ value: info.mode, onChange: (mode) => setMode.mutate({ sessionId, mode }) }}
+          />
+        </div>
+      )}
     </main>
   );
 }

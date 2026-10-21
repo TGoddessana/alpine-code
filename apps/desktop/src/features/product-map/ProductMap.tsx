@@ -4,19 +4,24 @@ import clsx from 'clsx';
 import { ChevronRight, CircleX, RotateCcw, Search, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import { AgentChip } from '@/shared/components/composer';
 import { latestTaskForce } from '@/shared/components/taskforce';
 import { useMessages } from '@/shared/i18n';
 import {
   ServerError,
+  useAgents,
   useCancelSession,
+  useConnections,
   useNewSession,
   usePrepareFlow,
   useProductMap,
+  useProjects,
   useReviewFlow,
   useSendMessage,
   useSession,
   useSessions,
   useSetSchedule,
+  useSetSessionAgent,
   useTaskForceAction,
 } from '@/shared/server';
 
@@ -218,7 +223,33 @@ export function ProductMap({
 
   const nodeOf = (id: string) => document?.nodes?.find((n) => n.id === id) ?? null;
   // The project's map conversation (newest first in the list), kept going across every request to the map.
-  const mapConversation = (sessions ?? []).find((s) => s.cwd === cwd && s.purpose === 'map' && !s.archived)?.id ?? null;
+  const mapConversation = (sessions ?? []).find((s) => s.cwd === cwd && s.purpose === 'map' && !s.archived) ?? null;
+  // Who does the map's work: the conversation's agent once it exists, until then my pick for it (else the project's
+  // last agent, as a new conversation would take).
+  const agents = useAgents().data?.agents;
+  const defaultModel = useConnections().data?.defaultModel ?? null;
+  const lastAgent = useProjects().data?.projects.find((p) => p.path === cwd)?.lastAgent ?? null;
+  const [newAgent, setNewAgent] = useState<string | null>(null);
+  const setAgent = useSetSessionAgent();
+  const wantedAgent = newAgent ?? lastAgent ?? 'default';
+  const pickedAgent = agents?.some((a) => a.id === wantedAgent) ? wantedAgent : 'default';
+  const agentChip = mapConversation ? (
+    <AgentChip
+      context="session"
+      agentId={mapConversation.agent ?? 'default'}
+      model={mapConversation.model}
+      disabled={anyActive || setAgent.isPending}
+      onChange={(agent) => setAgent.mutate({ sessionId: mapConversation.id, agent })}
+    />
+  ) : (
+    <AgentChip
+      context="new"
+      agentId={pickedAgent}
+      model={agents?.find((a) => a.id === pickedAgent)?.model ?? defaultModel}
+      lastUsed={lastAgent}
+      onChange={setNewAgent}
+    />
+  );
   // What a promise's own answers need: the map, whether it may be written, and how to ask the AI about it.
   const promiseProps = (node: FlowNode) => ({
     cwd,
@@ -247,7 +278,8 @@ export function ProductMap({
     try {
       if (attempt.current?.key !== key) {
         // All map work goes on in the project's one map conversation, made the first time.
-        const conversation = mapConversation ?? (await create.mutateAsync({ cwd, purpose: 'map' })).id;
+        const conversation =
+          mapConversation?.id ?? (await create.mutateAsync({ cwd, purpose: 'map', agent: newAgent ?? undefined })).id;
         attempt.current = { key, session: conversation };
       }
       const current = attempt.current;
@@ -709,7 +741,9 @@ export function ProductMap({
             onOpen={() => onShowConversation?.()}
           />
         )}
-        {data && !readOnly && !board.isError && <MapAsk empty={!hasMap} disabled={busy || anyActive} onSend={askMap} />}
+        {data && !readOnly && !board.isError && (
+          <MapAsk empty={!hasMap} disabled={busy || anyActive} onSend={askMap} agent={agentChip} />
+        )}
         <div
           data-overlay={overlay || undefined}
           className={overlay ? 'absolute inset-y-0 right-0 z-20 flex bg-canvas shadow-overlay' : 'contents'}

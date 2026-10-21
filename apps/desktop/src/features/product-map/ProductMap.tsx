@@ -2,7 +2,7 @@ import type { FlowNode, FlowPrepareParams, FlowPrepareResult } from '@alpine/pro
 import { Button, LinkButton, Popover, SlidingPanel } from '@alpine/ui/primitives';
 import clsx from 'clsx';
 import { ChevronRight, CircleX, RotateCcw, Search, Sparkles } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { AgentChip, ModeChip, type Mode } from '@/shared/components/composer';
 import { latestTaskForce } from '@/shared/components/taskforce';
@@ -36,7 +36,7 @@ import { changedCards } from './FlowTree';
 import { toTreeMap } from './flowTreeData';
 import { flowTreeMessages } from './flowTreeMessages';
 import { JourneyMap } from './JourneyMap';
-import { AskFlight, MapAsk, MapReplies } from './MapAsk';
+import { AskFlight, MapAsk } from './MapAsk';
 import { DeleteMap, MapMenu, ScopeEditor } from './MapSettings';
 import { Unmapped } from './Unmapped';
 import { messages } from './messages';
@@ -206,6 +206,20 @@ export function ProductMap({
   // A TF the drawing session started keeps drawing while the session itself waits for it.
   const team = live.data ? latestTaskForce(live.data.items) : null;
   const teamWorking = team?.status === 'running' || team?.status === 'over' || team?.status === 'stopping';
+  // The map's conversation lives in the right panel. It opens there by itself when it needs me or a TF begins: a TF
+  // proposed (its 시작 is there) or set off, or the AI waiting for my answer. Once per such moment.
+  const calling =
+    live.data?.info.status === 'waiting'
+      ? `wait:${live.data.items.length}`
+      : team && (team.status === 'proposed' || team.status === 'running')
+        ? `team:${team.id}:${team.status}`
+        : null;
+  const called = useRef<string | null>(null);
+  const openConversation = useEffectEvent(() => onShowConversation?.());
+  useEffect(() => {
+    if (calling && calling !== called.current) openConversation();
+    called.current = calling;
+  }, [calling]);
   // Only drawing can run on a project with no map yet, so a working session there is the drawing (also after a reload).
   const drawing = (active || teamWorking) && (!hasMap || drawingSession === sessionId);
   const drawingLine = drawing && (
@@ -781,16 +795,7 @@ export function ProductMap({
           )
         )}
         {flight && <AskFlight key={flight.at} {...flight} landed={landed} />}
-        {/* What the map's conversation says back sits right above the map's input, never under it. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 mx-auto flex w-[min(560px,calc(100%-32px))] flex-col gap-2">
-          {sessionId && live.data && !readOnly && (
-            <MapReplies
-              sessionId={sessionId}
-              items={live.data.items}
-              waiting={live.data.info.status === 'waiting'}
-              onOpen={() => onShowConversation?.()}
-            />
-          )}
           {data && !readOnly && !board.isError && (
             <MapAsk
               empty={!hasMap}

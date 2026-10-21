@@ -1,10 +1,7 @@
-import type { AgentMessageItem } from '@alpine/protocol';
-import { ArrowUp, X } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 
-import { latestTaskForce, TaskForceCard } from '@/shared/components/taskforce';
 import { useMessages } from '@/shared/i18n';
-import type { Item } from '@/shared/server';
 
 import { messages } from './messages';
 
@@ -145,64 +142,4 @@ export function AskFlight({
       )}
     </div>
   );
-}
-
-/**
- * Above the map's input, what the map's conversation says back: the TF card while one is proposed or working, else
- * a word that the AI waits for me, else its latest answer. The whole conversation opens beside the map on request.
- */
-export function MapReplies({
-  sessionId,
-  items,
-  waiting,
-  onOpen,
-}: {
-  sessionId: string;
-  items: readonly Item[];
-  /** The AI stopped to ask something (an approval or a question) that the conversation shows. */
-  waiting: boolean;
-  onOpen: () => void;
-}) {
-  const t = useMessages(messages);
-  const [hidden, setHidden] = useState<string | null>(null);
-  const team = latestTaskForce(items);
-  const lastAsk = items.findLastIndex((item) => item.kind === 'user_message');
-  const answer = items.slice(lastAsk + 1).findLast((item) => item.kind === 'agent_message') as
-    AgentMessageItem | undefined;
-  const teamShown = !!team && items.indexOf(team) > lastAsk && team.status !== 'declined' && team.status !== 'done';
-  const open = (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="shrink-0 cursor-pointer text-meta text-interactive hover:underline"
-    >
-      {t.openConversation}
-    </button>
-  );
-  let body: ReactNode = null;
-  if (teamShown) body = <TaskForceCard sessionId={sessionId} item={team} onShowAgents={onOpen} />;
-  else if (waiting)
-    body = (
-      <p className="flex items-center gap-3 rounded-xl border border-attention bg-canvas-raised px-4 py-2.5 text-body">
-        <span className="min-w-0 grow text-attention">{t.waitingForMe}</span>
-        {open}
-      </p>
-    );
-  else if (answer && answer.id !== hidden && answer.text.trim())
-    body = (
-      <div className="flex items-start gap-3 rounded-xl border border-line bg-canvas-raised px-4 py-2.5 shadow-overlay">
-        <p className="line-clamp-3 min-w-0 grow text-body text-fg-muted">{answer.text}</p>
-        {open}
-        <button
-          type="button"
-          aria-label={t.close}
-          onClick={() => setHidden(answer.id)}
-          className="shrink-0 cursor-pointer text-fg-faint hover:text-fg"
-        >
-          <X size={14} aria-hidden />
-        </button>
-      </div>
-    );
-  if (!body) return null;
-  return <div className="pointer-events-auto flex max-h-[55vh] w-full flex-col overflow-y-auto">{body}</div>;
 }

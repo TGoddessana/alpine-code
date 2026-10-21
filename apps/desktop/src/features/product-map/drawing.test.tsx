@@ -176,34 +176,6 @@ describe('asking the map', () => {
     );
     expect(request.mock.calls.some(([method]) => method === 'session/new')).toBe(false);
   });
-
-  it('shows the latest answer above the input, and opens the conversation on request', async () => {
-    const onShow = vi.fn();
-    wrap(
-      {
-        results: {
-          'session/open': {
-            info: sessionInfo({ id: 'map-talk', cwd, purpose: 'map' }),
-            seq: 0,
-            items: [
-              { id: 'u', kind: 'user_message', text: '그려 줘' },
-              {
-                id: 'a',
-                kind: 'agent_message',
-                text: '카드 9장을 그렸어요. 결제는 키가 없어 확인 못 했어요.',
-                agent: null,
-              },
-            ],
-            active: [],
-          },
-        },
-      },
-      <ProductMap cwd={cwd} sessionId="map-talk" onSession={vi.fn()} onShowConversation={onShow} />,
-    );
-    expect(await screen.findByText(/카드 9장을 그렸어요/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: '대화 보기' }));
-    expect(onShow).toHaveBeenCalled();
-  });
 });
 
 it('keeps the map menu, with deleting the map, before its first card', async () => {
@@ -222,7 +194,7 @@ it('starts over when the map is deleted: its conversation is put away and let go
       results: {
         'flow/get': { document: { flows: [], nodes: [], edges: [] }, revision: 'r', exists: true },
         'session/list': { sessions: [sessionInfo({ id: 'map-talk', cwd, purpose: 'map' })] },
-        'flow/delete': {},
+        'flow/delete': { revision: 'r2', document: { flows: [], nodes: [], edges: [] } },
         'session/setDetails': { info: sessionInfo({ id: 'map-talk', cwd, purpose: 'map', archived: true }) },
       },
     },
@@ -240,4 +212,38 @@ it('starts over when the map is deleted: its conversation is put away and let go
     }),
   );
   expect(onSession).toHaveBeenCalledWith('');
+});
+
+it('opens the right panel when a TF is proposed, and not again for the same one', async () => {
+  const onShow = vi.fn();
+  const proposed: TaskForceItem = {
+    id: 'tf2',
+    kind: 'taskforce',
+    title: '지도 그리기',
+    steps: [{ title: '부분별로 그리기', count: 4, model: 'm' }],
+    minutes: 10,
+    status: 'proposed',
+    members: [],
+    step: '',
+    log: null,
+    needed: null,
+    error: null,
+    startedAt: null,
+  };
+  wrap(
+    {
+      results: {
+        'session/open': {
+          info: sessionInfo({ id: 'map-talk', cwd, purpose: 'map' }),
+          seq: 0,
+          items: [proposed],
+          active: [],
+        },
+      },
+    },
+    <ProductMap cwd={cwd} sessionId="map-talk" onSession={vi.fn()} onShowConversation={onShow} />,
+  );
+  await waitFor(() => expect(onShow).toHaveBeenCalledTimes(1));
+  // Its card is in the conversation beside the map, not over the map.
+  expect(screen.queryByText('부분별로 그리기')).toBeNull();
 });

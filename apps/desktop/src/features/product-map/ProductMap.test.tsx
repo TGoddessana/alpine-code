@@ -69,6 +69,31 @@ const notices = () => screen.queryByRole('list', { name: '지도에서 볼 것' 
 const allSteps = () =>
   screen.getAllByRole('button').filter((b) => b.hasAttribute('aria-expanded') && b.closest('[data-node]'));
 
+/** The project's folders for the scope picker: apps (web, api), src, and ones a map never needs. */
+const folders: Script = {
+  results: {
+    'files/list': ({ path = '' }) => ({
+      entries:
+        path === ''
+          ? [
+              { name: 'apps', path: 'apps', kind: 'directory' },
+              { name: 'src', path: 'src', kind: 'directory' },
+              { name: 'node_modules', path: 'node_modules', kind: 'directory' },
+              { name: '.git', path: '.git', kind: 'directory' },
+              { name: 'README.md', path: 'README.md', kind: 'file' },
+            ]
+          : path === 'apps'
+            ? [
+                { name: 'web', path: 'apps/web', kind: 'directory' },
+                { name: 'api', path: 'apps/api', kind: 'directory' },
+              ]
+            : [],
+      nextOffset: 0,
+      hasMore: false,
+    }),
+  },
+};
+
 function mount(script: Script = {}, onSession = vi.fn(), onShowConversation = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const base = mergeScripts(
@@ -1003,7 +1028,7 @@ describe('map upkeep', () => {
     board.include = ['apps/web'];
     board.exclude = ['**/*.lock', 'fixtures/**'];
     board.coverage = { git: true, uncovered: ['src/a.ts'], uncoveredCount: 1, outOfScope: 0, excluded: 4 };
-    const { request } = mount(boardScript(board));
+    const { request } = mount(mergeScripts(boardScript(board), folders));
     await loaded();
     // The AI's exclusions sit under the changes they hide, not in the settings.
     fireEvent.click(within(notices()!).getByRole('button', { name: /^지도에 아직 없는 코드 변경/ }));
@@ -1016,16 +1041,18 @@ describe('map upkeep', () => {
     expect(screen.queryByRole('region', { name: '지도 범위' })).toBeNull();
     fireEvent.click(await menuItem('지도 범위 바꾸기'));
     expect(within(await screen.findByRole('region', { name: '지도 범위' })).getByText('apps/web')).toBeTruthy();
-    const field = screen.getByLabelText('폴더 경로');
-    fireEvent.change(field, { target: { value: './apps/api/' } });
-    fireEvent.submit(field.closest('form')!);
+    // Folders are picked from the project's own, not typed: apps opens to show web (picked) and api.
+    fireEvent.click(await screen.findByRole('button', { name: 'apps 펼치기' }));
+    expect(screen.queryByRole('checkbox', { name: 'node_modules' })).toBeNull();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'api' }));
     await waitFor(() =>
       expect(request.mock.calls.find(([method]) => method === 'flow/scope')?.[1]).toEqual({
         cwd,
         include: ['apps/web', 'apps/api'],
       }),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'apps/web 빼기' }));
+    await waitFor(() => expect((screen.getByRole('checkbox', { name: 'api' }) as HTMLInputElement).checked).toBe(true));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'web' }));
     await waitFor(() =>
       expect(request.mock.calls.filter(([method]) => method === 'flow/scope').at(-1)?.[1]).toEqual({
         cwd,
@@ -1271,14 +1298,15 @@ describe('discovery and map settings', () => {
   });
 
   it('shows the scope before the map is made', async () => {
-    const { request } = mount({
-      results: { 'flow/get': { document: { flows: [], nodes: [], edges: [] }, revision: 'missing', include: [] } },
-    });
+    const { request } = mount(
+      mergeScripts(folders, {
+        results: { 'flow/get': { document: { flows: [], nodes: [], edges: [] }, revision: 'missing', include: [] } },
+      }),
+    );
     fireEvent.click(await screen.findByText('살펴볼 폴더 고르기'));
     expect(screen.getByText('프로젝트 전체')).toBeTruthy();
-    const field = screen.getByLabelText('폴더 경로');
-    fireEvent.change(field, { target: { value: 'apps/web' } });
-    fireEvent.submit(field.closest('form')!);
+    fireEvent.click(await screen.findByRole('button', { name: 'apps 펼치기' }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'web' }));
     await waitFor(() =>
       expect(request.mock.calls.find(([method]) => method === 'flow/scope')?.[1]).toEqual({
         cwd,

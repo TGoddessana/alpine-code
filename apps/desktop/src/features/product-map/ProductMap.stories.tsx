@@ -34,8 +34,25 @@ export const ExistingProduct: Story = {};
 export const RealisticService: Story = {
   parameters: { server: mergeScripts(setUpScript(), flowScript(STUDIO_MAP)) },
 };
+/** A small web shop's folders, for picking what the map reads. */
+const shopFolders: Script = {
+  results: {
+    'files/list': ({ path = '' }) => {
+      const tree: Record<string, string[]> = {
+        '': ['apps', 'packages', 'docs', 'scripts', 'node_modules'],
+        apps: ['web', 'admin', 'api'],
+        packages: ['ui', 'payments', 'emails'],
+      };
+      return {
+        entries: (tree[path] ?? []).map((name) => ({ name, path: path ? `${path}/${name}` : name, kind: 'directory' })),
+        nextOffset: 0,
+        hasMore: false,
+      };
+    },
+  },
+};
 export const Empty: Story = {
-  parameters: { server: mergeScripts(setUpScript(), flowScript({ nodes: [], flows: [], edges: [] })) },
+  parameters: { server: mergeScripts(setUpScript(), flowScript({ nodes: [], flows: [], edges: [] }), shopFolders) },
 };
 export const SDK: Story = {
   parameters: {

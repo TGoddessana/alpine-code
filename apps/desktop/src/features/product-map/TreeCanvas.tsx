@@ -99,19 +99,38 @@ export const TreeCanvas = forwardRef<
     },
     [],
   );
-
-  const animateView = useCallback((to: View) => {
-    if (viewAnimation.current) cancelAnimationFrame(viewAnimation.current);
-    const from = viewRef.current;
-    if (reducedMotion()) return setView(to);
-    const start = performance.now();
-    const step = (now: number) => {
-      const p = ease(Math.min(1, (now - start) / DURATION));
-      setView({ x: from.x + (to.x - from.x) * p, y: from.y + (to.y - from.y) * p, k: from.k + (to.k - from.k) * p });
-      viewAnimation.current = p < 1 ? requestAnimationFrame(step) : null;
-    };
-    viewAnimation.current = requestAnimationFrame(step);
+  // The view is moving (a burst of scrolling, a glide to a card): the canvas moves as one layer meanwhile, and is
+  // drawn sharp again a moment after it stops.
+  const [scrolling, setScrolling] = useState(false);
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const markMoving = useCallback(() => {
+    setScrolling(true);
+    if (settle.current) clearTimeout(settle.current);
+    settle.current = setTimeout(() => setScrolling(false), 160);
   }, []);
+  useEffect(
+    () => () => {
+      if (settle.current) clearTimeout(settle.current);
+    },
+    [],
+  );
+
+  const animateView = useCallback(
+    (to: View) => {
+      if (viewAnimation.current) cancelAnimationFrame(viewAnimation.current);
+      const from = viewRef.current;
+      if (reducedMotion()) return setView(to);
+      const start = performance.now();
+      const step = (now: number) => {
+        const p = ease(Math.min(1, (now - start) / DURATION));
+        setView({ x: from.x + (to.x - from.x) * p, y: from.y + (to.y - from.y) * p, k: from.k + (to.k - from.k) * p });
+        markMoving();
+        viewAnimation.current = p < 1 ? requestAnimationFrame(step) : null;
+      };
+      viewAnimation.current = requestAnimationFrame(step);
+    },
+    [markMoving],
+  );
 
   const fitTo = useCallback(
     (targets: LaidNode[], animate = true) => {
@@ -183,6 +202,7 @@ export const TreeCanvas = forwardRef<
     if (!element) return;
     const onWheel = (event: WheelEvent) => {
       touched.current = true;
+      markMoving();
       event.preventDefault();
       if (viewAnimation.current) cancelAnimationFrame(viewAnimation.current);
       if (event.ctrlKey || event.metaKey) {
@@ -197,10 +217,11 @@ export const TreeCanvas = forwardRef<
     };
     element.addEventListener('wheel', onWheel, { passive: false });
     return () => element.removeEventListener('wheel', onWheel);
-  }, [moveView]);
+  }, [moveView, markMoving]);
 
   const drag = useRef<{ x: number; y: number; id: number } | null>(null);
   const [dragging, setDragging] = useState(false);
+  const moving = dragging || scrolling;
 
   const zoomBy = (factor: number) => {
     const element = viewport.current;
@@ -295,7 +316,12 @@ export const TreeCanvas = forwardRef<
       >
         <div
           className="absolute top-0 left-0 origin-top-left"
-          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}
+          style={{
+            // On whole device pixels, so text does not shimmer between them; moved as one layer while it moves, then
+            // drawn sharp again where it stops.
+            transform: `translate(${snap(view.x)}px, ${snap(view.y)}px) scale(${view.k})`,
+            willChange: moving ? 'transform' : undefined,
+          }}
         >
           {content}
         </div>
@@ -397,6 +423,12 @@ function Edge({
   );
 }
 
+/** A length on the screen's own pixels (half pixels on a Retina screen). */
+function snap(value: number) {
+  const ratio = globalThis.devicePixelRatio || 1;
+  return Math.round(value * ratio) / ratio;
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -421,6 +453,27 @@ function useTweenedNodes(target: LaidNode[]): ShownNode[] {
     if (frame.current) cancelAnimationFrame(frame.current);
     const now = new Map(current.current.map((node) => [node.id, node]));
     const wanted = new Map(target.map((node) => [node.id, node]));
+    // The map is read again every few seconds and redrawn when anything about it changes (a status, a session); when no
+    // card moved, came or went, the cards take their new contents in place, with no motion to run frame by frame.
+    const still =
+      now.size === wanted.size &&
+      target.every((node) => {
+        const was = now.get(node.id);
+        return (
+          !!was &&
+          !was.leaving &&
+          was.opacity === 1 &&
+          (was.scale ?? 1) === 1 &&
+          was.x === node.x &&
+          was.y === node.y &&
+          was.w === node.w &&
+          was.h === node.h
+        );
+      });
+    if (still) {
+      setShown(target.map((node) => ({ ...node, opacity: 1, leaving: false })));
+      return;
+    }
     const originOf = (node: LaidNode): { x: number; y: number } => {
       let parent = node.parent;
       while (parent) {

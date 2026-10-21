@@ -63,26 +63,31 @@ export const ReadOnly: Story = {
 };
 export const English: Story = { globals: { locale: 'en' } };
 
-/** A map the AI is drawing: each read of the map has one more flow, so the cards land a few at a time. */
-function growing(): Script {
-  const flows = EXAMPLE_MAP.flows ?? [];
-  const steps = flows.map((_, index) => {
-    const shown = flows.slice(0, index + 1);
-    const ids = new Set(shown.flatMap((flow) => flow.nodeIds ?? []));
+/**
+ * A map the AI is drawing, with no AI: the first read is empty, then each read of the map (the page reads it every
+ * 3 seconds) has a few more cards, in the order their journeys walk them, so the cards land a few at a time.
+ */
+function growing(map = STUDIO_MAP, perRead = 3): Script {
+  const order = [...new Set((map.flows ?? []).flatMap((flow) => flow.nodeIds ?? []))];
+  const reads = Math.ceil(order.length / perRead) + 1;
+  const steps = Array.from({ length: reads }, (_, step) => {
+    const ids = new Set(order.slice(0, step * perRead));
     return flowScript({
-      ...EXAMPLE_MAP,
-      flows: shown,
-      nodes: EXAMPLE_MAP.nodes?.filter((node) => ids.has(node.id)),
-      edges: EXAMPLE_MAP.edges?.filter((edge) => ids.has(edge.source) && ids.has(edge.target)),
+      ...map,
+      flows: (map.flows ?? [])
+        .map((flow) => ({ ...flow, nodeIds: flow.nodeIds?.filter((id) => ids.has(id)) }))
+        .filter((flow) => flow.nodeIds?.length),
+      nodes: map.nodes?.filter((node) => ids.has(node.id)),
+      edges: map.edges?.filter((edge) => ids.has(edge.source) && ids.has(edge.target)),
     });
   });
-  let reads = 0;
+  let read = 0;
   return {
     results: {
       'flow/get': (params, context) => {
-        const step = Math.min(reads++, steps.length - 1);
-        const read = steps[step]!.results!['flow/get'] as (p: typeof params, c: typeof context) => object;
-        return { ...read({ ...params, since: null }, context), etag: `drawing-${step}`, revision: `drawing-${step}` };
+        const step = Math.min(read++, steps.length - 1);
+        const get = steps[step]!.results!['flow/get'] as (p: typeof params, c: typeof context) => object;
+        return { ...get({ ...params, since: null }, context), etag: `drawing-${step}`, revision: `drawing-${step}` };
       },
     },
   };
